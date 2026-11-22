@@ -1,6 +1,6 @@
 import '../logic/puzzle_generator.dart';
 
-enum PlayMode { levels, daily, endless }
+enum PlayMode { levels, daily, endless, attack }
 
 const legacyLevelCount = 36;
 const levelsPerPage = 12;
@@ -20,11 +20,14 @@ final class PuzzleId {
   const PuzzleId.daily(String day) : this._(PlayMode.daily, day);
   const PuzzleId.endless(int number) : this._(PlayMode.endless, number);
 
+  const PuzzleId.attack(String key) : this._(PlayMode.attack, key);
+
   final PlayMode mode;
   final Object value;
   String get key => '${mode.name}/$value';
 
   String get title => switch (mode) {
+    PlayMode.attack => 'Time Attack',
     PlayMode.levels => 'Level $value',
     PlayMode.daily => 'Daily challenge',
     PlayMode.endless => 'Endless · $value',
@@ -33,12 +36,21 @@ final class PuzzleId {
   int get size => switch (mode) {
     PlayMode.levels => level <= legacyLevelCount ? 4 + ((level - 1) ~/ 9) : 7,
     PlayMode.daily => 6,
+    PlayMode.attack => (4 + attackIndex ~/ 3).clamp(4, 7),
     PlayMode.endless => 5 + (((value as int) - 1) % 3),
   };
 
+  int get attackIndex => int.parse((value as String).split('/').last);
   int get level => value as int;
 
   ({int size, int seed, int clues}) get generation {
+    if (mode == PlayMode.attack) {
+      return (
+        size: size,
+        seed: puzzleSeed('pathwise-attack-v1/$key'),
+        clues: [0, 0, 0, 0, 8, 10, 14, 16][size],
+      );
+    }
     if (mode == PlayMode.levels && level > legacyLevelCount) {
       // Higher bands ask players to infer longer sections between clues.
       // The generator keeps additional clues whenever uniqueness requires them.

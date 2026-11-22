@@ -2,10 +2,18 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../model/economy.dart';
+import 'ad_frequency.dart';
 
 /// Consent-aware cache with post-game placements and a separate opt-in video.
 class AdService extends ChangeNotifier {
+  AdService({this.reserveInterstitial, this.onRewardedClosed});
+  final Future<bool> Function()? reserveInterstitial;
+  final VoidCallback? onRewardedClosed;
+  bool _reserving = false;
   static const _test =
       !kReleaseMode && bool.fromEnvironment('PATHWISE_ADS_TEST');
   static const _enabled = bool.fromEnvironment('PATHWISE_ADS_ENABLED');
@@ -19,8 +27,29 @@ class AdService extends ChangeNotifier {
     'PATHWISE_ADMOB_REWARDED',
   );
   static const _ttl = Duration(minutes: 45);
-  static const _minGap = Duration(minutes: 4);
-  static const _clearsBetweenAds = 5;
+  static const _bannerUnit = String.fromEnvironment('PATHWISE_ADMOB_BANNER');
+  static const _network = MethodChannel('games.tabletop.pathwise/clock');
+  final _frequency = AdFrequency(
+    minimumGap: economy.automaticAdGap,
+    rewardedGap: economy.afterRewardedGap,
+    exitsPerInterstitial: economy.exitsPerInterstitial,
+  );
+  final _watch = Stopwatch()..start();
+  bool _checkingReward = false;
+  bool get canLoadBanner => _canRequest && enabled;
+  int get consentRevision => _consentGeneration;
+  String get bannerUnit =>
+      _test ? 'ca-app-pub-3940256099942544/9214589741' : _bannerUnit;
+  bool get bannerConfigured => _test || validAdUnit(_bannerUnit);
+  Future<bool> _online() async {
+    try {
+      return await _network.invokeMethod<bool>('online') == true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 
   bool get enabled =>
       defaultTargetPlatform == TargetPlatform.android &&
@@ -38,12 +67,11 @@ class AdService extends ChangeNotifier {
   bool _disposed = false;
   bool _canRequest = false;
   bool _preparing = false;
-  bool _fullScreen = false;
+  Ad? _showing;
+  bool get _fullScreen => _showing != null;
   bool _loadingInterstitial = false;
   bool _loadingRewarded = false;
   int _consentGeneration = 0;
-  int _clears = 0;
-  DateTime? _lastInterstitial;
   (InterstitialAd, DateTime)? _interstitial;
   (RewardedAd, DateTime)? _rewarded;
   bool get videoReady => ready(_rewarded) && _canRequest && !_fullScreen;
@@ -191,25 +219,38 @@ class AdService extends ChangeNotifier {
     }
   }
 
-  void afterCompletedExit({required bool canPresent}) {
+  Future<void> afterCompletedExit({
+    required bool canPresent,
+    bool Function()? stillPresent,
+  }) async {
     if (!enabled || _disposed) return;
-    _clears++;
-    final now = DateTime.now();
+    _frequency.completedExit();
+    final now = _watch.elapsed;
     if (!canPresent ||
         !_canRequest ||
         _fullScreen ||
         !ready(_interstitial) ||
-        _clears < _clearsBetweenAds ||
-        (_lastInterstitial != null &&
-            now.difference(_lastInterstitial!) < _minGap)) {
+        !_frequency.eligible(now)) {
       _preload();
       return;
     }
+    if (_reserving) return;
+    _reserving = true;
+    try {
+      if (reserveInterstitial != null && !await reserveInterstitial!()) return;
+      if (_disposed ||
+          _fullScreen ||
+          !_canRequest ||
+          !ready(_interstitial) ||
+          stillPresent?.call() == false)
+        return;
+    } finally {
+      _reserving = false;
+    }
     final ad = _interstitial!.$1;
     _interstitial = null;
-    _clears = 0;
-    _lastInterstitial = now;
-    _fullScreen = true;
+    _frequency.attemptedInterstitial(now);
+    _showing = ad;
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (_) => _finished(ad),
       onAdFailedToShowFullScreenContent: (_, _) => _finished(ad),
@@ -217,11 +258,21 @@ class AdService extends ChangeNotifier {
     unawaited(ad.show().catchError((Object _) => _finished(ad)));
   }
 
-  void watchVideo(Future<bool> Function(String) reward) {
-    if (!videoReady || _disposed) return;
+  Future<bool> watchVideo(
+    Future<bool> Function(String) reward, {
+    bool Function()? canPresent,
+  }) async {
+    if (!videoReady || _disposed || _checkingReward) return false;
+    _checkingReward = true;
+    final online = await _online();
+    _checkingReward = false;
+    if (!online || !videoReady || _disposed || canPresent?.call() == false) {
+      _report('Video unavailable. Check your connection and try again.');
+      return false;
+    }
     final ad = _rewarded!.$1;
     _rewarded = null;
-    _fullScreen = true;
+    _showing = ad;
     var granted = false;
     final id = List.generate(
       3,
@@ -235,9 +286,10 @@ class AdService extends ChangeNotifier {
     unawaited(
       ad
           .show(
-            onUserEarnedReward: (_, _) {
+            onUserEarnedReward: (_, _) async {
               if (granted || _disposed) return;
               granted = true;
+              if (!await _online() || _disposed) return;
               unawaited(
                 reward(id).then((saved) {
                   if (!saved) _report('The video bonus could not be saved.');
@@ -247,11 +299,16 @@ class AdService extends ChangeNotifier {
           )
           .catchError((Object _) => _finished(ad)),
     );
+    return true;
   }
 
   void _finished(Ad ad) {
-    if (!_fullScreen) return;
-    _fullScreen = false;
+    if (!identical(_showing, ad)) return;
+    if (ad is RewardedAd) {
+      _frequency.rewardedClosed(_watch.elapsed);
+      onRewardedClosed?.call();
+    }
+    _showing = null;
     unawaited(ad.dispose());
     _preload();
     _report(null);
@@ -273,6 +330,8 @@ class AdService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_showing?.dispose());
+    _showing = null;
     _clearCache();
     super.dispose();
   }

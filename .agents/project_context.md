@@ -10,9 +10,9 @@ The level browser lays out twelve tiles per horizontal page. Completing the high
 
 ## State and services
 
-`pathwise.save.v1` remains the storage key with schema version 2 in the JSON payload. Versionless v1 snapshots retain routes, best times, streak records, and equipped starter themes. An append-only coin ledger tracks balance, spending, earned rewards and achievement IDs. All mutations share the same queued snapshot writer. See [economy balancing](../docs/economy.md).
+`pathwise.save.v1` remains the storage key with schema version 3 in the JSON payload. Versionless v1 snapshots retain routes, best times, streak records, and equipped starter themes. An append-only coin ledger tracks balance, spending, earned rewards and achievement IDs. All mutations share the same queued snapshot writer. See [economy balancing](../docs/economy.md).
 
-The theme catalog comprises three existing starter themes and six paid-with-coins or bundle themes, with original Pathwise palettes adapted from named Chess themes. Store previews apply a local theme without equipping. Accessibility tests check text contrast and app widgets expose labeled controls and board semantics.
+The theme catalog comprises three existing starter themes and eleven paid-with-coins or bundle themes, with original Pathwise palettes adapted from named Chess themes. Store previews apply a local theme without equipping. Accessibility tests check text contrast and app widgets expose labeled controls and board semantics.
 
 The billing service observes Google Play purchase states. A HTTPS verifier uses Play Developer API and a Firestore token claim before the app writes a grant. Only then does the client consume or acknowledge. The ad service follows Chess's UMP consent and lazy cache pattern with optional videos and post-game interstitials. Both services are disabled unless configured. See [deployment](../docs/monetization.md).
 
@@ -23,3 +23,5 @@ The app targets API 36, supports API 24+, and uses AGP 9.3.1 and Gradle 9.5 with
 ## Known limits and next work
 
 Offline data is installation-local. Restoration of paid themes requires the same billing profile, such as from Android's app-data restore. Consumed packs cannot be queried from Play's owned inventory. v1 total play time is estimated from best times. Very large saved catalogs still use a single JSON snapshot, so audit write latency before moving to a database. Measure cold start, memory and frame pacing on representative Android devices. Add authenticated cross-device entitlement recovery and a refund reconciliation policy before wide commerce rollout.
+
+Time Attack uses its own board IDs, attempt, score history and capped wallet events. The Android monotonic deadline survives process recreation within the same boot. A different boot ends a resumed run. Permanent store entitlements are granted only after Play verification. Ad-free owners can spend six coins on one additional hint after exhausting the free allowance. [Release behavior and tests](../docs/release-1.2.0.md)

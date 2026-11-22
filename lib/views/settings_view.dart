@@ -87,7 +87,7 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 AboutListTile(
                   applicationName: 'Pathwise',
-                  applicationVersion: '1.1.0',
+                  applicationVersion: '1.2.0',
                   icon: const Icon(Icons.info_outline_rounded),
                   aboutBoxChildren: const [
                     Text(
@@ -159,6 +159,22 @@ class StatisticsView extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 18),
+                Card(
+                  child: Column(
+                    children: [
+                      _Stat('Time Attack best score', '${model.attackBest}'),
+                      _Stat(
+                        'Most puzzles in one run',
+                        '${model.attackHighest}',
+                      ),
+                      for (final run in model.attackHistory.reversed.take(5))
+                        _Stat(
+                          'Recent run · ${run.clears.length} solved',
+                          '${run.score} points',
+                        ),
+                    ],
+                  ),
+                ),
                 Text(
                   'Achievements',
                   style: Theme.of(context).textTheme.titleLarge,

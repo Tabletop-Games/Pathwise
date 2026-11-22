@@ -1,0 +1,5 @@
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/pathwise_background" />
+    <foreground android:drawable="@drawable/pathwise_foreground" />
+    <monochrome android:drawable="@drawable/pathwise_monochrome" />
+</adaptive-icon>

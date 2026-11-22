@@ -21,7 +21,8 @@ class GameStateStorage {
     if (decoded is! Map<String, dynamic> ||
         (decoded['schemaVersion'] != null &&
             decoded['schemaVersion'] != 1 &&
-            decoded['schemaVersion'] != 2)) {
+            decoded['schemaVersion'] != 2 &&
+            decoded['schemaVersion'] != 3)) {
       throw const FormatException('Unsupported saved progress');
     }
     _loaded = true;

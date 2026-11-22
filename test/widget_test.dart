@@ -44,7 +44,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(model.path, [0]);
 
-    await tester.tap(find.text('Hint'));
+    await tester.tap(find.text('Hint · 3 free'));
     await tester.pumpAndSettle();
     expect(model.hintCell, 1);
     await tester.tapAt(center(1));
@@ -187,6 +187,39 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(model.theme.label, 'Field');
       expect(model.coinBalance, 40);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
+    },
+  );
+  testWidgets(
+    'Time Attack opens with ten minutes and shows results at expiration',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var now = 100;
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {},
+        loader: (_) async => fixture(),
+        bootTime: () => (boot: 4, milliseconds: now),
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.ensureVisible(find.text('Time Attack'));
+      await tester.tap(find.text('Time Attack'));
+      await tester.pumpAndSettle();
+      expect(find.text('10:00'), findsOneWidget);
+      expect(find.text('0 solved · 0 points'), findsOneWidget);
+      now += 600000;
+      model.refreshAttackClock();
+      await tester.pumpAndSettle();
+      expect(find.text('Time’s up'), findsOneWidget);
+      expect(find.text('Return to home'), findsOneWidget);
+      await tester.tap(find.text('Return to home'));
+      await tester.pumpAndSettle();
+      expect(model.activeId, isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
       model.dispose();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -15,23 +17,47 @@ Future<void> openPuzzle(
   BuildContext context,
   PuzzleId id, {
   bool replay = false,
+  bool timeAttack = false,
 }) async {
   final model = context.read<AppModel>();
   if (model.activeId != null ||
       (id.mode == PlayMode.levels && !model.canPlayLevel(id.level)))
     return;
   final ads = context.read<AdService>();
-  model.open(id, replay: replay);
+  if (timeAttack) {
+    final started = await model.openAttack();
+    if (!context.mounted) return;
+    if (!started) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Time Attack needs the device clock and local storage.',
+          ),
+        ),
+      );
+      return;
+    }
+  } else {
+    unawaited(model.open(id, replay: replay));
+  }
   await Navigator.of(context)
       .push<void>(MaterialPageRoute(builder: (_) => const PuzzleView()));
   final finished = model.completedThisVisit;
   model.close();
-  if (finished && context.mounted) {
-    ads.afterCompletedExit(
-      canPresent:
-          ModalRoute.isCurrentOf(context) == true &&
-          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+  if (!timeAttack && finished && !model.adFree && context.mounted) {
+    bool canPresent() =>
+        context.mounted &&
+        !model.adFree &&
+        model.activeId == null &&
+        ModalRoute.isCurrentOf(context) == true &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    unawaited(
+      ads.afterCompletedExit(
+        canPresent: canPresent(),
+        stillPresent: canPresent,
+      ),
     );
+    if (canPresent()) unawaited(ads.prepare(canPresent: canPresent));
   }
 }
 
@@ -48,6 +74,8 @@ class MainMenuView extends StatelessWidget {
         model.levelsSolved,
         model.endless.key,
         model.coinBalance,
+        model.attack?.finished,
+        model.attackBest,
         model.storageError,
         model.result(model.daily),
         model.activeId == null,
@@ -154,6 +182,20 @@ class MainMenuView extends StatelessWidget {
                       ? 'Resume puzzle ${model.endless.value}'
                       : 'Play puzzle ${model.endless.value}',
                   onTap: () => openPuzzle(context, model.endless),
+                ),
+                const SizedBox(height: 10),
+                _ModeTile(
+                  palette: palette,
+                  icon: Icons.timer_outlined,
+                  title: 'Time Attack',
+                  subtitle: model.attack != null && !model.attack!.finished
+                      ? 'Resume challenge'
+                      : '10 minutes · Best ${model.attackBest}',
+                  onTap: () => openPuzzle(
+                    context,
+                    const PuzzleId.attack('start/0'),
+                    timeAttack: true,
+                  ),
                 ),
                 if (model.storageError)
                   const Padding(

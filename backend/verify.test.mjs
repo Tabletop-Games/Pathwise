@@ -62,3 +62,20 @@ test('rejects a different installation, wrong sku, refunded order, malformed cre
   assert.equal((await verifyReceipt(credential, { product, token }, deps)).status, 403);
   assert.equal(ledger.size, 0);
 });
+
+test('returns authoritative amounts for new coin packs and accepts verified permanent Premium', async () => {
+  const { play, ledger, deps } = fixture();
+  const line = play.productLineItem[0];
+  const pack = 'pathwise_coins_3500';
+  line.productId = pack;
+  const credit = await verifyReceipt(credential, { product: pack, token }, deps);
+  assert.equal(credit.body.coins, 3500);
+  assert.equal(ledger.get(credit.body.id).coins, 3500);
+  const premium = 'pathwise_premium';
+  line.productId = premium;
+  const pass = await verifyReceipt(credential, { product: premium, token: 'premium-token-example' }, deps);
+  assert.equal(pass.status, 200);
+  assert.equal(pass.body.product, premium);
+  assert.equal(pass.body.coins, 0);
+  assert.equal(ledger.size, 2);
+});

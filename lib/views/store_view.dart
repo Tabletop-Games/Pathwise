@@ -101,15 +101,41 @@ class _StoreViewState extends State<StoreView> {
                         !model.canEarnAdBonus
                             ? 'Daily limit reached'
                             : ads.message ??
-                                  (ads.videoReady
-                                      ? 'Video ready'
-                                      : 'Availability varies'),
+                                  '${economy.rewardedAdsPerDay - model.adsToday} rewards left today',
                       ),
                       trailing: TextButton(
                         onPressed: !model.canEarnAdBonus
                             ? null
                             : ads.videoReady
-                            ? () => ads.watchVideo(model.grantAdBonus)
+                            ? () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final shown = await ads.watchVideo(
+                                  (id) async {
+                                    final saved = await model.grantAdBonus(id);
+                                    if (saved && messenger.mounted)
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '+${economy.rewardedAdCoins} coins added',
+                                          ),
+                                        ),
+                                      );
+                                    return saved;
+                                  },
+                                  canPresent: () =>
+                                      context.mounted &&
+                                      ModalRoute.isCurrentOf(context) == true &&
+                                      model.canEarnAdBonus,
+                                );
+                                if (!shown && messenger.mounted)
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Video unavailable. No coins earned.',
+                                      ),
+                                    ),
+                                  );
+                              }
                             : () => ads.prepare(
                                 canPresent: () =>
                                     context.mounted &&
@@ -133,21 +159,27 @@ class _StoreViewState extends State<StoreView> {
                     for (final product in billing.products)
                       ListTile(
                         title: Text(storeProducts[product.id]!.label),
-                        subtitle: product.id == themePassProduct
-                            ? const Text('Unlocks every current theme')
-                            : null,
+                        subtitle: switch (product.id) {
+                          themePassProduct => const Text(
+                            'Unlocks every current and future theme.',
+                          ),
+                          removeAdsProduct => const Text(
+                            'Removes banners and automatic ads. Optional coin videos remain.',
+                          ),
+                          premiumProduct => Text(
+                            'Remove Ads, every current and future theme, and ${economy.premiumBonus} coins once. Previously purchased items are not refunded.',
+                          ),
+                          _ => null,
+                        },
                         trailing: OutlinedButton(
                           onPressed:
                               billing.buying ||
                                   model.storageError ||
-                                  (product.id == themePassProduct &&
-                                      model.hasThemePass)
+                                  _owned(model, product.id)
                               ? null
                               : () => billing.buy(product),
                           child: Text(
-                            product.id == themePassProduct && model.hasThemePass
-                                ? 'Owned'
-                                : product.price,
+                            _owned(model, product.id) ? 'Owned' : product.price,
                           ),
                         ),
                       ),
@@ -176,6 +208,13 @@ class _StoreViewState extends State<StoreView> {
       ),
     );
   }
+
+  bool _owned(AppModel model, String product) => switch (product) {
+    themePassProduct => model.hasThemePass,
+    removeAdsProduct => model.adFree,
+    premiumProduct => model.premium,
+    _ => false,
+  };
 
   Future<void> _confirm(
     BuildContext context,

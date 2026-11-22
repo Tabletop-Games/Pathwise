@@ -1,0 +1,62 @@
+import 'dart:math';
+
+/// Elapsed milliseconds since Android boot, including time spent asleep.
+typedef BootTime = ({int boot, int milliseconds});
+
+final class AttackRun {
+  AttackRun(
+    this.id,
+    this.boot,
+    this.deadline,
+    this.puzzleStarted,
+    this.previousBest, {
+    List<int>? clears,
+    this.finished = false,
+    this.coins = 0,
+  }) : clears = clears ?? [];
+
+  factory AttackRun.fromJson(Map data) => AttackRun(
+    data['id'] as String,
+    data['boot'] as int,
+    data['deadline'] as int,
+    data['puzzleStarted'] as int,
+    data['previousBest'] as int,
+    clears: List<int>.from(data['clears'] as List),
+    finished: data['finished'] == true,
+    coins: data['coins'] as int? ?? 0,
+  );
+
+  static const duration = Duration(minutes: 10);
+  final String id;
+  final int boot, deadline, previousBest;
+  int puzzleStarted;
+  final List<int> clears;
+  bool finished;
+  int coins;
+  int get score => clears.length * 100;
+  int get average =>
+      clears.isEmpty ? 0 : clears.reduce((a, b) => a + b) ~/ clears.length;
+  int get fastest => clears.isEmpty ? 0 : clears.reduce(min);
+  int get reward => clears.length < 2 ? 0 : min(48, clears.length * 6);
+  bool get record => score > previousBest;
+  int remaining(BootTime now) => finished || now.boot != boot
+      ? 0
+      : (deadline - now.milliseconds).clamp(0, duration.inMilliseconds);
+  bool clear(BootTime now) {
+    if (remaining(now) == 0) return false;
+    clears.add(max(0, now.milliseconds - puzzleStarted));
+    puzzleStarted = now.milliseconds;
+    return true;
+  }
+
+  Map<String, Object> toJson() => {
+    'id': id,
+    'boot': boot,
+    'deadline': deadline,
+    'puzzleStarted': puzzleStarted,
+    'clears': clears,
+    'previousBest': previousBest,
+    'finished': finished,
+    'coins': coins,
+  };
+}
