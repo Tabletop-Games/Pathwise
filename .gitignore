@@ -50,3 +50,6 @@ app.*.map.json
 /screenshots_editor/.next/
 # Widget Preview related
 .widget_preview/
+
+# Verification service dependencies
+/backend/node_modules/

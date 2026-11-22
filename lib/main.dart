@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import 'logic/ad_service.dart';
+import 'logic/billing_service.dart';
 import 'logic/game_state_storage.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
@@ -21,20 +23,15 @@ void main() async {
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
   });
   final storage = GameStateStorage();
-  Map<String, dynamic> snapshot = {};
-  var loadFailed = false;
+  AppModel model;
   try {
-    snapshot = await storage.load();
+    model = AppModel(storage: storage, snapshot: await storage.load());
   } catch (_) {
-    loadFailed = true;
+    storage.protect();
+    model = AppModel(storage: storage, snapshot: {})..storageError = true;
   }
   runApp(
-    ChangeNotifierProvider(
-      create: (_) =>
-          AppModel(storage: storage, snapshot: snapshot)
-            ..storageError = loadFailed,
-      child: const PathwiseApp(),
-    ),
+    ChangeNotifierProvider(create: (_) => model, child: const PathwiseApp()),
   );
 }
 
@@ -48,12 +45,26 @@ class PathwiseApp extends StatefulWidget {
 class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   Timer? _dayCheck;
   late final AppModel _model;
+  late final BillingService _billing;
+  late final AdService _ads;
   String? _lastDay;
 
   @override
   void initState() {
     super.initState();
     _model = context.read<AppModel>();
+    _ads = AdService();
+    _billing = BillingService(
+      profile: _model.billingProfile,
+      persist: (grant) => _model.applyVerifiedPurchase(
+        grant.id,
+        coins: storeProducts[grant.product]!.coins,
+        themes: grant.product == themePassProduct,
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_billing.start());
+    });
     WidgetsBinding.instance.addObserver(this);
     _watchDate();
   }
@@ -85,17 +96,25 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   void dispose() {
     _dayCheck?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _billing.dispose();
+    _ads.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.select((AppModel model) => model.theme);
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Pathwise',
-      theme: BoardPalette.palettes[theme]!.theme,
-      home: const MainMenuView(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _billing),
+        ChangeNotifierProvider.value(value: _ads),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Pathwise',
+        theme: BoardPalette.palettes[theme]!.theme,
+        home: const MainMenuView(),
+      ),
     );
   }
 }

@@ -1,32 +1,34 @@
 # Pathwise
 
-Pathwise is an offline Android logic puzzle. Draw one continuous route from 1 to the final checkpoint, visiting the numbers in order and covering every tile. The app includes a 36-level campaign, a daily challenge, endless puzzles, three visual themes, optional haptics, and local progress and statistics.
+Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continuous path from 1 to the final checkpoint, visiting the numbers in order and covering every tile.
 
 ## Play
 
-Press 1, then drag through edge-adjacent tiles. Resume at the route tip after lifting your finger. Drag back along the route or tap an earlier tile to retract. **Undo** restores the route before your last input action. **Clear** returns to the start. **Hint** retracts any wrong turn and highlights the next correct tile. A finished route shows its time and hint count.
+Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** retracts a wrong turn and highlights the next correct tile. A finished route shows its time, personal best, and earned coins.
 
-The daily puzzle follows the device's local calendar. Levels, daily puzzles, and the endless sequence are deterministic and playable offline. In-progress routes and undo history are stored locally. The app has no accounts, advertising, or purchases.
+Version 1.1.0 adds an ongoing, deterministic level campaign with twelve levels per page, daily and endless modes, nine themes, a coin shop, and achievements. Earn coins by playing and unlock cosmetics offline. The daily puzzle uses the device's local calendar. Progress, previous boards, and equipped themes from 1.0 are preserved.
 
-[Gameplay research and specification](docs/gameplay.md)
+Optional Google Play purchases and AdMob placements are disabled by default. They require production setup and testing. [Changelog](CHANGELOG.md) · [Economy](docs/economy.md) · [Monetization setup](docs/monetization.md)
 
-## Build and test
+## Build and verify
 
-Use Flutter 3.50.1 with JDK 21, Android SDK 36, and Android NDK 28.2.13676358. Android 7.0 (API 24) or later is supported.
+Use Flutter 3.50.1, JDK 21, Android SDK 35/36, and NDK 28.2.13676358. Android 7.0 (API 24) or later is supported.
 
 ```sh
+flutter clean
 flutter pub get
-dart format --output=none --set-exit-if-changed lib test
+dart format .
 flutter analyze
 flutter test
+npm --prefix backend test
 flutter build apk --release
 flutter build appbundle --release
 ```
 
-For a signed release, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without signing credentials, Gradle builds unsigned artifacts. Keep the production keystore and passwords outside this repository.
+For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without them Gradle builds unsigned artifacts. [Release verification and measurements](docs/release-1.1.0.md)
 
 ## Source and licensing
 
-Pathwise adapts the Flutter Android project, Provider-based MVVM structure, settings, persistence, and haptic service from [shenmareparas/Chess at 5df12d7](https://github.com/shenmareparas/Chess/tree/5df12d74f00f8b9574c9424608dbf56635cd39b1). The Pathwise changes replace the chess engine, views, assets, and commercial services with the route puzzle and offline play modes. Adaptation dated November 22, 2026.
+Pathwise adapts the Flutter Android project, Provider MVVM structure, settings, persistence, haptics, named palette ideas, and consent/cache advertising pattern from [shenmareparas/Chess at 5df12d7](https://github.com/shenmareparas/Chess/tree/5df12d74f00f8b9574c9424608dbf56635cd39b1). The adaptation started November 22, 2026. Pathwise uses original artwork and generated puzzles. [Gameplay research](docs/gameplay.md)
 
-Pathwise is distributed under [GNU GPL v3](LICENSE). The bundled Bricolage Grotesque font retains its [SIL Open Font License](assets/fonts/OFL.txt). The Pathwise icon, board design, and puzzles were created for this project.
+Pathwise is distributed under [GNU GPL v3](LICENSE). The bundled Bricolage Grotesque font retains its [SIL Open Font License](assets/fonts/OFL.txt).

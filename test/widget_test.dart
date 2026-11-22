@@ -109,4 +109,87 @@ void main() {
     await model.flush();
     model.dispose();
   });
+
+  testWidgets('paged levels show legacy unlock and continue from results', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {
+        'results': {
+          'levels/36': {'milliseconds': 1000, 'hints': 0},
+        },
+      },
+      loader: (_) async => fixture(),
+    )..setHaptics(false);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.tap(find.text('Levels'));
+    await tester.pumpAndSettle();
+    expect(find.text('Levels 37–48'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Levels 49–60'), findsOneWidget);
+    await tester.tap(find.text('Current level'));
+    await tester.pumpAndSettle();
+    expect(find.text('Levels 37–48'), findsOneWidget);
+    await tester.tap(find.text('38').hitTestable());
+    await tester.pumpAndSettle();
+    expect(model.activeId, isNull);
+    await tester.tap(find.text('37').hitTestable());
+    await tester.pumpAndSettle();
+    expect(model.activeId!.value, 37);
+    final route = fixture().solution;
+    model.begin(route.first);
+    for (final cell in route.skip(1)) {
+      model.step(cell);
+    }
+    model.end();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Next level'));
+    await tester.tap(find.text('Next level'));
+    await tester.pumpAndSettle();
+    expect(model.activeId!.value, 38);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Levels 37–48'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await model.flush();
+    model.dispose();
+  });
+  testWidgets(
+    'cosmetic previews are free and default monetization controls are hidden',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 870));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {},
+        loader: (_) async => fixture(),
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.tap(find.text('40'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cosmetics'), findsOneWidget);
+      expect(find.text('Equipped'), findsOneWidget);
+      expect(find.text('Restore purchases'), findsNothing);
+      expect(find.textContaining('Optional video'), findsNothing);
+      final forest = find.text('Forest Mint');
+      await tester.ensureVisible(forest);
+      await tester.tap(forest);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(model.theme.label, 'Field');
+      expect(model.coinBalance, 40);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
+    },
+  );
 }

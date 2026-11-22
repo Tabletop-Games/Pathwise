@@ -10,6 +10,20 @@ def signingInputs = [
     keyPassword: providers.environmentVariable("PATHWISE_KEY_PASSWORD").orNull,
 ]
 
+// Dart's production ad flag and Android's SDK metadata must be configured together.
+def dartDefines = (findProperty("dart-defines") ?: "").split(",")
+    .findAll { !it.isEmpty() }
+    .collectEntries {
+        def pair = new String(it.decodeBase64(), "UTF-8").split("=", 2)
+        [(pair[0]): pair.size() == 2 ? pair[1] : ""]
+    }
+def productionAds = dartDefines["PATHWISE_ADS_ENABLED"] == "true"
+def admobAppId = providers.environmentVariable("PATHWISE_ADMOB_APP_ID").orNull
+if (productionAds && (!admobAppId || !(admobAppId ==~ /ca-app-pub-[0-9]{16}~[0-9]{10}/)
+        || admobAppId.startsWith("ca-app-pub-3940256099942544~"))) {
+    throw new GradleException("Production ads require a valid PATHWISE_ADMOB_APP_ID.")
+}
+
 android {
     namespace = "games.tabletop.pathwise"
     compileSdk = flutter.compileSdkVersion
@@ -26,6 +40,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["pathwiseAdmobAppId"] = productionAds
+            ? admobAppId : "ca-app-pub-3940256099942544~3347511713"
     }
 
     if (signingInputs.values().every { it }) {
@@ -37,14 +53,24 @@ android {
                 keyPassword = signingInputs.keyPassword
             }
         }
-        buildTypes {
-            release {
-                signingConfig = signingConfigs.release
-            }
-        }
     } else if (signingInputs.values().any { it }) {
         throw new GradleException("Set all four PATHWISE signing variables or leave all unset.")
     }
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")
+            if (signingInputs.values().every { it }) {
+                signingConfig = signingConfigs.release
+            }
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
+        }
+    }
+
 }
 
 flutter {

@@ -1,11 +1,14 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import 'puzzle_view.dart';
+import 'store_view.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -13,6 +16,7 @@ class SettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
+    final ads = context.watch<AdService>();
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: SafeArea(
@@ -36,7 +40,9 @@ class SettingsView extends StatelessWidget {
                   },
                   child: Column(
                     children: [
-                      for (final theme in PathwiseTheme.values)
+                      for (final theme in PathwiseTheme.values.where(
+                        model.ownsTheme,
+                      ))
                         RadioListTile<PathwiseTheme>(
                           title: Text(theme.label),
                           value: theme,
@@ -54,10 +60,34 @@ class SettingsView extends StatelessWidget {
                     ],
                   ),
                 ),
+                ListTile(
+                  title: const Text('Cosmetics'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StoreView()),
+                  ),
+                ),
+                if (ads.enabled)
+                  ListTile(
+                    title: const Text('Ad privacy'),
+                    onTap: () async {
+                      if (!ads.privacyRequired)
+                        await ads.prepare(
+                          canPresent: () =>
+                              context.mounted &&
+                              ModalRoute.isCurrentOf(context) == true,
+                        );
+                      if (context.mounted &&
+                          ModalRoute.isCurrentOf(context) == true &&
+                          ads.privacyRequired)
+                        await ads.privacyOptions();
+                    },
+                  ),
                 const Divider(),
                 AboutListTile(
                   applicationName: 'Pathwise',
-                  applicationVersion: '1.0.0',
+                  applicationVersion: '1.1.0',
                   icon: const Icon(Icons.info_outline_rounded),
                   aboutBoxChildren: const [
                     Text(
@@ -97,6 +127,18 @@ class StatisticsView extends StatelessWidget {
                       _Stat('Puzzles solved', '${model.solved}'),
                       _Stat('Solved without hints', '${model.unassisted}'),
                       _Stat('Daily streak', '${model.dailyStreak} days'),
+                      _Stat('Longest streak', '${model.longestStreak} days'),
+                      _Stat(
+                        'Highest level unlocked',
+                        '${model.highestUnlocked}',
+                      ),
+                      _Stat('Total gameplay time', formatTime(model.playTime)),
+                      _Stat('Coins earned', '${model.coinsEarned}'),
+                      _Stat('Coins spent', '${model.coinsSpent}'),
+                      _Stat(
+                        'Themes owned',
+                        '${model.ownedThemes} of ${PathwiseTheme.values.length}',
+                      ),
                     ],
                   ),
                 ),
@@ -114,6 +156,30 @@ class StatisticsView extends StatelessWidget {
                         if (model.best(mode) case final best?)
                           _Stat('Best time', formatTime(best)),
                       ],
+                    ),
+                  ),
+                const SizedBox(height: 18),
+                Text(
+                  'Achievements',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                for (final achievement in Achievement.values)
+                  Card(
+                    color: palette.surface,
+                    child: ListTile(
+                      leading: Icon(
+                        model.hasAchievement(achievement)
+                            ? Icons.workspace_premium_rounded
+                            : Icons.lock_outline,
+                      ),
+                      title: Text(achievement.title),
+                      subtitle: Text(achievement.description),
+                      trailing: Text(
+                        model.hasAchievement(achievement)
+                            ? 'Earned'
+                            : '+${achievement.coins} coins',
+                      ),
                     ),
                   ),
               ],

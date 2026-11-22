@@ -13,15 +13,22 @@ class GameStateStorage {
 
   Future<Map<String, dynamic>> load() async {
     final snapshot = await _preferences.getString(_key);
-    _loaded = true;
-    if (snapshot == null) return {};
-    try {
-      final decoded = jsonDecode(snapshot);
-      return decoded is Map<String, dynamic> ? decoded : {};
-    } on FormatException {
+    if (snapshot == null) {
+      _loaded = true;
       return {};
     }
+    final decoded = jsonDecode(snapshot);
+    if (decoded is! Map<String, dynamic> ||
+        (decoded['schemaVersion'] != null &&
+            decoded['schemaVersion'] != 1 &&
+            decoded['schemaVersion'] != 2)) {
+      throw const FormatException('Unsupported saved progress');
+    }
+    _loaded = true;
+    return decoded;
   }
+
+  void protect() => _loaded = false;
 
   Future<void> save(String snapshot) async {
     // A failed startup read must not overwrite existing progress.

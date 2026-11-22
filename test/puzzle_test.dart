@@ -104,7 +104,7 @@ void main() {
 
   test('all campaign boards are original, distinct and uniquely solved', () {
     final signatures = <String>{};
-    for (var level = 1; level <= levelCount; level++) {
+    for (var level = 1; level <= legacyLevelCount; level++) {
       final id = PuzzleId.level(level);
       final board = generatePuzzle(id.generation);
       expectSolution(board);
