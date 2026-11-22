@@ -20,12 +20,12 @@ Run the commands in the [README](../README.md), inspect APK signing and native a
 
 ## Verified results
 
-The v1.1 baseline passed 29 Flutter tests, static analysis, and both release builds. The v1.2 build passed formatting and static analysis, 35 Flutter tests, and four backend verifier tests. Tests cover timed progression and expiration, foreground/background handling, v1/v2 migration, hint exhaustion and replay, reward deduplication, and Premium fulfillment.
+The v1.1 baseline passed 29 Flutter tests, static analysis, and both release builds. The v1.2 build passed formatting and static analysis, 36 Flutter tests, and four backend verifier tests. Tests cover timed progression and expiration, foreground/background handling, v1/v2 migration, hint exhaustion and replay, reward deduplication, and Premium fulfillment.
 
 | Artifact | v1.1 bytes | v1.2 bytes | v1.2 verification SHA-256 |
 | --- | ---: | ---: | --- |
-| APK | 51,775,888 | 52,499,876 | `c72776db5c80194c58597524f1b271a34c2ca37977daae33dab374e8add87a31` |
-| App Bundle | 54,362,224 | 55,026,011 | `d366f0c00570a9a5731944a179dc90a2324fbf1f4b27bd0296e2f2316bc0fc50` |
+| APK | 51,775,888 | 52,499,876 | `93bf05d4deb50e4e430f30d9d12fdd2d9a9fbfe45fa71c3fe0e3d4541f74100b` |
+| App Bundle | 54,362,224 | 55,026,426 | `2211af588eaa2eeb814d09267e48dda964cc12059661ef2fc216800bf8f3c7ca` |
 
 The locally signed APK passed signature and 16 KB native alignment checks. The App Bundle passed bundletool validation and contains the mapping and Arm64, Arm32, and x86-64 native symbol tables. R8 9.3.16 produced an obfuscation map and a removal report. Its resource analysis marked 1,209 entries unreachable. Flutter's generated plugin registrant and both Google plugins are in the map. The APK resource table includes standard and adaptive launcher variants and the monochrome layer.
 

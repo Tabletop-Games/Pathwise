@@ -40,7 +40,7 @@ The Gradle configuration requires a production manifest app ID when ads are enab
 | Placement | Policy |
 | --- | --- |
 | Adaptive bottom banner | Levels and standard/Time Attack puzzles with enough usable height. Anchored above system navigation. Unavailable units collapse. Remove Ads and Premium hide this placement. |
-| Interstitial | After returning from a completed ordinary puzzle, when the return route is visible and the app is resumed. Five qualifying exits, a four-minute minimum interval, a one-minute in-process post-reward cooldown, and a persistent four-minute reservation/cooldown stamp within the same Android boot. No interstitial while drawing, during Time Attack, or on Next Level. |
+| Interstitial | After returning from a completed ordinary puzzle, when the return route is visible and the app is resumed. Five qualifying exits, a four-minute minimum interval, a one-minute in-process post-reward cooldown, and a persistent four-minute reservation/cooldown stamp. After a reboot, wait through the first four minutes of uptime if a prior stamp exists. No interstitial while drawing, during Time Attack, or on Next Level. |
 | Rewarded hint | The player requests a hint after the three free hints. A completed reward callback and validated internet connection grant one extra hint to that board. Unavailable, incomplete, or offline videos grant nothing. Ad-free players use a six-coin alternative. |
 | Rewarded coins | Optional in Cosmetics, including for ad-free owners. Eight coins per completed reward, up to three credited rewards per local day. |
 

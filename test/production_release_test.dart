@@ -212,4 +212,23 @@ void main() {
       v2.dispose();
     },
   );
+  test(
+    'persisted ad pacing also protects the first minutes after a reboot',
+    () async {
+      var clock = 60000;
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {
+          'schemaVersion': 3,
+          'lastAutomaticAd': {'boot': 4, 'milliseconds': 2000000},
+        },
+        bootTime: () => (boot: 5, milliseconds: clock),
+      );
+      expect(await model.reserveAutomaticAd(), isFalse);
+      clock = 240000;
+      expect(await model.reserveAutomaticAd(), isTrue);
+      expect(await model.reserveAutomaticAd(), isFalse);
+      model.dispose();
+    },
+  );
 }
