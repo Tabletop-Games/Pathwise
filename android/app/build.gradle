@@ -1,0 +1,52 @@
+plugins {
+    id "com.android.application"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def signingInputs = [
+    store: providers.environmentVariable("PATHWISE_KEYSTORE").orNull,
+    storePassword: providers.environmentVariable("PATHWISE_STORE_PASSWORD").orNull,
+    alias: providers.environmentVariable("PATHWISE_KEY_ALIAS").orNull,
+    keyPassword: providers.environmentVariable("PATHWISE_KEY_PASSWORD").orNull,
+]
+
+android {
+    namespace = "games.tabletop.pathwise"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId = "games.tabletop.pathwise"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    if (signingInputs.values().every { it }) {
+        signingConfigs {
+            release {
+                storeFile = file(signingInputs.store)
+                storePassword = signingInputs.storePassword
+                keyAlias = signingInputs.alias
+                keyPassword = signingInputs.keyPassword
+            }
+        }
+        buildTypes {
+            release {
+                signingConfig = signingConfigs.release
+            }
+        }
+    } else if (signingInputs.values().any { it }) {
+        throw new GradleException("Set all four PATHWISE signing variables or leave all unset.")
+    }
+}
+
+flutter {
+    source = "../.."
+}
