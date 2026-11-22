@@ -8,14 +8,18 @@ Create one-time products in Play Console for `games.tabletop.pathwise`. Localize
 
 | Product ID | Fulfillment | Proposed US price |
 | --- | --- | ---: |
-| `pathwise_coins_120` | 120 coins, consumable | $0.99 |
-| `pathwise_coins_340` | 340 coins, consumable | $2.49 |
-| `pathwise_coins_800` | 800 coins, consumable | $4.99 |
-| `pathwise_themes_forever` | Permanent all-theme pass | $3.99 |
+| `pathwise_coins_500` | Starter, 500 coins | $0.99 |
+| `pathwise_coins_1200` | Small, 1,200 coins | $1.99 |
+| `pathwise_coins_3500` | Medium, 3,500 coins | $4.99 |
+| `pathwise_coins_8000` | Large, 8,000 coins | $9.99 |
+| `pathwise_coins_20000` | Mega, 20,000 coins | $19.99 |
+| `pathwise_remove_ads` | Permanent removal of automatic ads | $3.99 |
+| `pathwise_themes_forever` | All current and future themes | $4.99 |
+| `pathwise_premium` | Both permanent entitlements and a one-time 1,000-coin bonus | $6.99 |
 
-The pass is about 43% less than the least proposed pack spend ($6.97) needed to buy all six premium themes with paid coins alone. Disable multi-quantity and out-of-app purchases for these products.
+Coin packs are consumable. The last three products are non-consumable. The UI displays Play's localized prices. It explains overlap for existing owners without promising refunds or a prorated discount. Keep the three v1.1 coin IDs in the verifier to recover interrupted purchases. They are excluded from the new purchase catalog. Disable multi-quantity and out-of-app purchases.
 
-Deploy `backend/` with Node 22+ using `npm ci --omit=dev` and `npm start`. The HTTPS endpoint must end in `/v1/play/verify`. Enable the Android Publisher API and provision a Firestore Native database. Use a workload identity with access to the Pathwise Play app's purchase lookup and scoped Firestore transaction permissions. Use the default application credential provider and keep keys outside the app and repository. Put the service behind HTTPS and rate limiting, restrict invoker ingress to your gateway where possible, and exclude bearer headers and token payloads from logs. Set `PATHWISE_PLAY_VERIFIER_ENABLED=true` on the backend and create the Firestore document `pathwise-play-purchase-grants/readiness` with boolean field `enabled: true` only after configuring Play access. The app checks `/healthz` before offering or starting a purchase. Firestore grant records are durable deduplication state and must be backed up and retained.
+Deploy `backend/` with Node 22+ using `npm ci --omit=dev` and `npm start`. The HTTPS endpoint must end in `/v1/play/verify`. Enable the Android Publisher API and provision a Firestore Native database. Use a workload identity with access to the Pathwise Play app's purchase lookup and scoped Firestore transaction permissions. Use the default application credential provider and keep keys outside the app and repository. Put the service behind HTTPS and rate limiting, restrict invoker ingress to your gateway where possible, and exclude bearer headers and token payloads from logs. Set `PATHWISE_PLAY_VERIFIER_ENABLED=true` on the backend and create the Firestore document `pathwise-play-purchase-grants/readiness` with boolean field `enabled: true` only after configuring Play access. Deploy the v1.2 verifier with catalog protocol 2. The app checks `/healthz` before offering or starting a purchase. Firestore grant records are durable deduplication state and must be backed up and retained.
 
 The client sends a random installation credential and presents its SHA-256 digest to Play as the obfuscated account ID. The verifier calls Play's ProductPurchaseV2 endpoint and checks the package, state, product, quantity, remaining refundable quantity, and account binding. Firestore atomically claims the purchase token and returns the same grant on retries for its owner. The client records the verified grant and progress durably before consuming a pack or acknowledging an entitlement. Play handles payment UI and pending or canceled payments. The app does not grant funds from a callback alone.
 
@@ -29,8 +33,15 @@ For local test ads use a debug or profile build with `--dart-define=PATHWISE_ADS
 
 - Environment variable `PATHWISE_ADMOB_APP_ID` for the Android SDK app ID.
 - Dart defines `PATHWISE_ADS_ENABLED=true` and `PATHWISE_ADS_CONSENT_CONFIGURED=true`.
-- Dart defines `PATHWISE_ADMOB_INTERSTITIAL` and `PATHWISE_ADMOB_REWARDED` with your two production unit IDs.
+- Dart defines `PATHWISE_ADMOB_INTERSTITIAL` and `PATHWISE_ADMOB_REWARDED` with your production full-screen unit IDs, and `PATHWISE_ADMOB_BANNER` for anchored banners.
 
-The Gradle configuration rejects missing, test, or malformed native IDs when the production flag is enabled. The Dart service additionally requires valid non-test unit IDs and the consent flag. In a safe screen, UMP updates consent, shows any required form, and gates SDK loads through `canRequestAds`. Check/Watch in Cosmetics is optional and starts this flow. Privacy choices are accessible when required. A cached ad expires after 45 minutes. Interstitials are eligible only after leaving a completed session, at most once per five such exits and with a four-minute minimum in-process interval. No full-screen placements run between a puzzle and Next Level or while the player is drawing.
+The Gradle configuration requires a production manifest app ID when ads are enabled. The Dart service checks the production full-screen units, the consent configuration flag, and regional UMP permission before loading. Banner inventory has its own unit. The SDK uses sample units only in opted-in debug/profile builds. The default release requests no ads.
 
-Before enabling production, test GDPR and other applicable consent geographies, privacy choices, disabled and offline flows, no-fill, and reward-once behavior. Update Play data safety declarations based on the enabled integrations. [AdMob UMP for Flutter](https://developers.google.com/admob/flutter/privacy) · [AdMob rewarded ads](https://developers.google.com/admob/flutter/rewarded)
+| Placement | Policy |
+| --- | --- |
+| Adaptive bottom banner | Levels and standard/Time Attack puzzles with enough usable height. Anchored above system navigation. Unavailable units collapse. Remove Ads and Premium hide this placement. |
+| Interstitial | After returning from a completed ordinary puzzle, when the return route is visible and the app is resumed. Five qualifying exits, a four-minute minimum interval, a one-minute in-process post-reward cooldown, and a persistent four-minute reservation/cooldown stamp within the same Android boot. No interstitial while drawing, during Time Attack, or on Next Level. |
+| Rewarded hint | The player requests a hint after the three free hints. A completed reward callback and validated internet connection grant one extra hint to that board. Unavailable, incomplete, or offline videos grant nothing. Ad-free players use a six-coin alternative. |
+| Rewarded coins | Optional in Cosmetics, including for ad-free owners. Eight coins per completed reward, up to three credited rewards per local day. |
+
+Consent is initialized from a safe post-game exit, Settings, or an explicit video request. Privacy options invalidate the cache. Full-screen cached ads expire after 45 minutes. Test live consent geographies, interrupted ads, no-fill, banner layout across launchers and devices, and purchase recovery on a release-signed Play internal build before enabling commercial services. [AdMob UMP for Flutter](https://developers.google.com/admob/flutter/privacy) · [AdMob adaptive banners](https://developers.google.com/admob/flutter/banner)

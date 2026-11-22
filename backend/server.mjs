@@ -63,7 +63,7 @@ function send(response, status, body) {
 const server = createServer(async (request, response) => {
   if (request.method === 'GET' && request.url === '/healthz') {
     const ready = await checkReadiness().catch(() => false);
-    send(response, ready ? 200 : 503, { status: ready ? 'ready' : 'disabled', package: appPackage });
+    send(response, ready ? 200 : 503, { status: ready ? 'ready' : 'disabled', package: appPackage, catalog: 2 });
     return;
   }
   if (request.method !== 'POST' || request.url !== '/v1/play/verify') {

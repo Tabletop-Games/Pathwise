@@ -86,17 +86,23 @@ final class GameController {
     return true;
   }
 
-  bool hint() {
-    if (complete || _beforeStroke != null || hintCell != null) return false;
+  bool get routeConflicts =>
+      _path.indexed.any((entry) => entry.$2 != board.solution[entry.$1]);
+
+  bool get canHint => !complete && _beforeStroke == null && hintCell == null;
+
+  bool hint({int segment = 1}) {
+    if (!canHint) return false;
     var prefix = 1;
     while (prefix < length && _path[prefix] == board.solution[prefix]) {
       prefix++;
     }
-    if (prefix < length) {
+    final end = (prefix + segment - 1).clamp(prefix, puzzle.area - 1);
+    if (prefix != length || end != prefix) {
       _remember(List.of(_path));
-      _path.length = prefix;
+      _path = board.solution.take(end).toList();
     }
-    hintCell = board.solution[prefix];
+    hintCell = board.solution[end];
     hintsUsed++;
     return true;
   }

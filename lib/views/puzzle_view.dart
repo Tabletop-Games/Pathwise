@@ -3,9 +3,12 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
+import 'components/ad_banner.dart';
 import 'components/brand_mark.dart';
 import 'components/puzzle_board.dart';
 
@@ -25,7 +28,11 @@ class PuzzleView extends StatelessWidget {
     if (id == null) return const SizedBox.shrink();
     final palette = BoardPalette.palettes[model.theme]!;
     final puzzle = model.puzzle;
+    final timed = id.mode == PlayMode.attack;
+    if (timed && model.attack?.finished == true)
+      return _AttackResults(model: model);
     return Scaffold(
+      bottomNavigationBar: const AdBanner(),
       appBar: AppBar(
         title: Text(
           id.title,
@@ -35,9 +42,9 @@ class PuzzleView extends StatelessWidget {
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 18),
             child: ValueListenableBuilder<Duration>(
-              valueListenable: model.elapsed,
+              valueListenable: timed ? model.attackRemaining : model.elapsed,
               builder: (context, value, child) => Semantics(
-                label: 'Elapsed time',
+                label: timed ? 'Time remaining' : 'Elapsed time',
                 child: Row(
                   children: [
                     Icon(
@@ -47,7 +54,11 @@ class PuzzleView extends StatelessWidget {
                     ),
                     const SizedBox(width: 7),
                     Text(
-                      formatTime(value),
+                      formatTime(
+                        timed
+                            ? value + const Duration(milliseconds: 999)
+                            : value,
+                      ),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -93,6 +104,11 @@ class PuzzleView extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 490),
                     child: Column(
                       children: [
+                        if (timed)
+                          Text(
+                            '${model.attack!.clears.length} solved · ${model.attack!.score} points',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         if (id.mode == PlayMode.daily)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -146,11 +162,7 @@ class PuzzleView extends StatelessWidget {
                               icon: const Icon(Icons.restart_alt_rounded),
                               label: const Text('Clear'),
                             ),
-                            FilledButton.tonalIcon(
-                              onPressed: model.canHint ? model.hint : null,
-                              icon: const Icon(Icons.lightbulb_outline_rounded),
-                              label: const Text('Hint'),
-                            ),
+                            _HintAction(model: model),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -181,7 +193,7 @@ class PuzzleView extends StatelessWidget {
                                   child: child,
                                 ),
                               ),
-                          child: model.complete
+                          child: model.complete && !timed
                               ? _Completion(
                                   model: model,
                                   id: id,
@@ -195,7 +207,9 @@ class PuzzleView extends StatelessWidget {
                                   ),
                                   child: Text(
                                     model.hintCell != null
-                                        ? 'Trace to the highlighted tile.'
+                                        ? model.correctedByHint
+                                              ? 'Route corrected. Follow the highlighted tile.'
+                                              : 'Trace to the highlighted tile.'
                                         : model.path.length == 1
                                         ? 'Start at 1. Visit the numbers in order and fill every tile.'
                                         : 'Drag from the tip to extend. Tap the trail to backtrack.',
@@ -323,6 +337,161 @@ class _Completion extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HintAction extends StatelessWidget {
+  const _HintAction({required this.model});
+  final AppModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final ads = context.watch<AdService>();
+    final label = model.freeHints > 0
+        ? 'Hint · ${model.freeHints} free'
+        : model.extraHints > 0
+        ? 'Hint · ${model.extraHints} extra'
+        : model.adFree
+        ? 'More hints · ${economy.extraHintPrice} coins'
+        : 'Get hint';
+    return FilledButton.tonalIcon(
+      onPressed: model.canHint
+          ? model.hint
+          : model.canRequestExtraHint
+          ? () async {
+              bool current() =>
+                  context.mounted && ModalRoute.isCurrentOf(context) == true;
+              final id = model.activeId;
+              if (model.adFree) {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialog) => AlertDialog(
+                    title: const Text('Buy an additional hint?'),
+                    content: Text(
+                      'Spend ${economy.extraHintPrice} coins. Balance ${model.coinBalance}.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialog, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(dialog, true),
+                        child: const Text('Buy hint'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true &&
+                    current() &&
+                    model.activeId == id &&
+                    !model.buyHint()) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Not enough coins or hint unavailable.'),
+                    ),
+                  );
+                }
+                return;
+              }
+              if (ads.enabled && !ads.videoReady)
+                await ads.prepare(canPresent: current);
+              if (!current() || model.activeId != id) return;
+              final shown = await ads.watchVideo(
+                (event) => model.grantRewardedHint(id!.key, event),
+                canPresent: () =>
+                    current() &&
+                    model.activeId == id &&
+                    model.canRequestExtraHint &&
+                    !model.adFree,
+              );
+              if (!shown && current())
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Rewarded video unavailable. No hint was added.',
+                    ),
+                  ),
+                );
+            }
+          : null,
+      icon: const Icon(Icons.lightbulb_outline_rounded),
+      label: Text(label),
+    );
+  }
+}
+
+class _AttackResults extends StatelessWidget {
+  const _AttackResults({required this.model});
+  final AppModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final run = model.attack!;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Time Attack')),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              shrinkWrap: true,
+              children: [
+                Icon(
+                  Icons.timer_off_outlined,
+                  size: 58,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                Text(
+                  'Time’s up',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+                if (run.record)
+                  const Center(child: Chip(label: Text('New personal best'))),
+                ListTile(
+                  title: const Text('Puzzles completed'),
+                  trailing: Text('${run.clears.length}'),
+                ),
+                ListTile(
+                  title: const Text('Score'),
+                  trailing: Text('${run.score}'),
+                ),
+                ListTile(
+                  title: const Text('Average puzzle'),
+                  trailing: Text(
+                    formatTime(Duration(milliseconds: run.average)),
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Fastest puzzle'),
+                  trailing: Text(
+                    formatTime(Duration(milliseconds: run.fastest)),
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Previous best'),
+                  trailing: Text('${run.previousBest}'),
+                ),
+                ListTile(
+                  title: const Text('Coins earned'),
+                  trailing: Text('${run.coins}'),
+                ),
+                FilledButton(
+                  onPressed: model.openAttack,
+                  child: const Text('Replay'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Return to home'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -4,9 +4,9 @@ Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continu
 
 ## Play
 
-Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** retracts a wrong turn and highlights the next correct tile. A finished route shows its time, personal best, and earned coins.
+Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. Three free hints are available per puzzle. Extra hints require an earned video reward or coins with an ad-free entitlement. A finished route shows its time, personal best, and earned coins.
 
-Version 1.1.0 adds an ongoing, deterministic level campaign with twelve levels per page, daily and endless modes, nine themes, a coin shop, and achievements. Earn coins by playing and unlock cosmetics offline. The daily puzzle uses the device's local calendar. Progress, previous boards, and equipped themes from 1.0 are preserved.
+Version 1.2.0 adds offline Time Attack, three progressive free hints per puzzle, an expanded store, and adaptive launcher icons. It retains the unlimited level campaign, daily and endless modes, coin shop, and achievements. Earn coins by playing and unlock cosmetics offline. The daily puzzle uses the device's local calendar. Progress, previous boards, and equipped themes from 1.0 are preserved.
 
 Optional Google Play purchases and AdMob placements are disabled by default. They require production setup and testing. [Changelog](CHANGELOG.md) · [Economy](docs/economy.md) · [Monetization setup](docs/monetization.md)
 
@@ -25,7 +25,7 @@ flutter build apk --release
 flutter build appbundle --release
 ```
 
-For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without them Gradle builds unsigned artifacts. [Release verification and measurements](docs/release-1.1.0.md)
+For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without them Gradle builds unsigned artifacts. [Release verification and measurements](docs/release-1.2.0.md)
 
 ## Source and licensing
 

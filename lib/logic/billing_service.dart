@@ -8,14 +8,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
-const themePassProduct = 'pathwise_themes_forever';
-
-const storeProducts = {
-  'pathwise_coins_120': (label: '120 coins', coins: 120),
-  'pathwise_coins_340': (label: '340 coins', coins: 340),
-  'pathwise_coins_800': (label: '800 coins', coins: 800),
-  themePassProduct: (label: 'All themes forever', coins: 0),
-};
+import '../model/product_catalog.dart';
+export '../model/product_catalog.dart';
 
 typedef VerifiedGrant = ({String id, String product});
 
@@ -87,6 +81,15 @@ class BillingService extends ChangeNotifier {
       },
     );
     await refreshCatalog();
+    if (!_disposed && products.isNotEmpty) {
+      try {
+        await store.restorePurchases();
+      } catch (_) {
+        _report(
+          'Purchase recovery is temporarily unavailable. You can retry from the store.',
+        );
+      }
+    }
   }
 
   Future<void> refreshCatalog() async {
@@ -103,7 +106,10 @@ class BillingService extends ChangeNotifier {
         return;
       }
       final response = await store.queryProductDetails(
-        storeProducts.keys.toSet(),
+        storeProducts.entries
+            .where((e) => !e.value.legacy)
+            .map((e) => e.key)
+            .toSet(),
       );
       if (_disposed) return;
       products
@@ -128,7 +134,7 @@ class BillingService extends ChangeNotifier {
         applicationUserName: sha256.convert(utf8.encode(secret)).toString(),
       );
       final store = InAppPurchase.instance;
-      final sent = product.id == themePassProduct
+      final sent = !consumable(product.id)
           ? await store.buyNonConsumable(purchaseParam: param)
           : await store.buyConsumable(purchaseParam: param, autoConsume: false);
       if (!sent) throw StateError('Purchase sheet unavailable');
@@ -169,7 +175,7 @@ class BillingService extends ChangeNotifier {
       persist: persist,
       finalize: () async {
         final store = InAppPurchase.instance;
-        if (purchase.productID != themePassProduct) {
+        if (consumable(purchase.productID)) {
           final result = await store
               .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
               .consumePurchase(purchase);
@@ -214,7 +220,8 @@ class BillingService extends ChangeNotifier {
       );
       return data is Map &&
           data['status'] == 'ready' &&
-          data['package'] == 'games.tabletop.pathwise';
+          data['package'] == 'games.tabletop.pathwise' &&
+          data['catalog'] == 2;
     } catch (_) {
       return false;
     } finally {
@@ -247,6 +254,7 @@ class BillingService extends ChangeNotifier {
       final data = jsonDecode(body);
       if (data is! Map ||
           data['product'] != product ||
+          data['coins'] != storeProducts[product]!.coins ||
           data['id'] is! String ||
           !RegExp(r'^[a-f0-9]{64}$').hasMatch(data['id'] as String)) {
         return null;

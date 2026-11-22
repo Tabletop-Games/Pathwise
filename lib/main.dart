@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'logic/ad_service.dart';
+import 'logic/attack_clock.dart';
 import 'logic/billing_service.dart';
 import 'logic/game_state_storage.dart';
 import 'model/app_model.dart';
@@ -23,20 +24,31 @@ void main() async {
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
   });
   final storage = GameStateStorage();
+  final clock = AttackClock();
+  await clock.sync();
   AppModel model;
   try {
-    model = AppModel(storage: storage, snapshot: await storage.load());
+    model = AppModel(
+      storage: storage,
+      snapshot: await storage.load(),
+      bootTime: clock.read,
+    );
   } catch (_) {
     storage.protect();
-    model = AppModel(storage: storage, snapshot: {})..storageError = true;
+    model = AppModel(storage: storage, snapshot: {}, bootTime: clock.read)
+      ..storageError = true;
   }
   runApp(
-    ChangeNotifierProvider(create: (_) => model, child: const PathwiseApp()),
+    ChangeNotifierProvider(
+      create: (_) => model,
+      child: PathwiseApp(clock: clock),
+    ),
   );
 }
 
 class PathwiseApp extends StatefulWidget {
-  const PathwiseApp({super.key});
+  const PathwiseApp({this.clock, super.key});
+  final AttackClock? clock;
 
   @override
   State<PathwiseApp> createState() => _PathwiseAppState();
@@ -53,17 +65,25 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _model = context.read<AppModel>();
-    _ads = AdService();
+    _ads = AdService(
+      reserveInterstitial: _model.reserveAutomaticAd,
+      onRewardedClosed: _model.recordRewardedAdExit,
+    );
     _billing = BillingService(
       profile: _model.billingProfile,
       persist: (grant) => _model.applyVerifiedPurchase(
         grant.id,
         coins: storeProducts[grant.product]!.coins,
         themes: grant.product == themePassProduct,
+        removeAds: grant.product == removeAdsProduct,
+        bundle: grant.product == premiumProduct,
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_billing.start());
+      if (mounted) {
+        _model.refreshAttackClock();
+        unawaited(_billing.start());
+      }
     });
     WidgetsBinding.instance.addObserver(this);
     _watchDate();
@@ -84,11 +104,21 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final active = state == AppLifecycleState.resumed;
-    _model.setForeground(active);
     if (active) {
       _watchDate();
+      unawaited(_refreshAttackClock());
     } else {
+      _model.setForeground(false);
       _dayCheck?.cancel();
+    }
+  }
+
+  Future<void> _refreshAttackClock() async {
+    await widget.clock?.sync();
+    if (mounted &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      _model.refreshAttackClock();
+      _model.setForeground(true);
     }
   }
 

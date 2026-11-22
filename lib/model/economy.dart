@@ -9,12 +9,17 @@ class EconomyRules {
   int get starterCoins => 40;
   int get streakBonus => 35;
   int get streakInterval => 7;
+  Duration get automaticAdGap => const Duration(minutes: 4);
+  Duration get afterRewardedGap => const Duration(minutes: 1);
+  int get exitsPerInterstitial => 5;
+  int get premiumBonus => 1000;
+  int get extraHintPrice => 6;
   int get rewardedAdCoins => 8;
   int get rewardedAdsPerDay => 3;
   int clearReward(PlayMode mode) => switch (mode) {
     PlayMode.levels => 12,
     PlayMode.daily => 24,
-    PlayMode.endless => 0,
+    PlayMode.endless || PlayMode.attack => 0,
   };
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
@@ -23,6 +28,9 @@ class EconomyRules {
     PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 110,
     PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 160,
     PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 220,
+    PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
+    PathwiseTheme.canyon || PathwiseTheme.tidal => 1000,
+    PathwiseTheme.neon => 1500,
   };
 }
 
@@ -33,7 +41,8 @@ enum Achievement {
   dailyHabit('Daily habit', 'Reach a 3-day streak', 25),
   weeklyRitual('Weekly ritual', 'Reach a 7-day streak', 45),
   unaided('Unaided', 'Solve 10 puzzles without hints', 35),
-  collector('Collector', 'Own 6 themes', 30);
+  collector('Collector', 'Own 6 themes', 30),
+  timeTrial('Time trial', 'Solve 3 puzzles in one Time Attack', 25);
 
   const Achievement(this.title, this.description, this.coins);
   final String title;

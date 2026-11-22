@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
+import 'components/ad_banner.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
 
@@ -69,6 +70,7 @@ class _LevelsViewState extends State<LevelsView> {
           const SizedBox(width: 8),
         ],
       ),
+      bottomNavigationBar: const AdBanner(),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -120,7 +122,7 @@ class _LevelsViewState extends State<LevelsView> {
                                 mainAxisExtent:
                                     ((constraints.maxHeight - 30) / 4).clamp(
                                       85,
-                                      116,
+                                      double.infinity,
                                     ),
                               ),
                           itemBuilder: (context, index) {

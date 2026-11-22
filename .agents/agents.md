@@ -5,6 +5,8 @@
 - Use named, deterministic puzzle fixtures. Treat existing seed, generation behavior, checkpoint ordering, and saved identifiers as compatibility contracts. Introduce a new puzzle generation version for changed boards and preserve saved boards.
 - Persist a completion, its rewards, and any advancement in a single versioned snapshot. Use stable event identities for rewards, spends, and payment fulfillment. Maintain the v1 migration path for future releases.
 - Keep theme and reward prices in `lib/model/economy.dart`. Validate new palette text contrast and test both locked and owned states.
-- Run `dart format .`, `flutter analyze`, `flutter test`, and `npm --prefix backend test`. Run the Android release checks from [the release guide](../docs/release-1.1.0.md). Verify merged manifests, bundle validity, R8 mapping output, and resource shrinker output.
+- Run `dart format .`, `flutter analyze`, `flutter test`, and `npm --prefix backend test`. Run the Android release checks from [the release guide](../docs/release-1.2.0.md). Verify merged manifests, bundle validity, R8 mapping output, and resource shrinker output.
 - Keep monetization flags off by default. Use the Play internal track and AdMob test units before enabling live services. Never put a Play service account key, signing key, or receipt token in this repository.
 - Preserve R8 optimization. Add a keep rule only for a diagnosed reflection problem, scope it to the required class/member, then test the minified artifact.
+
+- Keep Time Attack deadlines tied to Android elapsed time and boot identity. Persist hint balances by puzzle ID, and never deliver an ad-funded reward from a dismissal, error, or load callback.

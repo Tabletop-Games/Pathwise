@@ -7,7 +7,12 @@ enum PathwiseTheme {
   royalVelvet('Royal Velvet'),
   warmWalnut('Warm Walnut'),
   glacier('Winter Glacier'),
-  oceanicBreeze('Oceanic Breeze');
+  oceanicBreeze('Oceanic Breeze'),
+  chalk('Chalk'),
+  amoledCarbon('AMOLED Carbon'),
+  canyon('Painted Canyon'),
+  neon('Night Signal'),
+  tidal('Tidal Glass');
 
   const PathwiseTheme(this.label);
   final String label;
