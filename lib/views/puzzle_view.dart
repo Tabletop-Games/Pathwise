@@ -236,12 +236,14 @@ class _Completion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final next = switch (id.mode) {
-      PlayMode.levels when (id.value as int) < levelCount => PuzzleId.level(
-        (id.value as int) + 1,
+      PlayMode.levels when model.canPlayLevel(id.level + 1) => PuzzleId.level(
+        id.level + 1,
       ),
       PlayMode.endless => model.endless,
       _ => null,
     };
+    final best =
+        model.result(id)?.milliseconds ?? model.elapsed.value.inMilliseconds;
     final hints = model.hintsUsed;
     return Semantics(
       liveRegion: true,
@@ -276,25 +278,48 @@ class _Completion extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 13,
+              runSpacing: 6,
+              children: [
+                Text(
+                  '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
+                ),
+                Text(
+                  model.lastReward > 0
+                      ? '+${model.lastReward} coins'
+                      : '0 coins earned',
+                ),
+                Text('Balance ${model.coinBalance}'),
+                if (id.mode == PlayMode.levels)
+                  Text('Level ${model.highestUnlocked} unlocked'),
+              ],
+            ),
             const SizedBox(height: 8),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Back'),
-                ),
                 if (next != null)
                   FilledButton(
                     onPressed: () => model.open(next),
-                    child: const Text('Next puzzle'),
-                  )
-                else if (id.mode == PlayMode.levels)
+                    child: Text(
+                      id.mode == PlayMode.levels ? 'Next level' : 'Next puzzle',
+                    ),
+                  ),
+                if (id.mode != PlayMode.endless)
                   OutlinedButton(
                     onPressed: () => model.open(id, replay: true),
                     child: const Text('Replay'),
                   ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    id.mode == PlayMode.levels ? 'Return to Levels' : 'Back',
+                  ),
+                ),
               ],
             ),
           ],

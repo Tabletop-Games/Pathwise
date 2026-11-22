@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -137,11 +138,24 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
                       route: path,
                       hint: model.hintCell,
                       next: model.nextCheckpoint,
-                      pointer: _pointerPosition,
                       complete: model.complete,
                     ),
                   ),
                 ),
+                if (!model.complete)
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _PointerPainter(
+                        puzzle: widget.puzzle,
+                        color: widget.palette.route,
+                        validCells: widget.puzzle.neighbors[path.last]
+                            .where(model.canStep)
+                            .toSet(),
+                        tip: path.last,
+                        pointer: _pointerPosition,
+                      ),
+                    ),
+                  ),
                 for (var cell = 0; cell < widget.puzzle.area; cell++)
                   Positioned(
                     left: (cell % _size) * side,
@@ -191,16 +205,15 @@ class _BoardPainter extends CustomPainter {
     required this.route,
     required this.hint,
     required this.next,
-    required this.pointer,
     required this.complete,
-  }) : super(repaint: pointer);
+  }) : visited = route.toSet();
 
   final Puzzle puzzle;
   final BoardPalette palette;
   final List<int> route;
   final int? hint;
   final int next;
-  final ValueNotifier<Offset?> pointer;
+  final Set<int> visited;
   final bool complete;
 
   Offset _center(int cell) =>
@@ -219,7 +232,7 @@ class _BoardPainter extends CustomPainter {
         Rect.fromCenter(center: _center(cell), width: .94, height: .94),
         const Radius.circular(.17),
       );
-      fill.color = route.contains(cell) ? palette.covered : palette.tile;
+      fill.color = visited.contains(cell) ? palette.covered : palette.tile;
       canvas.drawRRect(tile, fill);
     }
 
@@ -239,29 +252,6 @@ class _BoardPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke,
     );
-    if (pointer.value case final Offset position when !complete) {
-      final delta = position - tip;
-      if (delta.distance <= .85) {
-        final extension = delta.dx.abs() > delta.dy.abs()
-            ? Offset(delta.dx.clamp(-.45, .45), 0)
-            : Offset(0, delta.dy.clamp(-.45, .45));
-        final previewCell =
-            route.last +
-            (extension.dx != 0
-                ? extension.dx.sign.toInt()
-                : extension.dy.sign.toInt() * puzzle.size);
-        if (_canPreview(previewCell)) {
-          canvas.drawLine(
-            tip,
-            tip + extension,
-            Paint()
-              ..color = palette.route.withValues(alpha: .65)
-              ..strokeWidth = .19
-              ..strokeCap = StrokeCap.round,
-          );
-        }
-      }
-    }
     if (hint case final cell?) {
       final point = _center(cell);
       final distance = point - tip;
@@ -276,13 +266,13 @@ class _BoardPainter extends CustomPainter {
     }
     for (final (index, cell) in puzzle.checkpoints.indexed) {
       final number = index + 1;
-      final visited = route.contains(cell);
+      final isVisited = visited.contains(cell);
       final position = _center(cell);
       final highlighted = cell == hint || (!complete && cell == route.last);
       final pending = number == next && !highlighted;
       fill.color = highlighted
           ? palette.accent
-          : (visited ? palette.route : palette.surface);
+          : (isVisited ? palette.route : palette.surface);
       canvas.drawCircle(position, .275, fill);
       if (pending) {
         canvas.drawCircle(
@@ -303,7 +293,7 @@ class _BoardPainter extends CustomPainter {
             fontWeight: FontWeight.w800,
             color: highlighted
                 ? palette.onAccent
-                : (visited ? palette.onRoute : palette.ink),
+                : (isVisited ? palette.onRoute : palette.ink),
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -322,11 +312,6 @@ class _BoardPainter extends CustomPainter {
     canvas.restore();
   }
 
-  bool _canPreview(int cell) =>
-      puzzle.neighbors[route.last].contains(cell) &&
-      !route.contains(cell) &&
-      puzzle.canExtend(route.last, cell, route.length, next);
-
   @override
   bool shouldRepaint(_BoardPainter oldDelegate) =>
       oldDelegate.puzzle != puzzle ||
@@ -335,4 +320,57 @@ class _BoardPainter extends CustomPainter {
       oldDelegate.hint != hint ||
       oldDelegate.complete != complete ||
       !identical(oldDelegate.route, route);
+}
+
+/// Pointer motion between accepted cells only repaints this light overlay.
+class _PointerPainter extends CustomPainter {
+  _PointerPainter({
+    required this.puzzle,
+    required this.color,
+    required this.validCells,
+    required this.tip,
+    required this.pointer,
+  }) : super(repaint: pointer);
+
+  final Puzzle puzzle;
+  final Color color;
+  final Set<int> validCells;
+  final int tip;
+  final ValueNotifier<Offset?> pointer;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final position = pointer.value;
+    if (position == null) return;
+    final center = Offset(tip % puzzle.size + .5, tip ~/ puzzle.size + .5);
+    final delta = position - center;
+    if (delta.distance > .85) return;
+    final extension = delta.dx.abs() > delta.dy.abs()
+        ? Offset(delta.dx.clamp(-.49, .49), 0)
+        : Offset(0, delta.dy.clamp(-.49, .49));
+    final neighbor =
+        tip +
+        (extension.dx != 0
+            ? extension.dx.sign.toInt()
+            : extension.dy.sign.toInt() * puzzle.size);
+    final radius = puzzle.numbers[tip] == 0 ? .16 : .275;
+    if (!validCells.contains(neighbor) || extension.distance <= radius) return;
+    final start = center + extension * (radius / extension.distance);
+    final side = size.width / puzzle.size;
+    canvas.drawLine(
+      start * side,
+      (center + extension) * side,
+      Paint()
+        ..color = color.withValues(alpha: .65)
+        ..strokeWidth = .17 * side
+        ..strokeCap = StrokeCap.butt,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PointerPainter oldDelegate) =>
+      oldDelegate.puzzle != puzzle ||
+      oldDelegate.color != color ||
+      oldDelegate.tip != tip ||
+      !setEquals(oldDelegate.validCells, validCells);
 }

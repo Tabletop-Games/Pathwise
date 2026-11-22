@@ -157,7 +157,7 @@ void main() {
       final pending = <Completer<VerifiedPuzzle>>[];
       final app = AppModel(
         storage: store,
-        snapshot: {},
+        snapshot: {'highestUnlocked': 2},
         loader: (_) {
           final completion = Completer<VerifiedPuzzle>();
           pending.add(completion);

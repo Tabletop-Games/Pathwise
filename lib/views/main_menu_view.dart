@@ -1,12 +1,15 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
+import 'levels_view.dart';
 import 'puzzle_view.dart';
 import 'settings_view.dart';
+import 'store_view.dart';
 
 Future<void> openPuzzle(
   BuildContext context,
@@ -14,10 +17,22 @@ Future<void> openPuzzle(
   bool replay = false,
 }) async {
   final model = context.read<AppModel>();
+  if (model.activeId != null ||
+      (id.mode == PlayMode.levels && !model.canPlayLevel(id.level)))
+    return;
+  final ads = context.read<AdService>();
   model.open(id, replay: replay);
   await Navigator.of(context)
       .push<void>(MaterialPageRoute(builder: (_) => const PuzzleView()));
+  final finished = model.completedThisVisit;
   model.close();
+  if (finished && context.mounted) {
+    ads.afterCompletedExit(
+      canPresent:
+          ModalRoute.isCurrentOf(context) == true &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    );
+  }
 }
 
 class MainMenuView extends StatelessWidget {
@@ -25,7 +40,20 @@ class MainMenuView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final model = context.watch<AppModel>();
+    context.select(
+      (AppModel model) => (
+        model.theme,
+        model.daily.key,
+        model.highestUnlocked,
+        model.levelsSolved,
+        model.endless.key,
+        model.coinBalance,
+        model.storageError,
+        model.result(model.daily),
+        model.activeId == null,
+      ),
+    );
+    final model = context.read<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
     final daily = model.daily;
     final result = model.result(daily);
@@ -42,6 +70,17 @@ class MainMenuView extends StatelessWidget {
                   children: [
                     BrandMark(background: palette.route, ink: palette.onRoute),
                     const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const StoreView()),
+                      ),
+                      icon: const Icon(Icons.toll_rounded),
+                      label: Text('${model.coinBalance}'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(50, 48),
+                      ),
+                    ),
                     IconButton(
                       tooltip: 'Statistics',
                       onPressed: () => Navigator.push<void>(
@@ -99,7 +138,8 @@ class MainMenuView extends StatelessWidget {
                   palette: palette,
                   icon: Icons.layers_outlined,
                   title: 'Levels',
-                  subtitle: '${model.levelsSolved} of $levelCount solved',
+                  subtitle:
+                      'Level ${model.highestUnlocked} · ${model.levelsSolved} solved',
                   onTap: () => Navigator.push<void>(
                     context,
                     MaterialPageRoute(builder: (_) => const LevelsView()),
@@ -231,50 +271,4 @@ class _ModeTile extends StatelessWidget {
       onTap: onTap,
     ),
   );
-}
-
-class LevelsView extends StatelessWidget {
-  const LevelsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final model = context.watch<AppModel>();
-    final palette = BoardPalette.palettes[model.theme]!;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Levels')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 530),
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(18, 6, 18, 22),
-              itemCount: levelCount,
-              itemBuilder: (context, index) {
-                final id = PuzzleId.level(index + 1);
-                final result = model.result(id);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _ModeTile(
-                    palette: palette,
-                    icon: result != null
-                        ? Icons.check_rounded
-                        : Icons.grid_view_rounded,
-                    title: id.title,
-                    subtitle: result != null
-                        ? '${id.size} × ${id.size} · ${formatTime(Duration(milliseconds: result.milliseconds))}'
-                        : '${id.size} × ${id.size}${model.hasAttempt(id) ? ' · In progress' : ''}',
-                    onTap: () => openPuzzle(
-                      context,
-                      id,
-                      replay: result != null && !model.hasAttempt(id),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -1,7 +1,13 @@
 enum PathwiseTheme {
   field('Field'),
   blackwater('Blackwater'),
-  terracotta('Terracotta');
+  terracotta('Terracotta'),
+  forestMint('Forest Mint'),
+  midnightSlate('Midnight Slate'),
+  royalVelvet('Royal Velvet'),
+  warmWalnut('Warm Walnut'),
+  glacier('Winter Glacier'),
+  oceanicBreeze('Oceanic Breeze');
 
   const PathwiseTheme(this.label);
   final String label;
