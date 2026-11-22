@@ -41,3 +41,25 @@ Twenty-five warmed samples per level on the verification host using the Dart 3.1
 | 1,000,000 | 7×7 | 11 | 11.64 | 11.92 |
 
 These are representative host samples. A candidate gets an 18,000-node solver budget and the largest board tries at most 47 removals. If removing a clue cannot be certified, the previous certified layout is retained.
+
+## Verified release
+
+A clean dependency resolution, formatting, and static analysis passed. The Flutter suite passed 29 tests and the verifier suite passed three. A running verifier without deployment configuration returned HTTP 503 from readiness. The Flutter UI tests exercised fast drag, retraction, level paging, completion navigation, previews, and disabled monetization. No emulator or Android device was available. Cold startup, memory, frame pacing, and a minified Android runtime launch were unmeasured.
+
+Both build artifacts were signed with a local verification key. APK signature and 16 KB native alignment passed. Google's bundletool validated the AAB. The package reported version 1.1.0/code 2, minimum API 24 and target API 36.
+
+| Release artifact | v1.0 bytes | v1.1 bytes | Change |
+| --- | ---: | ---: | ---: |
+| Universal APK | 48,367,164 | 51,775,888 | +7.0% |
+| AAB with symbol metadata | 48,617,824 | 54,362,224 | +11.8% |
+
+The comparison is between release builds of different feature sets. It is not a same-version shrinking A/B test. The release dependency tree resolved Google Mobile Ads 25.5.0 and Play Billing 9.1.0. Flutter reduced the icon font from 1,645,184 to 4,568 bytes.
+
+The mapping header identified R8 9.3.16. R8 produced an obfuscation map and a nonempty removal report. Its resource report marked 1,209 entries unreachable. The shrunk resource intermediates were produced and an unused share-resource XML was absent from the APK. The mapping retained Flutter's `GeneratedPluginRegistrant`, Play Billing and Mobile Ads plugins. The App Bundle contains three native ABI symbol tables and the ProGuard map. The APK contains no Chess assets or Stockfish.
+
+| Verification artifact | SHA-256 |
+| --- | --- |
+| APK | `ecd16cd7c92543a8192c61678efd63d4dab85d9811e17ffc71443f5a4a65c81d` |
+| AAB | `2f867772b9e9600659f3bf2a4dbe1f968a22a646b99b94ad8d7206eb242ff2b5` |
+
+Live Play purchase, unbacked cross-device recovery, and AdMob consent and delivery require production or license-test configuration. Production signing used by Tabletop Games and any Play upload remain publisher actions.
