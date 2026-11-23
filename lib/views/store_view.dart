@@ -109,7 +109,7 @@ class _StoreViewState extends State<StoreView> {
                         !model.canEarnAdBonus
                             ? 'Daily limit reached'
                             : ads.message ??
-                                  '${economy.rewardedAdsPerDay - model.adsToday} rewards left today',
+                                  '${model.adsToday} of ${economy.rewardedAdsPerDay} watched today',
                       ),
                       trailing: TextButton(
                         onPressed: !model.canEarnAdBonus

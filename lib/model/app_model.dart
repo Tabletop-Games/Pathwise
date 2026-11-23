@@ -155,6 +155,25 @@ class AppModel extends ChangeNotifier {
               as int? ??
           0,
     );
+    if (snapshot['coinAdDays'] is Map) {
+      for (final event in _map(snapshot['coinAdDays']).entries) {
+        if (event.value is String)
+          _coinAdDays[event.key] = event.value as String;
+      }
+    } else {
+      for (final entry in _wallet.history.where(
+        (entry) => entry.id.startsWith('ad/'),
+      )) {
+        _coinAdDays[entry.id.substring(3)] = dayKey(entry.date.toLocal());
+      }
+    }
+    for (final date in [
+      ..._coinAdDays.values,
+      ..._hintAdDays.values,
+      ..._boostAdDays.values,
+    ]) {
+      _markRewardDay(date);
+    }
     _restoreRetiredProgress(snapshot);
     _refundCrateUpgrades();
     _owned.addAll(
@@ -505,6 +524,7 @@ class AppModel extends ChangeNotifier {
   bool canEarnBoostAd(Boost item) =>
       !_disposed &&
       !storageError &&
+      _rewardDayAvailable &&
       (item == Boost.doubleTen &&
               boostAdsToday(item) < economy.doubleBoostAdsPerDay ||
           item == Boost.tripleFifteen &&
@@ -514,6 +534,7 @@ class AppModel extends ChangeNotifier {
   Future<bool> grantBoostAd(Boost item, String event) async {
     if (!canEarnBoostAd(item) || !_hintEvents.add(event)) return false;
     _boostAdDays['${item.name}/$event'] = todayKey;
+    _markRewardDay(todayKey);
     progression.inventory.update(
       item.name,
       (count) => count + 1,
@@ -693,7 +714,10 @@ class AppModel extends ChangeNotifier {
   int get hintAdsToday =>
       _hintAdDays.values.where((day) => day == dayKey(_today())).length;
   bool get canEarnHintAd =>
-      !_disposed && !storageError && hintAdsToday < economy.hintAdsPerDay;
+      !_disposed &&
+      !storageError &&
+      _rewardDayAvailable &&
+      hintAdsToday < economy.hintAdsPerDay;
 
   Future<bool> buyHint() async {
     if (_disposed ||
@@ -713,7 +737,8 @@ class AppModel extends ChangeNotifier {
 
   Future<bool> grantHintAd(String event) async {
     if (!canEarnHintAd || !_hintEvents.add(event)) return false;
-    _hintAdDays[event] = dayKey(_today());
+    _hintAdDays[event] = todayKey;
+    _markRewardDay(todayKey);
     _hintBalance++;
     notifyListeners();
     return flush();
@@ -1078,15 +1103,22 @@ class AppModel extends ChangeNotifier {
     return saved;
   }
 
-  int get adsToday => _wallet.history
-      .where(
-        (tx) =>
-            tx.id.startsWith('ad/') &&
-            dayKey(tx.date.toLocal()) == dayKey(_today()),
-      )
-      .length;
+  final _coinAdDays = <String, String>{};
+  String? _lastRewardedDay;
+  bool get _rewardDayAvailable =>
+      _lastRewardedDay == null || todayKey.compareTo(_lastRewardedDay!) >= 0;
+
+  void _markRewardDay(String day) {
+    if (_lastRewardedDay == null || day.compareTo(_lastRewardedDay!) > 0) {
+      _lastRewardedDay = day;
+    }
+  }
+
+  int get adsToday => _coinAdDays.values.where((day) => day == todayKey).length;
   bool get canEarnAdBonus =>
-      !storageError && adsToday < economy.rewardedAdsPerDay;
+      !storageError &&
+      _rewardDayAvailable &&
+      adsToday < economy.rewardedAdsPerDay;
 
   Future<bool> grantAdBonus(String id) async {
     if (_disposed || !canEarnAdBonus) return false;
@@ -1102,6 +1134,8 @@ class AppModel extends ChangeNotifier {
     )) {
       return false;
     }
+    _coinAdDays[id] = dayKey(now);
+    _markRewardDay(dayKey(now));
     if (earnsMilestone) {
       _wallet.add(
         milestone,
@@ -1653,6 +1687,7 @@ class AppModel extends ChangeNotifier {
       'hintBalance': _hintBalance,
       'hintPurchaseSerial': _hintPurchaseSerial,
       'hintAdDays': _hintAdDays,
+      'coinAdDays': _coinAdDays,
       'boostAdDays': _boostAdDays,
       'hintEvents': _hintEvents.toList(),
       'attack': attack?.toJson(),

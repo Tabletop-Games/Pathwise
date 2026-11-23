@@ -213,6 +213,26 @@ void main() {
     model.dispose();
   });
 
+  test('reward days survive restart and reject rollback', () async {
+    var now = DateTime(2026, 11, 23, 23, 59);
+    final store = MemoryStorage();
+    AppModel launch(Map<String, dynamic> snapshot) =>
+        AppModel(storage: store, snapshot: snapshot, today: () => now);
+    var model = launch({});
+    expect(await model.grantAdBonus('before-midnight'), true);
+    await model.flush();
+    model.dispose();
+    model = launch(await store.load());
+    expect(model.adsToday, 1);
+    now = DateTime(2026, 11, 24);
+    expect(model.adsToday, 0);
+    expect(await model.grantAdBonus('after-midnight'), true);
+    now = DateTime(2026, 11, 23);
+    expect(await model.grantAdBonus('rollback'), false);
+    expect(await model.grantHintAd('rollback-hint'), false);
+    model.dispose();
+  });
+
   test('billing outcomes are fail closed and finalize after verification and durable save', () async {
     final calls = <String>[];
     Future<BillingOutcome> process(
