@@ -11,6 +11,9 @@ import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
 void main() {
   testWidgets('launch offers an unspent spin once per session', (tester) async {
+    await tester.runAsync(
+      () => rootBundle.loadString('backend/fortune-prizes.json'),
+    );
     final store = MemoryStorage();
     AppModel model(Map<String, dynamic> snapshot) => AppModel(
       storage: store,
