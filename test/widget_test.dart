@@ -3,11 +3,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
+import '../lib/views/fortune_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
 void main() {
+  testWidgets('launch offers an unspent spin once per session', (tester) async {
+    final store = MemoryStorage();
+    AppModel model(Map<String, dynamic> snapshot) => AppModel(
+      storage: store,
+      snapshot: snapshot,
+      bootTime: () => (boot: 1, milliseconds: 500),
+    );
+    Future<void> launch(AppModel player) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: player,
+          child: PathwiseApp(clock: AttackClock()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final player = model({});
+    await launch(player);
+    expect(find.byType(FortuneView), findsOneWidget);
+    expect(player.coinBalance, 40);
+    await tester.pageBack();
+    await tester.pump(const Duration(milliseconds: 400));
+    player.setHaptics(false);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(FortuneView), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    player.dispose();
+
+    final restarted = model({});
+    await launch(restarted);
+    expect(find.byType(FortuneView), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    restarted.dispose();
+
+    final coolingDown = model({
+      'fortune': {'boot': 1, 'at': 500},
+    });
+    await launch(coolingDown);
+    expect(find.byType(FortuneView), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    coolingDown.dispose();
+  });
+
   testWidgets('fast drag, reverse drag, Undo, Clear, Hint and completion', (
     tester,
   ) async {

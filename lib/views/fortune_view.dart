@@ -147,13 +147,6 @@ class _FortuneViewState extends State<FortuneView> {
     if (reduced) haptic.complete();
   }
 
-  String _countdown(int wait) {
-    final seconds = (wait + 999) ~/ 1000;
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds ~/ 60) % 60;
-    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m ${seconds % 60}s';
-  }
-
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
@@ -279,7 +272,7 @@ class _FortuneViewState extends State<FortuneView> {
                       icon: const Icon(Icons.rotate_right_rounded),
                       label: Text(
                         wait > 0
-                            ? 'Next free spin in ${_countdown(wait)}'
+                            ? 'Next free spin in ${fortuneCountdown(wait)}'
                             : 'Free spin',
                       ),
                     ),
@@ -420,4 +413,11 @@ class _PointerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PointerPainter oldDelegate) => false;
+}
+
+String fortuneCountdown(int wait) {
+  final seconds = (wait + 999) ~/ 1000;
+  final hours = seconds ~/ 3600;
+  final minutes = (seconds ~/ 60) % 60;
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m ${seconds % 60}s';
 }

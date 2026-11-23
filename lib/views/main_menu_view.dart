@@ -64,8 +64,63 @@ Future<void> openPuzzle(
   }
 }
 
-class MainMenuView extends StatelessWidget {
-  const MainMenuView({super.key});
+class MainMenuView extends StatefulWidget {
+  const MainMenuView({this.offerDailySpin = false, super.key});
+  final bool offerDailySpin;
+
+  @override
+  State<MainMenuView> createState() => _MainMenuViewState();
+}
+
+class _MainMenuViewState extends State<MainMenuView>
+    with WidgetsBindingObserver {
+  Timer? _wheelTicker;
+  bool _launchChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkLaunch());
+    _wheelTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && ModalRoute.isCurrentOf(context) == true) setState(() {});
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_launchChecked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkLaunch());
+    }
+  }
+
+  void _checkLaunch() {
+    if (!mounted ||
+        _launchChecked ||
+        !widget.offerDailySpin ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed)
+      return;
+    _launchChecked = true;
+    final model = context.read<AppModel>();
+    if (ModalRoute.isCurrentOf(context) != true ||
+        model.activeId != null ||
+        model.attack?.finished == false ||
+        model.storageError ||
+        model.fortuneWait != 0)
+      return;
+    _openWheel();
+  }
+
+  void _openWheel() =>
+      Navigator.of(context)
+          .push<void>(MaterialPageRoute(builder: (_) => const FortuneView()));
+
+  @override
+  void dispose() {
+    _wheelTicker?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,17 +250,20 @@ class MainMenuView extends StatelessWidget {
                   const CrateAccess(),
                   const SizedBox(height: 12),
                 ],
-                const ProgressionEntrances(),
-                Align(
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.push<void>(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FortuneView()),
-                    ),
-                    icon: const Icon(Icons.auto_awesome_outlined),
-                    label: const Text('Fortune Wheel'),
-                  ),
+                _ModeTile(
+                  palette: palette,
+                  icon: Icons.cyclone_rounded,
+                  title: 'Fortune Wheel',
+                  featured: model.fortuneWait == 0 && !model.storageError,
+                  subtitle: model.fortuneWait == 0 && !model.storageError
+                      ? 'Free spin ready'
+                      : model.fortuneWait > 0
+                      ? 'Next free spin in ${fortuneCountdown(model.fortuneWait)}'
+                      : 'Free spin temporarily unavailable',
+                  onTap: _openWheel,
                 ),
+                const SizedBox(height: 10),
+                const ProgressionEntrances(),
                 if (model.storageError)
                   const Padding(
                     padding: EdgeInsets.only(top: 14),
@@ -296,16 +354,18 @@ class _ModeTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.featured = false,
   });
 
   final BoardPalette palette;
   final IconData icon;
   final String title, subtitle;
   final VoidCallback onTap;
+  final bool featured;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: palette.surface,
+    color: featured ? palette.covered : palette.surface,
     borderRadius: BorderRadius.circular(20),
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

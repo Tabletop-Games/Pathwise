@@ -9,14 +9,6 @@ import '../model/economy_activity.dart';
 import '../model/progression.dart';
 import 'share_view.dart';
 
-const _navy = Color(0xFF102437);
-const _panel = Color(0xFF1B3346);
-const _mint = Color(0xFFB6F3D6);
-const _ice = Color(0xFFEDF7F6);
-const _muted = Color(0xFFB6CCD4);
-const _teal = Color(0xFF1D4D51);
-const _gold = Color(0xFFFFD793);
-
 class ProgressionEntrances extends StatelessWidget {
   const ProgressionEntrances({super.key});
 
@@ -30,9 +22,14 @@ class ProgressionEntrances extends StatelessWidget {
       0,
       (sum, item) => sum + (model.progression.inventory[item.name] ?? 0),
     );
+    final active = Boost.values
+        .where(
+          (boost) =>
+              model.progression.remaining(boost, model.progressionTime) > 0,
+        )
+        .length;
     Widget entry({required bool boosts}) {
       return _Panel(
-        end: boosts ? _teal : _panel,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () => Navigator.of(context).push<void>(
@@ -45,13 +42,15 @@ class ProgressionEntrances extends StatelessWidget {
               children: [
                 Icon(
                   boosts ? Icons.bolt_rounded : Icons.hub_outlined,
-                  color: boosts ? _gold : _mint,
+                  color: boosts
+                      ? Theme.of(context).colorScheme.tertiary
+                      : Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   boosts ? 'Boosts' : 'Research',
-                  style: const TextStyle(
-                    color: _ice,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                     fontSize: 19,
                   ),
@@ -59,11 +58,20 @@ class ProgressionEntrances extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   boosts
-                      ? (owned == 0 ? 'Timed effects' : '$owned in reserve')
+                      ? (active > 0
+                            ? '$active active · $owned in reserve'
+                            : owned == 0
+                            ? 'Timed effects'
+                            : '$owned in reserve')
                       : (researched == 0
                             ? 'Permanent upgrades'
+                            : researched == 1
+                            ? '1 upgrade begun'
                             : '$researched upgrades begun'),
-                  style: const TextStyle(color: _muted, height: 1.3),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -85,13 +93,15 @@ class ProgressionEntrances extends StatelessWidget {
             ],
           );
         }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: entry(boosts: false)),
-            const SizedBox(width: 10),
-            Expanded(child: entry(boosts: true)),
-          ],
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: entry(boosts: false)),
+              const SizedBox(width: 10),
+              Expanded(child: entry(boosts: true)),
+            ],
+          ),
         );
       },
     );
@@ -215,10 +225,10 @@ class _ProgressionViewState extends State<ProgressionView> {
         .length;
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: _navy,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: _navy,
-        foregroundColor: _ice,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         title: Text(widget.boosts ? 'Boosts' : 'Research'),
       ),
       body: SafeArea(
@@ -230,7 +240,6 @@ class _ProgressionViewState extends State<ProgressionView> {
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
               children: [
                 _Panel(
-                  end: widget.boosts ? _teal : _panel,
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -240,14 +249,16 @@ class _ProgressionViewState extends State<ProgressionView> {
                           widget.boosts
                               ? Icons.bolt_rounded
                               : Icons.hub_outlined,
-                          color: widget.boosts ? _gold : _mint,
+                          color: widget.boosts
+                              ? Theme.of(context).colorScheme.tertiary
+                              : Theme.of(context).colorScheme.primary,
                           size: 35,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           widget.boosts ? 'Boost reserve' : 'Research lab',
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            color: _ice,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -265,7 +276,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                         const SizedBox(height: 12),
                         _Detail(
                           '${model.coinBalance} coins available',
-                          color: _gold,
+                          color: Theme.of(context).colorScheme.tertiary,
                         ),
                       ],
                     ),
@@ -294,14 +305,20 @@ class _ProgressionViewState extends State<ProgressionView> {
                           avatar: Icon(
                             branch.icon,
                             size: 17,
-                            color: _branch == branch ? _navy : _mint,
+                            color: _branch == branch
+                                ? Theme.of(context).colorScheme.surface
+                                : Theme.of(context).colorScheme.primary,
                           ),
                           labelStyle: TextStyle(
-                            color: _branch == branch ? _navy : _ice,
+                            color: _branch == branch
+                                ? Theme.of(context).colorScheme.surface
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                           showCheckmark: false,
-                          backgroundColor: _panel,
-                          selectedColor: _mint,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHigh,
+                          selectedColor: Theme.of(context).colorScheme.primary,
                           selected: _branch == branch,
                           onSelected: (_) => setState(() => _branch = branch),
                         ),
@@ -421,26 +438,14 @@ class _ProgressionViewState extends State<ProgressionView> {
 }
 
 class _Panel extends StatelessWidget {
-  const _Panel({required this.child, this.end = _panel});
+  const _Panel({required this.child});
   final Widget child;
-  final Color end;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [_navy, end],
-        begin: Alignment.bottomLeft,
-        end: Alignment.topRight,
-      ),
-      border: Border.all(color: const Color(0xFF446273)),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(20),
-      child: child,
-    ),
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+    borderRadius: BorderRadius.circular(20),
+    child: child,
   );
 }
 
@@ -473,30 +478,35 @@ class _Upgrade extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: _mint),
+                Icon(icon, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(color: _ice, fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            _Detail(state, color: _mint),
+            _Detail(state, color: Theme.of(context).colorScheme.primary),
             if (progress case final value?)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: _Meter(value),
               ),
-            _Detail(effect, color: _ice),
+            _Detail(effect, color: Theme.of(context).colorScheme.onSurface),
             _Detail(description),
             if (availability case final detail?)
               Padding(
                 padding: const EdgeInsets.only(top: 5),
-                child: _Detail(detail, color: _gold),
+                child: _Detail(
+                  detail,
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
               ),
             if (action != null)
               Padding(padding: const EdgeInsets.only(top: 10), child: action!),
@@ -508,13 +518,17 @@ class _Upgrade extends StatelessWidget {
 }
 
 class _Detail extends StatelessWidget {
-  const _Detail(this.text, {this.color = _muted});
+  const _Detail(this.text, {this.color});
   final String text;
-  final Color color;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) =>
-      Text(text, style: TextStyle(color: color, height: 1.35));
+  Widget build(BuildContext context) => Text(
+    text,
+    style: TextStyle(
+      color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+  );
 }
 
 class _Heading extends StatelessWidget {
@@ -526,7 +540,8 @@ class _Heading extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 8, top: 4),
     child: Text(
       text,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: _ice),
+      style: Theme.of(context).textTheme.titleLarge
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurface),
     ),
   );
 }
@@ -544,8 +559,8 @@ class _Meter extends StatelessWidget {
     builder: (_, amount, _) => LinearProgressIndicator(
       value: amount,
       minHeight: 5,
-      color: _mint,
-      backgroundColor: const Color(0xFF446273),
+      color: Theme.of(context).colorScheme.primary,
+      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
       borderRadius: BorderRadius.circular(5),
     ),
   );
@@ -559,10 +574,12 @@ class _PrimaryAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FilledButton(
     style: FilledButton.styleFrom(
-      foregroundColor: _navy,
-      backgroundColor: _mint,
-      disabledForegroundColor: _muted,
-      disabledBackgroundColor: const Color(0xFF294659),
+      foregroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      disabledBackgroundColor: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest,
     ),
     onPressed: onPressed,
     child: Text(label),
@@ -577,9 +594,9 @@ class _SecondaryAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OutlinedButton(
     style: OutlinedButton.styleFrom(
-      foregroundColor: _mint,
-      disabledForegroundColor: _muted,
-      side: const BorderSide(color: Color(0xFF718D99)),
+      foregroundColor: Theme.of(context).colorScheme.primary,
+      disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      side: BorderSide(color: Theme.of(context).colorScheme.outline),
     ),
     onPressed: onPressed,
     child: Text(label),
