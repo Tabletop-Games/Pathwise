@@ -30,6 +30,8 @@ void main() {
       BoardPalette.palettes[theme]!.canvas,
     );
     startup.complete(model);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 750));
     await tester.pumpAndSettle();
     expect(splash, findsNothing);
     expect(find.byType(PathwiseApp), findsOneWidget);

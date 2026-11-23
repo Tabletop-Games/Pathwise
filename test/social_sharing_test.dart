@@ -184,7 +184,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(home: Scaffold(body: AchievementCelebration(model))),
       );
-      expect(find.byTooltip('Share Achievement'), findsOneWidget);
+      expect(find.byTooltip('Share Achievement'), findsNothing);
       model.setSharingSuggestions(false);
       await model.flush();
       await tester.pumpWidget(

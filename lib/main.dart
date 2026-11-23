@@ -13,6 +13,7 @@ import 'logic/game_state_storage.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
 import 'model/user_preferences.dart';
+import 'views/components/brand_mark.dart';
 import 'views/main_menu_view.dart';
 
 void main() async {
@@ -88,9 +89,13 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
   @override
   void initState() {
     super.initState();
-    _startup = WidgetsBinding.instance.endOfFrame.then(
-      (_) => widget.initialize(),
-    );
+    _startup = WidgetsBinding.instance.endOfFrame.then((_) async {
+      final values = await Future.wait([
+        widget.initialize(),
+        Future<void>.delayed(const Duration(milliseconds: 700)),
+      ]);
+      return values.first as AppModel;
+    });
   }
 
   @override
@@ -98,30 +103,40 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
     return FutureBuilder<AppModel>(
       future: _startup,
       builder: (context, snapshot) {
-        if (snapshot.data case final model?) {
-          return ChangeNotifierProvider(
-            create: (_) => model,
-            child: PathwiseApp(clock: widget.clock, offerLevelOneDemo: true),
-          );
-        }
         final palette = BoardPalette.palettes[widget.theme]!;
-        return MaterialApp(
-          title: 'Pathwise',
-          debugShowCheckedModeBanner: false,
-          theme: palette.theme,
-          home: Scaffold(
-            key: const ValueKey('pathwise-splash'),
-            backgroundColor: palette.canvas,
-            body: Center(
-              child: Text(
-                'Pathwise',
-                style: palette.theme.textTheme.headlineMedium?.copyWith(
-                  color: palette.ink,
-                  fontWeight: FontWeight.w800,
+        final model = snapshot.data;
+        return AnimatedSwitcher(
+          duration: MediaQuery.maybeDisableAnimationsOf(context) == true
+              ? Duration.zero
+              : const Duration(milliseconds: 450),
+          child: model != null
+              ? ChangeNotifierProvider(
+                  key: const ValueKey('pathwise-app'),
+                  create: (_) => model,
+                  child: PathwiseApp(
+                    clock: widget.clock,
+                    offerLevelOneDemo: true,
+                  ),
+                )
+              : MaterialApp(
+                  key: const ValueKey('pathwise-loading'),
+                  title: 'Pathwise',
+                  debugShowCheckedModeBanner: false,
+                  theme: palette.theme,
+                  home: Scaffold(
+                    key: const ValueKey('pathwise-splash'),
+                    backgroundColor: palette.canvas,
+                    body: Center(
+                      child: SizedBox.square(
+                        dimension: 80,
+                        child: BrandMark(
+                          background: palette.route,
+                          ink: palette.onRoute,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
         );
       },
     );
