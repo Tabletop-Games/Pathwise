@@ -5,8 +5,6 @@ enum AchievementMetric {
   daily,
   attackFinished,
   attackScore,
-  trails,
-  perfectTrails,
   research,
   themes,
   crates,
@@ -215,69 +213,6 @@ const nativeAchievements = [
     hidden: true,
   ),
   NativeAchievement(
-    'firstExpedition',
-    'First Expedition',
-    'Qualify on your first Expedition trail.',
-    AchievementMetric.trails,
-    1,
-  ),
-  NativeAchievement(
-    'trailExplorer',
-    'Trail Explorer',
-    'Qualify on 10 Expedition trails.',
-    AchievementMetric.trails,
-    10,
-    incremental: true,
-  ),
-  NativeAchievement(
-    'trailVeteran',
-    'Trail Veteran',
-    'Qualify on 50 Expedition trails.',
-    AchievementMetric.trails,
-    50,
-    incremental: true,
-  ),
-  NativeAchievement(
-    'trailMaster',
-    'Trail Master',
-    'Qualify on 100 Expedition trails.',
-    AchievementMetric.trails,
-    100,
-    incremental: true,
-  ),
-  NativeAchievement(
-    'trailLegend',
-    'Trail Legend',
-    'Qualify on 500 Expedition trails.',
-    AchievementMetric.trails,
-    500,
-    incremental: true,
-  ),
-  NativeAchievement(
-    'beyondTheHorizon',
-    'Beyond the Horizon',
-    'Qualify on 1,000 Expedition trails.',
-    AchievementMetric.trails,
-    1000,
-    incremental: true,
-    hidden: true,
-  ),
-  NativeAchievement(
-    'fieldSpecialist',
-    'Field Specialist',
-    'Earn all four field marks on a first-time trail qualification.',
-    AchievementMetric.perfectTrails,
-    1,
-  ),
-  NativeAchievement(
-    'fieldPerfectionist',
-    'Field Perfectionist',
-    'Earn all four field marks on 25 first-time trail qualifications.',
-    AchievementMetric.perfectTrails,
-    25,
-    incremental: true,
-  ),
-  NativeAchievement(
     'firstInvestment',
     'First Investment',
     'Purchase your first Research rank.',
@@ -303,7 +238,7 @@ const nativeAchievements = [
   NativeAchievement(
     'themeCollector',
     'Theme Collector',
-    'Individually unlock 5 themes through the Vault or Expedition.',
+    'Individually unlock 5 themes through the Vault.',
     AchievementMetric.themes,
     5,
     incremental: true,
@@ -311,7 +246,7 @@ const nativeAchievements = [
   NativeAchievement(
     'styleMaster',
     'Style Master',
-    'Individually unlock 15 themes through the Vault or Expedition.',
+    'Individually unlock 15 themes through the Vault.',
     AchievementMetric.themes,
     15,
     incremental: true,
@@ -330,7 +265,6 @@ const nativeAchievements = [
 final class AchievementLedger {
   AchievementLedger(Map<String, dynamic> json)
     : precision = _count(json['precision']),
-      perfectTrails = _count(json['perfectTrails']),
       eligibleDailies = _count(json['eligibleDailies']),
       lastDaily = json['lastDaily'] is String
           ? json['lastDaily'] as String
@@ -355,7 +289,7 @@ final class AchievementLedger {
 
   static int _count(Object? value) => value is int && value > 0 ? value : 0;
 
-  int precision, perfectTrails, eligibleDailies;
+  int precision, eligibleDailies;
   String? lastDaily, owner;
   int dailyBoot, dailyTime;
   final confirmed = <String, Map<String, int>>{};
@@ -386,7 +320,6 @@ final class AchievementLedger {
 
   Map<String, Object?> toJson() => {
     'precision': precision,
-    'perfectTrails': perfectTrails,
     'eligibleDailies': eligibleDailies,
     'lastDaily': lastDaily,
     'dailyBoot': dailyBoot,

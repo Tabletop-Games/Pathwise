@@ -21,8 +21,6 @@ void main(List<String> args) {
       AchievementMetric.daily => 'daily',
       AchievementMetric.attackFinished ||
       AchievementMetric.attackScore => 'attack',
-      AchievementMetric.trails ||
-      AchievementMetric.perfectTrails => 'expedition',
       AchievementMetric.research => 'research',
       AchievementMetric.themes => 'themes',
       AchievementMetric.crates => 'crates',

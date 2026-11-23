@@ -22,11 +22,9 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Expedition'));
+    await tester.tap(find.text('Levels'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Start Foothills'), 200);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Start Foothills'));
+    await tester.tap(find.text('1').hitTestable());
     await tester.pumpAndSettle();
     final grid = find.byKey(const ValueKey('puzzle-grid'));
     final board = tester.getRect(grid);
@@ -72,62 +70,23 @@ void main() {
     await solution.up();
     await tester.pumpAndSettle();
     expect(find.text('Route complete'), findsOneWidget);
-    expect(find.text('Next stage'), findsOneWidget);
+    expect(find.text('Next level'), findsOneWidget);
     expect(model.complete, true);
     expect(model.solved, 1);
     expect(tester.takeException(), isNull);
 
-    await tester.ensureVisible(find.text('Next stage'));
-    await tester.tap(find.text('Next stage'));
+    await tester.ensureVisible(find.text('Next level'));
+    await tester.tap(find.text('Next level'));
     await tester.pumpAndSettle();
-    expect(find.text('Stage 2/10 · 0/4 field marks'), findsOneWidget);
+    expect(model.activeId?.level, 2);
     expect(model.path, [0]);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();
   });
 
-  testWidgets('Expedition wraps large trail numbers and opens indexed replay', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(320, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    tester.platformDispatcher.textScaleFactorTestValue = 1.4;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final model = AppModel(
-      storage: MemoryStorage(),
-      snapshot: {
-        'expeditionProgress': {
-          'next': 9007199254740991,
-          'claims': 0,
-          'stages': 0,
-          'clean': 0,
-          'qualifiedClean': 0,
-        },
-      },
-      loader: (_) async => fixture(),
-    );
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
-    );
-    await tester.scrollUntilVisible(find.text('Expedition'), 160);
-    await tester.tap(find.text('Expedition'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Trail 9007199254740991 ·'), findsOneWidget);
-    await tester.tap(find.byTooltip('Find a trail'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '100000');
-    await tester.pump();
-    await tester.tap(find.text('Show trail'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Trail 100000 ·'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-    model.dispose();
-  });
-
   testWidgets(
-    'Fortune Wheel exposes odds and an offline free spin without video',
+    'Fortune Wheel shows an offline free spin without video or odds',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 820));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -149,23 +108,146 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       await tester.pumpAndSettle();
-      final ad = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, 'Watch for a spin'),
-      );
-      expect(ad.onPressed, isNull);
-      expect(find.text('Prize odds'), findsOneWidget);
+      expect(find.textContaining('Watch for a spin'), findsNothing);
+      expect(find.text('Prize odds'), findsNothing);
       await tester.tap(find.text('Free spin'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
       expect(model.fortuneWait, greaterThan(0));
       expect(model.hintTank, 3);
-      expect(find.textContaining('Free in'), findsOneWidget);
+      expect(find.text('+${model.coinBalance - 40} coins'), findsOneWidget);
+      expect(find.text('${model.coinBalance} coins'), findsOneWidget);
+      expect(find.textContaining('Next free spin in'), findsOneWidget);
+      final balance = model.coinBalance;
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Fortune Wheel'), 150);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fortune Wheel'));
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Next free spin in'), findsOneWidget);
+      expect(model.coinBalance, balance);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       model.dispose();
     },
   );
+
+  for (final (screen, scale) in [
+    (const Size(320, 640), 1.5),
+    (const Size(390, 820), 1.0),
+    (const Size(600, 960), 1.25),
+  ]) {
+    testWidgets(
+      'progression and crate UI stay usable at ${screen.width}dp and ${scale}× text',
+      (tester) async {
+        await tester.binding.setSurfaceSize(screen);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final model = AppModel(
+          storage: MemoryStorage(),
+          snapshot: {
+            'progressionBoot': 1,
+            'progression': {
+              'serial': 2,
+              'crates': [
+                {'id': 'crate/1', 'rarity': 'rare', 'coins': 55},
+              ],
+              'inventory': {'doubleTen': 1},
+            },
+          },
+          bootTime: () => (boot: 1, milliseconds: 100),
+        )..setHaptics(false);
+        await tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: model,
+            child: const PathwiseApp(),
+          ),
+        );
+        await tester.scrollUntilVisible(find.text('Supply crate ready'), 170);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Supply crate ready'));
+        await tester.pumpAndSettle();
+        expect(find.text('Rare supply crate'), findsOneWidget);
+        await tester.tap(find.text('Open crate'));
+        await tester.pumpAndSettle();
+        expect(find.text('+55 coins from your supply crate'), findsOneWidget);
+        expect(model.coinBalance, 95);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(find.text('Research'), 170);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Research'));
+        await tester.pumpAndSettle();
+        expect(find.text('Research lab'), findsOneWidget);
+        final upgrade = find.text('Upgrade · 70 coins');
+        await tester.scrollUntilVisible(upgrade, 170);
+        await tester.pumpAndSettle();
+        await tester.tap(upgrade);
+        await tester.pumpAndSettle();
+        expect(find.text('Rank 1 / 10'), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(find.text('Boosts'), 170);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Boosts'));
+        await tester.pumpAndSettle();
+        expect(find.text('Boost reserve'), findsOneWidget);
+        final activate = find.text('Activate').first;
+        await tester.ensureVisible(activate);
+        await tester.pumpAndSettle();
+        await tester.tap(activate);
+        await tester.pumpAndSettle();
+        expect(find.text('10 min remaining'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await model.flush();
+        model.dispose();
+      },
+    );
+  }
+
+  testWidgets('retired features are absent on home, Stats and Vault', (
+    tester,
+  ) async {
+    final model = AppModel(storage: MemoryStorage(), snapshot: {});
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    void check() {
+      expect(
+        find.textContaining(RegExp(r'Expedition|Field Notes|Qualify on Trail')),
+        findsNothing,
+      );
+    }
+
+    await tester.scrollUntilVisible(find.text('Fortune Wheel'), 130);
+    await tester.pumpAndSettle();
+    check();
+    await tester.scrollUntilVisible(find.byTooltip('Statistics'), -200);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Statistics'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Pathwise Achievements'), 200);
+    check();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('40'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('High Pass'), 220);
+    expect(find.text('High Pass'), findsOneWidget);
+    check();
+    await tester.pumpWidget(const SizedBox.shrink());
+    model.dispose();
+  });
 
   testWidgets('extra hint dialog never offers coin payment to Premium', (
     tester,

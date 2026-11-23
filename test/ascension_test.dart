@@ -111,15 +111,23 @@ void main() {
     () {
       final progression = Progression({});
       expect(progression.crateOdds(0), [75, 18, 6, 1]);
-      expect(progression.considerCrate(100000, '2026-11-23', 99), false);
-      expect(progression.considerCrate(145000, '2026-11-23', 99), true);
-      expect(progression.crate!.rarity, CrateRarity.legendary);
-      expect(progression.crate!.coins, 150);
-      expect(progression.considerCrate(145001, '2026-11-23', 0), false);
       expect(
-        Progression(Map<String, dynamic>.from(progression.toJson())).crate,
-        progression.crate,
+        progression.considerCrate((boot: 1, milliseconds: 0), () => 99),
+        false,
       );
+      progression.accrueCrateTime(45000);
+      expect(
+        progression.considerCrate((boot: 1, milliseconds: 45000), () => 99),
+        true,
+      );
+      expect(progression.crates.single.rarity, CrateRarity.legendary);
+      expect(progression.crates.single.coins, 150);
+      progression.accrueCrateTime(150000);
+      expect(
+        progression.considerCrate((boot: 1, milliseconds: 195000), () => 0),
+        false,
+      );
+      expect(Progression(progression.toJson()).crates, progression.crates);
     },
   );
 }

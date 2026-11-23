@@ -71,18 +71,6 @@ final class ShareResult {
     'Think you can beat that?',
   );
 
-  factory ShareResult.expedition({
-    required int trail,
-    required int marks,
-    required Duration time,
-    required bool newBest,
-  }) => ShareResult._(
-    'Pathwise Expedition',
-    'Qualified on Trail $trail with $marks/4 field marks in ${_duration(time)}.'
-        '${newBest ? ' New personal best!' : ''}',
-    'How far can you go?',
-  );
-
   factory ShareResult.level({required int level, required int total}) =>
       ShareResult._(
         'Level $level cleared in Pathwise!',

@@ -24,14 +24,6 @@ public class MainActivity extends FlutterActivity {
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         super.configureFlutterEngine(engine);
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/storage").setMethodCallHandler((call, result) -> {
-            if (call.method.equals("filesDirectory")) {
-                result.success(getFilesDir().getAbsolutePath());
-            } else {
-                result.notImplemented();
-            }
-        });
-        new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
                 "games.tabletop.pathwise/games").setMethodCallHandler((call, result) -> {
             if (getString(R.string.pathwise_games_project).equals("0")) {
                 result.error("games_disabled", "Play Games is disabled in this build.", null);

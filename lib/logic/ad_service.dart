@@ -296,6 +296,7 @@ class AdService extends ChangeNotifier {
     Future<bool> Function(String) reward, {
     bool Function()? canPresent,
     RewardPlacement placement = RewardPlacement.coins,
+    bool waitForReward = false,
   }) async {
     if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
@@ -328,13 +329,24 @@ class AdService extends ChangeNotifier {
     }
     _showing = ad;
     var granted = false;
+    final settled = waitForReward ? Completer<void>() : null;
+    void finishReward() {
+      if (settled != null && !settled.isCompleted) settled.complete();
+    }
+
     final id = List.generate(
       3,
       (_) => Random.secure().nextInt(1 << 32).toRadixString(16),
     ).join('-');
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (_) => _finished(ad),
-      onAdFailedToShowFullScreenContent: (_, _) => _finished(ad),
+      onAdDismissedFullScreenContent: (_) {
+        _finished(ad);
+        if (!granted) finishReward();
+      },
+      onAdFailedToShowFullScreenContent: (_, _) {
+        _finished(ad);
+        finishReward();
+      },
     );
     _report(null);
     unawaited(
@@ -343,27 +355,38 @@ class AdService extends ChangeNotifier {
             onUserEarnedReward: (_, _) async {
               if (granted || _disposed) return;
               granted = true;
-              if (!await _online() || _disposed) return;
-              final receipt = ticket == null
-                  ? id
-                  : await verifier!.confirm(
-                      placement,
-                      ticket.token,
-                      ticket.secret,
-                    );
-              if (receipt == null || _disposed) {
-                _report('Reward could not be verified.');
-                return;
+              try {
+                if (!await _online() || _disposed) return;
+                final receipt = ticket == null
+                    ? id
+                    : await verifier!.confirm(
+                        placement,
+                        ticket.token,
+                        ticket.secret,
+                      );
+                if (receipt == null || _disposed) {
+                  _report('Reward could not be verified.');
+                } else if (!await reward(receipt)) {
+                  _report('The video bonus could not be saved.');
+                }
+              } catch (_) {
+                _report('The video bonus could not be saved.');
+              } finally {
+                finishReward();
               }
-              unawaited(
-                reward(receipt).then((saved) {
-                  if (!saved) _report('The video bonus could not be saved.');
-                }),
-              );
             },
           )
-          .catchError((Object _) => _finished(ad)),
+          .catchError((Object _) {
+            _finished(ad);
+            finishReward();
+          }),
     );
+    if (settled != null) {
+      await settled.future.timeout(
+        const Duration(minutes: 3),
+        onTimeout: () {},
+      );
+    }
     return true;
   }
 

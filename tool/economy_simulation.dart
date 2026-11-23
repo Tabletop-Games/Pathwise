@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:math';
 
 import '../lib/model/economy.dart';
-import '../lib/model/field_notes.dart';
 import '../lib/model/fortune.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/product_catalog.dart';
@@ -95,11 +94,7 @@ final researchRanks = Research.values.fold(0, (sum, item) => sum + item.limit);
 final coinThemes =
     PathwiseTheme.values.where((item) => economy.themePrice(item) > 0).toList()
       ..sort((a, b) => economy.themePrice(a).compareTo(economy.themePrice(b)));
-final themeMilestones = PathwiseTheme.values
-    .where((theme) => theme.expeditionTrail != null)
-    .length;
-final startingOwned =
-    PathwiseTheme.values.length - coinThemes.length - themeMilestones;
+final startingOwned = PathwiseTheme.values.length - coinThemes.length;
 final catalog = FortuneCatalog(
   File('backend/fortune-prizes.json').readAsStringSync(),
 );
@@ -110,7 +105,6 @@ typedef Snapshot = ({
   int spent,
   int ranks,
   int themes,
-  int cosmetics,
   int minutes,
   Map<String, int> sources,
 });
@@ -129,22 +123,15 @@ class Player {
   final Random random;
   final bool ads, boosts;
   final progression = Progression({});
-  final notes = FieldNotes({});
   final owned = <PathwiseTheme>{};
   final sources = <String, int>{};
   final achievements = <Achievement>{};
   int coins, earned;
-  int spent = 0, activeMinutes = 0, level = 0, trail = 1, stage = 0;
-  int firstRank = 0, firstTheme = 0, build = 0, finished = 0, flawless = 0;
+  int spent = 0, activeMinutes = 0, level = 0;
+  int firstRank = 0, firstTheme = 0, build = 0, finished = 0;
   int streak = 0, sessions = 0, clean = 0, bestAttack = 0;
   int get ranks =>
       Research.values.fold(0, (sum, item) => sum + progression.rank(item));
-  int get cosmetics => profile.premium
-      ? themeMilestones
-      : PathwiseTheme.values
-            .where((theme) => (theme.expeditionTrail ?? trail) < trail)
-            .length;
-
   void credit(String source, int amount) {
     coins += amount;
     earned += amount;
@@ -156,21 +143,6 @@ class Player {
     spent += amount;
     coins -= amount;
     return true;
-  }
-
-  void note(int day, Set<NoteGoal> events) {
-    notes.observe(day, events);
-    for (final goal in [...FieldNotes.goals(day), null]) {
-      if (notes.claimable(goal, day)) {
-        notes.markClaimed(goal);
-        credit(
-          'objectives',
-          goal == null
-              ? FieldNotes.weeklyCoins
-              : FieldNotes.dailyCoins + progression.effect(Research.fieldwork),
-        );
-      }
-    }
   }
 
   void award(Achievement item, bool qualified) {
@@ -185,7 +157,6 @@ class Player {
       return;
     }
     sessions++;
-    final date = noteDay(DateTime.utc(2026, 11, 23)) + number - 1;
     activeMinutes += profile.minutes;
     final videos = ads ? profile.videos : 0;
     final wheelVideos = videos.clamp(0, 4);
@@ -196,13 +167,6 @@ class Player {
     for (var spin = 0; spin <= wheelVideos; spin++) {
       final prize = catalog.pick(random.nextInt(100));
       credit(spin == 0 ? 'free wheel' : 'wheel videos', prize.coins);
-      if (prize.boost case final item?) {
-        progression.inventory.update(
-          item.name,
-          (value) => value + 1,
-          ifAbsent: () => 1,
-        );
-      }
     }
     credit('coin videos', coinVideos * economy.rewardedAdCoins);
     final payDay = (number - 1) % 30 == 0;
@@ -213,14 +177,13 @@ class Player {
       credit('coin packs', storeProducts[sku]!.coins);
     }
     progression.active.clear();
-    progression.nextCrate = 0;
-    progression.crate = null;
     final sessionSeconds =
         profile.minutes * 60 - (wheelVideos + coinVideos) * 35;
     final stepSeconds =
         (profile.secondsPerBoard * (.8 + .4 * random.nextDouble())).round();
     final clears = max(1, sessionSeconds ~/ stepSeconds);
     final focus = random.nextDouble();
+    final start = number * fortuneWindowMs;
     final attackMode = number % 11 == 0 && profile.minutes >= 30;
     if (attackMode) {
       final solves = min(8, max(1, 600 ~/ stepSeconds));
@@ -236,22 +199,24 @@ class Player {
           : Boost.doubleFifteen;
       if (ownedBoost > 0 || debit(progression.discount(chosen.price))) {
         if (ownedBoost == 0) progression.inventory[chosen.name] = 1;
-        progression.activate(chosen, 1);
+        progression.activate(chosen, start);
       }
     }
     for (var second = 10; second <= sessionSeconds; second += 10) {
-      if (!progression.considerCrate(
-        second * 1000,
-        '$date',
-        random.nextInt(100),
-      ))
+      if (attackMode && second <= 600) continue;
+      progression.accrueCrateTime(10000);
+      progression.considerCrate((
+        boot: 1,
+        milliseconds: start + second * 1000,
+      ), () => random.nextInt(100));
+      final crate = progression.crates.firstOrNull;
+      if (crate == null ||
+          random.nextDouble() > 1 - pow(1 - profile.crateRate, 1 / 15)) {
         continue;
-      final crate = progression.crate!;
-      if (random.nextDouble() > profile.crateRate) continue;
+      }
       credit('crates', crate.coins);
       if (crate.rarity == CrateRarity.legendary) progression.legendary++;
-      progression.crate = null;
-      note(date, {NoteGoal.crate});
+      progression.crates.removeAt(0);
     }
     final daily = focus < .92 && (profile.minutes >= 30 || number.isEven);
     streak = daily ? streak + 1 : 0;
@@ -272,7 +237,7 @@ class Player {
           (economy.clearReward(PlayMode.daily) +
                   progression.effect(Research.fortune) +
                   bonus) *
-              progression.multiplier(time),
+              progression.multiplier(start + time),
         );
         if (streak % economy.streakInterval == 0) {
           credit(
@@ -280,42 +245,6 @@ class Player {
             economy.streakBonus + progression.effect(Research.specialist),
           );
         }
-        note(date, {NoteGoal.solve, if (unaided) NoteGoal.clean});
-      } else if (focus < .31 || index % 5 == 4) {
-        if (boosts &&
-            profile.strategic &&
-            stage == 9 &&
-            progression.remaining(Boost.trailProvisions, time) == 0 &&
-            debit(progression.discount(Boost.trailProvisions.price))) {
-          progression.inventory[Boost.trailProvisions.name] = 1;
-          progression.activate(Boost.trailProvisions, time);
-        }
-        stage++;
-        final qualifying = stage == 10;
-        final reward = economy.expeditionReward(
-          trail,
-          stage,
-          qualified: qualifying,
-        );
-        credit(
-          'expedition',
-          qualifying ? progression.trailQualification(reward, time) : reward,
-        );
-        if (qualifying) {
-          if (trail > 3 &&
-              random.nextDouble() < (profile.strategic ? .70 : .38)) {
-            credit('expedition marks', 4);
-            flawless++;
-          }
-          credit('expedition milestones', economy.expeditionMilestone(trail));
-          trail++;
-          stage = 0;
-        }
-        note(date, {
-          NoteGoal.solve,
-          NoteGoal.trail,
-          if (unaided) NoteGoal.clean,
-        });
       } else {
         level++;
         credit(
@@ -326,9 +255,8 @@ class Player {
                   (level % 5 == 0
                       ? progression.effect(Research.momentum)
                       : 0)) *
-              progression.multiplier(time),
+              progression.multiplier(start + time),
         );
-        note(date, {NoteGoal.solve, if (unaided) NoteGoal.clean});
       }
     }
     award(Achievement.trailhead, level >= 1);
@@ -343,9 +271,7 @@ class Player {
     award(Achievement.unaided, clean >= 10);
     award(Achievement.timeTrial, bestAttack >= 3);
     award(Achievement.legendaryCrate, progression.legendary > 0);
-    award(Achievement.expeditionClear, trail >= 2);
-    award(Achievement.cleanTrail, trail >= 11 && flawless > 0);
-    award(Achievement.collector, startingOwned + owned.length + cosmetics >= 6);
+    award(Achievement.collector, startingOwned + owned.length >= 6);
     _shop(number);
   }
 
@@ -399,7 +325,6 @@ class Player {
     spent: spent,
     ranks: ranks,
     themes: owned.length,
-    cosmetics: cosmetics,
     minutes: activeMinutes,
     sources: Map.of(sources),
   );
@@ -438,7 +363,7 @@ void simulate(
   );
   if (!detail) return;
   print(
-    'day | balance | earned | spent | coins/hour | research% | coin themes% | earned cosmetics%',
+    'day | balance | earned | spent | coins/hour | research% | coin themes%',
   );
   for (final day in horizons) {
     final samples = rows[day]!;
@@ -452,9 +377,6 @@ void simulate(
         median(samples.map((s) => (100 * s.ranks / researchRanks).round())),
         median(
           samples.map((s) => (100 * s.themes / coinThemes.length).round()),
-        ),
-        median(
-          samples.map((s) => (100 * s.cosmetics / themeMilestones).round()),
         ),
       ].join(' | '),
     );

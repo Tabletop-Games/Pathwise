@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +11,6 @@ import 'logic/attack_clock.dart';
 import 'logic/billing_service.dart';
 import 'logic/game_state_storage.dart';
 import 'logic/reward_verifier.dart';
-import 'logic/trail_record_storage.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
 import 'views/main_menu_view.dart';
@@ -27,13 +25,7 @@ void main() async {
       'Bricolage Grotesque',
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
   });
-  // The Android application owns this directory and includes it in backups.
-  final files = await const MethodChannel('games.tabletop.pathwise/storage')
-      .invokeMethod<String>('filesDirectory');
-  final storage = GameStateStorage(
-    null,
-    TrailRecordStorage(Directory('$files/expedition-v2')),
-  );
+  final storage = GameStateStorage();
   final clock = AttackClock();
   await clock.sync();
   AppModel model;

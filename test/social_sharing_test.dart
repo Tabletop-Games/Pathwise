@@ -27,15 +27,6 @@ void main() {
           ['1800 points', '18 puzzles', 'personal best'],
         ),
         (
-          ShareResult.expedition(
-            trail: 80000000,
-            marks: 4,
-            time: const Duration(minutes: 8),
-            newBest: true,
-          ),
-          ['Trail 80000000', '4/4 field marks', 'personal best'],
-        ),
-        (
           ShareResult.level(level: 500, total: 499),
           ['Level 500', '499 levels'],
         ),

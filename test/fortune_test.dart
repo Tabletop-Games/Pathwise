@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/model/app_model.dart';
-import '../lib/model/field_notes.dart';
 import '../lib/model/fortune.dart';
 import '../lib/model/progression.dart';
 import '../lib/model/time_attack.dart';
@@ -21,12 +20,16 @@ class FixedRoll implements Random {
   double nextDouble() => roll / 100;
 }
 
-FortuneStatus status(Map<String, int> counts, {int spins = 4}) =>
-    FortuneStatus.fromJson({
-      'now': 1000000000,
-      'stamps': List.filled(spins, 1000000000),
-      'counts': counts,
-    });
+FortuneStatus status(
+  Map<String, int> counts, {
+  int spins = 4,
+  int version = 2,
+}) => FortuneStatus.fromJson({
+  'version': version,
+  'now': 1000000000,
+  'stamps': List.filled(spins, 1000000000),
+  'counts': counts,
+});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +48,43 @@ void main() {
       expect(found[prize.id], prize.weight);
     }
     expect(() => catalog.pick(100), throwsRangeError);
+  });
+
+  test('six equal wedges always land on the preselected coin, independent of weights', () {
+    expect(catalog.prizes.map((p) => p.coins), [8, 16, 28, 48, 80, 160]);
+    expect(catalog.prizes.map((p) => p.weight), [32, 29, 21, 12, 5, 1]);
+    expect(FortuneCatalog.segmentTurns * 360, 60);
+    var rotation = 0.0;
+    for (final prize in catalog.prizes) {
+      final next = catalog.destination(rotation, prize);
+      expect(next - rotation, greaterThanOrEqualTo(5));
+      expect(catalog.atPointer(next), same(prize));
+      final alignment = next + catalog.center(prize);
+      expect(alignment, closeTo(alignment.round(), 1e-10));
+      expect(
+        catalog.atPointer(catalog.destination(rotation, prize, rotations: 0)),
+        same(prize),
+      );
+      rotation = next;
+    }
+  });
+
+  test('seeded draws match the published weights (chi-squared)', () {
+    const draws = 100000;
+    final rng = Random(1984);
+    final hits = <String, int>{};
+    for (var draw = 0; draw < draws; draw++) {
+      hits.update(
+        catalog.pick(rng.nextInt(100)).id,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final statistic = catalog.prizes.fold(0.0, (sum, prize) {
+      final expected = draws * prize.weight / 100;
+      return sum + pow(hits[prize.id]! - expected, 2) / expected;
+    });
+    expect(statistic, lessThan(20.52)); // df=5, p=.001
   });
 
   test('free spin survives restart, ignores wall time and uses rolling elapsed time', () async {
@@ -92,6 +132,13 @@ void main() {
     final storage = MemoryStorage();
     var app = AppModel(storage: storage, snapshot: {});
     expect(await app.spinFreeFortune(catalog), isNull);
+    expect(
+      await app.applyVerifiedFortune(
+        catalog,
+        status({'sprout': 1}, version: 1),
+      ),
+      false,
+    );
     final verified = status({'sprout': 3, 'boost': 1});
     final applied = await Future.wait([
       app.applyVerifiedFortune(catalog, verified),
@@ -101,8 +148,8 @@ void main() {
     expect(verified.remaining(0), 0);
     expect(verified.remaining(fortuneWindowMs - 1), 0);
     expect(verified.remaining(fortuneWindowMs), 4);
-    expect(app.coinBalance, 64);
-    expect(app.progression.inventory[Boost.doubleTen.name], 1);
+    expect(app.coinBalance, 99);
+    expect(app.progression.inventory, isEmpty);
     expect(app.hintTank, 3);
     app.dispose();
     app = AppModel(storage: storage, snapshot: await storage.load());
@@ -121,8 +168,8 @@ void main() {
       ),
       true,
     );
-    expect(app.coinBalance, 84);
-    expect(app.progression.inventory[Boost.doubleTen.name], 1);
+    expect(app.coinBalance, 119);
+    expect(app.progression.inventory, isEmpty);
     app.dispose();
   });
 
@@ -146,46 +193,9 @@ void main() {
     expect(progress.discount(100), 66);
     expect(progress.refillPrice, 16);
     expect(progress.crateOdds(1).reduce((a, b) => a + b), 100);
-    expect(progress.trailQualification(32, 1), 102);
     progress.activate(Boost.quadrupleTen, 1);
     expect(progress.canActivate(Boost.doubleTen, 2), false);
     expect(progress.multiplier(2), 4);
-    expect(progress.canActivate(Boost.trailProvisions, 2), true);
-    progress.activate(Boost.trailProvisions, 2);
-    expect(progress.trailQualification(32, 2), 118);
     expect(progress.multiplier(2), 4);
   });
-
-  test(
-    'field notes rotate, pay once after reload and disregard backwards days',
-    () async {
-      final storage = MemoryStorage();
-      var now = DateTime.utc(2026, 11, 23);
-      AppModel launch(Map<String, dynamic> snapshot) =>
-          AppModel(storage: storage, snapshot: snapshot, today: () => now);
-      var app = launch({});
-      final today = app.fieldNotesDay;
-      expect(FieldNotes.goals(today), hasLength(3));
-      final goal = FieldNotes.goals(today).first;
-      for (var i = 0; i < 16; i++) {
-        app.notes.observe(today, {
-          NoteGoal.solve,
-          NoteGoal.crate,
-          NoteGoal.trail,
-          NoteGoal.clean,
-        });
-      }
-      expect(await app.claimFieldNote(goal), true);
-      expect(await app.claimFieldNote(null), true);
-      expect(app.coinBalance, 104);
-      app.dispose();
-      app = launch(await storage.load());
-      expect(await app.claimFieldNote(goal), false);
-      expect(await app.claimFieldNote(null), false);
-      now = now.subtract(const Duration(days: 1));
-      expect(app.notes.observe(app.fieldNotesDay, {NoteGoal.solve}), 0);
-      expect(await app.claimFieldNote(goal), false);
-      app.dispose();
-    },
-  );
 }

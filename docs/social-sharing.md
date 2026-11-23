@@ -6,10 +6,9 @@ Pathwise prepares text using the result shown in the game. Players preview it, c
 | --- | --- |
 | Daily completion | The finished board’s challenge date, elapsed time, number of hints, and a personal-best flag when earned |
 | Time Attack results | Score, puzzles solved, and a personal-best flag. Ranked positions are unavailable |
-| Expedition qualification | Trail number, field marks, active time, and a personal-best flag. Milestone qualifications get a dedicated label |
 | Completed levels and Statistics | Levels 10, 25, 50, 100, 250, 500, 1,000, and every 500 thereafter |
 | Statistics and Google Play Achievements | Earned Pathwise achievements and locally earned or Google-confirmed achievements |
-| Research and Vault | Maximum Research ranks and individually earned prestige or Expedition themes |
+| Research and Vault | Maximum Research ranks and individually earned prestige themes |
 
 ## Destinations
 
