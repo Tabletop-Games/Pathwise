@@ -244,6 +244,8 @@ void main() {
         await tester.tap(upgrade);
         await tester.pumpAndSettle();
         expect(find.text('Rank 1 / 10'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
 
