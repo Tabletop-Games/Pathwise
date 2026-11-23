@@ -8,7 +8,6 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
-import 'crates_view.dart';
 import 'fortune_view.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
@@ -131,7 +130,6 @@ class _MainMenuViewState extends State<MainMenuView>
         model.highestUnlocked,
         model.levelsSolved,
         model.coinBalance,
-        model.unopenedCrates.length,
         model.attack?.finished,
         model.attackBest,
         model.storageError,
@@ -246,10 +244,6 @@ class _MainMenuViewState extends State<MainMenuView>
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (model.unopenedCrates.isNotEmpty) ...[
-                  const CrateAccess(),
-                  const SizedBox(height: 12),
-                ],
                 _ModeTile(
                   palette: palette,
                   icon: Icons.cyclone_rounded,

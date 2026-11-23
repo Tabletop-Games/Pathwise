@@ -58,7 +58,9 @@ class AdService extends ChangeNotifier {
     _prodInterstitial,
     _bannerUnit,
     for (final placement in RewardPlacement.values)
-      if (placement != RewardPlacement.wheel) _unit(placement),
+      if (placement != RewardPlacement.wheel &&
+          placement != RewardPlacement.crate)
+        _unit(placement),
   ].toSet();
 
   bool get enabled =>
@@ -94,7 +96,7 @@ class AdService extends ChangeNotifier {
       !_productionUnits.contains(_unit(RewardPlacement.wheel));
   bool get videoReady => readyFor(RewardPlacement.coins);
   static String _unit(RewardPlacement placement) => switch (placement) {
-    RewardPlacement.coins => _prodRewarded,
+    RewardPlacement.coins || RewardPlacement.crate => _prodRewarded,
     RewardPlacement.hint => const String.fromEnvironment(
       'PATHWISE_ADMOB_EXTRA_HINT',
     ),

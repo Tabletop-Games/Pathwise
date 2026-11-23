@@ -8,22 +8,17 @@ enum Research {
   fortune('Daily Fortune', 'Daily clear coins', 100, 8, 4),
   mastery('Milestone Mastery', 'Achievement coins', 180, 6, 5),
   hunter('Treasure Hunter', 'Crate interval reduction', 120, 8, 4),
-  lucky('Lucky Crates', 'Crate coins', 130, 8, 3),
-  rare('Rare Discovery', 'Rare chance percentage points', 180, 6, 1),
-  collector('Crate Collector', 'Unopened crate slots', 90, 6, 1),
+  collector(
+    'Crate Collector',
+    'Extra seconds to catch flying crates',
+    90,
+    9,
+    1,
+  ),
   efficiency('Boost Efficiency', 'Boost duration percent', 160, 8, 5),
   savings('Smart Savings', 'Consumable discount percent', 140, 6, 3),
   momentum('Momentum', 'Coins every fifth first clear', 150, 8, 4),
   specialist('Daily Specialist', 'Seven-day streak coins', 210, 6, 8),
-  legendaryCache('Legendary Cache', 'Legendary crate coins', 360, 5, 15),
-  salvage(
-    'Rare Salvage',
-    'Additional coins in each rare crate',
-    180,
-    10,
-    8,
-    true,
-  ),
   tuning('Boost Tuning', 'Boost duration percentage points', 190, 8, 4, true),
   procurement(
     'Contract Supply',
@@ -39,14 +34,6 @@ enum Research {
     200,
     8,
     3,
-    true,
-  ),
-  discovery(
-    'Legendary Discovery',
-    'Legendary chance percentage points',
-    240,
-    4,
-    1,
     true,
   );
 
@@ -72,12 +59,9 @@ enum Research {
   }
 
   Research? get prerequisite => switch (this) {
-    legendaryCache => lucky,
-    salvage => rare,
     tuning => efficiency,
     procurement => savings,
     scout => hunter,
-    discovery => legendaryCache,
     _ => null,
   };
   int price(int rank) {
@@ -95,9 +79,7 @@ enum Boost {
   doubleSixty('2× coins', 60, 195, 2),
   tripleFifteen('3× coins', 15, 110, 3),
   quadrupleTen('4× coins', 10, 120, 4),
-  crateFrequency('Twice as many crate opportunities', 15, 35, 1),
-  crateValue('Double crate coins', 15, 55, 1),
-  crateRarity('More rare crates', 15, 40, 1);
+  crateFrequency('Twice as many crate opportunities', 15, 35, 1);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;
@@ -105,17 +87,16 @@ enum Boost {
   String get slot => multiplier > 1 ? 'coins' : name;
 }
 
-enum CrateRarity {
-  common(12),
-  uncommon(25),
-  rare(55),
-  legendary(150);
+typedef Crate = ({String id, int coins});
 
-  const CrateRarity(this.coins);
-  final int coins;
-}
-
-typedef Crate = ({String id, CrateRarity rarity, int coins});
+int crateCoins(int roll) =>
+    switch (RangeError.checkValueInInterval(roll, 0, 99)) {
+      < 35 => 25,
+      < 65 => 40,
+      < 85 => 60,
+      < 95 => 85,
+      _ => 120,
+    };
 
 final class Progression {
   Progression(Map<String, dynamic> data)
@@ -125,26 +106,6 @@ final class Progression {
       serial = data['serial'] as int? ?? 0,
       crateWait = (data['crateWait'] as int? ?? 45000).clamp(0, 150000),
       legendary = data['legendary'] as int? ?? 0 {
-    if (ranks.remove('expedition') case final rank?) {
-      ranks.putIfAbsent(Research.legendaryCache.name, () => rank);
-    }
-    final saved =
-        data['crates'] as List? ??
-        [if (data['crate'] case final Map crate) crate];
-    for (final row in saved.whereType<Map>()) {
-      final id = row['id'];
-      final coins = row['coins'];
-      final rarity = CrateRarity.values
-          .where((r) => r.name == row['rarity'])
-          .firstOrNull;
-      if (id is String &&
-          coins is int &&
-          coins > 0 &&
-          rarity != null &&
-          !crates.any((item) => item.id == id)) {
-        crates.add((id: id, rarity: rarity, coins: coins));
-      }
-    }
     for (final stamp in (data['crateDrops'] as List? ?? []).whereType<List>()) {
       if (stamp.length == 2 && stamp[0] is int && stamp[1] is int) {
         crateDrops.add((boot: stamp[0] as int, milliseconds: stamp[1] as int));
@@ -153,11 +114,11 @@ final class Progression {
   }
 
   final Map<String, int> ranks, inventory, active;
-  final crates = <Crate>[];
   final crateDrops = <BootTime>[];
   int serial, crateWait, legendary;
 
-  int get crateCapacity => 1 + effect(Research.collector);
+  Duration get crateFlightTime =>
+      Duration(seconds: 8 + effect(Research.collector));
   void accrueCrateTime(int elapsed) {
     crateWait = max(0, crateWait - max(0, elapsed));
   }
@@ -168,7 +129,7 @@ final class Progression {
     Object? savedBoot,
     String day,
   ) {
-    if (data.containsKey('crates') || now == null) return;
+    if (data.containsKey('crateWait') || now == null) return;
     final due = data['nextCrate'];
     if (savedBoot == now.boot && due is int && due > 0) {
       crateWait = (due - now.milliseconds).clamp(0, 150000);
@@ -209,15 +170,8 @@ final class Progression {
     active[boost.name] = now + boost.minutes * 600 * (100 + durationBonus);
   }
 
-  List<int> crateOdds(int now) {
-    final bonus =
-        effect(Research.rare) + (remaining(Boost.crateRarity, now) > 0 ? 8 : 0);
-    final legendary = effect(Research.discovery);
-    return [75 - bonus - legendary, 18, 6 + bonus, 1 + legendary];
-  }
-
-  bool considerCrate(BootTime now, int Function() roll) {
-    if (crateWait > 0 || crates.length >= crateCapacity) return false;
+  Crate? considerCrate(BootTime now, int Function() roll) {
+    if (crateWait > 0) return null;
     crateDrops.removeWhere((stamp) {
       if (now.boot < stamp.boot) return false;
       final elapsed = now.boot == stamp.boot
@@ -225,29 +179,13 @@ final class Progression {
           : now.milliseconds;
       return elapsed >= const Duration(hours: 24).inMilliseconds;
     });
-    if (crateDrops.length >= 6) return false;
-    final draw = RangeError.checkValueInInterval(roll(), 0, 99);
-    final odds = crateOdds(now.milliseconds);
-    var ceiling = 0;
-    final index = odds.indexWhere((value) {
-      ceiling += value;
-      return draw < ceiling;
-    });
-    final rarity = CrateRarity.values[index];
-    final coins =
-        (rarity.coins +
-            effect(Research.lucky) +
-            (rarity == CrateRarity.rare ? effect(Research.salvage) : 0) +
-            (rarity == CrateRarity.legendary
-                ? effect(Research.legendaryCache)
-                : 0)) *
-        (remaining(Boost.crateValue, now.milliseconds) > 0 ? 2 : 1);
-    crates.add((id: 'crate/${serial++}', rarity: rarity, coins: coins));
+    if (crateDrops.length >= 6) return null;
+    final crate = (id: 'crate/${serial++}', coins: crateCoins(roll()));
     crateWait =
         (150 - effect(Research.hunter) - effect(Research.scout)) *
         (remaining(Boost.crateFrequency, now.milliseconds) > 0 ? 500 : 1000);
     crateDrops.add(now);
-    return true;
+    return crate;
   }
 
   Map<String, Object?> toJson() => {
@@ -260,9 +198,5 @@ final class Progression {
       for (final drop in crateDrops) [drop.boot, drop.milliseconds],
     ],
     'legendary': legendary,
-    'crates': [
-      for (final item in crates)
-        {'id': item.id, 'rarity': item.rarity.name, 'coins': item.coins},
-    ],
   };
 }

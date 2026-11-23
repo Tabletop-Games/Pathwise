@@ -96,4 +96,13 @@ test('signed wheel receipts are idempotent, cap concurrent claims, and expire by
   assert.equal((await request('GET', callback(next, 'wheel-next')))[0], 200);
   const recovered = (await request('GET', '/v1/rewards/wheel'))[1];
   assert.equal(Object.values(recovered.counts).reduce((a, b) => a + b), 5);
+  now += 15000;
+  const [crateStatus, crate] = await request('POST', '/v1/rewards/start/crate');
+  assert.equal(crateStatus, 200);
+  assert.equal((await request('GET', '/v1/rewards/status/' + crate.token))[0], 202);
+  assert.equal((await request('GET', callback(crate.token, 'crate-wrong-unit')))[0], 403);
+  const crateCallback = callback(crate.token, 'crate-video', '1234567890');
+  assert.equal((await request('GET', crateCallback))[0], 200);
+  assert.equal((await request('GET', crateCallback))[0], 200);
+  assert.equal((await request('GET', '/v1/rewards/status/' + crate.token))[1].placement, 'crate');
 });

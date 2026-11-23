@@ -6,7 +6,7 @@ Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continu
 
 Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. The shared hint tank starts at 3/3. Refill it with coins or a verified rewarded ad. Fourth and subsequent hints on any puzzle each require their own rewarded ad, including for Premium players. A finished route shows its time, personal best, and earned coins.
 
-Play unlimited Levels, Daily Challenge, and Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Supply crates earned during play stay in your inventory until opened. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
+Play unlimited Levels, Daily Challenge, and Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
 
 Share text results for Daily Challenge, Time Attack and progression milestones. Earn 29 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) · [Google Play achievements](docs/google-play-achievements.md)
 

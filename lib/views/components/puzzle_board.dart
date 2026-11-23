@@ -254,15 +254,11 @@ class _BoardPainter extends CustomPainter {
     );
     if (hint case final cell?) {
       final point = _center(cell);
-      final distance = point - tip;
       final ring = Paint()
         ..color = palette.route
         ..style = PaintingStyle.stroke
         ..strokeWidth = .036;
       canvas.drawCircle(point, .34, ring);
-      for (final fraction in [.28, .43, .58]) {
-        canvas.drawCircle(tip + distance * fraction, .038, ink);
-      }
     }
     for (final (index, cell) in puzzle.checkpoints.indexed) {
       final number = index + 1;

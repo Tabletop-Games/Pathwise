@@ -205,6 +205,14 @@ void main() {
           storage: MemoryStorage(),
           snapshot: {
             'progressionBoot': 1,
+            'ledger': [
+              {
+                'id': 'fixture',
+                'label': 'Fixture',
+                'amount': 95,
+                'at': '2026-11-23T00:00:00Z',
+              },
+            ],
             'progression': {
               'serial': 2,
               'crates': [
@@ -221,17 +229,7 @@ void main() {
             child: const PathwiseApp(),
           ),
         );
-        await tester.scrollUntilVisible(find.text('Supply crate ready'), 170);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Supply crate ready'));
-        await tester.pumpAndSettle();
-        expect(find.text('Rare supply crate'), findsOneWidget);
-        await tester.tap(find.text('Open crate'));
-        await tester.pumpAndSettle();
-        expect(find.text('+55 coins from your supply crate'), findsOneWidget);
-        expect(model.coinBalance, 95);
-        await tester.pageBack();
-        await tester.pumpAndSettle();
+        expect(find.text('Supply crate ready'), findsNothing);
 
         await tester.scrollUntilVisible(find.text('Research'), 170);
         await tester.pumpAndSettle();
@@ -302,6 +300,33 @@ void main() {
     model.dispose();
   });
 
+  testWidgets('the only hint indicator counts from three to zero', (
+    tester,
+  ) async {
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {},
+      loader: (_) async => fixture(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.tap(find.text('Play daily'));
+    await tester.pumpAndSettle();
+    for (var remaining = 3; remaining > 0; remaining--) {
+      final button = find.text('Hint · $remaining left');
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(find.text('Hint · ${remaining - 1} left'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^[0-3]/3$')), findsNothing);
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+    }
+    await tester.pumpWidget(const SizedBox());
+    model.dispose();
+  });
+
   testWidgets('extra hint dialog never offers coin payment to Premium', (
     tester,
   ) async {
@@ -320,13 +345,13 @@ void main() {
     );
     await tester.tap(find.text('Play daily'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Watch ad · 1 hint'));
+    await tester.tap(find.text('Hint · 0 left'));
     await tester.pumpAndSettle();
     expect(find.text('Extra hint'), findsOneWidget);
     expect(find.textContaining('Spend'), findsNothing);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Watch ad · 1 hint'));
+    await tester.tap(find.text('Hint · 0 left'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
