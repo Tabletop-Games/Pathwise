@@ -4,7 +4,7 @@ Pathwise is an Android and iOS route puzzle by Tabletop Games. Draw one continuo
 
 ## Play
 
-On your first launch, follow the highlighted tiles on the actual Level 1 board. Practice is separate from scored play. Replay it anytime from **Settings → Level 1 demo**.
+On your first launch, follow the highlighted tiles on the actual Level 1 board. Practice is separate from scored play. Replay it anytime from **Settings → Demo**.
 
 Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. New players start with three hints in a persistent wallet. Buy more for 60 coins or earn up to five a day through optional videos. Results appear over the solved board with a prominent next action.
 

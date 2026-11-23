@@ -45,7 +45,7 @@ void main() {
     expect(demo, findsNothing);
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Level 1 demo'));
+    await tester.tap(find.text('Demo'));
     await tester.pumpAndSettle();
     expect(demo, findsOneWidget);
 
@@ -71,9 +71,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Level 1 solved!'), findsOneWidget);
     expect(player.activeId, isNull);
-    expect(player.result(level), isNull);
-    expect(player.highestUnlocked, 1);
-    expect(player.coinBalance, 50);
+    expect(player.result(level), isNotNull);
+    expect(player.highestUnlocked, 2);
+    expect(player.levelsSolved, 1);
+    expect(player.coinBalance, 95);
     expect(player.hintsRemaining, 3);
     final done = find.text('Done');
     await tester.ensureVisible(done);
@@ -81,6 +82,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Level 1 solved!'), findsNothing);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Continue · Level 2'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

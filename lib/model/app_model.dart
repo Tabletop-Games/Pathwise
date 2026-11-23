@@ -1635,6 +1635,34 @@ class AppModel extends ChangeNotifier implements BoardControls {
     notifyListeners();
   }
 
+  Future<void> completeLevelOneFromDemo() async {
+    final id = const PuzzleId.level(1);
+    if (result(id) != null) return;
+    final previousAchievements = achievementCounters;
+    final coinsBefore = coinBalance;
+    _results[id.key] = (milliseconds: 15000, hints: 0, unassisted: true);
+    _achievements.precision++;
+    _levelsSolved++;
+    _highestUnlocked = max(_highestUnlocked, 2);
+    _wallet.add(
+      'clear/${id.key}',
+      'Completed ${id.title}',
+      (economy.clearReward(id.mode) +
+              progression.effect(Research.magnet) +
+              progression.effect(Research.golden)) *
+          progression.multiplier(progressionTime),
+      _today(),
+    );
+    _qualifyStreak();
+    _awardAchievements();
+    lastReward = coinBalance - coinsBefore;
+    _celebrateAchievements(previousAchievements);
+    _attempts.remove(id.key);
+    haptic.complete();
+    notifyListeners();
+    await flush();
+  }
+
   void close() {
     _leave();
     _game = null;

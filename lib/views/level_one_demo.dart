@@ -57,6 +57,9 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
     if ((canStep(cell) ||
             (route.length > 1 && cell == route[route.length - 2])) &&
         _game.step(cell) != RouteEdit.none) {
+      if (_game.complete) {
+        context.read<AppModel>().completeLevelOneFromDemo();
+      }
       setState(() {});
     }
   }
@@ -76,7 +79,7 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
     final started = _game.length > 1;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Level 1 demo'),
+        title: const Text('Demo'),
         actions: [
           if (!complete)
             TextButton(

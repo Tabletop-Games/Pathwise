@@ -52,7 +52,7 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.school_outlined),
-                  title: const Text('Level 1 demo'),
+                  title: const Text('Demo'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => openLevelOneDemo(context),
                 ),
