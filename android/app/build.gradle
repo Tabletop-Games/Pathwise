@@ -3,11 +3,17 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 def signingInputs = [
-    store: providers.environmentVariable("PATHWISE_KEYSTORE").orNull,
-    storePassword: providers.environmentVariable("PATHWISE_STORE_PASSWORD").orNull,
-    alias: providers.environmentVariable("PATHWISE_KEY_ALIAS").orNull,
-    keyPassword: providers.environmentVariable("PATHWISE_KEY_PASSWORD").orNull,
+    store: providers.environmentVariable("PATHWISE_KEYSTORE").orNull ?: keystoreProperties.getProperty("storeFile"),
+    storePassword: providers.environmentVariable("PATHWISE_STORE_PASSWORD").orNull ?: keystoreProperties.getProperty("storePassword"),
+    alias: providers.environmentVariable("PATHWISE_KEY_ALIAS").orNull ?: keystoreProperties.getProperty("keyAlias"),
+    keyPassword: providers.environmentVariable("PATHWISE_KEY_PASSWORD").orNull ?: keystoreProperties.getProperty("keyPassword"),
 ]
 
 // Dart's production ad flag and Android's SDK metadata must be configured together.
@@ -61,7 +67,11 @@ android {
     if (signingInputs.values().every { it }) {
         signingConfigs {
             release {
-                storeFile = file(signingInputs.store)
+                def storeTarget = file(signingInputs.store)
+                if (!storeTarget.exists() && rootProject.file(signingInputs.store).exists()) {
+                    storeTarget = rootProject.file(signingInputs.store)
+                }
+                storeFile = storeTarget
                 storePassword = signingInputs.storePassword
                 keyAlias = signingInputs.alias
                 keyPassword = signingInputs.keyPassword
