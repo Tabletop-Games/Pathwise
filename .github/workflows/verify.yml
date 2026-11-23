@@ -64,7 +64,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - name: Compile Android debug APK
         run: |
-          flutter build apk --debug
+          flutter build apk --debug --dart-define-from-file=config/production.example.json
           test -s build/app/outputs/flutter-apk/app-debug.apk
       - name: Compile Android release artifacts
         env:
@@ -76,15 +76,21 @@ jobs:
           keytool -genkeypair -keystore "$PATHWISE_KEYSTORE" -storepass "$PATHWISE_STORE_PASSWORD" \
             -keypass "$PATHWISE_KEY_PASSWORD" -alias "$PATHWISE_KEY_ALIAS" -keyalg RSA -keysize 2048 \
             -validity 1 -dname "CN=Pathwise CI" -noprompt
-          flutter build apk --release
+          flutter build apk --release --dart-define-from-file=config/production.example.json
           test -s build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
-          flutter build appbundle --release
+          flutter build appbundle --release --dart-define-from-file=config/production.example.json
           python3 tool/prepare_play_bundle.py build/app/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/pathwise-play.aab"
       - name: Check APK, AAB and R8 output
         run: |
           tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           apk=build/app/outputs/flutter-apk/app-release.apk
           bundle="$RUNNER_TEMP/pathwise-play.aab"
+          debug=build/app/outputs/flutter-apk/app-debug.apk
+          "$tools/aapt" dump xmltree "$debug" AndroidManifest.xml > "$RUNNER_TEMP/debug-manifest.txt"
+          "$tools/aapt" dump xmltree "$apk" AndroidManifest.xml > "$RUNNER_TEMP/release-manifest.txt"
+          grep -F 'ca-app-pub-3940256099942544~3347511713' "$RUNNER_TEMP/debug-manifest.txt"
+          if grep -F 'ca-app-pub-7623640820680894~1301071315' "$RUNNER_TEMP/debug-manifest.txt"; then exit 1; fi
+          grep -F 'ca-app-pub-7623640820680894~1301071315' "$RUNNER_TEMP/release-manifest.txt"
           "$tools/apksigner" verify "$apk"
           "$tools/zipalign" -c -P 16 4 "$apk"
           unzip -tq "$bundle"
@@ -93,6 +99,8 @@ jobs:
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar \
             --output "$RUNNER_TEMP/bundletool.jar"
           java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle="$bundle"
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$bundle" --module=base > "$RUNNER_TEMP/bundle-manifest.xml"
+          grep -F 'ca-app-pub-7623640820680894~1301071315' "$RUNNER_TEMP/bundle-manifest.xml"
           python3 tool/verify_android_artifacts.py "$apk" "$bundle"
           test -s build/app/outputs/mapping/release/mapping.txt
           test -s build/app/outputs/mapping/release/resources.txt

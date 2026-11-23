@@ -27,9 +27,13 @@ dependencies {
 }
 
 def productionAds = dartDefines["PATHWISE_ADS_ENABLED"] == "true"
-def admobAppId = providers.environmentVariable("PATHWISE_ADMOB_APP_ID").orNull
-if (productionAds && (!admobAppId || !(admobAppId ==~ /ca-app-pub-[0-9]{16}~[0-9]{10}/)
-        || admobAppId.startsWith("ca-app-pub-3940256099942544~"))) {
+def verifyAdConsent = dartDefines["PATHWISE_ADS_VERIFY_CONSENT"] == "true"
+def testAdmobAppId = "ca-app-pub-3940256099942544~3347511713"
+def admobAppId = providers.environmentVariable("PATHWISE_ADMOB_APP_ID").orNull ?:
+    dartDefines["PATHWISE_ADMOB_APP_ID"]
+def validAdmobAppId = admobAppId ==~ /ca-app-pub-[0-9]{16}~[0-9]{10}/ &&
+    !admobAppId.startsWith("ca-app-pub-3940256099942544~")
+if ((productionAds || verifyAdConsent || admobAppId) && !validAdmobAppId) {
     throw new GradleException("Production ads require a valid PATHWISE_ADMOB_APP_ID.")
 }
 
@@ -51,8 +55,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         resValue "string", "pathwise_games_project", gamesProject
-        manifestPlaceholders["pathwiseAdmobAppId"] = productionAds
-            ? admobAppId : "ca-app-pub-3940256099942544~3347511713"
+        manifestPlaceholders["pathwiseAdmobAppId"] = testAdmobAppId
     }
 
     if (signingInputs.values().every { it }) {
@@ -70,6 +73,7 @@ android {
 
     buildTypes {
         release {
+            manifestPlaceholders["pathwiseAdmobAppId"] = admobAppId ?: testAdmobAppId
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")

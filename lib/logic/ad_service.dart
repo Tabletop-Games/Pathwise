@@ -12,12 +12,17 @@ enum RewardPlacement { coins, hint, wheel, crate, boost }
 
 /// Consent-aware cache with post-game placements and a separate opt-in video.
 class AdService extends ChangeNotifier {
-  AdService({this.reserveInterstitial, this.onRewardedClosed});
+  AdService({
+    this.reserveInterstitial,
+    this.onRewardedClosed,
+    bool testAds = const bool.fromEnvironment('PATHWISE_ADS_TEST'),
+  }) : _test = !kReleaseMode && testAds;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
   bool _reserving = false;
-  static const _test =
-      !kReleaseMode && bool.fromEnvironment('PATHWISE_ADS_TEST');
+  final bool _test;
+  static const _verifyConsent =
+      kReleaseMode && bool.fromEnvironment('PATHWISE_ADS_VERIFY_CONSENT');
   static const _enabled = bool.fromEnvironment('PATHWISE_ADS_ENABLED');
   static const _privacyConfigured = bool.fromEnvironment(
     'PATHWISE_ADS_CONSENT_CONFIGURED',
@@ -69,7 +74,7 @@ class AdService extends ChangeNotifier {
     _prodInterstitial,
     _bannerUnit,
     for (final placement in RewardPlacement.values)
-      if (placement != RewardPlacement.wheel &&
+      if ((!_ios || placement != RewardPlacement.wheel) &&
           placement != RewardPlacement.crate &&
           placement != RewardPlacement.boost)
         _unit(placement),
@@ -79,14 +84,18 @@ class AdService extends ChangeNotifier {
       (defaultTargetPlatform == TargetPlatform.android || _ios) &&
       (_test ||
           (kReleaseMode &&
+              !_verifyConsent &&
               _enabled &&
               _privacyConfigured &&
-              _productionUnits.length == 4 &&
+              _productionUnits.length == (_ios ? 4 : 5) &&
               _productionUnits.every(validAdUnit)));
   static bool validAdUnit(String id) =>
       RegExp(r'^ca-app-pub-[0-9]{16}/[0-9]{10}$').hasMatch(id) &&
       !id.startsWith('ca-app-pub-3940256099942544/');
   bool get testMode => _test;
+  bool get canManagePrivacy =>
+      enabled ||
+      (_verifyConsent && defaultTargetPlatform == TargetPlatform.android);
   bool get privacyRequired => _privacyRequired;
   bool _privacyRequired = false;
   bool _disposed = false;
@@ -104,6 +113,7 @@ class AdService extends ChangeNotifier {
   bool get wheelConfigured =>
       enabled &&
       (_test ||
+          !_ios ||
           (validAdUnit(_unit(RewardPlacement.wheel)) &&
               !_productionUnits.contains(_unit(RewardPlacement.wheel))));
   bool get videoReady => readyFor(RewardPlacement.coins);
@@ -127,7 +137,7 @@ class AdService extends ChangeNotifier {
 
   /// Invoke only from screens outside gameplay.
   Future<void> prepare({required bool Function() canPresent}) async {
-    if (!enabled || _disposed || _preparing || _fullScreen) return;
+    if (!canManagePrivacy || _disposed || _preparing || _fullScreen) return;
     if (_canRequest) {
       _preload();
       return;
@@ -156,7 +166,7 @@ class AdService extends ChangeNotifier {
           form.completeError(StateError('Consent form unavailable'));
         }
       });
-      await form.future.timeout(const Duration(seconds: 15));
+      await form.future;
       await _refreshConsent();
     } catch (_) {
       _report('Ad services are currently unavailable.');
@@ -181,7 +191,7 @@ class AdService extends ChangeNotifier {
           done.completeError(StateError('Privacy choices unavailable'));
         }
       });
-      await done.future.timeout(const Duration(seconds: 15));
+      await done.future;
       await _refreshConsent();
     } catch (_) {
       _report('Privacy choices could not be loaded.');
@@ -196,9 +206,13 @@ class AdService extends ChangeNotifier {
             .getPrivacyOptionsRequirementStatus() ==
         PrivacyOptionsRequirementStatus.required;
     if (_disposed) return;
-    _canRequest = await ConsentInformation.instance.canRequestAds();
-    if (_canRequest && !_disposed) {
+    if (enabled &&
+        !_disposed &&
+        await ConsentInformation.instance.canRequestAds() &&
+        !_disposed) {
       await MobileAds.instance.initialize();
+      if (_disposed) return;
+      _canRequest = true;
       _preload();
     }
     _report(null);

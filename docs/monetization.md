@@ -12,6 +12,8 @@ Production flags default off. See the publisher configuration and device test ch
 | Rewarded supply crate | Falling crate dialog | One successful viewing for the displayed amount |
 | Rewarded Fortune Wheel | Fortune Wheel | Six video spins per rolling 24 hours, plus the separate free spin |
 
+The Android build template specifies production IDs for five distinct units. Serving is disabled by default. Debug/profile test mode uses Google sample IDs, and the Android release consent-only mode can exercise UMP with production metadata while blocking all ad requests. See [publisher setup](../setup.md#4-before-enabling-advertisements).
+
 Client-side AdMob rewards require the SDK earned callback. Placement-specific handlers apply a unique transaction to the local save. Dismissal without earning has no payout. Optional rewards remain available to ad-free purchasers. Local payouts offer weaker tamper resistance than remotely verified receipts.
 
 The Vault uses localized Google Play and App Store quotes. On Android, the app verifies the Play-signed purchase with the configured public key. On iOS, it confirms a matching verified StoreKit 2 transaction. Fulfillment is saved before consumption or acknowledgement. Premium applies both entitlements and a stable one-time 1,000-coin event per local profile. Consumable recovery after save loss and automatic refund reconciliation are unavailable.
