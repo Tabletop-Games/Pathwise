@@ -588,58 +588,92 @@ class _Completion extends StatelessWidget {
 
 Future<void> showHintShop(BuildContext context, AppModel model) async {
   final ads = context.read<AdService>();
-  final online = ads.enabled ? ads.isOnline() : Future<bool>.value(false);
+  final shortfall = economy.hintPrice - model.coinBalance;
+  var busy = false;
+  var unavailable = false;
   final action = await showDialog<String>(
     context: context,
-    builder: (dialog) => AlertDialog(
-      title: const Text('Need a hint?'),
-      scrollable: true,
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('+1 hint · ${model.coinBalance} coins available'),
-          const SizedBox(height: 12),
-          FutureBuilder<bool>(
-            future: online,
-            builder: (context, snapshot) =>
-                snapshot.data == true &&
-                    ads.readyFor(RewardPlacement.hint) &&
-                    model.canEarnHintAd
-                ? FilledButton.icon(
-                    onPressed: () => Navigator.pop(dialog, 'ad'),
-                    icon: const Icon(Icons.play_circle_outline),
-                    label: const Text('Watch ad · +1 hint'),
-                  )
-                : Text(
-                    model.canEarnHintAd
-                        ? 'No ads available right now'
-                        : 'Daily ad limit reached',
-                  ),
+    builder: (dialog) => StatefulBuilder(
+      builder: (dialog, refresh) {
+        bool current() =>
+            dialog.mounted && ModalRoute.isCurrentOf(dialog) == true;
+        final canEarn = model.canEarnHintAd;
+        return AlertDialog(
+          title: const Text('Get a hint'),
+          scrollable: true,
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilledButton.icon(
+                onPressed: !ads.enabled || !canEarn || busy
+                    ? null
+                    : () async {
+                        refresh(() {
+                          busy = true;
+                          unavailable = false;
+                        });
+                        if (!ads.readyFor(RewardPlacement.hint) &&
+                            await ads.isOnline() &&
+                            current()) {
+                          await ads.prepare(canPresent: current);
+                        }
+                        if (!current()) return;
+                        final shown = await ads.watchVideo(
+                          model.grantHintAd,
+                          placement: RewardPlacement.hint,
+                          canPresent: () => current() && model.canEarnHintAd,
+                          waitForReward: true,
+                        );
+                        if (!current()) return;
+                        if (shown) {
+                          Navigator.pop(dialog);
+                        } else {
+                          refresh(() {
+                            busy = false;
+                            unavailable = true;
+                          });
+                        }
+                      },
+                icon: const Icon(Icons.play_circle_outline),
+                label: Text(
+                  !ads.enabled
+                      ? 'Watch ad · unavailable'
+                      : !canEarn
+                      ? 'Watch ad · daily limit'
+                      : busy
+                      ? 'Preparing ad…'
+                      : unavailable
+                      ? 'Retry ad · +1 hint'
+                      : 'Watch ad · +1 hint',
+                ),
+              ),
+              if (unavailable) const Text('Ad unavailable. Try again shortly.'),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: busy
+                    ? null
+                    : () => Navigator.pop(
+                        dialog,
+                        shortfall > 0 ? 'vault' : 'coins',
+                      ),
+                icon: const Icon(Icons.toll_rounded),
+                label: Text(
+                  shortfall > 0
+                      ? 'Get coins · $shortfall short'
+                      : '${economy.hintPrice} coins · +1 hint',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          if (model.coinBalance < economy.hintPrice) ...[
-            Text('Need ${economy.hintPrice - model.coinBalance} more coins'),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(dialog, 'vault'),
-              icon: const Icon(Icons.toll_rounded),
-              label: const Text('Get coins'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('Close'),
             ),
-            const Text('A hint costs 60 coins'),
-          ] else
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(dialog, 'coins'),
-              icon: const Icon(Icons.toll_rounded),
-              label: const Text('60 coins · +1 hint'),
-            ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialog),
-          child: const Text('Close'),
-        ),
-      ],
+          ],
+        );
+      },
     ),
   );
   if (!context.mounted) return;
@@ -647,22 +681,6 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
   if (action == 'vault') {
     await Navigator.of(context)
         .push<void>(MaterialPageRoute(builder: (_) => const FortuneView()));
-  }
-  if (action != 'ad') return;
-  bool current() => context.mounted && ModalRoute.isCurrentOf(context) == true;
-  if (!ads.readyFor(RewardPlacement.hint)) {
-    await ads.prepare(canPresent: current);
-  }
-  if (!current()) return;
-  final shown = await ads.watchVideo(
-    model.grantHintAd,
-    placement: RewardPlacement.hint,
-    canPresent: () => current() && model.canEarnHintAd,
-  );
-  if (!shown && current()) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Video unavailable. No hint was added.')),
-    );
   }
 }
 
