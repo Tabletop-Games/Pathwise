@@ -1,6 +1,8 @@
+import '../model/economy.dart';
+
 class AdFrequency {
   AdFrequency({
-    this.minimumGap = const Duration(minutes: 4),
+    this.minimumGap = EconomyRules.automaticAdGap,
     this.rewardedGap = const Duration(minutes: 1),
     this.exitsPerInterstitial = 5,
   }) : assert(minimumGap >= const Duration(seconds: 60));

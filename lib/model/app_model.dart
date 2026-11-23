@@ -385,7 +385,7 @@ class AppModel extends ChangeNotifier {
       final elapsed = last.boot == now.boot
           ? now.milliseconds - last.milliseconds
           : now.milliseconds;
-      if (elapsed < economy.automaticAdGap.inMilliseconds) return false;
+      if (elapsed < EconomyRules.automaticAdGap.inMilliseconds) return false;
     }
     _lastAutomaticAd = now;
     return flush();

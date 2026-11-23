@@ -205,7 +205,8 @@ void main() {
     for (var i = 0; i < 5; i++) {
       caps.completedExit();
     }
-    expect(caps.eligible(const Duration(seconds: 239)), isFalse);
+    expect(caps.eligible(const Duration(milliseconds: 179999)), isFalse);
+    expect(caps.eligible(const Duration(minutes: 3)), isTrue);
     caps.rewardedClosed(const Duration(seconds: 235));
     expect(caps.eligible(const Duration(seconds: 294)), isFalse);
     expect(caps.eligible(const Duration(seconds: 295)), isTrue);
@@ -262,7 +263,9 @@ void main() {
         bootTime: () => (boot: 5, milliseconds: clock),
       );
       expect(await model.reserveAutomaticAd(), isFalse);
-      clock = 240000;
+      clock = 179999;
+      expect(await model.reserveAutomaticAd(), isFalse);
+      clock = 180000;
       expect(await model.reserveAutomaticAd(), isTrue);
       expect(await model.reserveAutomaticAd(), isFalse);
       model.dispose();
