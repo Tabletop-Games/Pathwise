@@ -197,22 +197,6 @@ class AchievementCelebration extends StatelessWidget {
         leading: const Icon(Icons.emoji_events_outlined),
         title: Text(item.name),
         subtitle: Text(item.description),
-        trailing: model.suggestSharing
-            ? IconButton(
-                tooltip: 'Share Achievement',
-                icon: const Icon(Icons.share_outlined),
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => ShareView(
-                      result: ShareResult.achievement(
-                        item.name,
-                        item.description,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : null,
       ),
     );
   }

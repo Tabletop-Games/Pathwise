@@ -8,7 +8,6 @@ import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/native_achievements.dart';
-import 'share_view.dart';
 
 class PlayGamesView extends StatefulWidget {
   const PlayGamesView({super.key});
@@ -130,16 +129,14 @@ class _PlayGamesViewState extends State<PlayGamesView> {
                         ? IconButton(
                             tooltip: 'Share Achievement',
                             icon: const Icon(Icons.share_outlined),
-                            onPressed: () => Navigator.of(context).push<void>(
-                              MaterialPageRoute(
-                                builder: (_) => ShareView(
-                                  result: ShareResult.achievement(
+                            onPressed: () =>
+                                const ShareDestinationService().open(
+                                  ShareResult.achievement(
                                     item.name,
                                     item.description,
                                   ),
+                                  ShareDestination.android,
                                 ),
-                              ),
-                            ),
                           )
                         : null,
                   ),

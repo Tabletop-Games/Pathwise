@@ -292,16 +292,14 @@ class StatisticsView extends StatelessWidget {
                           ? IconButton(
                               tooltip: 'Share Achievement',
                               icon: const Icon(Icons.share_outlined),
-                              onPressed: () => Navigator.of(context).push<void>(
-                                MaterialPageRoute(
-                                  builder: (_) => ShareView(
-                                    result: ShareResult.achievement(
+                              onPressed: () =>
+                                  const ShareDestinationService().open(
+                                    ShareResult.achievement(
                                       achievement.title,
                                       achievement.description,
                                     ),
+                                    ShareDestination.android,
                                   ),
-                                ),
-                              ),
                             )
                           : null,
                     ),

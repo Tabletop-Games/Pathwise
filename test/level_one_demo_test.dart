@@ -27,6 +27,8 @@ void main() {
           initialize: () async => model,
         ),
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 750));
       await tester.pumpAndSettle();
       return model;
     }
