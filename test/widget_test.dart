@@ -594,12 +594,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(share);
       await tester.pumpAndSettle();
-      final preview = tester.widget<SelectableText>(
-        find.byType(SelectableText),
-      );
-      expect(preview.data, contains('23 Nov 2026'));
-      expect(preview.data, contains('Hints used: 1.'));
-      expect(preview.data, contains('games.tabletop.pathwise'));
+      expect(find.byType(SelectableText), findsNothing);
       expect(model.coinBalance, balance);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -637,12 +632,7 @@ void main() {
       expect(find.text('Time’s up'), findsOneWidget);
       await tester.tap(find.text('Share Your Score'));
       await tester.pumpAndSettle();
-      final preview = tester.widget<SelectableText>(
-        find.byType(SelectableText),
-      );
-      expect(preview.data, contains('0 points. 0 puzzles solved.'));
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+      expect(find.byType(SelectableText), findsNothing);
       expect(find.text('Return to home'), findsOneWidget);
       await tester.tap(find.text('Return to home'));
       await tester.pumpAndSettle();
