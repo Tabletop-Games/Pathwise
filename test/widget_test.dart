@@ -432,10 +432,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hint · 0 left'));
       await tester.pumpAndSettle();
-      expect(find.text('Need a hint?'), findsOneWidget);
-      expect(find.text('No ads available right now'), findsOneWidget);
-      expect(find.text('Need 60 more coins'), findsOneWidget);
-      expect(find.text('Get coins'), findsOneWidget);
+      expect(find.text('Get a hint'), findsOneWidget);
+      final adButton = find.widgetWithText(
+        FilledButton,
+        'Watch ad · unavailable',
+      );
+      expect(tester.widget<FilledButton>(adButton).onPressed, isNull);
+      expect(find.text('Get coins · 60 short'), findsOneWidget);
       expect(model.hintsRemaining, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
