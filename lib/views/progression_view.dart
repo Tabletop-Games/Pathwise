@@ -8,7 +8,6 @@ import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
-import 'share_view.dart';
 
 enum _ResearchBranch {
   income('Coin rewards', Icons.toll_outlined, [
@@ -258,12 +257,9 @@ class _ProgressionViewState extends State<ProgressionView> {
       action: mastered
           ? _SecondaryAction(
               label: 'Share milestone',
-              onPressed: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => ShareView(
-                    result: ShareResult.research(item.title, item.limit),
-                  ),
-                ),
+              onPressed: () => const ShareDestinationService().open(
+                ShareResult.research(item.title, item.limit),
+                ShareDestination.android,
               ),
             )
           : unlocked

@@ -18,9 +18,8 @@ class ShareResultButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void open() => Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute(builder: (_) => ShareView(result: result)));
+    void open() =>
+        const ShareDestinationService().open(result, ShareDestination.android);
     return prominent
         ? FilledButton.tonalIcon(
             onPressed: open,
