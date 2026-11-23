@@ -13,7 +13,7 @@ enum Research {
   savings('Smart Savings', 'Consumable discount percent per rank', 140, 6, 3),
   momentum('Momentum', 'Coins every fifth first clear per rank', 150, 8, 4),
   specialist('Daily Specialist', 'Seven-day streak coins per rank', 210, 6, 8),
-  expedition('Expedition', 'Legendary crate coins per rank', 360, 5, 15);
+  expedition('Legendary Cache', 'Legendary crate coins per rank', 360, 5, 15);
 
   const Research(
     this.title,

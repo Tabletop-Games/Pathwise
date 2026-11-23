@@ -8,6 +8,7 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
+import 'expedition_view.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
 import 'puzzle_view.dart';
@@ -45,7 +46,11 @@ Future<void> openPuzzle(
       .push<void>(MaterialPageRoute(builder: (_) => const PuzzleView()));
   final finished = model.completedThisVisit;
   model.close();
-  if (!timeAttack && finished && !model.adFree && context.mounted) {
+  if (!timeAttack &&
+      id.mode != PlayMode.expedition &&
+      finished &&
+      !model.adFree &&
+      context.mounted) {
     bool canPresent() =>
         context.mounted &&
         !model.adFree &&
@@ -73,7 +78,8 @@ class MainMenuView extends StatelessWidget {
         model.daily.key,
         model.highestUnlocked,
         model.levelsSolved,
-        model.endless.key,
+        model.expeditionPuzzle?.key,
+        model.trailsQualified,
         model.coinBalance,
         model.attack?.finished,
         model.attackBest,
@@ -177,12 +183,15 @@ class MainMenuView extends StatelessWidget {
                 const SizedBox(height: 10),
                 _ModeTile(
                   palette: palette,
-                  icon: Icons.all_inclusive_rounded,
-                  title: 'Endless',
-                  subtitle: model.hasAttempt(model.endless)
-                      ? 'Resume puzzle ${model.endless.value}'
-                      : 'Play puzzle ${model.endless.value}',
-                  onTap: () => openPuzzle(context, model.endless),
+                  icon: Icons.terrain_rounded,
+                  title: 'Expedition',
+                  subtitle: model.expeditionPuzzle == null
+                      ? 'Ten-stage trails · ${model.trailsQualified} qualified'
+                      : 'Resume ${model.expedition!.trail.title} · Stage ${model.expedition!.stage + 1}',
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ExpeditionView()),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _ModeTile(

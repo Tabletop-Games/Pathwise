@@ -18,7 +18,8 @@ enum PathwiseTheme {
   koi('Koi Pond'),
   crt('Retro Terminal'),
   gilded('Gilded Ink'),
-  signal('High Contrast');
+  signal('High Contrast'),
+  basinGold('Basin Gold');
 
   const PathwiseTheme(this.label);
   final String label;

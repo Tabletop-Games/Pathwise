@@ -21,7 +21,10 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Endless'));
+    await tester.tap(find.text('Expedition'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Start Foothills'));
+    await tester.tap(find.text('Start Foothills'));
     await tester.pumpAndSettle();
     final grid = find.byKey(const ValueKey('puzzle-grid'));
     final board = tester.getRect(grid);
@@ -67,15 +70,15 @@ void main() {
     await solution.up();
     await tester.pumpAndSettle();
     expect(find.text('Route complete'), findsOneWidget);
-    expect(find.text('Next puzzle'), findsOneWidget);
+    expect(find.text('Next stage'), findsOneWidget);
     expect(model.complete, true);
     expect(model.solved, 1);
     expect(tester.takeException(), isNull);
 
-    await tester.ensureVisible(find.text('Next puzzle'));
-    await tester.tap(find.text('Next puzzle'));
+    await tester.ensureVisible(find.text('Next stage'));
+    await tester.tap(find.text('Next stage'));
     await tester.pumpAndSettle();
-    expect(find.text('Endless · 2'), findsOneWidget);
+    expect(find.text('Stage 2/10 · 0/4 field marks'), findsOneWidget);
     expect(model.path, [0]);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
@@ -90,14 +93,15 @@ void main() {
       snapshot: {
         'schemaVersion': 4,
         'premium': true,
-        'hintUsage': {'endless/1': 3},
+        'hintUsage': {'daily/2026-11-23': 3},
       },
+      today: () => DateTime(2026, 11, 23),
       loader: (_) async => fixture(),
     );
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Endless'));
+    await tester.tap(find.text('Play daily'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Watch ad · 1 hint'));
     await tester.pumpAndSettle();

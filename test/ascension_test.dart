@@ -43,7 +43,7 @@ void main() {
       expect(app.buyTankRefill(), true);
       expect(app.hintTank, 3);
       expect(app.freeHints, 2);
-      await app.open(const PuzzleId.endless(1));
+      await app.open(const PuzzleId.daily('2026-11-23'));
       app.hint();
       expect(app.hintTank, 2);
       await app.open(const PuzzleId.level(1), replay: true);

@@ -122,14 +122,14 @@ void main() {
     expect(model.ownedThemes, 3);
     expect(model.result(const PuzzleId.level(36))!.milliseconds, 60000);
     expect(model.longestStreak, 2);
-    expect(model.endless.value, 2);
+    expect(model.solved, 4);
     expect(model.playTime.inMilliseconds, 171000);
     await model.open(const PuzzleId.level(14));
     expect(model.path, [0, 1, 2]);
     model.close();
     await model.flush();
     final snapshot = await store.load();
-    expect(snapshot['schemaVersion'], 4);
+    expect(snapshot['schemaVersion'], 5);
     final restored = create(store, snapshot);
     expect(restored.coinBalance, economy.starterCoins);
     expect(restored.highestUnlocked, 37);

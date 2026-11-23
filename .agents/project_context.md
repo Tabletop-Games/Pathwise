@@ -3,7 +3,7 @@
 Pathwise is a wall-free Android route puzzle using Flutter and Provider. The code adapts GPL-3.0 architecture from [shenmareparas/Chess](https://github.com/shenmareparas/Chess). Preserve attribution and the Bricolage Grotesque font notice.
 
 - [Architecture and persistence](../docs/architecture.md)
-- [Gameplay invariants, solver and interaction](../docs/gameplay.md)
+- [Gameplay invariants, solver and interaction](../docs/gameplay.md) and [game modes](../docs/game-modes.md)
 - [Hint tank](../docs/hints.md), [economy](../docs/economy.md), [research](../docs/research.md), [boosts](../docs/boosts.md) and [crates](../docs/crates.md)
 - [Monetization](../docs/monetization.md), [backend](../docs/backend.md), [security](../docs/security.md) and [Play Games](../docs/play-games.md)
 - [Publisher setup](../setup.md), [release procedure](../docs/release.md) and [performance](../docs/performance.md)

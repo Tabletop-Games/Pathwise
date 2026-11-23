@@ -155,7 +155,6 @@ class StatisticsView extends StatelessWidget {
                 for (final (mode, label, count) in [
                   (PlayMode.levels, 'Levels', model.levelsSolved),
                   (PlayMode.daily, 'Daily', model.dailySolved),
-                  (PlayMode.endless, 'Endless', model.endlessSolved),
                 ])
                   Card(
                     color: palette.surface,
@@ -171,6 +170,10 @@ class StatisticsView extends StatelessWidget {
                 Card(
                   child: Column(
                     children: [
+                      _Stat(
+                        'Expedition trails qualified',
+                        '${model.trailsQualified}',
+                      ),
                       _Stat('Time Attack best score', '${model.attackBest}'),
                       _Stat(
                         'Most puzzles in one run',
