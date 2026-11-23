@@ -7,7 +7,7 @@ import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
-import 'components/brand_mark.dart';
+import '../model/progression.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'levels_view.dart';
@@ -133,6 +133,8 @@ class _MainMenuViewState extends State<MainMenuView>
         model.dailyCurrent(model.daily.value as String).key,
         model.highestUnlocked,
         model.levelsSolved,
+        model.developerMode,
+        model.progression,
         model.coinBalance,
         model.attack?.finished,
         model.attackBest,
@@ -146,6 +148,20 @@ class _MainMenuViewState extends State<MainMenuView>
     final daily = model.daily;
     final result = model.result(daily);
     final currentDaily = model.dailyCurrent(daily.value as String);
+    final researched = Research.values
+        .where((item) => model.progression.rank(item) > 0)
+        .length;
+    final owned = model.progression.inventory.values.fold<int>(
+      0,
+      (sum, quantity) => sum + quantity,
+    );
+    final active = Boost.values
+        .where(
+          (boost) =>
+              model.progression.remaining(boost, model.progressionTime) > 0,
+        )
+        .length;
+    final spinReady = model.fortuneWait == 0 && !model.storageError;
     return Scaffold(
       body: SafeArea(
         child: Align(
@@ -155,99 +171,82 @@ class _MainMenuViewState extends State<MainMenuView>
             child: ListView(
               padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
               children: [
-                Row(
-                  children: [
-                    BrandMark(background: palette.route, ink: palette.onRoute),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const StoreView()),
-                      ),
-                      icon: const Icon(Icons.toll_rounded),
-                      label: Text('${model.coinBalance}'),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(50, 48),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Statistics',
-                      onPressed: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StatisticsView(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.insights_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Settings',
-                      onPressed: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsView()),
-                      ),
-                      icon: const Icon(Icons.settings_outlined),
-                    ),
-                  ],
-                ),
-                if (model.developerMode)
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute(builder: (_) => const DeveloperView()),
-                    ),
-                    icon: const Icon(Icons.bug_report_outlined),
-                    label: const Text('Developer dashboard'),
-                  ),
-                const SizedBox(height: 17),
-                Text(
-                  'Pathwise',
-                  style: TextStyle(
-                    fontSize: 51,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -2.5,
-                    color: palette.ink,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Text(
-                  'One route through every tile.',
-                  style: TextStyle(fontSize: 17, color: palette.muted),
-                ),
-                const SizedBox(height: 25),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  onPressed: () => openPuzzle(
-                    context,
-                    PuzzleId.level(model.highestUnlocked),
-                  ),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(
-                    model.levelsSolved == 0
-                        ? 'Play level 1'
-                        : 'Continue · Level ${model.highestUnlocked}',
-                  ),
-                ),
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    TextButton.icon(
-                      onPressed: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(builder: (_) => const StreakView()),
-                      ),
-                      icon: const Icon(Icons.local_fire_department_outlined),
-                      label: Text('${model.streak.count}-day streak'),
+                    Text(
+                      'Pathwise',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.8,
+                          ),
                     ),
-                    ActionChip(
-                      onPressed: () => showHintShop(context, model),
-                      avatar: const Icon(Icons.lightbulb_outline, size: 18),
-                      label: Text('${model.hintsRemaining} hints'),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const StoreView(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.toll_rounded),
+                          label: Text('${model.coinBalance}'),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(50, 48),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Statistics',
+                          onPressed: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const StatisticsView(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.insights_rounded),
+                        ),
+                        IconButton(
+                          tooltip: 'Settings',
+                          onPressed: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsView(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.settings_outlined),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(builder: (_) => const StreakView()),
+                        ),
+                        icon: _StreakFlame(count: model.streak.count),
+                        label: Text('${model.streak.count}-day streak'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => showHintShop(context, model),
+                        icon: const Icon(Icons.lightbulb_outline_rounded),
+                        label: Text('${model.hintsRemaining} hints'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 _DailyCard(
                   palette: palette,
                   date: '${daily.value}',
@@ -262,6 +261,22 @@ class _MainMenuViewState extends State<MainMenuView>
                       ? 'Resume'
                       : 'Play daily',
                   onTap: () => openPuzzle(context, currentDaily),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  onPressed: () => openPuzzle(
+                    context,
+                    PuzzleId.level(model.highestUnlocked),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(
+                    model.levelsSolved == 0
+                        ? 'Play level 1'
+                        : 'Continue · Level ${model.highestUnlocked}',
+                  ),
                 ),
                 const SizedBox(height: 14),
                 _ModeTile(
@@ -288,32 +303,72 @@ class _MainMenuViewState extends State<MainMenuView>
                   ),
                 ),
                 const SizedBox(height: 10),
-                _ModeTile(
-                  palette: palette,
-                  icon: Icons.cyclone_rounded,
-                  title: 'Fortune Wheel',
-                  featured: model.fortuneWait == 0 && !model.storageError,
-                  subtitle: model.fortuneWait == 0 && !model.storageError
-                      ? 'Free spin ready'
-                      : model.fortuneWait > 0
-                      ? 'Next free spin in ${fortuneCountdown(model.fortuneWait)}'
-                      : 'Free spin temporarily unavailable',
-                  onTap: _openWheel,
-                ),
-                const SizedBox(height: 10),
-                _ModeTile(
-                  palette: palette,
-                  icon: Icons.palette_outlined,
-                  title: 'Themes',
-                  subtitle: 'Preview and apply palettes',
-                  onTap: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => const StoreView(themesOnly: true),
+                _ShortcutRow(
+                  children: [
+                    _HomeShortcut(
+                      icon: Icons.cyclone_rounded,
+                      title: 'Fortune Wheel',
+                      featured: spinReady,
+                      detail: spinReady
+                          ? 'Free spin ready'
+                          : model.fortuneWait > 0
+                          ? 'Next spin in ${fortuneCountdown(model.fortuneWait)}'
+                          : 'Free spin unavailable',
+                      onTap: _openWheel,
                     ),
-                  ),
+                    _HomeShortcut(
+                      icon: Icons.palette_outlined,
+                      title: 'Themes',
+                      detail: 'Preview palettes',
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const StoreView(themesOnly: true),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
-                const ProgressionEntrances(),
+                _ShortcutRow(
+                  children: [
+                    _HomeShortcut(
+                      icon: Icons.hub_outlined,
+                      title: 'Research',
+                      detail: switch (researched) {
+                        0 => 'Permanent upgrades',
+                        1 => '1 upgrade begun',
+                        _ => '$researched upgrades begun',
+                      },
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const ProgressionView(),
+                        ),
+                      ),
+                    ),
+                    _HomeShortcut(
+                      icon: Icons.bolt_rounded,
+                      title: 'Boosts',
+                      detail: active > 0
+                          ? '$active active · $owned in reserve'
+                          : owned > 0
+                          ? '$owned in reserve'
+                          : 'Timed effects',
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const ProgressionView(boosts: true),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (model.developerMode)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const DeveloperView()),
+                    ),
+                    icon: const Icon(Icons.bug_report_outlined),
+                    label: const Text('Developer dashboard'),
+                  ),
                 if (model.storageError)
                   const Padding(
                     padding: EdgeInsets.only(top: 14),
@@ -321,6 +376,93 @@ class _MainMenuViewState extends State<MainMenuView>
                   ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StreakFlame extends StatelessWidget {
+  const _StreakFlame({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const Icon(Icons.local_fire_department_outlined);
+    final flame = Icon(
+      Icons.local_fire_department_rounded,
+      color: Theme.of(context).colorScheme.tertiary,
+    );
+    if (MediaQuery.disableAnimationsOf(context)) return flame;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(count),
+      tween: Tween<double>(begin: 0.8, end: 1),
+      curve: Curves.elasticOut,
+      duration: const Duration(milliseconds: 850),
+      child: flame,
+      builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  const _ShortcutRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: children.first),
+        const SizedBox(width: 10),
+        Expanded(child: children.last),
+      ],
+    ),
+  );
+}
+
+class _HomeShortcut extends StatelessWidget {
+  const _HomeShortcut({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+    this.featured = false,
+  });
+
+  final IconData icon;
+  final String title, detail;
+  final VoidCallback onTap;
+  final bool featured;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: featured ? colors.primaryContainer : colors.surface,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: colors.primary),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(detail, style: TextStyle(color: colors.onSurfaceVariant)),
+            ],
           ),
         ),
       ),
@@ -404,18 +546,16 @@ class _ModeTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.featured = false,
   });
 
   final BoardPalette palette;
   final IconData icon;
   final String title, subtitle;
   final VoidCallback onTap;
-  final bool featured;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: featured ? palette.covered : palette.surface,
+    color: palette.surface,
     borderRadius: BorderRadius.circular(20),
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
