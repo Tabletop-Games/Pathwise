@@ -9,7 +9,6 @@ import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
-import '../model/time_attack.dart';
 
 class FortuneView extends StatefulWidget {
   const FortuneView({super.key});
@@ -21,8 +20,6 @@ class FortuneView extends StatefulWidget {
 class _FortuneViewState extends State<FortuneView> {
   late final Future<FortuneCatalog> _catalog;
   Timer? _ticker;
-  FortuneStatus? _status;
-  BootTime? _receiptClock;
   FortunePrize? _reveal, _pending;
   double _rotation = 0;
   bool _working = false, _checkingVideos = false;
@@ -50,10 +47,7 @@ class _FortuneViewState extends State<FortuneView> {
     if (!ads.wheelConfigured) return;
     _checkingVideos = true;
     try {
-      unawaited(ads.prepare(canPresent: _current));
-      await _sync(await _catalog);
-    } catch (_) {
-      // A catalog failure is shown by the main screen.
+      await ads.prepare(canPresent: _current);
     } finally {
       _checkingVideos = false;
     }
@@ -70,44 +64,6 @@ class _FortuneViewState extends State<FortuneView> {
     super.dispose();
   }
 
-  Future<bool> _sync(FortuneCatalog catalog, {String? receipt}) async {
-    if (!mounted) return false;
-    final ads = context.read<AdService>();
-    final model = context.read<AppModel>();
-    final data = await ads.verifier?.fortune();
-    if (data == null) {
-      if (mounted) setState(() => _status = null);
-      return false;
-    }
-    final FortuneStatus status;
-    try {
-      status = FortuneStatus.fromJson(data);
-      if (status.version != 2) {
-        if (mounted) setState(() => _status = null);
-        return false;
-      }
-    } on FormatException {
-      if (mounted) setState(() => _status = null);
-      return false;
-    } on TypeError {
-      if (mounted) setState(() => _status = null);
-      return false;
-    }
-    final saved = await model.applyVerifiedFortune(catalog, status);
-    if (!mounted) return saved;
-    setState(() {
-      _status = status;
-      _receiptClock = model.fortuneClock;
-    });
-    if (saved && receipt != null && receipt == status.receipt) {
-      final prize = catalog.prizes
-          .where((item) => item.id == status.last)
-          .firstOrNull;
-      if (prize != null) _show(catalog, prize);
-    }
-    return saved;
-  }
-
   Future<void> _spin(FortuneCatalog catalog, {bool video = false}) async {
     if (_working || _pending != null) return;
     final model = context.read<AppModel>();
@@ -115,13 +71,16 @@ class _FortuneViewState extends State<FortuneView> {
     try {
       if (video) {
         model.recordActivity(EconomyEvent.wheelRequested);
-        final shown = await context.read<AdService>().watchVideo(
-          (receipt) => _sync(catalog, receipt: receipt),
+        await context.read<AdService>().watchVideo(
+          (receipt) async {
+            final prize = await model.spinRewardedFortune(catalog, receipt);
+            if (mounted && prize != null) _show(catalog, prize);
+            return prize != null;
+          },
           placement: RewardPlacement.wheel,
           canPresent: _current,
           waitForReward: true,
         );
-        if (!shown && mounted) setState(() => _status = null);
       } else {
         final prize = await model.spinFreeFortune(catalog);
         if (mounted && prize != null) _show(catalog, prize);
@@ -153,12 +112,7 @@ class _FortuneViewState extends State<FortuneView> {
     final ads = context.watch<AdService>();
     final theme = Theme.of(context);
     final wait = model.fortuneWait;
-    final boot = model.fortuneClock;
-    final anchor = _receiptClock;
-    final elapsed = boot != null && anchor != null && boot.boot == anchor.boot
-        ? boot.milliseconds - anchor.milliseconds
-        : 0;
-    final remaining = _status?.remaining(elapsed) ?? 0;
+    final remaining = model.fortuneVideosRemaining;
     final showVideo =
         ads.wheelConfigured &&
         ads.readyFor(RewardPlacement.wheel) &&

@@ -19,10 +19,19 @@ void main() {
       final app = model(MemoryStorage(), {
         'schemaVersion': 3,
         'hintUsage': {'levels/1': 3},
+        'attempts': {
+          'levels/1': {
+            'path': [0],
+            'history': <Object>[],
+            'hints': 3,
+            'milliseconds': 0,
+            'started': true,
+          },
+        },
         'hintCredits': {'levels/1': 1},
       });
       await app.open(const PuzzleId.level(1));
-      expect(app.hintTank, 3);
+      expect(app.hintTank, 0);
       expect(app.freeHints, 0);
       expect(app.extraHints, 0);
       expect(app.canHint, false);
@@ -31,7 +40,7 @@ void main() {
   );
 
   test(
-    'tank is shared, refills to three and cannot supply fourth or fifth hint',
+    'tank resets with attempts and cannot supply fourth or fifth hint',
     () async {
       final storage = MemoryStorage();
       final app = model(storage);
@@ -47,6 +56,9 @@ void main() {
       app.hint();
       expect(app.hintTank, 2);
       await app.open(const PuzzleId.level(1), replay: true);
+      expect(app.hintsRemaining, 3);
+      app.hint();
+      app.clear();
       app.hint();
       app.clear();
       app.hint();
@@ -66,7 +78,7 @@ void main() {
       await app.flush();
       app.dispose();
       final restored = model(storage, await storage.load());
-      await restored.open(const PuzzleId.level(1), replay: true);
+      await restored.open(const PuzzleId.level(1));
       expect(restored.hintTank, 3);
       expect(restored.canHint, false);
       expect(

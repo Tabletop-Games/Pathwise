@@ -128,6 +128,36 @@ void main() {
     app.dispose();
   });
 
+  test('earned video spins persist, reject duplicate receipts and expire on uptime', () async {
+    final storage = MemoryStorage();
+    var clock = (boot: 1, milliseconds: 500);
+    AppModel launch(Map<String, dynamic> snapshot) =>
+        AppModel(storage: storage, snapshot: snapshot, bootTime: () => clock);
+    var app = launch({});
+    final prizes = await Future.wait([
+      app.spinRewardedFortune(catalog, 'first', random: FixedRoll(0)),
+      app.spinRewardedFortune(catalog, 'first', random: FixedRoll(99)),
+    ]);
+    expect(prizes.nonNulls.single.coins, 8);
+    for (var spin = 2; spin <= 4; spin++) {
+      expect(await app.spinRewardedFortune(catalog, 'video-$spin'), isNotNull);
+    }
+    expect(app.fortuneVideosRemaining, 0);
+    expect(await app.spinRewardedFortune(catalog, 'extra'), isNull);
+    expect(await app.spinFreeFortune(catalog), isNotNull);
+    final balance = app.coinBalance;
+    app.dispose();
+
+    app = launch(await storage.load());
+    expect(app.coinBalance, balance);
+    expect(app.fortuneVideosRemaining, 0);
+    clock = (boot: 1, milliseconds: 500 + fortuneWindowMs);
+    expect(app.fortuneVideosRemaining, 4);
+    expect(await app.spinRewardedFortune(catalog, 'first'), isNull);
+    expect(await app.spinRewardedFortune(catalog, 'new'), isNotNull);
+    app.dispose();
+  });
+
   test('verified cumulative rewards account once across concurrent delivery and restart', () async {
     final storage = MemoryStorage();
     var app = AppModel(storage: storage, snapshot: {});

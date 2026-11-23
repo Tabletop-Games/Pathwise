@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -164,7 +165,7 @@ class _CrateRewardState extends State<_CrateReward> {
     setState(() {
       _busy = false;
       _error = shown
-          ? 'Video reward wasn’t verified. Try again.'
+          ? 'Video ended without a reward. Try again.'
           : 'Video unavailable. Try again.';
     });
   }
@@ -190,6 +191,30 @@ class _CrateRewardState extends State<_CrateReward> {
         ],
       ),
       actions: [
+        if (kDebugMode && widget.crate.id.startsWith('crate/debug/')) ...[
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () =>
+                      setState(() => _error = 'Video unavailable. Try again.'),
+            child: const Text('Simulate failure'),
+          ),
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () async {
+                    final model = context.read<AppModel>();
+                    if (await model.claimVerifiedCrate(
+                          widget.crate,
+                          widget.crate.id,
+                        ) &&
+                        mounted) {
+                      Navigator.of(this.context).pop();
+                    }
+                  },
+            child: const Text('Simulate reward'),
+          ),
+        ],
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
           child: const Text('No Thanks'),

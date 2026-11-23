@@ -120,7 +120,7 @@ void main() {
     }
     await solution.up();
     await tester.pumpAndSettle();
-    expect(find.text('Route complete'), findsOneWidget);
+    expect(find.text('Level complete!'), findsOneWidget);
     expect(find.text('Next level'), findsOneWidget);
     expect(model.complete, true);
     expect(model.solved, 1);
@@ -236,7 +236,7 @@ void main() {
         await tester.tap(find.text('Research'));
         await tester.pumpAndSettle();
         expect(find.text('Research lab'), findsOneWidget);
-        final upgrade = find.text('Upgrade · 70 coins');
+        final upgrade = find.text('Upgrade · 55 coins');
         await tester.scrollUntilVisible(upgrade, 170);
         await tester.pumpAndSettle();
         await tester.tap(upgrade);
@@ -335,7 +335,15 @@ void main() {
       snapshot: {
         'schemaVersion': 4,
         'premium': true,
-        'hintUsage': {'daily/2026-11-23': 3},
+        'attempts': {
+          'daily-checkpoint/2026-11-23/1': {
+            'path': [0],
+            'history': <Object>[],
+            'hints': 3,
+            'milliseconds': 0,
+            'started': true,
+          },
+        },
       },
       today: () => DateTime(2026, 11, 23),
       loader: (_) async => fixture(),
@@ -343,7 +351,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Play daily'));
+    await tester.tap(find.text('Resume'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hint · 0 left'));
     await tester.pumpAndSettle();
@@ -361,7 +369,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('Rewarded video unavailable'), findsOneWidget);
-    expect(model.hintTank, 3);
+    expect(model.hintTank, 0);
     expect(model.extraHints, 0);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
@@ -500,6 +508,13 @@ void main() {
       await tester.pumpAndSettle();
       model.hint();
       complete(model);
+      for (var i = 0; i < 2; i++) {
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Next checkpoint'));
+        await tester.pumpAndSettle();
+        expect(model.hintsRemaining, 3);
+        complete(model);
+      }
       final balance = model.coinBalance;
       date = DateTime(2026, 11, 24);
       model.refreshDate();
@@ -524,7 +539,7 @@ void main() {
   );
 
   testWidgets(
-    'Time Attack opens with ten minutes and shows results at expiration',
+    'Time Attack opens with the selected duration and shows results at expiration',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -541,9 +556,12 @@ void main() {
       await tester.ensureVisible(find.text('Time Attack'));
       await tester.tap(find.text('Time Attack'));
       await tester.pumpAndSettle();
-      expect(find.text('10:00'), findsOneWidget);
+      await tester.tap(find.text('1 MIN'));
+      await tester.tap(find.text('Play'));
+      await tester.pumpAndSettle();
+      expect(find.text('1:00'), findsOneWidget);
       expect(find.text('0 solved · 0 points'), findsOneWidget);
-      now += 600000;
+      now += 60000;
       model.refreshAttackClock();
       await tester.pumpAndSettle();
       expect(find.text('Time’s up'), findsOneWidget);

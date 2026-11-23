@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
-import 'components/brand_mark.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
 import 'share_view.dart';
@@ -34,13 +35,39 @@ class PuzzleView extends StatelessWidget {
     if (timed && model.attack?.finished == true)
       return _AttackResults(model: model);
     return Scaffold(
-      bottomNavigationBar: const AdBanner(),
+      bottomNavigationBar: timed ? null : const AdBanner(),
       appBar: AppBar(
         title: Text(
           id.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          if (kDebugMode && !timed && model.puzzle != null)
+            IconButton(
+              tooltip: 'Debug: drop crate',
+              onPressed: model.forceCrateForDebug,
+              icon: const Icon(Icons.bug_report_outlined),
+            ),
+          if (!timed && puzzle != null && !model.complete)
+            PopupMenuButton<int>(
+              tooltip: 'Puzzle options',
+              onSelected: (_) => _confirmPuzzleRestart(context, model),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 0, child: Text('Restart puzzle')),
+              ],
+            ),
+          if (timed)
+            PopupMenuButton<bool>(
+              tooltip: 'Time Attack controls',
+              onSelected: (restart) =>
+                  _confirmAttackAction(context, model, restart),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: false, child: Text('Stop')),
+                PopupMenuItem(value: true, child: Text('Restart')),
+              ],
+            ),
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 18),
             child: ValueListenableBuilder<Duration>(
@@ -114,7 +141,8 @@ class PuzzleView extends StatelessWidget {
                                 '${model.attack!.clears.length} solved · ${model.attack!.score} points',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
-                            if (id.mode == PlayMode.daily)
+                            if (id.mode == PlayMode.daily &&
+                                id.checkpoint == null)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
@@ -200,30 +228,24 @@ class PuzzleView extends StatelessWidget {
                                       child: child,
                                     ),
                                   ),
-                              child: model.complete && !timed
-                                  ? _Completion(
-                                      model: model,
-                                      id: id,
-                                      palette: palette,
-                                    )
-                                  : Padding(
-                                      key: const ValueKey('instruction'),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 6,
-                                        horizontal: 8,
-                                      ),
-                                      child: Text(
-                                        model.hintCell != null
-                                            ? model.correctedByHint
-                                                  ? 'Route corrected. Follow the highlighted tile.'
-                                                  : 'Trace to the highlighted tile.'
-                                            : model.path.length == 1
-                                            ? 'Start at 1. Visit the numbers in order and fill every tile.'
-                                            : 'Drag from the tip to extend. Tap the trail to backtrack.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: palette.muted),
-                                      ),
-                                    ),
+                              child: Padding(
+                                key: const ValueKey('instruction'),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 8,
+                                ),
+                                child: Text(
+                                  model.hintCell != null
+                                      ? model.correctedByHint
+                                            ? 'Route corrected. Follow the highlighted tile.'
+                                            : 'Trace to the highlighted tile.'
+                                      : model.path.length == 1
+                                      ? 'Start at 1. Visit the numbers in order and fill every tile.'
+                                      : 'Drag from the tip to extend. Tap the trail to backtrack.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: palette.muted),
+                                ),
+                              ),
                             ),
                             if (model.storageError)
                               const Padding(
@@ -237,7 +259,40 @@ class PuzzleView extends StatelessWidget {
                   );
                 },
               ),
-              if (!timed)
+              if (model.complete && !timed) ...[
+                const Positioned.fill(
+                  child: ModalBarrier(color: Colors.black54),
+                ),
+                if (model.completedThisVisit &&
+                    !MediaQuery.disableAnimationsOf(context))
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 680),
+                        builder: (_, phase, _) => CustomPaint(
+                          painter: _CompletionBurst(phase, palette),
+                        ),
+                      ),
+                    ),
+                  ),
+                BlockSemantics(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 430),
+                        child: _Completion(
+                          model: model,
+                          id: id,
+                          palette: palette,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (!timed && !model.complete)
                 if (model.fallingCrate case final crate?)
                   Positioned.fill(
                     child: FallingCrate(key: ValueKey(crate.id), crate: crate),
@@ -247,6 +302,93 @@ class PuzzleView extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _CompletionBurst extends CustomPainter {
+  const _CompletionBurst(this.phase, this.palette);
+
+  final double phase;
+  final BoardPalette palette;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (phase >= 1) return;
+    final center = size.center(Offset.zero);
+    final radius =
+        size.shortestSide * (.24 + .26 * Curves.easeOut.transform(phase));
+    final colors = [palette.route, palette.accent, palette.ink];
+    final paint = Paint();
+    for (var i = 0; i < 24; i++) {
+      final angle = i * math.pi * 2 / 24;
+      final distance = radius * (i.isEven ? 1 : .84);
+      final point =
+          center + Offset(math.cos(angle), math.sin(angle)) * distance;
+      paint.color = colors[i % colors.length].withValues(alpha: 1 - phase);
+      canvas.drawCircle(point, i.isEven ? 3 : 2, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CompletionBurst oldDelegate) =>
+      phase != oldDelegate.phase || palette != oldDelegate.palette;
+}
+
+Future<void> _confirmPuzzleRestart(BuildContext context, AppModel model) async {
+  final id = model.activeId;
+  if (id == null) return;
+  final accepted = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: const Text('Restart puzzle?'),
+      content: const Text('Start this board again with three hints.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, false),
+          child: const Text('Keep playing'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialog, true),
+          child: const Text('Restart'),
+        ),
+      ],
+    ),
+  );
+  if (accepted == true && context.mounted && model.activeId == id) {
+    await model.open(id, replay: true);
+  }
+}
+
+Future<void> _confirmAttackAction(
+  BuildContext context,
+  AppModel model,
+  bool restart,
+) async {
+  final accepted = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(restart ? 'Restart Time Attack?' : 'Stop Time Attack?'),
+      content: const Text('This run’s score and rewards will be discarded.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Keep playing'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(restart ? 'Restart' : 'Stop'),
+        ),
+      ],
+    ),
+  );
+  if (accepted != true || !context.mounted || model.attack?.finished != false) {
+    return;
+  }
+  if (restart) {
+    await model.restartAttack();
+  } else {
+    model.stopAttack();
+    Navigator.pop(context);
   }
 }
 
@@ -267,11 +409,16 @@ class _Completion extends StatelessWidget {
       PlayMode.levels when model.canPlayLevel(id.level + 1) => PuzzleId.level(
         id.level + 1,
       ),
+      PlayMode.daily when id.checkpoint != null => model.dailyCurrent(
+        id.value as String,
+      ),
       _ => null,
     };
-    final best =
-        model.result(id)?.milliseconds ?? model.elapsed.value.inMilliseconds;
-    final hints = model.hintsUsed;
+    final result = model.result(id);
+    final hints = result?.hints ?? model.hintsUsed;
+    final duration = Duration(
+      milliseconds: result?.milliseconds ?? model.elapsed.value.inMilliseconds,
+    );
     return Semantics(
       liveRegion: true,
       child: Container(
@@ -285,19 +432,27 @@ class _Completion extends StatelessWidget {
           children: [
             Row(
               children: [
-                BrandMark(background: palette.accent, ink: palette.onAccent),
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: palette.accent,
+                  size: 44,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Route complete',
+                        id.checkpoint != null
+                            ? 'Checkpoint complete'
+                            : id.mode == PlayMode.levels
+                            ? 'Level complete!'
+                            : 'Daily complete!',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${formatTime(model.elapsed.value)} · $hints ${hints == 1 ? 'hint' : 'hints'}',
+                        '${formatTime(duration)} · $hints ${hints == 1 ? 'hint' : 'hints'}',
                         style: TextStyle(color: palette.muted),
                       ),
                     ],
@@ -306,36 +461,52 @@ class _Completion extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 13,
-              runSpacing: 6,
-              children: [
-                Text(
-                  '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
+            if (model.lastReward > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.toll_rounded),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+${model.lastReward} coins',
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ],
                 ),
-                Text(
-                  model.lastReward > 0
-                      ? '+${model.lastReward} coins'
-                      : '0 coins earned',
+              ),
+            if (next != null)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(54),
+                  ),
+                  onPressed: () => model.open(next),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: Text(
+                    id.checkpoint == null ? 'Next level' : 'Next checkpoint',
+                  ),
                 ),
-                Text('Balance ${model.coinBalance}'),
-                if (id.mode == PlayMode.levels)
-                  Text('Level ${model.highestUnlocked} unlocked'),
-              ],
-            ),
+              ),
             const SizedBox(height: 8),
             AchievementCelebration(model),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
               children: [
-                if (id.mode == PlayMode.daily)
+                if (id.mode == PlayMode.daily && id.checkpoint == null)
                   ShareResultButton(
                     result: ShareResult.daily(
                       id.value as String,
-                      time: model.elapsed.value,
-                      hints: hints,
+                      time: Duration(
+                        milliseconds:
+                            model.result(id)?.milliseconds ??
+                            model.elapsed.value.inMilliseconds,
+                      ),
+                      hints: model.result(id)?.hints ?? hints,
                       newBest: model.newBest,
                     ),
                     label: 'Share Today’s Result',
@@ -350,12 +521,7 @@ class _Completion extends StatelessWidget {
                     ),
                     label: 'Share Level Milestone',
                   ),
-                if (next != null)
-                  FilledButton(
-                    onPressed: () => model.open(next),
-                    child: const Text('Next level'),
-                  ),
-                OutlinedButton(
+                TextButton(
                   onPressed: () => model.open(id, replay: true),
                   child: const Text('Replay'),
                 ),
@@ -381,18 +547,22 @@ class _HintAction extends StatelessWidget {
   Future<void> _reward(BuildContext context, {required bool refill}) async {
     final ads = context.read<AdService>();
     final id = model.activeId;
+    final revision = model.attemptRevision;
     final placement = refill ? RewardPlacement.refill : RewardPlacement.hint;
     bool current() =>
         context.mounted &&
         model.activeId == id &&
+        model.attemptRevision == revision &&
         ModalRoute.isCurrentOf(context) == true;
     if (ads.enabled && !ads.readyFor(placement))
       await ads.prepare(canPresent: current);
     if (!current()) return;
     final shown = await ads.watchVideo(
-      refill
-          ? model.grantTankRefill
-          : (event) => model.grantRewardedHint(id!.key, event),
+      (event) async =>
+          model.attemptRevision == revision &&
+          await (refill
+              ? model.grantTankRefill(event)
+              : model.grantRewardedHint(id!.key, event)),
       placement: placement,
       canPresent: () =>
           current() &&
@@ -437,7 +607,7 @@ class _HintAction extends StatelessWidget {
       builder: (dialog) => AlertDialog(
         title: const Text('Refill hint tank'),
         content: const Text(
-          'Restore three shared hints. Refilling keeps this puzzle’s hint count.',
+          'Restore the remaining standard hints for this attempt.',
         ),
         actions: [
           TextButton(
@@ -533,6 +703,35 @@ class _AttackResults extends StatelessWidget {
                   trailing: Text('${run.coins}'),
                 ),
                 AchievementCelebration(model),
+                if (run.canRank && PlayGames.enabled)
+                  if (PlayGames.timeAttackBoard(run.minutes) case final board?)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final signedIn =
+                            await PlayGames.call<bool>('status') == true ||
+                            await PlayGames.call<bool>('signIn') == true;
+                        final posted =
+                            signedIn &&
+                            await PlayGames.call<bool>('submitScore', {
+                                  'id': board,
+                                  'score': '${run.score}',
+                                }) ==
+                                true;
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                posted
+                                    ? 'Score submitted.'
+                                    : 'Score submission unavailable.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.leaderboard_outlined),
+                      label: const Text('Submit to Play Games'),
+                    ),
                 ShareResultButton(
                   result: ShareResult.attack(
                     score: run.score,

@@ -93,3 +93,19 @@ jobs:
           test -s build/app/outputs/mapping/release/mapping.txt
           test -s build/app/outputs/mapping/release/resources.txt
           wc -c "$apk" "$bundle"
+  ios:
+    name: Compile unsigned iOS release
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/flutter
+            ~/.pub-cache
+          key: flutter-ios-${{ runner.os }}-3.50.1-${{ hashFiles('pubspec.lock') }}
+      - *flutter
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build ios --release --no-codesign
+      - run: test -s build/ios/iphoneos/Runner.app/Runner

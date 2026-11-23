@@ -25,8 +25,8 @@ class EconomyRules {
     PathwiseTheme.blackwater ||
     PathwiseTheme.terracotta ||
     PathwiseTheme.signal => 0,
-    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 110,
-    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 160,
+    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 90,
+    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 140,
     PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 220,
     PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
     PathwiseTheme.canyon => 4500,

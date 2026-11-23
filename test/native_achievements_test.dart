@@ -201,7 +201,7 @@ void main() {
       );
       expect(await app.openAttack(), true);
       for (var count = 0; count < 10; count++) {
-        time = (boot: 1, milliseconds: time.milliseconds + 55000);
+        time = (boot: 1, milliseconds: time.milliseconds + 15000);
         complete(app);
         await Future<void>.delayed(Duration.zero);
       }

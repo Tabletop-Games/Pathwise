@@ -1,9 +1,7 @@
-# Hint tank
+# Puzzle attempt hints
 
-New installations start at **3/3**. One standard hint removes one unit and counts against that puzzle's maximum of three. Tank units do not regenerate. Early hints highlight progressively longer sections of the certified route and correct divergent tails.
+Start a new board, select Next or Replay, or confirm Restart to begin with three standard hints. Each standard hint consumes one allowance and reveals part of the certified route. Clearing the route, backgrounding, and resuming a saved attempt retain its hint usage.
 
-When the tank is below capacity, an explicit coin purchase or verified tank-refill ad sets it to 3/3. Base price is 16 coins and Smart Savings can reduce it to 14. Refilling changes only the tank. No refill is offered at 3/3.
+If a restored save has a partial tank with unused standard hints, the refill flow restores capacity for the current attempt. It costs 16 coins or one earned refill ad. Refilling never restores a spent standard allowance.
 
-After three standard hints on a board the sole authorization is one separate verified rewarded ad per additional hint. This applies to Premium and ad-free purchasers. A completed refill ad cannot be redeemed as an extra-hint ad. A failed, cancelled, unverified, or unavailable video yields no hint. Debug sample units exercise SDK callbacks. Release ads require the production signature verification flow.
-
-Level and daily identity stays stable across reopen, replay, clearing and restart. Time Attack uses a run and puzzle index. A released extra hint authorizes one reveal and the receipt ID cannot be reused. Old development-only extra-hint credits are discarded when upgrading from schemas 1–3.
+After three standard hints, each additional hint needs a separate earned video reward. The ad completion is bound to the attempt that opened the offer. Failed or dismissed ads yield no hint. The hint counter and usable credits are persisted with the unfinished board.

@@ -15,6 +15,12 @@ import com.google.android.gms.games.achievement.AchievementBuffer;
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.MethodChannel;
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +29,29 @@ public class MainActivity extends FlutterActivity {
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         super.configureFlutterEngine(engine);
+        new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
+                "games.tabletop.pathwise/commerce").setMethodCallHandler((call, result) -> {
+            if (!call.method.equals("verifyPlayPurchase")) {
+                result.notImplemented();
+                return;
+            }
+            String key = call.argument("key");
+            String data = call.argument("data");
+            String signature = call.argument("signature");
+            if (key == null || data == null || signature == null) {
+                result.success(false);
+                return;
+            }
+            try {
+                var spec = new X509EncodedKeySpec(Base64.decode(key, Base64.DEFAULT));
+                var verifier = Signature.getInstance("SHA1withRSA");
+                verifier.initVerify(KeyFactory.getInstance("RSA").generatePublic(spec));
+                verifier.update(data.getBytes(StandardCharsets.UTF_8));
+                result.success(verifier.verify(Base64.decode(signature, Base64.DEFAULT)));
+            } catch (GeneralSecurityException | IllegalArgumentException error) {
+                result.success(false);
+            }
+        });
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
                 "games.tabletop.pathwise/games").setMethodCallHandler((call, result) -> {
             if (getString(R.string.pathwise_games_project).equals("0")) {
@@ -65,15 +94,17 @@ public class MainActivity extends FlutterActivity {
                         updateAchievement(call.argument("player"), call.argument("id"),
                                 call.argument("steps"), result);
                         break;
-                    case "serverCode":
-                        String client = call.argument("client");
-                        if (client == null || !client.endsWith(".apps.googleusercontent.com")) {
-                            result.success(null);
+                    case "submitScore":
+                        String board = call.argument("id");
+                        String score = call.argument("score");
+                        if (board == null || board.isEmpty() || score == null ||
+                                !score.matches("[1-9][0-9]{0,8}")) {
+                            result.success(false);
                             break;
                         }
-                        auth.requestServerSideAccess(client, false)
-                                .addOnCompleteListener(task -> result.success(
-                                        task.isSuccessful() ? task.getResult() : null));
+                        PlayGames.getLeaderboardsClient(this)
+                                .submitScoreImmediate(board, Long.parseLong(score))
+                                .addOnCompleteListener(task -> result.success(task.isSuccessful()));
                         break;
                     default:
                         result.notImplemented();

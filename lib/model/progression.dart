@@ -3,7 +3,7 @@ import 'dart:math';
 import 'time_attack.dart';
 
 enum Research {
-  magnet('Coin Magnet', 'Level coins', 70, 10, 2),
+  magnet('Coin Magnet', 'Level coins', 55, 10, 2),
   golden('Golden Route', 'Hint-free clear coins', 100, 8, 2),
   fortune('Daily Fortune', 'Daily clear coins', 100, 8, 4),
   mastery('Milestone Mastery', 'Achievement coins', 180, 6, 5),
@@ -73,13 +73,13 @@ enum Research {
 }
 
 enum Boost {
-  doubleTen('2× coins', 10, 35, 2),
-  doubleFifteen('2× coins', 15, 50, 2),
-  doubleThirty('2× coins', 30, 90, 2),
-  doubleSixty('2× coins', 60, 195, 2),
-  tripleFifteen('3× coins', 15, 110, 3),
-  quadrupleTen('4× coins', 10, 120, 4),
-  crateFrequency('Twice as many crate opportunities', 15, 35, 1);
+  doubleTen('2× coins', 10, 24, 2),
+  doubleFifteen('2× coins', 15, 36, 2),
+  doubleThirty('2× coins', 30, 72, 2),
+  doubleSixty('2× coins', 60, 150, 2),
+  tripleFifteen('3× coins', 15, 80, 3),
+  quadrupleTen('4× coins', 10, 88, 4),
+  crateFrequency('Twice as many crate opportunities', 15, 28, 1);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;

@@ -7,13 +7,12 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../model/economy.dart';
 import 'ad_frequency.dart';
-import 'reward_verifier.dart';
-export 'reward_verifier.dart' show RewardPlacement;
+
+enum RewardPlacement { coins, hint, refill, wheel, crate }
 
 /// Consent-aware cache with post-game placements and a separate opt-in video.
 class AdService extends ChangeNotifier {
-  AdService({this.reserveInterstitial, this.onRewardedClosed, this.verifier});
-  final RewardVerifier? verifier;
+  AdService({this.reserveInterstitial, this.onRewardedClosed});
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
   bool _reserving = false;
@@ -23,14 +22,18 @@ class AdService extends ChangeNotifier {
   static const _privacyConfigured = bool.fromEnvironment(
     'PATHWISE_ADS_CONSENT_CONFIGURED',
   );
-  static const _prodInterstitial = String.fromEnvironment(
-    'PATHWISE_ADMOB_INTERSTITIAL',
-  );
-  static const _prodRewarded = String.fromEnvironment(
-    'PATHWISE_ADMOB_REWARDED',
-  );
+
   static const _ttl = Duration(minutes: 45);
-  static const _bannerUnit = String.fromEnvironment('PATHWISE_ADMOB_BANNER');
+  bool get _ios => defaultTargetPlatform == TargetPlatform.iOS;
+  String get _bannerUnit => _ios
+      ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_BANNER')
+      : const String.fromEnvironment('PATHWISE_ADMOB_BANNER');
+  String get _prodInterstitial => _ios
+      ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_INTERSTITIAL')
+      : const String.fromEnvironment('PATHWISE_ADMOB_INTERSTITIAL');
+  String get _prodRewarded => _ios
+      ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_REWARDED')
+      : const String.fromEnvironment('PATHWISE_ADMOB_REWARDED');
   static const _network = MethodChannel('games.tabletop.pathwise/clock');
   final _frequency = AdFrequency(
     minimumGap: economy.automaticAdGap,
@@ -41,8 +44,11 @@ class AdService extends ChangeNotifier {
   bool _checkingReward = false;
   bool get canLoadBanner => _canRequest && enabled;
   int get consentRevision => _consentGeneration;
-  String get bannerUnit =>
-      _test ? 'ca-app-pub-3940256099942544/9214589741' : _bannerUnit;
+  String get bannerUnit => _test
+      ? (_ios
+            ? 'ca-app-pub-3940256099942544/2435281174'
+            : 'ca-app-pub-3940256099942544/9214589741')
+      : _bannerUnit;
   bool get bannerConfigured => _test || validAdUnit(_bannerUnit);
   Future<bool> _online() async {
     try {
@@ -54,7 +60,7 @@ class AdService extends ChangeNotifier {
     }
   }
 
-  static final _productionUnits = [
+  Set<String> get _productionUnits => [
     _prodInterstitial,
     _bannerUnit,
     for (final placement in RewardPlacement.values)
@@ -64,7 +70,7 @@ class AdService extends ChangeNotifier {
   ].toSet();
 
   bool get enabled =>
-      defaultTargetPlatform == TargetPlatform.android &&
+      (defaultTargetPlatform == TargetPlatform.android || _ios) &&
       (_test ||
           (_enabled &&
               _privacyConfigured &&
@@ -90,22 +96,24 @@ class AdService extends ChangeNotifier {
       ready(_rewarded[placement]) && _canRequest && !_fullScreen;
   bool get wheelConfigured =>
       enabled &&
-      !_test &&
-      verifier?.enabled == true &&
-      validAdUnit(_unit(RewardPlacement.wheel)) &&
-      !_productionUnits.contains(_unit(RewardPlacement.wheel));
+      (_test ||
+          (validAdUnit(_unit(RewardPlacement.wheel)) &&
+              !_productionUnits.contains(_unit(RewardPlacement.wheel))));
   bool get videoReady => readyFor(RewardPlacement.coins);
-  static String _unit(RewardPlacement placement) => switch (placement) {
+  String _unit(RewardPlacement placement) => switch (placement) {
     RewardPlacement.coins || RewardPlacement.crate => _prodRewarded,
-    RewardPlacement.hint => const String.fromEnvironment(
-      'PATHWISE_ADMOB_EXTRA_HINT',
-    ),
-    RewardPlacement.wheel => const String.fromEnvironment(
-      'PATHWISE_ADMOB_WHEEL',
-    ),
-    RewardPlacement.refill => const String.fromEnvironment(
-      'PATHWISE_ADMOB_HINT_REFILL',
-    ),
+    RewardPlacement.hint =>
+      _ios
+          ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_EXTRA_HINT')
+          : const String.fromEnvironment('PATHWISE_ADMOB_EXTRA_HINT'),
+    RewardPlacement.wheel =>
+      _ios
+          ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_WHEEL')
+          : const String.fromEnvironment('PATHWISE_ADMOB_WHEEL'),
+    RewardPlacement.refill =>
+      _ios
+          ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_HINT_REFILL')
+          : const String.fromEnvironment('PATHWISE_ADMOB_HINT_REFILL'),
   };
   String? message;
 
@@ -122,6 +130,12 @@ class AdService extends ChangeNotifier {
     _preparing = true;
     final updated = Completer<void>();
     try {
+      if (_ios &&
+          !_test &&
+          await _network.invokeMethod<bool>('adsConfigured') != true) {
+        _report('Ad services are currently unavailable.');
+        return;
+      }
       ConsentInformation.instance.requestConsentInfoUpdate(
         ConsentRequestParameters(),
         () => updated.complete(),
@@ -195,7 +209,9 @@ class AdService extends ChangeNotifier {
       unawaited(
         InterstitialAd.load(
           adUnitId: _test
-              ? 'ca-app-pub-3940256099942544/1033173712'
+              ? (_ios
+                    ? 'ca-app-pub-3940256099942544/4411468910'
+                    : 'ca-app-pub-3940256099942544/1033173712')
               : _prodInterstitial,
           request: const AdRequest(),
           adLoadCallback: InterstitialAdLoadCallback(
@@ -218,16 +234,16 @@ class AdService extends ChangeNotifier {
     }
     for (final placement in RewardPlacement.values) {
       if (placement == RewardPlacement.wheel && !wheelConfigured) continue;
-      if (!_test &&
-          (verifier?.enabled != true || !validAdUnit(_unit(placement))))
-        continue;
+      if (!_test && !validAdUnit(_unit(placement))) continue;
       if (ready(_rewarded[placement]) || !_loadingRewarded.add(placement))
         continue;
       _rewarded.remove(placement)?.$1.dispose();
       unawaited(
         RewardedAd.load(
           adUnitId: _test
-              ? 'ca-app-pub-3940256099942544/5224354917'
+              ? (_ios
+                    ? 'ca-app-pub-3940256099942544/1712485313'
+                    : 'ca-app-pub-3940256099942544/5224354917')
               : _unit(placement),
           request: const AdRequest(),
           rewardedAdLoadCallback: RewardedAdLoadCallback(
@@ -303,10 +319,8 @@ class AdService extends ChangeNotifier {
     if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
     final online = await _online();
-    final ticket = online && !_test ? await verifier?.start(placement) : null;
     _checkingReward = false;
-    if ((!_test && ticket == null) ||
-        !online ||
+    if (!online ||
         !readyFor(placement) ||
         _disposed ||
         canPresent?.call() == false) {
@@ -314,23 +328,9 @@ class AdService extends ChangeNotifier {
       return false;
     }
     final ad = _rewarded.remove(placement)!.$1;
-    if (ticket != null) {
-      try {
-        await ad.setServerSideOptions(
-          ServerSideVerificationOptions(customData: ticket.token),
-        );
-      } catch (_) {
-        unawaited(ad.dispose());
-        _preload();
-        return false;
-      }
-      if (_disposed || _fullScreen || canPresent?.call() == false) {
-        unawaited(ad.dispose());
-        return false;
-      }
-    }
     _showing = ad;
     var granted = false;
+    var closed = false;
     final settled = waitForReward ? Completer<void>() : null;
     void finishReward() {
       if (settled != null && !settled.isCompleted) settled.complete();
@@ -340,12 +340,21 @@ class AdService extends ChangeNotifier {
       3,
       (_) => Random.secure().nextInt(1 << 32).toRadixString(16),
     ).join('-');
+    final expiry = Timer(const Duration(minutes: 3), () {
+      closed = true;
+      _finished(ad);
+      finishReward();
+    });
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (_) {
+        expiry.cancel();
+        closed = true;
         _finished(ad);
         if (!granted) finishReward();
       },
       onAdFailedToShowFullScreenContent: (_, _) {
+        expiry.cancel();
+        closed = true;
         _finished(ad);
         finishReward();
       },
@@ -355,20 +364,10 @@ class AdService extends ChangeNotifier {
       ad
           .show(
             onUserEarnedReward: (_, _) async {
-              if (granted || _disposed) return;
+              if (granted || closed || _disposed) return;
               granted = true;
               try {
-                if (!await _online() || _disposed) return;
-                final receipt = ticket == null
-                    ? id
-                    : await verifier!.confirm(
-                        placement,
-                        ticket.token,
-                        ticket.secret,
-                      );
-                if (receipt == null || _disposed) {
-                  _report('Reward could not be verified.');
-                } else if (!await reward(receipt)) {
+                if (!await reward(id)) {
                   _report('The video bonus could not be saved.');
                 }
               } catch (_) {
@@ -379,6 +378,8 @@ class AdService extends ChangeNotifier {
             },
           )
           .catchError((Object _) {
+            expiry.cancel();
+            closed = true;
             _finished(ad);
             finishReward();
           }),

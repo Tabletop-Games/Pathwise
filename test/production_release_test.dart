@@ -66,49 +66,91 @@ void main() {
     restarted.dispose();
   });
 
-  test('three hints persist after clear, reopen and replay; credit is scoped and idempotent', () async {
-    final store = MemoryStorage();
-    final model = app(store);
-    const id = PuzzleId.level(1);
-    await model.open(id);
-    model.tap(3);
-    model.hint();
-    expect(model.correctedByHint, isTrue);
-    expect(model.path, [0]);
-    model.clear();
-    model.hint();
-    expect(model.path.length, 3);
-    model.clear();
-    model.hint();
-    expect(model.path.length, 5);
-    model.clear();
-    expect(model.freeHints, 0);
-    expect(model.canHint, isFalse);
-    model.hint();
-    expect(model.hintCell, isNull);
-    await model.open(id, replay: true);
-    expect(model.freeHints, 0);
-    final ads = AdService();
-    expect(
-      await ads.watchVideo((event) => model.grantRewardedHint(id.key, event)),
-      isFalse,
-    );
-    expect(model.extraHints, 0);
-    expect(await model.grantRewardedHint(id.key, 'reward-1'), isTrue);
-    expect(await model.grantRewardedHint(id.key, 'reward-1'), isFalse);
-    expect(model.extraHints, 1);
-    model.hint();
-    expect(model.extraHints, 0);
-    await model.flush();
-    final restored = app(store, data: await store.load());
-    await restored.open(id, replay: true);
-    expect(restored.freeHints, 0);
-    expect(restored.extraHints, 0);
-    expect(await restored.grantRewardedHint(id.key, 'reward-1'), isFalse);
-    ads.dispose();
-    model.dispose();
-    restored.dispose();
-  });
+  test(
+    'Time Attack durations, restart and stop preserve permanent state',
+    () async {
+      final store = MemoryStorage();
+      var clock = (boot: 1, milliseconds: 100);
+      final model = AppModel(
+        storage: store,
+        snapshot: {},
+        bootTime: () => clock,
+        loader: (_) async => fixture(),
+      );
+      final coins = model.coinBalance;
+      model.selectAttackMinutes(1);
+      expect(await model.openAttack(), true);
+      expect(model.attackRemaining.value, const Duration(minutes: 1));
+      final first = model.attack!.id;
+      model.hint();
+      expect(model.hintsRemaining, 2);
+      expect(await model.restartAttack(), true);
+      expect(model.attack!.id, isNot(first));
+      expect(model.hintsRemaining, 3);
+      expect(model.attackHistory, isEmpty);
+      model.stopAttack();
+      clock = (boot: 1, milliseconds: 1000000);
+      model.refreshAttackClock();
+      expect(model.attack, isNull);
+      expect(model.coinBalance, coins);
+      expect(model.attackHistory, isEmpty);
+      await model.flush();
+      final restored = app(store, data: await store.load());
+      expect(restored.attackMinutes, 1);
+      model.dispose();
+      restored.dispose();
+    },
+  );
+
+  test(
+    'resume preserves hints; replay resets them and ad grants stay idempotent',
+    () async {
+      final store = MemoryStorage();
+      final model = app(store);
+      const id = PuzzleId.level(1);
+      await model.open(id);
+      model.tap(3);
+      model.hint();
+      expect(model.correctedByHint, isTrue);
+      expect(model.path, [0]);
+      model.clear();
+      model.hint();
+      expect(model.path.length, 3);
+      model.clear();
+      model.hint();
+      expect(model.path.length, 5);
+      model.clear();
+      expect(model.freeHints, 0);
+      expect(model.canHint, isFalse);
+      model.hint();
+      expect(model.hintCell, isNull);
+      await model.open(id);
+      expect(model.freeHints, 0);
+      final ads = AdService();
+      expect(
+        await ads.watchVideo((event) => model.grantRewardedHint(id.key, event)),
+        isFalse,
+      );
+      expect(model.extraHints, 0);
+      expect(await model.grantRewardedHint(id.key, 'reward-1'), isTrue);
+      expect(await model.grantRewardedHint(id.key, 'reward-1'), isFalse);
+      expect(model.extraHints, 1);
+      model.hint();
+      expect(model.extraHints, 0);
+      await model.flush();
+      final restored = app(store, data: await store.load());
+      await restored.open(id);
+      expect(restored.freeHints, 0);
+      await restored.open(id, replay: true);
+      expect(restored.freeHints, 3);
+      expect(restored.hintsRemaining, 3);
+      expect(restored.extraHints, 0);
+      expect(await restored.grantRewardedHint(id.key, 'reward-1'), isFalse);
+      ads.dispose();
+      model.dispose();
+      restored.dispose();
+    },
+  );
 
   test(
     'verified Premium grants both permanent entitlements and one bonus',
@@ -202,7 +244,7 @@ void main() {
         },
       );
       await v2.open(const PuzzleId.level(4), replay: true);
-      expect(v2.freeHints, 1);
+      expect(v2.freeHints, 3);
       expect(v2.hasThemePass, isTrue);
       expect(v2.adFree, isFalse);
       expect(v2.ownedThemes, 23);

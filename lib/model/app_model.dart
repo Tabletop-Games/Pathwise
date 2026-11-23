@@ -48,6 +48,22 @@ class AppModel extends ChangeNotifier {
         );
       }
     }
+    for (final entry in _map(snapshot['dailyCheckpoints']).entries) {
+      final data = _map(entry.value);
+      final time = data['milliseconds'];
+      final hints = data['hints'];
+      if (time is int && time >= 0 && hints is int && hints >= 0) {
+        _dailyCheckpoints[entry.key] = (
+          milliseconds: time,
+          hints: hints,
+          unassisted: hints == 0,
+        );
+      }
+    }
+    final attackMinutes = snapshot['attackMinutes'];
+    if (attackMinutes == 1 || attackMinutes == 3 || attackMinutes == 5) {
+      _attackMinutes = attackMinutes as int;
+    }
     final fortune = _map(snapshot['fortune']);
     if (fortune['boot'] is int && fortune['at'] is int) {
       _lastFreeFortune = (
@@ -56,6 +72,13 @@ class AppModel extends ChangeNotifier {
       );
     }
     _wheelClaims.addAll(_map(fortune['claims']).cast<String, int>());
+    for (final row in (fortune['videos'] as List? ?? []).whereType<Map>()) {
+      final boot = row['boot'];
+      final at = row['at'];
+      if (boot is int && at is int && at >= 0) {
+        _wheelVideos.add((boot: boot, milliseconds: at));
+      }
+    }
     final savedProgression = _map(snapshot['progression']);
     progression = Progression(savedProgression);
     progression.migrateCrates(
@@ -310,6 +333,40 @@ class AppModel extends ChangeNotifier {
       attackHistory.fold(0, (best, run) => max(best, run.clears.length));
 
   bool _openingAttack = false;
+  int _attackMinutes = 3;
+  int get attackMinutes => _attackMinutes;
+
+  void selectAttackMinutes(int minutes) {
+    if (![1, 3, 5].contains(minutes) || minutes == _attackMinutes) return;
+    _attackMinutes = minutes;
+    notifyListeners();
+    unawaited(flush());
+  }
+
+  int attackBestFor(int minutes) => attackHistory
+      .where((run) => run.minutes == minutes)
+      .fold(0, (best, run) => max(best, run.score));
+
+  void stopAttack() {
+    final run = attack;
+    if (run == null || run.finished) return;
+    if (activeId?.mode == PlayMode.attack) close();
+    attack = null;
+    _attackTicker?.cancel();
+    _attackTicker = null;
+    final prefix = 'attack/${run.id}/';
+    _attempts.removeWhere((key, _) => key.startsWith(prefix));
+    _hintUsage.removeWhere((key, _) => key.startsWith(prefix));
+    _hintCredits.removeWhere((key, _) => key.startsWith(prefix));
+    attackRemaining.value = Duration.zero;
+    unawaited(flush());
+    notifyListeners();
+  }
+
+  Future<bool> restartAttack() async {
+    stopAttack();
+    return openAttack();
+  }
 
   Future<bool> openAttack() async {
     if (_openingAttack || _disposed) return false;
@@ -329,9 +386,10 @@ class AppModel extends ChangeNotifier {
       final next = AttackRun(
         '${now.boot}-${now.milliseconds}-${Random.secure().nextInt(1 << 32)}',
         now.boot,
-        now.milliseconds + AttackRun.duration.inMilliseconds,
+        now.milliseconds + Duration(minutes: _attackMinutes).inMilliseconds,
         now.milliseconds,
-        attackBest,
+        attackBestFor(_attackMinutes),
+        minutes: _attackMinutes,
       );
       attack = next;
       if (!await flush()) {
@@ -388,6 +446,7 @@ class AppModel extends ChangeNotifier {
     }
   }
 
+  int get attemptRevision => _request;
   int get freeHints => max(0, 3 - (_hintUsage[activeId?.key] ?? 0));
   int get extraHints => _hintCredits[activeId?.key] ?? 0;
   bool get canRequestExtraHint =>
@@ -474,6 +533,19 @@ class AppModel extends ChangeNotifier {
     progression.activate(item, now);
     _progressionChanged();
     return true;
+  }
+
+  void forceCrateForDebug() {
+    if (!kDebugMode ||
+        !_inPlay ||
+        _game == null ||
+        complete ||
+        activeId?.mode == PlayMode.attack ||
+        _fallingCrate != null) {
+      return;
+    }
+    _fallingCrate = (id: 'crate/debug/${progression.serial++}', coins: 25);
+    notifyListeners();
   }
 
   bool revealCrate(Crate crate) {
@@ -670,7 +742,28 @@ class AppModel extends ChangeNotifier {
   static Map<String, dynamic> _map(Object? value) =>
       value is Map<String, dynamic> ? value : {};
 
+  final _dailyCheckpoints = <String, RunResult>{};
+
   PuzzleId get daily => PuzzleId.daily(dayKey(_today()));
+
+  PuzzleId dailyCurrent(String day) {
+    final last = PuzzleId.daily(day);
+    if (result(last) != null || hasAttempt(last)) return last;
+    for (var index = 1; index < dailyCheckpointCount; index++) {
+      final id = PuzzleId.dailyCheckpoint(day, index);
+      if (!_dailyCheckpoints.containsKey(id.key)) return id;
+    }
+    return last;
+  }
+
+  RunResult? dailyCheckpointResult(PuzzleId id) => _dailyCheckpoints[id.key];
+
+  List<RunResult> _completedDailyCheckpoints(String day) => [
+    for (var index = 1; index < dailyCheckpointCount; index++)
+      if (_dailyCheckpoints[PuzzleId.dailyCheckpoint(day, index).key]
+          case final result?)
+        result,
+  ];
   PathwiseTheme get theme => _prefs.theme;
   bool get haptics => _prefs.haptics;
   bool get suggestSharing => _prefs.suggestSharing;
@@ -802,7 +895,47 @@ class AppModel extends ChangeNotifier {
   BootTime? _lastFreeFortune;
   final _wheelClaims = <String, int>{};
   int get fortuneWait => freeFortuneWait(_lastFreeFortune, _bootTime());
-  BootTime? get fortuneClock => _bootTime();
+  final _wheelVideos = <BootTime>[];
+
+  bool _activeWheelVideo(BootTime stamp, BootTime now) =>
+      freeFortuneWait(stamp, now) > 0;
+
+  int get fortuneVideosRemaining {
+    final now = _bootTime();
+    if (_disposed || storageError || now == null) return 0;
+    return max(
+      0,
+      4 - _wheelVideos.where((stamp) => _activeWheelVideo(stamp, now)).length,
+    );
+  }
+
+  Future<FortunePrize?> spinRewardedFortune(
+    FortuneCatalog catalog,
+    String event, {
+    Random? random,
+  }) async {
+    final now = _bootTime();
+    final id = 'wheel/video/$event';
+    if (now == null || fortuneVideosRemaining == 0 || _wallet.contains(id)) {
+      return null;
+    }
+    final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
+    if (!_wallet.add(
+      id,
+      'Fortune Wheel · ${prize.label}',
+      prize.coins,
+      _today(),
+    )) {
+      return null;
+    }
+    _wheelVideos.removeWhere((stamp) => !_activeWheelVideo(stamp, now));
+    _wheelVideos.add(now);
+    activity.prize(prize.label, 1);
+    activity.event(EconomyEvent.wheelVerified, coinBalance);
+    final saved = await flush();
+    if (!_disposed) notifyListeners();
+    return saved ? prize : null;
+  }
 
   Future<FortunePrize?> spinFreeFortune(
     FortuneCatalog catalog, {
@@ -1045,7 +1178,14 @@ class AppModel extends ChangeNotifier {
       final game = GameController(board);
       _game = game;
       final stored = _map(replay ? null : _attempts[id.key]);
-      final recorded = replay ? null : result(id);
+      final recorded = replay
+          ? null
+          : (result(id) ?? dailyCheckpointResult(id));
+      if (stored.isEmpty && recorded == null) {
+        _hintUsage.remove(id.key);
+        _hintCredits.remove(id.key);
+        _hintTank = 3;
+      }
       try {
         if (stored.isNotEmpty) {
           game.restore(
@@ -1056,6 +1196,12 @@ class AppModel extends ChangeNotifier {
             stored['hints'] as int,
             stored['hintCell'] as int?,
           );
+          final savedUsage = stored['hints'] as int;
+          _hintUsage[id.key] = max(0, savedUsage);
+          final savedTank = stored['hintTank'];
+          _hintTank = savedTank is int
+              ? savedTank.clamp(0, 3)
+              : (3 - savedUsage).clamp(0, 3);
           final savedTime = stored['milliseconds'] as int;
           _baseTime = Duration(milliseconds: savedTime < 0 ? 0 : savedTime);
           _started = stored['started'] == true;
@@ -1066,6 +1212,9 @@ class AppModel extends ChangeNotifier {
         }
       } on TypeError {
         _attempts.remove(id.key);
+        _hintUsage.remove(id.key);
+        _hintCredits.remove(id.key);
+        _hintTank = 3;
       }
       if (replay) {
         _attempts.remove(id.key);
@@ -1140,6 +1289,7 @@ class AppModel extends ChangeNotifier {
     ))
       return;
     correctedByHint = conflict;
+    if (activeId?.mode == PlayMode.attack) attack?.unassisted = false;
     if (useCredit) {
       _hintCredits[key] = extraHints - 1;
     } else {
@@ -1182,20 +1332,46 @@ class AppModel extends ChangeNotifier {
         }
         return;
       }
+      if (id.checkpoint != null) {
+        _dailyCheckpoints.putIfAbsent(
+          id.key,
+          () => (
+            milliseconds: elapsed.value.inMilliseconds,
+            hints: hintsUsed,
+            unassisted: hintsUsed == 0,
+          ),
+        );
+        _attempts.remove(id.key);
+        haptic.complete();
+        unawaited(flush());
+        notifyListeners();
+        return;
+      }
       final previousAchievements = achievementCounters;
       final previous = result(id);
-      final time = elapsed.value.inMilliseconds;
+      final stages = id.mode == PlayMode.daily
+          ? _completedDailyCheckpoints(id.value as String)
+          : const <RunResult>[];
+      final time = stages.fold(
+        elapsed.value.inMilliseconds,
+        (total, stage) => total + stage.milliseconds,
+      );
+      final totalHints = stages.fold(
+        hintsUsed,
+        (total, stage) => total + stage.hints,
+      );
       final improved = previous == null || time < previous.milliseconds;
       newBest = improved;
       completedThisVisit = true;
       final coinsBefore = coinBalance;
       _results[id.key] = (
         milliseconds: improved ? time : previous.milliseconds,
-        hints: improved ? hintsUsed : previous.hints,
-        unassisted: hintsUsed == 0 || (previous?.unassisted ?? false),
+        hints: improved ? totalHints : previous.hints,
+        unassisted: totalHints == 0 || (previous?.unassisted ?? false),
       );
       if (previous == null) {
-        if (hintsUsed == 0 && !_usedClear) _achievements.precision++;
+        if (totalHints == 0 && !_usedClear && stages.isEmpty)
+          _achievements.precision++;
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
           _highestUnlocked = max(_highestUnlocked, id.level + 1);
@@ -1210,7 +1386,7 @@ class AppModel extends ChangeNotifier {
                   (id.mode == PlayMode.daily
                       ? progression.effect(Research.fortune)
                       : 0) +
-                  (hintsUsed == 0 ? progression.effect(Research.golden) : 0) +
+                  (totalHints == 0 ? progression.effect(Research.golden) : 0) +
                   (id.mode == PlayMode.levels && _levelsSolved % 5 == 0
                       ? progression.effect(Research.momentum)
                       : 0)) *
@@ -1342,6 +1518,7 @@ class AppModel extends ChangeNotifier {
         'history': game.history,
         'hints': hintsUsed,
         'hintCell': hintCell,
+        'hintTank': _hintTank,
         'started': _started,
         'usedClear': _usedClear,
         'milliseconds': (_baseTime + _watch.elapsed).inMilliseconds,
@@ -1362,12 +1539,24 @@ class AppModel extends ChangeNotifier {
       'hintCredits': _hintCredits,
       'hintEvents': _hintEvents.toList(),
       'attack': attack?.toJson(),
+      'attackMinutes': _attackMinutes,
+      'dailyCheckpoints': {
+        for (final entry in _dailyCheckpoints.entries)
+          entry.key: {
+            'milliseconds': entry.value.milliseconds,
+            'hints': entry.value.hints,
+          },
+      },
       'fortune': {
         if (_lastFreeFortune case final stamp?) ...{
           'boot': stamp.boot,
           'at': stamp.milliseconds,
         },
         'claims': _wheelClaims,
+        'videos': [
+          for (final stamp in _wheelVideos)
+            {'boot': stamp.boot, 'at': stamp.milliseconds},
+        ],
       },
       'archivedCoins': _wallet.archivedCoins,
       if (_lastAutomaticAd case final stamp?)

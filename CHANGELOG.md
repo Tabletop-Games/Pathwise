@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Scope hints and pending hint rewards to puzzle attempts. Replay starts with three, while resume restores usage.
+- Add Daily Challenge checkpoints and a floating result card.
+- Add 1-, 3-, and 5-minute Time Attack sessions, with separate records, Stop, and Restart.
+- Credit earned AdMob rewards locally and retain a durable rolling Fortune Wheel quota.
+- Replace shipping purchase verification network calls with platform transaction checks. Add the iOS runner and restore charcoal, white, green, and gold launcher art.
+- Reduce entry-level Research, selected theme prices, and Boost costs.
+
+
 ## Gameplay and rewards refinement
 
 - Award supply crates on completion and from accumulated play. Keep unopened crates across restarts.
