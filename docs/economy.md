@@ -120,3 +120,7 @@ Selected year-one median income sources include levels 117,896, crates 69,090, o
 | 1825 | 170819 | 1642824 | 1472262 | 1624 | 100% | 100% | 100% |
 
 Selected year-one median income sources include levels 117,072, crates 68,469, objectives 18,286, free wheel 7,844, wheel videos 15,428.
+
+## Achievement rewards
+
+Pathwise coin achievements are fulfilled by the game wallet and existing transaction identities. Play Games progress and confirmation are independent of coin rewards. Sharing an achievement adds no coins. [Google Play achievement eligibility](google-play-achievements.md)

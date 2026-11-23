@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/expedition.dart';
@@ -12,6 +13,7 @@ import 'components/ad_banner.dart';
 import 'components/brand_mark.dart';
 import 'components/puzzle_board.dart';
 import 'expedition_view.dart';
+import 'share_view.dart';
 
 String formatTime(Duration value) {
   final minutes = value.inMinutes;
@@ -294,6 +296,7 @@ class _Completion extends StatelessWidget {
       return Column(
         children: [
           ExpeditionSummary(run: run),
+          AchievementCelebration(model),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 8,
@@ -377,10 +380,31 @@ class _Completion extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            AchievementCelebration(model),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
               children: [
+                if (id.mode == PlayMode.daily)
+                  ShareResultButton(
+                    result: ShareResult.daily(
+                      id.value as String,
+                      time: model.elapsed.value,
+                      hints: hints,
+                      newBest: model.newBest,
+                    ),
+                    label: 'Share Today’s Result',
+                    prominent: true,
+                  ),
+                if (id.mode == PlayMode.levels &&
+                    SharePromptPolicy.levelMilestone(id.level))
+                  ShareResultButton(
+                    result: ShareResult.level(
+                      level: id.level,
+                      total: model.levelsSolved,
+                    ),
+                    label: 'Share Level Milestone',
+                  ),
                 if (next != null)
                   FilledButton(
                     onPressed: () async {
@@ -609,6 +633,16 @@ class _AttackResults extends StatelessWidget {
                 ListTile(
                   title: const Text('Coins earned'),
                   trailing: Text('${run.coins}'),
+                ),
+                AchievementCelebration(model),
+                ShareResultButton(
+                  result: ShareResult.attack(
+                    score: run.score,
+                    puzzles: run.clears.length,
+                    newBest: run.record,
+                  ),
+                  label: 'Share Your Score',
+                  prominent: run.record,
                 ),
                 FilledButton(
                   onPressed: model.openAttack,

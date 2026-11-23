@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/ad_frequency.dart';
 import '../lib/logic/ad_service.dart';
+import '../lib/logic/game_state_storage.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/economy.dart';
 import '../lib/model/game_state.dart';
@@ -208,7 +209,10 @@ void main() {
       expect(v2.theme.label, 'Warm Walnut');
       expect(v2.coinBalance, 90);
       await v2.flush();
-      expect((await store.load())['schemaVersion'], 7);
+      expect(
+        (await store.load())['schemaVersion'],
+        GameStateStorage.schemaVersion,
+      );
       v2.dispose();
     },
   );

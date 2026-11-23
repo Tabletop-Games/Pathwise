@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/social_sharing.dart';
+
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -8,6 +10,7 @@ import '../model/expedition.dart';
 import '../model/user_preferences.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
+import 'share_view.dart';
 
 class ExpeditionView extends StatefulWidget {
   const ExpeditionView({super.key});
@@ -505,6 +508,18 @@ class ExpeditionSummary extends StatelessWidget {
           if (run.milestoneCoins > 0)
             Text(
               'Trail ${run.trail.number} milestone · +${run.milestoneCoins} coins',
+            ),
+          if (run.outcome == ExpeditionOutcome.qualified)
+            ShareResultButton(
+              label: run.milestoneCoins > 0
+                  ? 'Share Trail Milestone'
+                  : 'Share Qualification',
+              result: ShareResult.expedition(
+                trail: run.trail.number,
+                marks: run.marks.length,
+                time: Duration(milliseconds: run.milliseconds),
+                newBest: run.personalBest,
+              ),
             ),
         ],
       ),

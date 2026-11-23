@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/billing_service.dart';
+import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/user_preferences.dart';
+import 'share_view.dart';
 
 class StoreView extends StatefulWidget {
   const StoreView({super.key});
@@ -56,6 +58,13 @@ class _StoreViewState extends State<StoreView> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   _ThemePreview(theme: preview, palette: palette),
+                  if (model.earnedTheme(preview) &&
+                      (preview.expeditionTrail != null ||
+                          economy.themePrice(preview) >= 4500))
+                    ShareResultButton(
+                      result: ShareResult.cosmetic(preview.label),
+                      label: 'Share Theme Discovery',
+                    ),
                   const SizedBox(height: 17),
                   for (final theme in PathwiseTheme.values)
                     Padding(

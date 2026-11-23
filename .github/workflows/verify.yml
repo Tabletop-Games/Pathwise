@@ -85,6 +85,10 @@ jobs:
           "$tools/zipalign" -c -P 16 4 "$apk"
           unzip -tq "$bundle"
           jarsigner -verify "$bundle"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle="$bundle"
           python3 tool/verify_android_artifacts.py "$apk" "$bundle"
           test -s build/app/outputs/mapping/release/mapping.txt
           test -s build/app/outputs/mapping/release/resources.txt

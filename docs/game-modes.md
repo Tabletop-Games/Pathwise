@@ -24,3 +24,7 @@ The original three trails ended at Summit, which cut off further progression eve
 ## Optional Field Notes
 
 Daily notes offer three rotating objectives from first clears, hint-free clears, new Expedition stages and supply crates. The weekly note gives one longer first-clear target across modes. Players collect completed rewards from Field Notes. Separate Expedition contracts would duplicate field marks. A separate mastery shop would overlap with prestige themes and local achievements. The expansion keeps a single objective screen and adds Surefooted for a clean qualifying trail. Personal-best feedback tracks a faster qualified time without repeatable coin payouts.
+
+## Sharing and achievements
+
+Daily Challenge results use the finished board's challenge date. Time Attack shares the completed session's actual score and solve count. Expedition shares qualified trail summaries, including four-mark clears, records and milestone trails. Levels offers sharing at fixed early milestones and every 500 levels after 1,000. [Sharing](social-sharing.md) [Achievement eligibility](google-play-achievements.md)

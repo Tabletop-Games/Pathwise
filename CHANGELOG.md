@@ -2,6 +2,8 @@
 
 ## 1.0.0 — First public release line
 
+- Add text-only sharing for Daily Challenge, Time Attack, Expedition, level milestones, achievements and selected Research and theme discoveries. Messages preview real results and the canonical Google Play link before opening Android or a supported destination.
+- Add 37 Play Games achievement definitions, including standard, incremental and hidden achievements, durable local progress, account-specific confirmation and an optional native achievements screen. Keep in-game coin rewards separate from remote synchronization. Include a Play Console import workflow and 512 px category icons.
 - Add the Fortune Wheel with rolling free and verified video allowances, published odds, and an accessible reveal.
 - Expand Research to 151 ranks, add Trail Provisions and a 60-minute coin boost, make High Contrast free, and spread optional themes across early and prestige prices.
 - Add Field Notes, a clean-run Expedition achievement, and private on-device economy counters with a manual export.
@@ -12,7 +14,7 @@
 - Expand the Vault to 23 themes and update the Play coin packs to 500, 1,250, 3,000, 7,500 and 18,000 coins.
 - Add signed AdMob reward verification for tank refills, extra hints and coins. Raise interstitial spacing to four minutes and require five qualifying exits per opportunity.
 - Add Android Play Games v2 authentication, local achievement synchronization, account linking and configured leaderboard viewing. See the publisher guide for activation requirements and integration limits.
-- Use Android build code 7 in the repository, subject to the publisher confirming the Play Console artifact history.
+- Use Android build code 8 in the repository, subject to the publisher confirming the Play Console artifact history.
 
 Internal development versions follow.
 

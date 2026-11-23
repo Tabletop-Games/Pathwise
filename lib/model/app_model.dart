@@ -15,6 +15,7 @@ import 'expedition.dart';
 import 'field_notes.dart';
 import 'fortune.dart';
 import 'game_state.dart';
+import 'native_achievements.dart';
 import 'progression.dart';
 import 'time_attack.dart';
 import 'user_preferences.dart';
@@ -34,6 +35,7 @@ class AppModel extends ChangeNotifier {
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
        _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
+    _achievements = AchievementLedger(_map(snapshot['nativeAchievements']));
     activity = EconomyActivity(_map(snapshot['economyActivity']));
     notes = FieldNotes(_map(snapshot['fieldNotes']));
     _attempts.addAll(_map(snapshot['attempts']));
@@ -248,6 +250,7 @@ class AppModel extends ChangeNotifier {
     final remaining = run.remaining(now);
     attackRemaining.value = Duration(milliseconds: remaining);
     if (remaining == 0) {
+      final previous = achievementCounters;
       run.finished = true;
       _attackTicker?.cancel();
       _attackTicker = null;
@@ -260,6 +263,7 @@ class AppModel extends ChangeNotifier {
         run.coins = run.reward;
       }
       attackHistory.add(run);
+      _celebrateAchievements(previous);
       final beforeAchievements = coinBalance;
       _awardAchievements();
       run.coins += coinBalance - beforeAchievements;
@@ -438,7 +442,10 @@ class AppModel extends ChangeNotifier {
     if (_expeditionHistory.length > 12) _expeditionHistory.removeAt(0);
   }
 
-  void _completeExpeditionStage(PuzzleId id) {
+  void _completeExpeditionStage(
+    PuzzleId id,
+    Map<AchievementMetric, int> previous,
+  ) {
     final run = expedition!;
     final stage = run.stage;
     final time = elapsed.value.inMilliseconds;
@@ -447,6 +454,7 @@ class AppModel extends ChangeNotifier {
     final advancing = run.trail == currentTrail;
     final freshStage = advancing && _trailStages & (1 << stage) == 0;
     if (freshStage) {
+      if (!usedHint && !_usedClear) _achievements.precision++;
       _note({NoteGoal.solve, NoteGoal.trail, if (!usedHint) NoteGoal.clean});
     }
     if (advancing) {
@@ -491,6 +499,7 @@ class AppModel extends ChangeNotifier {
             (theme) => theme.expeditionTrail == number,
           ),
         );
+        if (run.marks.length == 4) _achievements.perfectTrails++;
         _qualifiedClean += _stageCount(_trailClean);
         _nextTrail++;
         _trailClaims = _trailStages = _trailClean = 0;
@@ -500,6 +509,7 @@ class AppModel extends ChangeNotifier {
     _awardAchievements();
     lastReward = coinBalance - before;
     run.coins += lastReward;
+    _celebrateAchievements(previous);
     haptic.complete();
     unawaited(flush());
     notifyListeners();
@@ -551,6 +561,7 @@ class AppModel extends ChangeNotifier {
         ))
       return false;
     progression.ranks[item.name] = rank + 1;
+    achievementRevision++;
     activity.event(EconomyEvent.researchBought, coinBalance);
     _awardAchievements();
     _progressionChanged();
@@ -606,7 +617,10 @@ class AppModel extends ChangeNotifier {
     progression.crate = null;
     _note({NoteGoal.crate});
     activity.event(EconomyEvent.crateCollected, coinBalance);
-    if (crate.rarity == CrateRarity.legendary) progression.legendary++;
+    if (crate.rarity == CrateRarity.legendary) {
+      progression.legendary++;
+      achievementRevision++;
+    }
     _awardAchievements();
     _progressionChanged();
     return true;
@@ -699,6 +713,8 @@ class AppModel extends ChangeNotifier {
   int _playMilliseconds = 0;
   int _accountedMilliseconds = 0;
   int lastReward = 0;
+  List<NativeAchievement> recentAchievements = const [];
+  int achievementRevision = 0;
   bool newBest = false;
   bool completedThisVisit = false;
   bool correctedByHint = false;
@@ -716,6 +732,8 @@ class AppModel extends ChangeNotifier {
   var _disposed = false;
   var _inPlay = false;
   var _started = false;
+  var _usedClear = false;
+  late final AchievementLedger _achievements;
   GameController? _game;
   PuzzleId? activeId;
   bool loading = false;
@@ -728,6 +746,56 @@ class AppModel extends ChangeNotifier {
   PuzzleId get daily => PuzzleId.daily(dayKey(_today()));
   PathwiseTheme get theme => _prefs.theme;
   bool get haptics => _prefs.haptics;
+  bool get suggestSharing => _prefs.suggestSharing;
+
+  Map<AchievementMetric, int> get achievementCounters => {
+    AchievementMetric.solves: solved,
+    AchievementMetric.hintFree: unassisted,
+    AchievementMetric.precision: _achievements.precision,
+    AchievementMetric.daily: _achievements.eligibleDailies,
+    AchievementMetric.attackFinished: attackHighest > 0 ? 1 : 0,
+    AchievementMetric.attackScore: attackBest,
+    AchievementMetric.trails: trailsQualified,
+    AchievementMetric.perfectTrails: _achievements.perfectTrails,
+    AchievementMetric.research: Research.values.fold(
+      0,
+      (sum, item) => sum + progression.rank(item),
+    ),
+    AchievementMetric.themes: _owned
+        .where(
+          (theme) =>
+              theme.expeditionTrail != null || economy.themePrice(theme) > 0,
+        )
+        .length,
+    AchievementMetric.crates: progression.legendary,
+  };
+
+  bool get achievementProgressNeedsOwner => _achievements.owner == null;
+
+  bool achievementsBelongToOtherAccount(String account) =>
+      _achievements.owner != null && _achievements.owner != account;
+
+  Future<bool> bindAchievementProgress(String account) async {
+    if (_disposed ||
+        storageError ||
+        achievementsBelongToOtherAccount(account)) {
+      return false;
+    }
+    _achievements.owner = account;
+    return flush();
+  }
+
+  Future<bool> confirmAchievements(String account, Map<String, int> progress) {
+    if (_disposed || storageError) return Future.value(false);
+    if (mapEquals(_achievements.confirmed[account], progress)) {
+      return Future.value(true);
+    }
+    _achievements.confirm(account, progress);
+    return flush();
+  }
+
+  bool earnedTheme(PathwiseTheme theme) => _owned.contains(theme);
+
   Puzzle? get puzzle => _game?.puzzle;
   List<int> get path => _game?.path ?? const [];
   int? get tip => _game?.tip;
@@ -735,6 +803,7 @@ class AppModel extends ChangeNotifier {
   int get hintsUsed => _game?.hintsUsed ?? 0;
   int get nextCheckpoint => _game?.nextCheckpoint ?? 1;
   bool get complete => _game?.complete ?? false;
+  bool get isDrawing => _game?.isDrawing ?? false;
   bool get canUndo => _game?.canUndo ?? false;
   bool get canClear => !complete && (path.length > 1 || hintCell != null);
   bool get canHint =>
@@ -786,6 +855,7 @@ class AppModel extends ChangeNotifier {
     ))
       return false;
     _owned.add(theme);
+    achievementRevision++;
     activity.event(EconomyEvent.themeBought, coinBalance);
     _prefs.theme = theme;
     _awardAchievements();
@@ -1068,10 +1138,12 @@ class AppModel extends ChangeNotifier {
     activeId = id;
     _inPlay = true;
     _started = false;
+    _usedClear = false;
     _game = null;
     _watch.reset();
     _accountedMilliseconds = 0;
     lastReward = 0;
+    recentAchievements = const [];
     newBest = false;
     completedThisVisit = false;
     correctedByHint = false;
@@ -1106,6 +1178,7 @@ class AppModel extends ChangeNotifier {
           final savedTime = stored['milliseconds'] as int;
           _baseTime = Duration(milliseconds: savedTime < 0 ? 0 : savedTime);
           _started = stored['started'] == true;
+          _usedClear = stored['usedClear'] != false;
         } else if (recorded != null) {
           game.restore(board.solution, [], recorded.hints, null);
           _baseTime = Duration(milliseconds: recorded.milliseconds);
@@ -1166,9 +1239,10 @@ class AppModel extends ChangeNotifier {
 
   void clear() {
     if (!_canPlay || !(_game?.clear() ?? false)) return;
+    _usedClear = true;
     if (activeId?.mode == PlayMode.expedition) expedition!.usedClear = true;
     _edited();
-    if (activeId?.mode == PlayMode.expedition) unawaited(flush());
+    unawaited(flush());
   }
 
   void hint() {
@@ -1194,6 +1268,15 @@ class AppModel extends ChangeNotifier {
     _hintUsage[key] = used + 1;
     _edited();
     unawaited(flush());
+  }
+
+  void _celebrateAchievements(Map<AchievementMetric, int> previous) {
+    final current = achievementCounters;
+    if (!mapEquals(previous, current)) achievementRevision++;
+    recentAchievements = [
+      for (final item in nativeAchievements)
+        if (item.earned(current) && !item.earned(previous)) item,
+    ];
   }
 
   void _edited() {
@@ -1223,8 +1306,9 @@ class AppModel extends ChangeNotifier {
         }
         return;
       }
+      final previousAchievements = achievementCounters;
       if (id.mode == PlayMode.expedition) {
-        _completeExpeditionStage(id);
+        _completeExpeditionStage(id, previousAchievements);
         return;
       }
       final previous = result(id);
@@ -1239,6 +1323,7 @@ class AppModel extends ChangeNotifier {
         unassisted: hintsUsed == 0 || (previous?.unassisted ?? false),
       );
       if (previous == null) {
+        if (hintsUsed == 0 && !_usedClear) _achievements.precision++;
         _note({NoteGoal.solve, if (hintsUsed == 0) NoteGoal.clean});
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
@@ -1262,6 +1347,7 @@ class AppModel extends ChangeNotifier {
           _today(),
         );
         if (id.mode == PlayMode.daily) {
+          _achievements.daily(id.value as String, _bootTime());
           _updateLongestStreak();
           final day = DateTime.parse('${id.value}T00:00:00Z');
           final streak = _streakEnding(day);
@@ -1277,6 +1363,7 @@ class AppModel extends ChangeNotifier {
       }
       _awardAchievements();
       lastReward = coinBalance - coinsBefore;
+      _celebrateAchievements(previousAchievements);
       _attempts.remove(id.key);
       haptic.complete();
       unawaited(flush());
@@ -1329,6 +1416,12 @@ class AppModel extends ChangeNotifier {
     unawaited(flush());
   }
 
+  void setSharingSuggestions(bool enabled) {
+    _prefs.suggestSharing = enabled;
+    notifyListeners();
+    unawaited(flush());
+  }
+
   void _syncClock() {
     final shouldRun =
         _foreground && _inPlay && _started && !complete && _canPlay;
@@ -1373,11 +1466,13 @@ class AppModel extends ChangeNotifier {
         'hints': hintsUsed,
         'hintCell': hintCell,
         'started': _started,
+        'usedClear': _usedClear,
         'milliseconds': (_baseTime + _watch.elapsed).inMilliseconds,
       };
     }
     final payload = jsonEncode({
       'schemaVersion': GameStateStorage.schemaVersion,
+      'nativeAchievements': _achievements.toJson(),
       'progression': progression.toJson(),
       'fieldNotes': notes.toJson(),
       'economyActivity': activity.toJson(),

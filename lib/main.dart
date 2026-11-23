@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import 'logic/achievement_sync.dart';
 import 'logic/ad_service.dart';
 import 'logic/attack_clock.dart';
 import 'logic/billing_service.dart';
@@ -68,12 +69,14 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   late final AppModel _model;
   late final BillingService _billing;
   late final AdService _ads;
+  late final AchievementSync _achievements;
   String? _lastDay;
 
   @override
   void initState() {
     super.initState();
     _model = context.read<AppModel>();
+    _achievements = AchievementSync(_model);
     _ads = AdService(
       verifier: RewardVerifier(_model.billingProfile),
       reserveInterstitial: _model.reserveAutomaticAd,
@@ -92,6 +95,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _model.refreshAttackClock();
+        _achievements.foreground(true);
         unawaited(_billing.start());
       }
     });
@@ -114,6 +118,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final active = state == AppLifecycleState.resumed;
+    _achievements.foreground(active);
     if (active) {
       _watchDate();
       unawaited(_refreshAttackClock());
@@ -138,6 +143,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _billing.dispose();
     _ads.dispose();
+    _achievements.dispose();
     super.dispose();
   }
 
@@ -148,6 +154,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider.value(value: _billing),
         ChangeNotifierProvider.value(value: _ads),
+        ChangeNotifierProvider.value(value: _achievements),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
