@@ -10,7 +10,7 @@ import '../lib/model/progression.dart';
 import '../lib/model/time_attack.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/views/puzzle_view.dart';
-import 'app_model_test.dart' show MemoryStorage, fixture;
+import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
 class CrateAds extends AdService {
   int attempts = 0;
@@ -77,7 +77,7 @@ void main() {
 
   for (final width in [320.0, 390.0, 600.0]) {
     testWidgets(
-      'floating layout, input, forfeiture, retry and exactly-once claim at ${width}dp',
+      'floating layout, input, completion, retry and exactly-once claim at ${width}dp',
       (tester) async {
         await tester.binding.setSurfaceSize(Size(width, 760));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -151,8 +151,16 @@ void main() {
         await tester.pumpAndSettle();
         expect(model.coinBalance, 50);
         await drop(150);
-        final amount = model.fallingCrate!.coins;
+        final crate = model.fallingCrate!;
+        final amount = crate.coins;
         await tester.pump(const Duration(seconds: 2));
+        final positionBeforeCompletion = tester.getCenter(catchCrate);
+        complete(model);
+        await tester.pump();
+        expect(model.complete, isTrue);
+        expect(model.fallingCrate, crate);
+        expect(tester.getCenter(catchCrate), positionBeforeCompletion);
+        final beforeClaim = model.coinBalance;
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
         expect(find.text('+$amount coins'), findsOneWidget);
@@ -164,7 +172,7 @@ void main() {
           await tester.tap(find.text('Watch Ad & Claim'));
           await tester.pumpAndSettle();
           expect(find.text(feedback), findsOneWidget);
-          expect(model.coinBalance, 50);
+          expect(model.coinBalance, beforeClaim);
         }
         await tester.tap(find.text('Watch Ad & Claim'));
         await tester.pumpAndSettle();

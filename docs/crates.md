@@ -1,6 +1,6 @@
 # Flying supply crates
 
-Levels and Daily Challenge offer a crate after 45 seconds of eligible foreground play, then at 150-second base intervals. Time accrues across puzzles. The next offer waits for a break between strokes. Puzzle completion and backing out forfeit an active event. At most eight offers occur per rolling 24 hours.
+Levels and Daily Challenge offer a crate after 45 seconds of eligible foreground play, then at 150-second base intervals. Time accrues across puzzles. The next offer waits for a break between strokes. A falling crate remains catchable over the completion card until its usual flight ends. Leaving the board forfeits the event. At most eight offers occur per rolling 24 hours.
 
 | Coins | Chance |
 | ---: | ---: |

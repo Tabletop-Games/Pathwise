@@ -330,10 +330,11 @@ class PuzzleView extends StatelessWidget {
                   ),
                 ),
               ],
-              if (!timed && !model.complete)
+              if (!timed)
                 if (model.fallingCrate case final crate?)
                   Positioned.fill(
-                    child: FallingCrate(key: ValueKey(crate.id), crate: crate),
+                    key: ValueKey(crate.id),
+                    child: FallingCrate(crate: crate),
                   ),
             ],
           ),
