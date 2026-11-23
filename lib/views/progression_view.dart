@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/social_sharing.dart';
+
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
+import 'share_view.dart';
 
 class ProgressionView extends StatefulWidget {
   const ProgressionView({this.boosts = false, super.key});
@@ -158,7 +161,21 @@ class _ProgressionViewState extends State<ProgressionView> {
                               '${!progression.unlocked(item) ? '\nRequires ${item.prerequisite!.title} rank 3' : ''}',
                             ),
                             trailing: progression.rank(item) >= item.limit
-                                ? const Icon(Icons.check)
+                                ? IconButton(
+                                    tooltip: 'Share Research Milestone',
+                                    icon: const Icon(Icons.share_outlined),
+                                    onPressed: () =>
+                                        Navigator.of(context).push<void>(
+                                          MaterialPageRoute(
+                                            builder: (_) => ShareView(
+                                              result: ShareResult.research(
+                                                item.title,
+                                                item.limit,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                  )
                                 : OutlinedButton(
                                     onPressed:
                                         progression.unlocked(item) &&

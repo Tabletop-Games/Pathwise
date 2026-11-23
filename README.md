@@ -8,6 +8,8 @@ Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag back
 
 The first public release line is **1.0.0**. Play the infinite level campaign, daily boards, Expedition and Time Attack offline. Expedition advances through procedural ten-stage trails with field marks, recurring milestones, and resumable offline runs. Spend earned coins on permanent Research, timed Boosts and themes. Free supply crates appear between gestures during eligible play. Fortune Wheel and Field Notes add free daily and weekly rewards. [Economy and progression](docs/economy.md) [Game modes](docs/game-modes.md)
 
+Share text results for Daily Challenge, Time Attack, Expedition and progression milestones. Earn 37 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) [Google Play achievements](docs/google-play-achievements.md)
+
 Google Play Billing, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 
 ## Build and verify

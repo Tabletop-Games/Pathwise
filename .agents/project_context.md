@@ -6,6 +6,7 @@ Pathwise is a wall-free Android route puzzle using Flutter and Provider. The cod
 - [Gameplay invariants, solver and interaction](../docs/gameplay.md) and [game modes](../docs/game-modes.md)
 - [Hint tank](../docs/hints.md), [economy](../docs/economy.md), [research](../docs/research.md), [boosts](../docs/boosts.md) and [crates](../docs/crates.md)
 - [Monetization](../docs/monetization.md), [backend](../docs/backend.md), [security](../docs/security.md) and [Play Games](../docs/play-games.md)
+- [Text-only result sharing](../docs/social-sharing.md) and [native Play Games achievement synchronization](../docs/google-play-achievements.md)
 - [Publisher setup](../setup.md), [release procedure](../docs/release.md) and [performance](../docs/performance.md)
 
 Treat puzzle IDs, checkpoint order, accepted route semantics and canonical generation output as compatibility contracts. Keep the 3/3 tank and three-standard-hint cap independent. Only a separate verified ad receipt can authorize each further hint. Entitlements and progression effects must never bypass this.

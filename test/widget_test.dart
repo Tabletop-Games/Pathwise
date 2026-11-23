@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
-import 'app_model_test.dart' show MemoryStorage, fixture;
+import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
 void main() {
   testWidgets('fast drag, reverse drag, Undo, Clear, Hint and completion', (
@@ -320,6 +320,50 @@ void main() {
     },
   );
   testWidgets(
+    'Daily result shares the finished challenge date and real hints',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var date = DateTime(2026, 11, 23);
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {},
+        today: () => date,
+        loader: (_) async => fixture(),
+      )..setHaptics(false);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      final daily = find.text('Play daily');
+      await tester.ensureVisible(daily);
+      await tester.tap(daily);
+      await tester.pumpAndSettle();
+      model.hint();
+      complete(model);
+      final balance = model.coinBalance;
+      date = DateTime(2026, 11, 24);
+      model.refreshDate();
+      await tester.pumpAndSettle();
+      final share = find.text('Share Today’s Result');
+      await tester.ensureVisible(share);
+      await tester.pumpAndSettle();
+      await tester.tap(share);
+      await tester.pumpAndSettle();
+      final preview = tester.widget<SelectableText>(
+        find.byType(SelectableText),
+      );
+      expect(preview.data, contains('23 Nov 2026'));
+      expect(preview.data, contains('Hints used: 1.'));
+      expect(preview.data, contains('games.tabletop.pathwise'));
+      expect(model.coinBalance, balance);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
+    },
+  );
+
+  testWidgets(
     'Time Attack opens with ten minutes and shows results at expiration',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 900));
@@ -343,6 +387,14 @@ void main() {
       model.refreshAttackClock();
       await tester.pumpAndSettle();
       expect(find.text('Time’s up'), findsOneWidget);
+      await tester.tap(find.text('Share Your Score'));
+      await tester.pumpAndSettle();
+      final preview = tester.widget<SelectableText>(
+        find.byType(SelectableText),
+      );
+      expect(preview.data, contains('0 points. 0 puzzles solved.'));
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(find.text('Return to home'), findsOneWidget);
       await tester.tap(find.text('Return to home'));
       await tester.pumpAndSettle();

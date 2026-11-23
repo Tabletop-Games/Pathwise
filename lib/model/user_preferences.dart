@@ -29,7 +29,11 @@ enum PathwiseTheme {
 }
 
 class UserPreferences {
-  UserPreferences({this.theme = PathwiseTheme.field, this.haptics = true});
+  UserPreferences({
+    this.theme = PathwiseTheme.field,
+    this.haptics = true,
+    this.suggestSharing = true,
+  });
 
   factory UserPreferences.fromJson(Map<String, dynamic> json) =>
       UserPreferences(
@@ -38,10 +42,16 @@ class UserPreferences {
           orElse: () => PathwiseTheme.field,
         ),
         haptics: json['haptics'] != false,
+        suggestSharing: json['suggestSharing'] != false,
       );
 
   PathwiseTheme theme;
   bool haptics;
+  bool suggestSharing;
 
-  Map<String, Object> toJson() => {'theme': theme.name, 'haptics': haptics};
+  Map<String, Object> toJson() => {
+    'theme': theme.name,
+    'haptics': haptics,
+    'suggestSharing': suggestSharing,
+  };
 }

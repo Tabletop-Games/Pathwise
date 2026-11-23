@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import '../lib/logic/game_state_storage.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/economy.dart';
 import '../lib/model/expedition.dart';
@@ -65,7 +66,7 @@ void main() {
       expect(app.solved, 1);
       await app.flush();
       final saved = await storage.load();
-      expect(saved['schemaVersion'], 7);
+      expect(saved['schemaVersion'], GameStateStorage.schemaVersion);
       expect(saved['attempts'], isNot(contains('endless/2')));
       expect(saved['hintCredits'], isNot(contains('endless/2')));
       app.dispose();

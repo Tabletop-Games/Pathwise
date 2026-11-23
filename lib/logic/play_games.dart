@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 
 import '../model/app_model.dart';
-import '../model/economy.dart';
 
 class PlayGames {
   static const enabled = bool.fromEnvironment('PATHWISE_GAMES_ENABLED');
@@ -34,22 +34,16 @@ class PlayGames {
   static Future<T?> call<T>(String method, [Map<String, String>? args]) async {
     if (!enabled) return null;
     try {
-      return await _channel.invokeMethod<T>(method, args);
+      return await _channel
+          .invokeMethod<T>(method, args)
+          .timeout(const Duration(seconds: 25));
     } on PlatformException {
       return null;
     } on MissingPluginException {
       return null;
+    } on TimeoutException {
+      return null;
     }
-  }
-
-  static Future<int> syncAchievements(AppModel model) async {
-    if (await call<bool>('status') != true) return 0;
-    var count = 0;
-    for (final item in Achievement.values.where(model.hasAchievement)) {
-      final id = achievements[item.name];
-      if (id != null && await call<bool>('unlock', {'id': id}) == true) count++;
-    }
-    return count;
   }
 
   static Future<bool> link(AppModel model) async {

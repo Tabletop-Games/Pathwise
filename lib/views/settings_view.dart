@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -9,6 +10,7 @@ import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
+import 'share_view.dart';
 import 'store_view.dart';
 
 class SettingsView extends StatelessWidget {
@@ -31,6 +33,14 @@ class SettingsView extends StatelessWidget {
                   title: const Text('Haptic feedback'),
                   value: model.haptics,
                   onChanged: model.setHaptics,
+                ),
+                SwitchListTile(
+                  title: const Text('Suggest sharing achievements'),
+                  subtitle: const Text(
+                    'Show a Share action in achievement celebrations.',
+                  ),
+                  value: model.suggestSharing,
+                  onChanged: model.setSharingSuggestions,
                 ),
                 const Divider(),
                 const ListTile(title: Text('Theme')),
@@ -87,7 +97,7 @@ class SettingsView extends StatelessWidget {
                   ),
                 const Divider(),
                 ListTile(
-                  title: const Text('Play Games'),
+                  title: const Text('Google Play Achievements'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
@@ -166,6 +176,18 @@ class StatisticsView extends StatelessWidget {
                       ],
                     ),
                   ),
+                if (SharePromptPolicy.lastLevelMilestone(
+                      model.highestUnlocked - 1,
+                    )
+                    case final level?
+                    when model.result(PuzzleId.level(level)) != null)
+                  ShareResultButton(
+                    result: ShareResult.level(
+                      level: level,
+                      total: model.levelsSolved,
+                    ),
+                    label: 'Share Level Milestone',
+                  ),
                 const SizedBox(height: 18),
                 Card(
                   child: Column(
@@ -187,8 +209,15 @@ class StatisticsView extends StatelessWidget {
                     ],
                   ),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const PlayGamesView()),
+                  ),
+                  icon: const Icon(Icons.emoji_events_outlined),
+                  label: const Text('Google Play Achievements'),
+                ),
                 Text(
-                  'Achievements',
+                  'Pathwise Achievements',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 6),
@@ -202,12 +231,26 @@ class StatisticsView extends StatelessWidget {
                             : Icons.lock_outline,
                       ),
                       title: Text(achievement.title),
-                      subtitle: Text(achievement.description),
-                      trailing: Text(
-                        model.hasAchievement(achievement)
-                            ? 'Earned'
-                            : '+${achievement.coins} coins',
+                      subtitle: Text(
+                        '${achievement.description} · '
+                        '${model.hasAchievement(achievement) ? 'Earned' : '+${achievement.coins} coins'}',
                       ),
+                      trailing: model.hasAchievement(achievement)
+                          ? IconButton(
+                              tooltip: 'Share Achievement',
+                              icon: const Icon(Icons.share_outlined),
+                              onPressed: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (_) => ShareView(
+                                    result: ShareResult.achievement(
+                                      achievement.title,
+                                      achievement.description,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                   ),
               ],

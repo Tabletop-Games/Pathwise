@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../lib/logic/ad_service.dart';
 import '../lib/logic/billing_service.dart';
+import '../lib/logic/game_state_storage.dart';
 import '../lib/logic/puzzle_generator.dart';
 import '../lib/logic/puzzle_solver.dart';
 import '../lib/model/app_model.dart';
@@ -129,7 +130,7 @@ void main() {
     model.close();
     await model.flush();
     final snapshot = await store.load();
-    expect(snapshot['schemaVersion'], 7);
+    expect(snapshot['schemaVersion'], GameStateStorage.schemaVersion);
     final restored = create(store, snapshot);
     expect(restored.coinBalance, economy.starterCoins);
     expect(restored.highestUnlocked, 37);
