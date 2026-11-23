@@ -5,7 +5,7 @@
     <application
         android:label="Pathwise"
         android:name="${applicationName}"
-        android:icon="@mipmap/pathwise_launcher"
+        android:icon="@mipmap/pathwise_route_launcher"
         android:allowBackup="true">
         <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${pathwiseAdmobAppId}" />
