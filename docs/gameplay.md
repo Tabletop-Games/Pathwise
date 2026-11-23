@@ -20,3 +20,8 @@
 - Completion requires coverage and correct final checkpoint in the same accepted move. The timer counts active play from the first move or hint, pauses off the board or in the background, and freezes at completion. Pathwise shows a distinct completion animation and records time and hint usage offline.
 - Puzzles are original. The generator finds a full route, derives checkpoints and passes them to an independent bounded exhaustive solver. Only a completed uniqueness proof is accepted. A search timeout does not establish uniqueness.
 - Daily puzzles use a deterministic seed for the device's local calendar day. Levels and Time Attack also work offline. See [game modes](game-modes.md).
+
+
+## Advanced Levels
+
+Levels 1–20 are classic. Levels 21–40 show blocked edges, 41–70 directional exits, 71–100 key-controlled gates, 101–150 portal pairs, 151–200 ice, and 201+ combine all five. Entering the source portal automatically appends the destination. An ice tile automatically appends the next tile in the entry direction. Blocked forced moves are rejected as a group. The route solver verifies the same rules used by gameplay. Existing saved boards retain their original generation rules.

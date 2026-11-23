@@ -1,7 +1,14 @@
 /// Cells are indexed in row-major order. Checkpoint numbers are one-based.
 final class Puzzle {
-  Puzzle(this.size, Iterable<int> checkpoints)
-    : checkpoints = List.unmodifiable(checkpoints) {
+  Puzzle(
+    this.size,
+    Iterable<int> checkpoints, {
+    this.wall,
+    this.arrow,
+    this.gate,
+    this.portal,
+    this.ice,
+  }) : checkpoints = List.unmodifiable(checkpoints) {
     if (size < 2 || size > 7) throw ArgumentError.value(size);
     if (this.checkpoints.length < 2 ||
         this.checkpoints.toSet().length != this.checkpoints.length ||
@@ -12,6 +19,18 @@ final class Puzzle {
     for (final (index, cell) in this.checkpoints.indexed) {
       numbers[cell] = index + 1;
     }
+  }
+
+  final (int, int)? wall, arrow, gate, portal;
+  final int? ice;
+
+  int? forcedNext(int? previous, int cell) {
+    if (portal?.$1 == cell) return portal!.$2;
+    if (ice != cell || previous == null) return null;
+    final nextX = 2 * (cell % size) - previous % size;
+    final nextY = 2 * (cell ~/ size) - previous ~/ size;
+    if (nextX < 0 || nextX >= size || nextY < 0 || nextY >= size) return -1;
+    return nextY * size + nextX;
   }
 
   final int size;
@@ -31,14 +50,30 @@ final class Puzzle {
     ];
   });
 
+  Iterable<int> movesFrom(int cell) sync* {
+    yield* neighbors[cell];
+    if (portal?.$1 == cell && !neighbors[cell].contains(portal!.$2))
+      yield portal!.$2;
+    if (portal?.$2 == cell && !neighbors[cell].contains(portal!.$1))
+      yield portal!.$1;
+  }
+
   bool canExtend(
     int cell,
     int next,
     int length,
     int checkpoint, {
     bool allowEarlyFinish = false,
+    int? previous,
+    bool Function(int)? hasVisited,
   }) {
-    if (cell == finish || !neighbors[cell].contains(next)) return false;
+    if (cell == finish || !movesFrom(cell).contains(next)) return false;
+    if (wall == (cell, next) || wall == (next, cell)) return false;
+    if (arrow?.$1 == cell && arrow!.$2 != next) return false;
+    if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) return false;
+    if (portal?.$2 == next && portal!.$1 != cell) return false;
+    final forced = forcedNext(previous, cell);
+    if (forced != null && forced != next) return false;
     final number = numbers[next];
     if (number != 0 && number != checkpoint) return false;
     if (allowEarlyFinish && next == finish) return true;

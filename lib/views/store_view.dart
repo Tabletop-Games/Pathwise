@@ -11,7 +11,8 @@ import '../model/user_preferences.dart';
 import 'share_view.dart';
 
 class StoreView extends StatefulWidget {
-  const StoreView({super.key});
+  const StoreView({super.key, this.themesOnly = false});
+  final bool themesOnly;
 
   @override
   State<StoreView> createState() => _StoreViewState();
@@ -31,7 +32,7 @@ class _StoreViewState extends State<StoreView> {
       data: palette.theme,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Vault'),
+          title: Text(widget.themesOnly ? 'Themes' : 'Vault'),
           actions: [
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 14),
@@ -94,12 +95,14 @@ class _StoreViewState extends State<StoreView> {
                                     ? () => model.setTheme(theme)
                                     : () => _confirm(context, model, theme),
                                 child: Text(
-                                  model.ownsTheme(theme) ? 'Equip' : 'Unlock',
+                                  model.ownsTheme(theme)
+                                      ? 'Apply'
+                                      : 'Buy · ${economy.themePrice(theme)} coins',
                                 ),
                               ),
                       ),
                     ),
-                  if (ads.enabled) ...[
+                  if (!widget.themesOnly && ads.enabled) ...[
                     const SizedBox(height: 12),
                     ListTile(
                       title: Text(
@@ -169,7 +172,12 @@ class _StoreViewState extends State<StoreView> {
                       'Store purchases',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    for (final product in billing.products)
+                    for (final product in billing.products.where(
+                      (item) =>
+                          !widget.themesOnly ||
+                          item.id == themePassProduct ||
+                          item.id == premiumProduct,
+                    ))
                       ListTile(
                         title: Text(storeProducts[product.id]!.label),
                         subtitle: switch (product.id) {

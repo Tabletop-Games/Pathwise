@@ -103,6 +103,14 @@ void main() {
       app.spinFreeFortune(catalog, random: FixedRoll(0)),
     ]);
     expect(draws.whereType<FortunePrize>().single.coins, 8);
+    expect(app.coinBalance, 50);
+    final saved = await storage.load();
+    app.dispose();
+    app = launch(saved);
+    final recovered = app.pendingFortune!;
+    expect(recovered.coins, 8);
+    expect(await app.settleFortune(recovered), isTrue);
+    expect(await app.settleFortune(recovered), isFalse);
     expect(app.coinBalance, 58);
     expect(app.hintsRemaining, 3);
     app.dispose();
@@ -117,6 +125,7 @@ void main() {
       (await app.spinFreeFortune(catalog, random: FixedRoll(0)))!.coins,
       8,
     );
+    await app.settleFortune(app.pendingFortune!);
     clock = (boot: 2, milliseconds: 100);
     expect(await app.spinFreeFortune(catalog), isNull);
     clock = (boot: 2, milliseconds: fortuneWindowMs);
@@ -124,6 +133,7 @@ void main() {
       (await app.spinFreeFortune(catalog, random: FixedRoll(0)))!.coins,
       8,
     );
+    await app.settleFortune(app.pendingFortune!);
     expect(app.coinBalance, 74);
     app.dispose();
   });
@@ -139,12 +149,15 @@ void main() {
       app.spinRewardedFortune(catalog, 'first', random: FixedRoll(99)),
     ]);
     expect(prizes.nonNulls.single.coins, 8);
+    await app.settleFortune(prizes.nonNulls.single);
     for (var spin = 2; spin <= 6; spin++) {
       expect(await app.spinRewardedFortune(catalog, 'video-$spin'), isNotNull);
+      await app.settleFortune(app.pendingFortune!);
     }
     expect(app.fortuneVideosRemaining, 0);
     expect(await app.spinRewardedFortune(catalog, 'extra'), isNull);
     expect(await app.spinFreeFortune(catalog), isNotNull);
+    await app.settleFortune(app.pendingFortune!);
     final balance = app.coinBalance;
     app.dispose();
 

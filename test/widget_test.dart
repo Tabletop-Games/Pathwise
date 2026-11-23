@@ -163,7 +163,9 @@ void main() {
       expect(find.text('Prize odds'), findsNothing);
       await tester.tap(find.text('Free spin'));
       await tester.pump();
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(seconds: 2));
+      expect(model.coinBalance, 50);
+      await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
       expect(model.fortuneWait, greaterThan(0));
       expect(model.hintsRemaining, 3);
@@ -356,15 +358,9 @@ void main() {
       await tester.tap(find.text('Hint · 0 left'));
       await tester.pumpAndSettle();
       expect(find.text('Need a hint?'), findsOneWidget);
-      expect(find.text('60 coins · +1 hint'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Watch ad · +1 hint'),
-            )
-            .onPressed,
-        isNull,
-      );
+      expect(find.text('No ads available right now'), findsOneWidget);
+      expect(find.text('Need 60 more coins'), findsOneWidget);
+      expect(find.text('Get coins'), findsOneWidget);
       expect(model.hintsRemaining, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
@@ -552,7 +548,7 @@ void main() {
       await tester.ensureVisible(find.text('Time Attack'));
       await tester.tap(find.text('Time Attack'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('1 MIN'));
+      await tester.tap(find.text('1 min'));
       await tester.tap(find.text('Play'));
       await tester.pumpAndSettle();
       expect(find.text('1:00'), findsOneWidget);
