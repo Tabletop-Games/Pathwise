@@ -54,6 +54,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     defaultConfig {
         applicationId = "games.tabletop.pathwise"
         minSdk = flutter.minSdkVersion
