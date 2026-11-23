@@ -1,9 +1,11 @@
 import { createHash, randomBytes, verify } from 'node:crypto';
+import { awardFortune, liveWheelStamps, publicFortune } from './fortune.mjs';
 
 const placements = {
   coins: 'PATHWISE_ADMOB_REWARDED',
   hint: 'PATHWISE_ADMOB_EXTRA_HINT',
   refill: 'PATHWISE_ADMOB_HINT_REFILL',
+  wheel: 'PATHWISE_ADMOB_WHEEL',
 };
 export const consoleProbe = 'pathwise-console-check';
 const unitId = (value) => /^(?:ca-app-pub-\d{16}\/)?(\d{10})$/.exec(value ?? '')?.[1];
@@ -41,22 +43,25 @@ async function googleKeys(force = false) {
   return cached;
 }
 
-export async function rewardRequest(request, db) {
+export async function rewardRequest(request, db, { keySet = googleKeys, nowMs = Date.now } = {}) {
   const path = request.url.split('?')[0];
   if (!path.startsWith('/v1/rewards/')) return null;
   if (process.env.PATHWISE_REWARDS_ENABLED !== 'true') return [503, { error: 'disabled' }];
-  const configuredUnits = Object.values(placements).map((name) => unitId(process.env[name]));
-  if (configuredUnits.some((unit) => !unit) || new Set(configuredUnits).size !== configuredUnits.length) {
+  const baseUnits = ['coins', 'hint', 'refill'].map(place => unitId(process.env[placements[place]]));
+  const wheelUnit = unitId(process.env[placements.wheel]);
+  const configuredUnits = wheelUnit ? [...baseUnits, wheelUnit] : baseUnits;
+  if (baseUnits.some(unit => !unit) || new Set(configuredUnits).size !== configuredUnits.length) {
     return [503, { error: 'placement_unavailable' }];
   }
   const sessions = db.collection('pathwise-ad-sessions');
-  const now = Date.now();
+  const now = nowMs();
+  const wheel = db.collection('pathwise-fortune');
   if (request.method === 'GET' && path === '/v1/rewards/callback') {
     const query = request.url.slice(path.length + 1);
     if (query.length > 4800) return [422, { error: 'invalid_callback' }];
-    let keys = await googleKeys();
+    let keys = await keySet();
     const keyId = /&key_id=(\d+)$/.exec(query)?.[1];
-    if (keyId && !keys.has(keyId) && now - loadedAt > 60000) keys = await googleKeys(true);
+    if (keyId && !keys.has(keyId) && now - loadedAt > 60000) keys = await keySet(true);
     const reward = decodeReward(query, (id) => keys.get(id), now, true);
     if (!reward || !configuredUnits.includes(reward.unit)) return [403, { error: 'invalid_signature' }];
     if (reward.token === consoleProbe) return [200, { verified: true, probe: true }];
@@ -67,6 +72,13 @@ export async function rewardRequest(request, db) {
       if (existing.exists) return existing.get('session') === reward.token;
       if (!saved.exists || saved.get('unit') !== reward.unit || saved.get('receipt') ||
           reward.time < saved.get('created') - 10000 || reward.time > saved.get('created') + 900000) return false;
+      if (saved.get('issue') === 'wheel') {
+        const ref = wheel.doc(saved.get('owner'));
+        const current = await tx.get(ref);
+        const grant = awardFortune(current.data(), nowMs(), reward.id);
+        if (!grant) return false;
+        tx.set(ref, grant);
+      }
       tx.create(receipt, { session: reward.token, expiresAt: new Date(now + 7 * 86400000) });
       tx.update(session, { receipt: reward.id });
       return true;
@@ -76,7 +88,11 @@ export async function rewardRequest(request, db) {
   const bearer = /^Bearer ([a-f0-9]{64})$/.exec(request.headers.authorization ?? '')?.[1];
   if (!bearer) return [403, { error: 'unauthorized' }];
   const owner = digest(bearer);
-  const issue = /^\/v1\/rewards\/start\/(coins|hint|refill)$/.exec(path)?.[1];
+  if (request.method === 'GET' && path === '/v1/rewards/wheel') {
+    const previous = await wheel.doc(owner).get();
+    return [200, publicFortune(previous.data(), nowMs())];
+  }
+  const issue = /^\/v1\/rewards\/start\/(coins|hint|refill|wheel)$/.exec(path)?.[1];
   if (request.method === 'POST' && issue) {
     const unit = unitId(process.env[placements[issue]]);
     if (!unit) return [503, { error: 'placement_unavailable' }];
@@ -85,6 +101,10 @@ export async function rewardRequest(request, db) {
     const created = await db.runTransaction(async (tx) => {
       const previous = await tx.get(rate);
       if (now < (previous.get('next') ?? 0)) return false;
+      if (issue === 'wheel') {
+        const state = await tx.get(wheel.doc(owner));
+        if (liveWheelStamps(state.data(), now).length >= 4) return false;
+      }
       tx.set(rate, { next: now + 15000, expiresAt: new Date(now + 86400000) });
       tx.create(sessions.doc(token), { owner, unit, issue, created: now, expiresAt: new Date(now + 86400000) });
       return true;

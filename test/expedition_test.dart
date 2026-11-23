@@ -65,7 +65,7 @@ void main() {
       expect(app.solved, 1);
       await app.flush();
       final saved = await storage.load();
-      expect(saved['schemaVersion'], 6);
+      expect(saved['schemaVersion'], 7);
       expect(saved['attempts'], isNot(contains('endless/2')));
       expect(saved['hintCredits'], isNot(contains('endless/2')));
       app.dispose();

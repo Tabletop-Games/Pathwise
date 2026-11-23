@@ -131,7 +131,7 @@ void main() {
     await app.open(app.expeditionPuzzle!);
     complete(app);
     expect(app.currentTrail.number, 100001);
-    expect(app.expedition!.coins, 4 + 4 + 32 + 4 + 60 + 30 + 35);
+    expect(app.expedition!.coins, 4 + 4 + 32 + 4 + 60 + 30 + 35 + 45);
     final balance = app.coinBalance;
     expect(
       await app.startExpedition(app.currentTrail, fromSummary: true),

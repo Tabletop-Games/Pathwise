@@ -2,13 +2,17 @@
 
 ## 1.0.0 — First public release line
 
+- Add the Fortune Wheel with rolling free and verified video allowances, published odds, and an accessible reveal.
+- Expand Research to 151 ranks, add Trail Provisions and a 60-minute coin boost, make High Contrast free, and spread optional themes across early and prestige prices.
+- Add Field Notes, a clean-run Expedition achievement, and private on-device economy counters with a manual export.
+
 - Replace Endless with Expedition. Preserve the original three introductory trails and continue into procedurally generated trails with recurring milestones, indexed replay records, and offline resumption.
 - Add 13 permanent Research upgrades, eight temporary boosts and collectible supply crates.
 - Replace per-puzzle free resets with a persistent shared three-slot hint tank. Coin refills restore three. Each hint after the third on a board requires a separate rewarded ad.
 - Expand the Vault to 23 themes and update the Play coin packs to 500, 1,250, 3,000, 7,500 and 18,000 coins.
 - Add signed AdMob reward verification for tank refills, extra hints and coins. Raise interstitial spacing to four minutes and require five qualifying exits per opportunity.
 - Add Android Play Games v2 authentication, local achievement synchronization, account linking and configured leaderboard viewing. See the publisher guide for activation requirements and integration limits.
-- Use Android build code 6 in the repository, subject to the publisher confirming the Play Console artifact history.
+- Use Android build code 7 in the repository, subject to the publisher confirming the Play Console artifact history.
 
 Internal development versions follow.
 

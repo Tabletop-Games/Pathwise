@@ -119,7 +119,7 @@ void main() {
     expect(model.highestUnlocked, 37);
     expect(model.levelsSolved, 1);
     expect(model.theme, PathwiseTheme.terracotta);
-    expect(model.ownedThemes, 3);
+    expect(model.ownedThemes, 4);
     expect(model.result(const PuzzleId.level(36))!.milliseconds, 60000);
     expect(model.longestStreak, 2);
     expect(model.solved, 4);
@@ -129,7 +129,7 @@ void main() {
     model.close();
     await model.flush();
     final snapshot = await store.load();
-    expect(snapshot['schemaVersion'], 6);
+    expect(snapshot['schemaVersion'], 7);
     final restored = create(store, snapshot);
     expect(restored.coinBalance, economy.starterCoins);
     expect(restored.highestUnlocked, 37);

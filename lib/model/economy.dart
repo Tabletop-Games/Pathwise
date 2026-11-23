@@ -49,17 +49,18 @@ class EconomyRules {
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
     PathwiseTheme.blackwater ||
-    PathwiseTheme.terracotta => 0,
+    PathwiseTheme.terracotta ||
+    PathwiseTheme.signal => 0,
     PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 110,
     PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 160,
     PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 220,
     PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
-    PathwiseTheme.canyon || PathwiseTheme.tidal => 1000,
-    PathwiseTheme.parchment ||
-    PathwiseTheme.violet ||
-    PathwiseTheme.signal => 500,
+    PathwiseTheme.canyon => 4500,
+    PathwiseTheme.tidal => 12000,
+    PathwiseTheme.parchment || PathwiseTheme.violet => 500,
     PathwiseTheme.koi || PathwiseTheme.crt => 1000,
-    PathwiseTheme.neon || PathwiseTheme.gilded => 1500,
+    PathwiseTheme.neon => 30000,
+    PathwiseTheme.gilded => 60000,
     PathwiseTheme.basinGold ||
     PathwiseTheme.copperSky ||
     PathwiseTheme.highPass => 0,
@@ -81,7 +82,12 @@ enum Achievement {
   thousand('Trail legend', 'Clear 1,000 levels', 500),
   researcher('Applied research', 'Buy 10 research ranks', 50),
   legendaryCrate('Legendary supply', 'Collect a legendary crate', 60),
-  expeditionClear('Field guide', 'Qualify on an expedition trail', 30);
+  expeditionClear('Field guide', 'Qualify on an expedition trail', 30),
+  cleanTrail(
+    'Surefooted',
+    'Solve all stages on Trail 10 or later without Hint, Clear or Undo',
+    45,
+  );
 
   const Achievement(this.title, this.description, this.coins);
   final String title;
@@ -152,7 +158,10 @@ final class Wallet {
   bool add(String id, String label, int amount, DateTime date) {
     if (contains(id) || balance + amount < 0 || amount == 0) return false;
     _history[id] = CoinTransaction(id, label, amount, date);
-    if (id.startsWith('trail/') && amount > 0) {
+    if ((id.startsWith('trail/') ||
+            id.startsWith('wheel/') ||
+            id.startsWith('notes/')) &&
+        amount > 0) {
       _recentTrailIds.add(id);
       if (_recentTrailIds.length > 32) {
         final removed = _history.remove(_recentTrailIds.removeAt(0))!;

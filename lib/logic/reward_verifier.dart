@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-enum RewardPlacement { coins, hint, refill }
+enum RewardPlacement { coins, hint, refill, wheel }
 
 class RewardVerifier {
   RewardVerifier(this.profile);
@@ -58,6 +58,12 @@ class RewardVerifier {
     return token is String && RegExp(r'^[a-f0-9]{64}$').hasMatch(token)
         ? (token: token, secret: secret)
         : null;
+  }
+
+  Future<Map<String, dynamic>?> fortune() async {
+    if (!enabled) return null;
+    final secret = await profile();
+    return secret == null ? null : _request('GET', 'wheel', secret);
   }
 
   Future<String?> confirm(

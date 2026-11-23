@@ -9,6 +9,7 @@ Production capability flags default off. The publisher enters app and unit ident
 | Rewarded refill | Refill Hints | Tank below capacity. Restores exactly 3/3. |
 | Rewarded extra hint | Extra Hint dialog | Three standard hints already spent. One further hint. |
 | Rewarded coins | Vault | Eight coins, up to three per local day. |
+| Rewarded Fortune Wheel | Fortune Wheel | Up to four per rolling 24 hours. Signed SSV and server-enforced selection and limit. |
 
 Reward actions each have their own configured unit. Production needs both SDK reward completion and a signed AdMob SSV receipt for the corresponding nonce. Dismissal alone yields no reward. Optional ads stay visible to ad-free purchasers when available.
 

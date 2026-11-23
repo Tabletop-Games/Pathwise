@@ -498,6 +498,10 @@ class ExpeditionSummary extends StatelessWidget {
               (theme) => theme.expeditionTrail == run.trail.number,
             ))
               Text('${theme.label} is available in the Vault.'),
+          if (run.personalBest) const Text('New personal best'),
+          if (run.outcome == ExpeditionOutcome.qualified &&
+              run.cleanStages == Trail.stages)
+            const Text('Clean run · All ten stages'),
           if (run.milestoneCoins > 0)
             Text(
               'Trail ${run.trail.number} milestone · +${run.milestoneCoins} coins',
