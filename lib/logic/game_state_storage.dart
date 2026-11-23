@@ -9,7 +9,7 @@ class GameStateStorage {
 
   final SharedPreferencesAsync? _injected;
   late final _preferences = _injected ?? SharedPreferencesAsync();
-  static const schemaVersion = 12;
+  static const schemaVersion = 13;
   static const _key = kDebugMode
       ? 'pathwise.debug.save.v1'
       : 'pathwise.save.v1';
@@ -35,6 +35,7 @@ class GameStateStorage {
             decoded['schemaVersion'] != 9 &&
             decoded['schemaVersion'] != 10 &&
             decoded['schemaVersion'] != 11 &&
+            decoded['schemaVersion'] != 12 &&
             decoded['schemaVersion'] != schemaVersion)) {
       throw const FormatException('Unsupported saved progress');
     }

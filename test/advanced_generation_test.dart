@@ -7,6 +7,20 @@ import '../lib/logic/puzzle_solver.dart';
 import '../lib/model/game_state.dart';
 
 void main() {
+  test('consecutive ice slides and retracts in one stroke', () {
+    final board = VerifiedPuzzle(
+      Puzzle(4, [0, 12], iceTiles: [1, 2], walls: [(0, 4), (1, 5)]),
+      [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12],
+    );
+    final game = GameController(board);
+    expect(game.canStep(4), isFalse);
+    expect(game.begin(0), isTrue);
+    expect(game.step(1), RouteEdit.advance);
+    expect(game.path, [0, 1, 2, 3]);
+    expect(game.step(2), RouteEdit.retract);
+    expect(game.path, [0]);
+  });
+
   test('advanced rules reject blocked or unqualified moves', () {
     expect(Puzzle(3, [0, 8], wall: (0, 1)).canExtend(0, 1, 1, 2), isFalse);
     expect(Puzzle(3, [0, 8], arrow: (1, 2)).canExtend(1, 4, 2, 2), isFalse);
@@ -50,11 +64,18 @@ void main() {
           clues: source.clues,
         ), level: level);
         final puzzle = board.puzzle;
-        expect(puzzle.wall != null, level >= 21 && level <= 40 || level >= 201);
         expect(
-          puzzle.arrow != null,
-          level >= 41 && level <= 70 || level >= 201,
+          puzzle.walls.length >= 2,
+          level >= 21 && level <= 40 || level >= 201,
         );
+        expect(puzzle.arrow, isNull);
+        final specialTiles = [
+          if (puzzle.gate case (final key, final gate)) ...[key, gate],
+          if (puzzle.portal case (final entry, final exit)) ...[entry, exit],
+          ...puzzle.iceTiles,
+        ];
+        expect(specialTiles.toSet(), hasLength(specialTiles.length));
+        expect(specialTiles.any(puzzle.checkpoints.contains), isFalse);
         expect(
           puzzle.gate != null,
           level >= 71 && level <= 100 || level >= 201,
@@ -63,7 +84,10 @@ void main() {
           puzzle.portal != null,
           level >= 101 && level <= 150 || level >= 201,
         );
-        expect(puzzle.ice != null, level >= 151);
+        expect(
+          puzzle.iceTiles.length >= 2,
+          level >= 151 || level >= 41 && level <= 70,
+        );
         expect(
           solve(puzzle).unique,
           isTrue,

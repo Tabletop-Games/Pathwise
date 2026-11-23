@@ -36,11 +36,11 @@ class _DeveloperViewState extends State<DeveloperView> {
       ), level: _mechanicLevel);
       final puzzle = board.puzzle;
       final active = [
-        if (puzzle.wall != null) 'Walls',
+        if (puzzle.walls.isNotEmpty) 'Walls',
         if (puzzle.arrow != null) 'One-way',
         if (puzzle.gate != null) 'Keys',
         if (puzzle.portal != null) 'Portals',
-        if (puzzle.ice != null) 'Ice',
+        if (puzzle.iceTiles.isNotEmpty) 'Ice',
       ];
       setState(() {
         _seed = seed;
@@ -162,7 +162,6 @@ class _DeveloperViewState extends State<DeveloperView> {
               for (final (label, level) in [
                 ('Classic', 0),
                 ('Walls', 21),
-                ('One-way', 41),
                 ('Keys', 71),
                 ('Portals', 101),
                 ('Ice', 151),

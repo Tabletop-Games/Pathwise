@@ -60,7 +60,11 @@ SearchResult solve(Puzzle puzzle, {int budget = 120000}) {
       return;
     }
     final previous = path.length > 1 ? path[path.length - 2] : null;
-    final state = (cell, remaining, puzzle.ice == cell ? previous : null);
+    final state = (
+      cell,
+      remaining,
+      puzzle.iceTiles.contains(cell) ? previous : null,
+    );
     // The remaining mask also determines which checkpoints have been visited.
     if (dead.contains(state)) return;
     if (!canCover(cell, remaining)) {
