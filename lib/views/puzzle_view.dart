@@ -137,7 +137,8 @@ class PuzzleView extends StatelessWidget {
                     math.min(constraints.maxWidth - 32, 490.0),
                     math.max(200.0, constraints.maxHeight - 270),
                   );
-                  return Center(
+                  return Align(
+                    alignment: Alignment.topCenter,
                     child: SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
@@ -261,43 +262,7 @@ class PuzzleView extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (board.wall != null && board.portal != null)
-                              TextButton.icon(
-                                onPressed: () => showDialog<void>(
-                                  context: context,
-                                  builder: (dialog) => AlertDialog(
-                                    title: const Text('Mixed board rules'),
-                                    content: const Text(
-                                      'Walls block the path. Arrows direct exits. Collect the key to open its gate. '
-                                      'The marked portal jumps to its ring. Ice slides one tile straight ahead.',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(dialog),
-                                        child: const Text('Done'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                icon: const Icon(Icons.help_outline_rounded),
-                                label: const Text('Board rules'),
-                              )
-                            else if (board.wall != null)
-                              const Text('Walls block the route.')
-                            else if (board.arrow != null)
-                              const Text(
-                                'Follow the arrow when leaving its tile.',
-                              )
-                            else if (board.gate != null)
-                              const Text(
-                                'Collect the key before entering its lock.',
-                              )
-                            else if (board.portal != null)
-                              const Text(
-                                'Enter the dotted portal to jump to its ring.',
-                              )
-                            else if (board.ice != null)
-                              const Text('Ice slides one tile straight ahead.'),
+                            BoardRulesButton(puzzle: board, palette: palette),
                             if (model.endedEarly)
                               Wrap(
                                 crossAxisAlignment: WrapCrossAlignment.center,
