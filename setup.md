@@ -5,7 +5,7 @@ Application ID `games.tabletop.pathwise`. Public version `1.0.0`, repository cod
 ## 1. Before building
 
 - [ ] Install Flutter 3.50.1 / Dart 3.14, Node.js 22+, JDK 21, Android SDK platform 36 and build tools 36, and NDK 28.2.13676358. Gradle wrapper 9.5 and AGP 9.3.1 are pinned. Accept SDK licenses using `flutter doctor --android-licenses`. Download `bundletool-all-1.18.3.jar` from the [official release](https://github.com/google/bundletool/releases/tag/1.18.3) and save it as `/secure/bundletool.jar` for the commands below.
-- [ ] Copy `config/production.example.json` to a private external directory. Keep flags false for the first offline build. Android project IDs are public configuration, while the upload keystore, passwords,  belong outside the repository.
+- [ ] Copy `config/production.example.json` to a private external directory. Keep flags false for the first offline build. Android project IDs are public configuration, while the upload keystore and passwords belong outside the repository.
 - [ ] In Play Console → All apps → Create app, choose Pathwise, the default language, Game, and the intended access model. Uploading the first matching bundle associates `games.tabletop.pathwise`. Enable Play App Signing from Test and release → Setup → App integrity. Preserve the production app ID and the upload key.
 - [ ] Generate an independent upload key. Back it up with its password in separate protected storage.
 
@@ -61,11 +61,40 @@ Play Console → Monetize with Play → Products → One-time products. Create o
 
 ## 4. Before enabling advertisements
 
-- [ ] AdMob → Apps → Add app. Register Android and iOS separately. For each platform create an anchored adaptive banner, interstitial, and three rewarded units for Coins / Supply Crates / Boosts, Hints, and Fortune Wheel. Set their platform-specific `PATHWISE_ADMOB_*` fields in the build JSON. Use distinct units per reward category.
-- [ ] Export `PATHWISE_ADMOB_APP_ID` for Android. For iOS create ignored `ios/Flutter/AdMob.local.xcconfig` with `PATHWISE_ADMOB_IOS_APP_ID = YOUR_IOS_APP_ID`. The built-in placeholder allows unconfigured offline builds; production iOS advertising refuses to initialize with that ID.
-- [ ] AdMob → Privacy & messaging → publish applicable regional consent messages. Link the store listing’s developer website to `app-ads.txt` and confirm app readiness and crawler status.
-- [ ] Set `PATHWISE_ADS_ENABLED` and `PATHWISE_ADS_CONSENT_CONFIGURED` only for configured builds. Use `--dart-define=PATHWISE_ADS_TEST=true` for debug/profile testing. In a signed release candidate register the test device in AdMob → Settings → Test devices. Sample ad unit IDs never activate release advertising.
-- [ ] Test each opt-in reward, including dismissal, no fill, network interruption, and duplicate completion. Earned SDK callbacks credit the local save. Wheel counters use a rolling 24-hour window and continue across restart. Remove Ads disables automatic ads. No Cloud Run, Firestore, or callback URL is needed for advertising.
+The [build configuration template](config/production.example.json) contains the Android App ID `ca-app-pub-7623640820680894~1301071315` and all five Android ad units. Gradle reads the App ID from the build JSON or the `PATHWISE_ADMOB_APP_ID` environment override. Release uses the configured App ID, and debug/profile use Google's sample App ID.
+
+| Format | Uses | Build key |
+| --- | --- | --- |
+| Rewarded | Coins, Supply Crates, Boosts | `PATHWISE_ADMOB_REWARDED` |
+| Rewarded | Hints | `PATHWISE_ADMOB_EXTRA_HINT` |
+| Rewarded | Fortune Wheel | `PATHWISE_ADMOB_WHEEL` |
+| Anchored adaptive banner | Level selection and standard puzzles | `PATHWISE_ADMOB_BANNER` |
+| Interstitial | Qualifying completed puzzle exits | `PATHWISE_ADMOB_INTERSTITIAL` |
+
+- [ ] In AdMob → Apps → Pathwise, confirm all five Android units belong to this app. For iOS create separate units, populate the `PATHWISE_ADMOB_IOS_*` fields, and create ignored `ios/Flutter/AdMob.local.xcconfig` with `PATHWISE_ADMOB_IOS_APP_ID = YOUR_IOS_APP_ID`.
+- [ ] In AdMob → Privacy & messaging, publish the applicable regional consent messages for Pathwise. Verify the app's privacy policy and Play Console disclosures. Link the developer website and confirm the `app-ads.txt` crawler status and AdMob app readiness.
+- [ ] Build a local test APK with Google's sample ad units. Complete the five reward flows, and test cancellation, no fill, offline behavior, and repeated callbacks. Remove Ads must suppress automatic ads and leave opt-in videos available.
+
+```sh
+flutter build apk --debug --dart-define=PATHWISE_ADS_TEST=true
+```
+
+- [ ] With the signed credentials from section 1 and both ad-serving flags still false in the copied JSON, build a consent-only Android APK. On an authorized Android device, open Settings → Ad privacy. Verify the applicable first-run consent form and the privacy choices form in a region where AdMob requires them. Confirm the app remains usable after a refusal and when offline. This build can call UMP using the production App ID and blocks Mobile Ads SDK initialization and ad loads.
+
+```sh
+flutter build apk --release --dart-define-from-file=/secure/pathwise-production.json \
+  --dart-define=PATHWISE_ADS_VERIFY_CONSENT=true
+```
+
+- [ ] After validating the published UMP setup, set `PATHWISE_ADS_CONSENT_CONFIGURED` and `PATHWISE_ADS_ENABLED` to `"true"` in the copied JSON. Omit `PATHWISE_ADS_VERIFY_CONSENT` in the serving build. Register authorized devices under AdMob → Settings → Test devices before loading any ads from a signed release candidate. Use internal distribution and confirm that ads are marked as tests. A release with any missing, duplicate, invalid, or Google sample Android unit stays disabled.
+- [ ] Build the signed release artifacts with the approved configuration. Continue to the artifact validation and packaging steps in section 1.
+
+```sh
+flutter build apk --release --dart-define-from-file=/secure/pathwise-production.json
+flutter build appbundle --release --dart-define-from-file=/secure/pathwise-production.json
+```
+
+Reward delivery uses the SDK earned callback and a local deduplicated transaction for its specific placement. Wheel counters use a rolling 24-hour window and survive restarts. Advertising uses no publisher callback URL.
 
 ## 5. Before enabling Play Games
 

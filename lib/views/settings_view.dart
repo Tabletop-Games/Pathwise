@@ -82,7 +82,7 @@ class SettingsView extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const StoreView()),
                   ),
                 ),
-                if (ads.enabled)
+                if (ads.canManagePrivacy)
                   ListTile(
                     title: const Text('Ad privacy'),
                     onTap: () async {
