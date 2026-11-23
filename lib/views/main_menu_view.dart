@@ -107,7 +107,7 @@ class _MainMenuViewState extends State<MainMenuView>
         model.activeId != null ||
         model.attack?.finished == false ||
         model.storageError ||
-        model.fortuneWait != 0)
+        (model.fortuneWait != 0 && model.pendingFortune == null))
       return;
     _openWheel();
   }
@@ -301,6 +301,18 @@ class _MainMenuViewState extends State<MainMenuView>
                   onTap: _openWheel,
                 ),
                 const SizedBox(height: 10),
+                _ModeTile(
+                  palette: palette,
+                  icon: Icons.palette_outlined,
+                  title: 'Themes',
+                  subtitle: 'Preview and apply palettes',
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => const StoreView(themesOnly: true),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 const ProgressionEntrances(),
                 if (model.storageError)
                   const Padding(
@@ -434,30 +446,43 @@ class _AttackSetup extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Time Attack')),
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: ListView(
               shrinkWrap: true,
               padding: const EdgeInsets.all(24),
               children: [
+                const Text('How long can you keep going?'),
+                const SizedBox(height: 16),
                 for (final minutes in [1, 3, 5])
-                  ListTile(
-                    enabled: !running,
-                    selected: model.attackMinutes == minutes,
-                    leading: const Icon(Icons.timer_outlined),
-                    title: Text('$minutes MIN'),
-                    subtitle: Text(
-                      'Best ${model.attackBestFor(minutes)} points',
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        enabled: !running,
+                        selected: model.attackMinutes == minutes,
+                        leading: const Icon(Icons.timer_outlined),
+                        title: Text('$minutes min'),
+                        selectedTileColor: Theme.of(context)
+                            .colorScheme
+                            .primaryContainer,
+                        minTileHeight: 72,
+                        subtitle: Text(
+                          'Best: ${model.attackBestFor(minutes)} points',
+                        ),
+                        trailing: model.attackMinutes == minutes
+                            ? const Icon(Icons.check_circle_outline)
+                            : null,
+                        onTap: running
+                            ? null
+                            : () => model.selectAttackMinutes(minutes),
+                      ),
                     ),
-                    trailing: model.attackMinutes == minutes
-                        ? const Icon(Icons.check_circle_outline)
-                        : null,
-                    onTap: running
-                        ? null
-                        : () => model.selectAttackMinutes(minutes),
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: () => openPuzzle(
                     context,

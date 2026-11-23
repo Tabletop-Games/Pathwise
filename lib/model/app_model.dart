@@ -81,6 +81,17 @@ class AppModel extends ChangeNotifier {
         );
       }
     }
+    _classicLevels.addAll(
+      (snapshot['classicLevels'] as List? ?? []).whereType<String>(),
+    );
+    if (!snapshot.containsKey('classicLevels')) {
+      _classicLevels.addAll(
+        [
+          ..._results.keys,
+          ..._attempts.keys,
+        ].where((key) => key.startsWith('levels/')),
+      );
+    }
     final attackMinutes = snapshot['attackMinutes'];
     if (attackMinutes == 1 || attackMinutes == 3 || attackMinutes == 5) {
       _attackMinutes = attackMinutes as int;
@@ -90,6 +101,19 @@ class AppModel extends ChangeNotifier {
       _lastFreeFortune = (
         boot: fortune['boot'] as int,
         milliseconds: fortune['at'] as int,
+      );
+    }
+    final pending = _map(fortune['pending']);
+    if (pending
+        case {
+          'id': final String id,
+          'prize': final String prize,
+          'coins': final int coins,
+        }
+        when id.startsWith('wheel/') && coins > 0 && coins <= 160) {
+      _pendingFortune = (
+        id: id,
+        prize: FortunePrize(prize, '$coins coins', 0, coins),
       );
     }
     _wheelClaims.addAll(_map(fortune['claims']).cast<String, int>());
@@ -330,7 +354,11 @@ class AppModel extends ChangeNotifier {
 
   static Future<VerifiedPuzzle> _generate(
     ({int size, int seed, int clues}) request,
-  ) => compute(generatePuzzle, request);
+    int level,
+  ) => compute((request) => generatePuzzle(request.$1, level: request.$2), (
+    request,
+    level,
+  ));
 
   final BootTime? Function() _bootTime;
   BootTime? _lastAutomaticAd;
@@ -789,6 +817,7 @@ class AppModel extends ChangeNotifier {
   }
 
   final PuzzleLoader? _loader;
+  final _classicLevels = <String>{};
   final UserPreferences _prefs;
   late final Wallet _wallet;
   final _owned = <PathwiseTheme>{};
@@ -989,6 +1018,33 @@ class AppModel extends ChangeNotifier {
   int get fortuneWait => freeFortuneWait(_lastFreeFortune, _bootTime());
   final _wheelVideos = <BootTime>[];
 
+  ({String id, FortunePrize prize})? _pendingFortune;
+  FortunePrize? get pendingFortune => _pendingFortune?.prize;
+
+  Future<bool> settleFortune(FortunePrize prize) async {
+    final pending = _pendingFortune;
+    if (_disposed || pending == null || !identical(pending.prize, prize))
+      return false;
+    if (_wallet.add(
+      pending.id,
+      'Fortune Wheel · ${prize.label}',
+      prize.coins,
+      _today(),
+    )) {
+      activity.prize(prize.label, 1);
+      activity.event(
+        pending.id.startsWith('wheel/free/')
+            ? EconomyEvent.wheelFree
+            : EconomyEvent.wheelVerified,
+        coinBalance,
+      );
+    }
+    _pendingFortune = null;
+    final saved = await flush();
+    if (!_disposed) notifyListeners();
+    return saved;
+  }
+
   bool _activeWheelVideo(BootTime stamp, BootTime now) =>
       freeFortuneWait(stamp, now) > 0;
 
@@ -1009,25 +1065,17 @@ class AppModel extends ChangeNotifier {
   }) async {
     final now = _bootTime();
     final id = 'wheel/video/$event';
-    if (now == null ||
+    if (_pendingFortune != null ||
+        now == null ||
         fortuneVideosRemaining == 0 ||
         _wallet.contains(id) ||
         !_hintEvents.add(id)) {
       return null;
     }
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
-    if (!_wallet.add(
-      id,
-      'Fortune Wheel · ${prize.label}',
-      prize.coins,
-      _today(),
-    )) {
-      return null;
-    }
+    _pendingFortune = (id: id, prize: prize);
     _wheelVideos.removeWhere((stamp) => !_activeWheelVideo(stamp, now));
     _wheelVideos.add(now);
-    activity.prize(prize.label, 1);
-    activity.event(EconomyEvent.wheelVerified, coinBalance);
     final saved = await flush();
     if (!_disposed) notifyListeners();
     return saved ? prize : null;
@@ -1040,18 +1088,16 @@ class AppModel extends ChangeNotifier {
     final clock = _bootTime();
     if (_disposed ||
         storageError ||
+        _pendingFortune != null ||
         clock == null ||
-        freeFortuneWait(_lastFreeFortune, clock) != 0)
+        freeFortuneWait(_lastFreeFortune, clock) != 0) {
       return null;
+    }
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
     _lastFreeFortune = clock;
-    activity.prize(prize.label, 1);
-    activity.event(EconomyEvent.wheelFree, coinBalance);
-    _wallet.add(
-      'wheel/free/${clock.boot}/${clock.milliseconds}',
-      'Fortune Wheel · ${prize.label}',
-      prize.coins,
-      _today(),
+    _pendingFortune = (
+      id: 'wheel/free/${clock.boot}/${clock.milliseconds}',
+      prize: prize,
     );
     final saved = await flush();
     if (!_disposed) notifyListeners();
@@ -1346,7 +1392,14 @@ class AppModel extends ChangeNotifier {
 
     try {
       final generation = id.generation;
-      final board = await (_loader?.call(generation) ?? _generate(generation));
+      final board =
+          await (_loader?.call(generation) ??
+              _generate(
+                generation,
+                id.mode == PlayMode.levels && !_classicLevels.contains(id.key)
+                    ? id.level
+                    : 0,
+              ));
       if (_disposed || request != _request) return;
       final game = GameController(board);
       _game = game;
@@ -1684,6 +1737,7 @@ class AppModel extends ChangeNotifier {
       'progressionBoot': _bootTime()?.boot,
       'playStreak': streak.toJson(),
       'freezeSerial': _freezeSerial,
+      'classicLevels': _classicLevels.toList(),
       'hintBalance': _hintBalance,
       'hintPurchaseSerial': _hintPurchaseSerial,
       'hintAdDays': _hintAdDays,
@@ -1705,6 +1759,12 @@ class AppModel extends ChangeNotifier {
           'at': stamp.milliseconds,
         },
         'claims': _wheelClaims,
+        if (_pendingFortune case final pending?)
+          'pending': {
+            'id': pending.id,
+            'prize': pending.prize.id,
+            'coins': pending.prize.coins,
+          },
         'videos': [
           for (final stamp in _wheelVideos)
             {'boot': stamp.boot, 'at': stamp.milliseconds},

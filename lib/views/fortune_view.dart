@@ -38,6 +38,11 @@ class _FortuneViewState extends State<FortuneView> {
       if (!_current()) return;
       context.read<AppModel>().recordActivity(EconomyEvent.wheelOpened);
       unawaited(_refreshVideos());
+      _catalog.then((catalog) {
+        if (!mounted) return;
+        final prize = context.read<AppModel>().pendingFortune;
+        if (prize != null && _pending == null) _show(catalog, prize);
+      });
     });
   }
 
@@ -100,10 +105,26 @@ class _FortuneViewState extends State<FortuneView> {
         prize,
         rotations: reduced ? 0 : 5,
       );
-      _reveal = reduced ? prize : null;
-      _pending = reduced ? null : prize;
+      _reveal = null;
+      _pending = prize;
     });
-    if (reduced) haptic.complete();
+    if (reduced) WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+  }
+
+  Future<void> _finish() async {
+    if (!mounted || _pending == null) return;
+    final prize = _pending!;
+    final model = context.read<AppModel>();
+    setState(() {
+      _reveal = prize;
+      _pending = null;
+      _working = true;
+    });
+    final saved = await model.settleFortune(prize);
+    if (mounted) {
+      setState(() => _working = false);
+      if (saved) model.haptic.complete();
+    }
   }
 
   @override
@@ -164,14 +185,7 @@ class _FortuneViewState extends State<FortuneView> {
                                       ? Duration.zero
                                       : const Duration(milliseconds: 3200),
                                   curve: Curves.easeInOutCubic,
-                                  onEnd: () {
-                                    if (_pending == null) return;
-                                    setState(() {
-                                      _reveal = _pending;
-                                      _pending = null;
-                                    });
-                                    model.haptic.complete();
-                                  },
+                                  onEnd: _finish,
                                   builder: (_, turns, _) => RepaintBoundary(
                                     child: CustomPaint(
                                       painter: _WheelPainter(catalog, turns),

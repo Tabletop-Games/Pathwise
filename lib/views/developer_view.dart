@@ -18,6 +18,7 @@ class _DeveloperViewState extends State<DeveloperView> {
   final _input = TextEditingController(text: '1');
   String? _result;
   int _previewSize = 5;
+  int _mechanicLevel = 0;
 
   @override
   void dispose() {
@@ -54,7 +55,10 @@ class _DeveloperViewState extends State<DeveloperView> {
             onPressed: () {
               final level = int.tryParse(_input.text);
               if (level == null || level < 1) return;
-              final board = generatePuzzle(PuzzleId.level(level).generation);
+              final board = generatePuzzle(
+                PuzzleId.level(level).generation,
+                level: level,
+              );
               setState(
                 () => _result =
                     'Certified ${board.puzzle.size}×${board.puzzle.size}\n${board.solution.join(' → ')}',
@@ -96,6 +100,25 @@ class _DeveloperViewState extends State<DeveloperView> {
                 ),
             ],
           ),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final (label, level) in [
+                ('Classic', 0),
+                ('Walls', 21),
+                ('One-way', 41),
+                ('Keys', 71),
+                ('Portals', 101),
+                ('Ice', 151),
+                ('Mixed', 201),
+              ])
+                ChoiceChip(
+                  label: Text(label),
+                  selected: _mechanicLevel == level,
+                  onSelected: (_) => setState(() => _mechanicLevel = level),
+                ),
+            ],
+          ),
           OutlinedButton(
             onPressed: () {
               final seed = int.tryParse(_input.text);
@@ -104,7 +127,7 @@ class _DeveloperViewState extends State<DeveloperView> {
                 size: _previewSize,
                 seed: seed,
                 clues: _previewSize * 2,
-              ));
+              ), level: _mechanicLevel);
               setState(
                 () => _result =
                     'Generated ${board.puzzle.size}×${board.puzzle.size}, seed $seed\n${board.solution.join(' → ')}',

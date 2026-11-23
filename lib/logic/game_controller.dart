@@ -33,7 +33,7 @@ final class GameController {
 
     _beforeStroke = List.of(_path);
     if (index >= 0 && index < length - 1) {
-      _path.length = index + 1;
+      _path.length = _stablePrefix(_path, index + 1);
       hintCell = null;
     } else if (index < 0) {
       step(cell);
@@ -52,17 +52,29 @@ final class GameController {
         length,
         nextCheckpoint,
         allowEarlyFinish: true,
+        previous: length > 1 ? _path[length - 2] : null,
+        hasVisited: _path.contains,
       );
 
   RouteEdit step(int cell) {
     if (complete || _beforeStroke == null) return RouteEdit.none;
     if (length > 1 && cell == _path[length - 2]) {
-      _path.removeLast();
+      _path.length = _stablePrefix(_path, length - 1);
       hintCell = null;
       return RouteEdit.retract;
     }
     if (!canStep(cell)) return RouteEdit.none;
+    final before = length;
     _path.add(cell);
+    while (true) {
+      final forced = puzzle.forcedNext(_path[length - 2], tip);
+      if (forced == null) break;
+      if (!canStep(forced)) {
+        _path.length = before;
+        return RouteEdit.none;
+      }
+      _path.add(forced);
+    }
     hintCell = null;
     return RouteEdit.advance;
   }
@@ -105,7 +117,8 @@ final class GameController {
     while (prefix < length && _path[prefix] == board.solution[prefix]) {
       prefix++;
     }
-    final end = (prefix + segment - 1).clamp(prefix, puzzle.area - 1);
+    final proposed = (prefix + segment - 1).clamp(prefix, puzzle.area - 1);
+    final end = _stablePrefix(board.solution, proposed);
     if (prefix != length || end != prefix) {
       _remember(List.of(_path));
       _path = board.solution.take(end).toList();
@@ -113,6 +126,14 @@ final class GameController {
     hintCell = board.solution[end];
     hintsUsed++;
     return true;
+  }
+
+  int _stablePrefix(List<int> route, int end) {
+    while (end > 1 &&
+        puzzle.forcedNext(route[end - 2], route[end - 1]) != null) {
+      end--;
+    }
+    return end;
   }
 
   void _remember(List<int> before) {
@@ -140,6 +161,8 @@ final class GameController {
         index,
         checkpoint,
         allowEarlyFinish: true,
+        previous: index > 1 ? saved[index - 2] : null,
+        hasVisited: (cell) => saved.take(index).contains(cell),
       )) {
         return false;
       }

@@ -11,3 +11,5 @@ The app saves schema 11 in the existing `pathwise.save.v1` SharedPreferences Dat
 The schema 9 migration keeps wallet balances, purchased themes, completed levels, Daily and Time Attack history, the historical hint tank, and lifetime counters from removed modes. Retired Research and unused boost purchases are refunded once from recorded ledger prices. Historical reward credits remain part of the balance. Obsolete run data is ignored.
 
 Schema 11 moves hints into a single wallet, keeps existing coin transactions and entitlements, and records new streak data and placement quotas. Debug builds use a separate preference key.
+
+Advanced Levels add walls and value-bearing tile rules. The solver uses the same movement predicate as gesture handling. Restored older attempts retain their original board seeds and rules.

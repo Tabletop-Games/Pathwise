@@ -245,12 +245,67 @@ class _BoardPainter extends CustomPainter {
       }
     }
 
+    if (puzzle.wall case (final from, final to)) {
+      final delta = _center(to) - _center(from);
+      final center = (_center(from) + _center(to)) / 2;
+      final side = Offset(-delta.dy, delta.dx) * .45;
+      canvas.drawLine(
+        center - side,
+        center + side,
+        Paint()
+          ..color = palette.ink
+          ..strokeWidth = .10
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    void marker(int cell, String symbol) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: symbol,
+          style: TextStyle(
+            color: palette.ink,
+            fontSize: .24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.paint(canvas, _center(cell) + const Offset(-.40, -.43));
+      painter.dispose();
+    }
+
+    if (puzzle.arrow case (final from, final to)) {
+      final delta = to - from;
+      marker(
+        from,
+        delta == 1
+            ? '→'
+            : delta == -1
+            ? '←'
+            : delta > 0
+            ? '↓'
+            : '↑',
+      );
+    }
+    if (puzzle.gate case (final key, final gate)) {
+      marker(key, '⚿');
+      marker(gate, '▣');
+    }
+    if (puzzle.portal case (final entry, final exit)) {
+      marker(entry, '◉');
+      marker(exit, '◎');
+    }
+    if (puzzle.ice case final ice?) marker(ice, '❄');
     final first = _center(route.first);
     final tip = _center(route.last);
     final stroke = Path()..moveTo(first.dx, first.dy);
     for (final cell in route.skip(1)) {
       final point = _center(cell);
-      stroke.lineTo(point.dx, point.dy);
+      if (puzzle.portal?.$2 == cell) {
+        stroke.moveTo(point.dx, point.dy);
+      } else {
+        stroke.lineTo(point.dx, point.dy);
+      }
     }
     canvas.drawPath(
       stroke,

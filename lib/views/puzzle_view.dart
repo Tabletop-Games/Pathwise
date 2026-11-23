@@ -15,7 +15,7 @@ import 'components/ad_banner.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
 import 'share_view.dart';
-import 'store_view.dart';
+import 'fortune_view.dart';
 
 String formatTime(Duration value) {
   final minutes = value.inMinutes;
@@ -261,6 +261,20 @@ class PuzzleView extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (board.wall != null)
+                              const Text('Walls block the route.'),
+                            if (board.arrow != null)
+                              const Text(
+                                'Follow the arrow when leaving its tile.',
+                              ),
+                            if (board.gate != null)
+                              const Text(
+                                'Collect the key ⚿ before entering its gate ▣.',
+                              ),
+                            if (board.portal != null)
+                              const Text('Enter ◉ to jump to ◎.'),
+                            if (board.ice != null)
+                              const Text('Ice slides one tile straight ahead.'),
                             if (model.endedEarly)
                               Wrap(
                                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -590,33 +604,51 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
     context: context,
     builder: (dialog) => AlertDialog(
       title: const Text('Need a hint?'),
-      content: Text('${model.coinBalance} coins available'),
-      actions: [
-        FutureBuilder<bool>(
-          future: online,
-          builder: (context, snapshot) => FilledButton.icon(
-            onPressed: snapshot.data == true && model.canEarnHintAd
-                ? () => Navigator.pop(dialog, 'ad')
-                : null,
-            icon: const Icon(Icons.play_circle_outline),
-            label: Text(
-              model.canEarnHintAd
-                  ? 'Watch ad · +1 hint'
-                  : 'Daily ad limit reached',
+      scrollable: true,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('+1 hint · ${model.coinBalance} coins available'),
+          const SizedBox(height: 12),
+          FutureBuilder<bool>(
+            future: online,
+            builder: (context, snapshot) =>
+                snapshot.data == true &&
+                    ads.readyFor(RewardPlacement.hint) &&
+                    model.canEarnHintAd
+                ? FilledButton.icon(
+                    onPressed: () => Navigator.pop(dialog, 'ad'),
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Watch ad · +1 hint'),
+                  )
+                : Text(
+                    model.canEarnHintAd
+                        ? 'No ads available right now'
+                        : 'Daily ad limit reached',
+                  ),
+          ),
+          const SizedBox(height: 8),
+          if (model.coinBalance < economy.hintPrice) ...[
+            Text('Need ${economy.hintPrice - model.coinBalance} more coins'),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialog, 'vault'),
+              icon: const Icon(Icons.toll_rounded),
+              label: const Text('Get coins'),
             ),
-          ),
-        ),
-        if (model.coinBalance < economy.hintPrice)
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, 'vault'),
-            child: const Text('Earn coins'),
-          ),
-        OutlinedButton.icon(
-          onPressed: model.coinBalance >= economy.hintPrice
-              ? () => Navigator.pop(dialog, 'coins')
-              : null,
-          icon: const Icon(Icons.toll_rounded),
-          label: Text('${economy.hintPrice} coins · +1 hint'),
+            const Text('A hint costs 60 coins'),
+          ] else
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(dialog, 'coins'),
+              icon: const Icon(Icons.toll_rounded),
+              label: const Text('60 coins · +1 hint'),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog),
+          child: const Text('Close'),
         ),
       ],
     ),
@@ -625,7 +657,7 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
   if (action == 'coins') await model.buyHint();
   if (action == 'vault') {
     await Navigator.of(context)
-        .push<void>(MaterialPageRoute(builder: (_) => const StoreView()));
+        .push<void>(MaterialPageRoute(builder: (_) => const FortuneView()));
   }
   if (action != 'ad') return;
   bool current() => context.mounted && ModalRoute.isCurrentOf(context) == true;
