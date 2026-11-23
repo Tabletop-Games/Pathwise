@@ -15,6 +15,7 @@ import 'components/ad_banner.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
 import 'share_view.dart';
+import 'store_view.dart';
 
 String formatTime(Duration value) {
   final minutes = value.inMinutes;
@@ -64,16 +65,18 @@ class PuzzleView extends StatelessWidget {
                 PopupMenuItem(value: 0, child: Text('Restart puzzle')),
               ],
             ),
-          if (timed && !attackFinished)
-            PopupMenuButton<bool>(
-              tooltip: 'Time Attack controls',
-              onSelected: (restart) =>
-                  _confirmAttackAction(context, model, restart),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: false, child: Text('Stop')),
-                PopupMenuItem(value: true, child: Text('Restart')),
-              ],
+          if (timed && !attackFinished) ...[
+            IconButton(
+              tooltip: 'Stop Time Attack',
+              onPressed: () => _confirmAttackAction(context, model, false),
+              icon: const Icon(Icons.stop_circle_outlined),
             ),
+            IconButton(
+              tooltip: 'Restart Time Attack',
+              onPressed: () => _confirmAttackAction(context, model, true),
+              icon: const Icon(Icons.restart_alt_rounded),
+            ),
+          ],
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 18),
             child: ValueListenableBuilder<Duration>(
@@ -491,6 +494,11 @@ class _Completion extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            if (model.recentStreakDay case final day?)
+              Chip(
+                avatar: const Icon(Icons.local_fire_department_rounded),
+                label: Text('$day-day streak'),
+              ),
             if (model.lastReward > 0)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -593,6 +601,11 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
             ),
           ),
         ),
+        if (model.coinBalance < economy.hintPrice)
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, 'vault'),
+            child: const Text('Earn coins'),
+          ),
         OutlinedButton.icon(
           onPressed: model.coinBalance >= economy.hintPrice
               ? () => Navigator.pop(dialog, 'coins')
@@ -605,6 +618,10 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
   );
   if (!context.mounted) return;
   if (action == 'coins') await model.buyHint();
+  if (action == 'vault') {
+    await Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => const StoreView()));
+  }
   if (action != 'ad') return;
   bool current() => context.mounted && ModalRoute.isCurrentOf(context) == true;
   if (!ads.readyFor(RewardPlacement.hint)) {
@@ -670,6 +687,13 @@ class _AttackResults extends StatelessWidget {
                 ),
                 if (run.record)
                   const Center(child: Chip(label: Text('New personal best'))),
+                if (model.recentStreakDay case final day?)
+                  Center(
+                    child: Chip(
+                      avatar: const Icon(Icons.local_fire_department_rounded),
+                      label: Text('$day-day streak'),
+                    ),
+                  ),
                 ListTile(
                   title: const Text('Puzzles completed'),
                   trailing: Text('${run.clears.length}'),

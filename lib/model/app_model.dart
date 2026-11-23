@@ -31,7 +31,7 @@ class AppModel extends ChangeNotifier {
     PuzzleLoader? loader,
     BootTime? Function()? bootTime,
     this.debugTools = false,
-  }) : _today = today ?? DateTime.now,
+  }) : _wallClock = today ?? DateTime.now,
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
        _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
@@ -728,7 +728,41 @@ class AppModel extends ChangeNotifier {
   final bool debugTools;
   bool get developerMode => kDebugMode && debugTools;
   final GameStateStorage storage;
-  final DateTime Function() _today;
+  final DateTime Function() _wallClock;
+  int _debugDays = 0;
+  DateTime _today() {
+    final now = _wallClock();
+    if (!developerMode || _debugDays == 0) return now;
+    return DateTime(
+      now.year,
+      now.month,
+      now.day + _debugDays,
+      now.hour,
+      now.minute,
+    );
+  }
+
+  void advanceDebugDay({bool qualify = false}) {
+    if (!developerMode || storageError) return;
+    _debugDays++;
+    if (qualify) _qualifyStreak();
+    streak.reconcile(todayKey);
+    _progressionChanged();
+  }
+
+  void grantDebugProgression() {
+    if (!developerMode || storageError) return;
+    for (final item in Research.values) {
+      progression.ranks[item.name] = item.limit;
+    }
+    for (final boost in Boost.values) {
+      progression.inventory[boost.name] =
+          (progression.inventory[boost.name] ?? 0) + 1;
+    }
+    streak.freezes = economy.maxFreezes;
+    _progressionChanged();
+  }
+
   final PuzzleLoader? _loader;
   final UserPreferences _prefs;
   late final Wallet _wallet;
@@ -1168,10 +1202,13 @@ class AppModel extends ChangeNotifier {
   int _freezeSerial = 0;
   String get todayKey => dayKey(_today());
 
+  int? recentStreakDay;
+
   void _qualifyStreak() {
     final day = todayKey;
     if (!streak.qualify(day)) return;
     final count = streak.count;
+    recentStreakDay = count;
     if (EconomyRules.milestones[count] case final reward?) {
       if (_wallet.add(
         'play-streak/${streak.first}/$count',
@@ -1262,6 +1299,7 @@ class AppModel extends ChangeNotifier {
     _watch.reset();
     _accountedMilliseconds = 0;
     lastReward = 0;
+    recentStreakDay = null;
     recentAchievements = const [];
     newBest = false;
     completedThisVisit = false;

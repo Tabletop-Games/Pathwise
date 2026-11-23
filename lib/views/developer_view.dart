@@ -17,6 +17,7 @@ class DeveloperView extends StatefulWidget {
 class _DeveloperViewState extends State<DeveloperView> {
   final _input = TextEditingController(text: '1');
   String? _result;
+  int _previewSize = 5;
 
   @override
   void dispose() {
@@ -71,10 +72,54 @@ class _DeveloperViewState extends State<DeveloperView> {
                 model.setDebugResources(hints: int.tryParse(_input.text)),
             child: const Text('Set hints'),
           ),
+          Text('Test date: ${model.todayKey}'),
+          OutlinedButton(
+            onPressed: () => model.advanceDebugDay(qualify: true),
+            child: const Text('Simulate next qualifying day'),
+          ),
+          OutlinedButton(
+            onPressed: model.advanceDebugDay,
+            child: const Text('Skip to next day'),
+          ),
+          OutlinedButton(
+            onPressed: model.grantDebugProgression,
+            child: const Text('Unlock Research and grant Boosts and Freezes'),
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final size in [4, 5, 6, 7])
+                ChoiceChip(
+                  label: Text('$size×$size'),
+                  selected: _previewSize == size,
+                  onSelected: (_) => setState(() => _previewSize = size),
+                ),
+            ],
+          ),
+          OutlinedButton(
+            onPressed: () {
+              final seed = int.tryParse(_input.text);
+              if (seed == null) return;
+              final board = generatePuzzle((
+                size: _previewSize,
+                seed: seed,
+                clues: _previewSize * 2,
+              ));
+              setState(
+                () => _result =
+                    'Generated ${board.puzzle.size}×${board.puzzle.size}, seed $seed\n${board.solution.join(' → ')}',
+              );
+            },
+            child: const Text('Generate certified board from seed'),
+          ),
           for (final (label, action)
               in <(String, Future<bool> Function(String))>[
                 ('Simulate earned coin video', model.grantAdBonus),
                 ('Simulate earned hint video', model.grantHintAd),
+                (
+                  'Simulate earned 3× boost video',
+                  (key) => model.grantBoostAd(Boost.tripleFifteen, key),
+                ),
                 (
                   'Simulate earned 2× boost video',
                   (key) => model.grantBoostAd(Boost.doubleTen, key),
