@@ -263,6 +263,7 @@ void _paintTile(
   BoardPalette palette,
   List<_Mark> marks, {
   bool visited = false,
+  bool checkpoint = false,
 }) {
   final base = visited ? palette.covered : palette.tile;
   final dark = marks.isNotEmpty && base.computeLuminance() < .25;
@@ -302,12 +303,22 @@ void _paintTile(
       Paint()..color = color.withValues(alpha: .15),
     );
     canvas.save();
-    final arrowOffset = visited && mark.kind == _TileMark.arrow
-        ? Offset(-mark.direction.dy, mark.direction.dx) * .19
-        : Offset.zero;
-    final origin = center + offset + arrowOffset;
+    final direction = mark.direction;
+    final motifOffset = switch (mark.kind) {
+      _TileMark.arrow when single && checkpoint =>
+        Offset(direction.dy, -direction.dx) * .32,
+      _TileMark.arrow when visited => Offset(-direction.dy, direction.dx) * .19,
+      _TileMark.key when single && checkpoint => const Offset(0, -.32),
+      _ => Offset.zero,
+    };
+    final origin = center + offset + motifOffset;
     canvas.translate(origin.dx, origin.dy);
-    if (!single) canvas.scale(.54);
+    if (!single) {
+      canvas.scale(.54);
+    } else if (checkpoint &&
+        (mark.kind == _TileMark.key || mark.kind == _TileMark.arrow)) {
+      canvas.scale(.65);
+    }
     final ink = Paint()
       ..color = color.withValues(
         alpha: mark.kind == _TileMark.arrow ? .43 : .76,
@@ -568,6 +579,7 @@ class _BoardPainter extends CustomPainter {
         palette,
         _marksAt(puzzle, cell, visited).toList(),
         visited: visited.contains(cell),
+        checkpoint: puzzle.numbers[cell] != 0,
       );
       if (!complete && route.last == puzzle.finish && !visited.contains(cell)) {
         canvas.drawRRect(
