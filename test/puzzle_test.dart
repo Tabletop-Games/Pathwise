@@ -121,7 +121,7 @@ void main() {
       for (final id in [
         for (var day = 1; day <= 8; day++)
           PuzzleId.daily(dayKey(DateTime(2026, 11, day))),
-        for (final trail in Trail.values)
+        for (final trail in [Trail.foothills, Trail.ridgeline, Trail.summit])
           for (final serial in [0, 5])
             for (var stage = 0; stage < Trail.stages; stage++)
               PuzzleId.expedition(trail, serial, stage),

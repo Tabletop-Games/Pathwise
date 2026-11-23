@@ -77,8 +77,8 @@ class _StoreViewState extends State<StoreView> {
                               ? 'Equipped'
                               : model.ownsTheme(theme)
                               ? 'Owned'
-                              : theme == PathwiseTheme.basinGold
-                              ? 'Qualify on Summit to earn'
+                              : theme.expeditionTrail != null
+                              ? 'Qualify on Trail ${theme.expeditionTrail} to earn'
                               : '${economy.themePrice(theme)} coins',
                         ),
                         trailing: model.theme == theme
@@ -86,13 +86,13 @@ class _StoreViewState extends State<StoreView> {
                             : TextButton(
                                 onPressed: model.ownsTheme(theme)
                                     ? () => model.setTheme(theme)
-                                    : theme == PathwiseTheme.basinGold
+                                    : theme.expeditionTrail != null
                                     ? null
                                     : () => _confirm(context, model, theme),
                                 child: Text(
                                   model.ownsTheme(theme)
                                       ? 'Equip'
-                                      : theme == PathwiseTheme.basinGold
+                                      : theme.expeditionTrail != null
                                       ? 'Trail reward'
                                       : 'Unlock',
                                 ),

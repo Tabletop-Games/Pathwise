@@ -29,7 +29,7 @@ final class PuzzleId {
   ({Trail trail, int serial, int stage}) get expedition =>
       value as ({Trail trail, int serial, int stage});
   String get key => mode == PlayMode.expedition
-      ? 'expedition/${expedition.trail.name}/${expedition.serial}/${expedition.stage}'
+      ? 'expedition/${expedition.trail.legacyName ?? expedition.trail.number}/${expedition.serial}/${expedition.stage}'
       : '${mode.name}/$value';
 
   String get title => switch (mode) {
@@ -56,7 +56,9 @@ final class PuzzleId {
       return (
         size: difficulty.size,
         seed: puzzleSeed(
-          'pathwise-expedition-v1/${trail.name}/${serial % 12}/$stage',
+          trail.legacyName != null
+              ? 'pathwise-expedition-v1/${trail.legacyName}/${serial % 12}/$stage'
+              : 'pathwise-expedition-v2/${trail.number}/$serial/$stage',
         ),
         clues: difficulty.clues,
       );

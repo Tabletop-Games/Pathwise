@@ -19,10 +19,13 @@ enum PathwiseTheme {
   crt('Retro Terminal'),
   gilded('Gilded Ink'),
   signal('High Contrast'),
-  basinGold('Basin Gold');
+  basinGold('Basin Gold', 3),
+  copperSky('Copper Sky', 25),
+  highPass('High Pass', 100);
 
-  const PathwiseTheme(this.label);
+  const PathwiseTheme(this.label, [this.expeditionTrail]);
   final String label;
+  final int? expeditionTrail;
 }
 
 class UserPreferences {

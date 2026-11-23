@@ -1,6 +1,6 @@
 # Pathwise publisher setup
 
-Application ID `games.tabletop.pathwise`. Public version `1.0.0`, repository code `5`. **Before upload**, inspect Play Console → App bundle explorer and every testing track. If any artifact has used code 5 or greater, pass `--build-number=HIGHEST_PLUS_ONE` to both release build commands. Play Console is the authority for upload history. The repository starts with external integrations disabled.
+Application ID `games.tabletop.pathwise`. Public version `1.0.0`, repository code `6`. **Before upload**, inspect Play Console → App bundle explorer and every testing track. If any artifact has used code 6 or greater, pass `--build-number=HIGHEST_PLUS_ONE` to both release build commands. Play Console is the authority for upload history. The repository starts with external integrations disabled.
 
 ## 1. Before building
 
@@ -36,7 +36,7 @@ Expected package is `games.tabletop.pathwise`. Compare the APK certificate using
 
 - [ ] Test and release → Testing → Internal testing → Create new release. Accept the signing prompt, upload the signed AAB, add notes, review, and roll out the **internal** release.
 - [ ] Internal testing → Testers → create an email list or add a Google Group. Open the opt-in URL while signed in with the tester account, then install from Play. Settings → License testing → add accounts that will exercise billing; installation-track and license-test access are separate.
-- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, Expedition route and milestone recovery after force-stop, crate collection, hint exhaustion, refill, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
+- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, Expedition qualification past Summit, indexed replay, and route and milestone recovery after force-stop, crate collection, hint exhaustion, refill, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
 
 ## 3. Before enabling purchases
 

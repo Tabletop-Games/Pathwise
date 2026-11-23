@@ -6,7 +6,7 @@ Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continu
 
 Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. The shared hint tank starts at 3/3. Refill it with coins or a verified rewarded ad. Fourth and subsequent hints on any puzzle each require their own rewarded ad, including for Premium players. A finished route shows its time, personal best, and earned coins.
 
-The first public release line is **1.0.0**. Play the infinite level campaign, daily boards, Expedition and Time Attack offline. Expedition has three ten-stage trails with field marks, milestone rewards and resumable runs. Spend earned coins on permanent Research, timed Boosts and themes. Free supply crates appear between gestures during eligible play. [Game modes](docs/game-modes.md)
+The first public release line is **1.0.0**. Play the infinite level campaign, daily boards, Expedition and Time Attack offline. Expedition advances through procedural ten-stage trails with field marks, recurring milestones, and resumable offline runs. Spend earned coins on permanent Research, timed Boosts and themes. Free supply crates appear between gestures during eligible play. [Game modes](docs/game-modes.md)
 
 Google Play Billing, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 

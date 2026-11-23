@@ -5,11 +5,58 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/expedition.dart';
+import '../model/user_preferences.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
 
-class ExpeditionView extends StatelessWidget {
+class ExpeditionView extends StatefulWidget {
   const ExpeditionView({super.key});
+
+  @override
+  State<ExpeditionView> createState() => _ExpeditionViewState();
+}
+
+class _ExpeditionViewState extends State<ExpeditionView> {
+  Trail? _selected;
+  Trail? _recordTrail;
+  Future<TrailRecord?>? _record;
+
+  Future<void> _chooseTrail(AppModel model, Trail current) async {
+    var input = '';
+    final trail = await showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) {
+          final number = int.tryParse(input);
+          final valid = number != null && model.trailUnlocked(Trail(number));
+          return AlertDialog(
+            title: const Text('Find a trail'),
+            content: TextField(
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Trail number',
+                hintText: '1 to ${model.currentTrail.number}',
+              ),
+              onChanged: (text) => update(() => input = text.trim()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: valid ? () => Navigator.pop(context, number) : null,
+                child: const Text('Show trail'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (mounted && trail != null && trail != current.number) {
+      setState(() => _selected = Trail(trail));
+    }
+  }
 
   Future<void> _play(BuildContext context, AppModel model, Trail trail) async {
     if (model.expeditionSaving) return;
@@ -24,6 +71,7 @@ class ExpeditionView extends StatelessWidget {
     }
     final puzzle = model.expeditionPuzzle;
     if (context.mounted && puzzle != null) {
+      setState(() => _selected = null);
       await openPuzzle(context, puzzle);
     }
   }
@@ -57,8 +105,39 @@ class ExpeditionView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     final run = model.expedition;
     final active = run?.active == true ? run : null;
+    final trail = active?.trail ?? _selected ?? model.currentTrail;
+    if (_recordTrail != trail) {
+      _recordTrail = trail;
+      _record = model.loadTrailRecord(trail);
+    }
+    final milestone = economy.nextExpeditionMilestone(
+      model.currentTrail.number,
+    );
+    final next = model.currentTrail.next;
+    final accent = [
+      palette.route,
+      palette.covered,
+      palette.accent,
+      palette.tile,
+      palette.route,
+    ][trail.biome];
+    final onAccent = switch (trail.biome) {
+      0 || 4 => palette.onRoute,
+      2 => palette.onAccent,
+      _ => palette.ink,
+    };
     return Scaffold(
-      appBar: AppBar(title: const Text('Expedition')),
+      appBar: AppBar(
+        title: const Text('Expedition'),
+        actions: [
+          if (active == null)
+            IconButton(
+              tooltip: 'Find a trail',
+              onPressed: () => _chooseTrail(model, trail),
+              icon: const Icon(Icons.search_rounded),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -69,7 +148,7 @@ class ExpeditionView extends StatelessWidget {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: palette.route,
+                    color: accent,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Padding(
@@ -77,24 +156,20 @@ class ExpeditionView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.terrain_rounded,
-                          color: palette.onRoute,
-                          size: 36,
-                        ),
+                        Icon(Icons.terrain_rounded, color: onAccent, size: 36),
                         const SizedBox(height: 8),
                         Text(
-                          'Follow the trail',
+                          'Trail ${trail.number} · ${trail.title}',
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
-                                color: palette.onRoute,
+                                color: onAccent,
                                 fontWeight: FontWeight.w800,
                               ),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Solve 10 stages and earn 2 of 4 field marks to qualify. Stages 2 and 7 reward hint-free solves. Stages 4 and 9 reward solving without Clear. You can use assistance and keep going. Your run is saved when you leave.',
-                          style: TextStyle(color: palette.onRoute),
+                          '${trail.difficultyLabel} · ${model.trailsQualified} qualified\nNext milestone: Trail $milestone\nSolve 10 stages and earn any 2 of 4 field marks. Assistance only affects the mark. Your run is saved when you leave.',
+                          style: TextStyle(color: onAccent),
                         ),
                       ],
                     ),
@@ -104,23 +179,62 @@ class ExpeditionView extends StatelessWidget {
                   const SizedBox(height: 16),
                   ExpeditionSummary(run: run),
                 ],
-                for (final trail in Trail.values) ...[
-                  const SizedBox(height: 16),
-                  _TrailCard(
+                if (active == null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 4,
+                    children: [
+                      IconButton(
+                        tooltip: 'Previous trail',
+                        onPressed: trail.number > 1
+                            ? () => setState(
+                                () => _selected = Trail(trail.number - 1),
+                              )
+                            : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      IconButton(
+                        tooltip: 'Next unlocked trail',
+                        onPressed: trail.number < model.currentTrail.number
+                            ? () => setState(() => _selected = trail.next)
+                            : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                      if (trail != model.currentTrail)
+                        TextButton(
+                          onPressed: () => setState(() => _selected = null),
+                          child: const Text('Current trail'),
+                        ),
+                    ],
+                  ),
+                ],
+                FutureBuilder<TrailRecord?>(
+                  future: _record,
+                  builder: (context, snapshot) => _TrailCard(
                     trail: trail,
                     palette: palette,
-                    run: active?.trail == trail ? active : null,
-                    record: model.trailRecord(trail),
-                    unlocked: model.trailUnlocked(trail),
+                    run: active,
+                    record:
+                        model.trailRecord(trail) ??
+                        (snapshot.connectionState == ConnectionState.done
+                            ? snapshot.data
+                            : null),
                     claimed: (stage) => model.trailRewardClaimed(trail, stage),
-                    play:
-                        !model.expeditionSaving &&
-                            (active == null || active.trail == trail)
+                    play: !model.expeditionSaving
                         ? () => _play(context, model, trail)
                         : null,
                     end: () => _end(context, model),
                   ),
-                ],
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.explore_outlined),
+                  title: Text('Ahead · Trail ${next.number} · ${next.title}'),
+                  subtitle: Text(
+                    'Qualify on Trail ${model.currentTrail.number} to unlock.',
+                  ),
+                ),
                 if (model.expeditionHistory.length > 1) ...[
                   const SizedBox(height: 14),
                   ExpansionTile(
@@ -165,7 +279,6 @@ class _TrailCard extends StatelessWidget {
     required this.palette,
     required this.run,
     required this.record,
-    required this.unlocked,
     required this.play,
     required this.claimed,
     required this.end,
@@ -174,7 +287,6 @@ class _TrailCard extends StatelessWidget {
   final BoardPalette palette;
   final ExpeditionRun? run;
   final TrailRecord? record;
-  final bool unlocked;
   final VoidCallback? play;
   final bool Function(int) claimed;
   final VoidCallback end;
@@ -190,15 +302,13 @@ class _TrailCard extends StatelessWidget {
           Text(trail.title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(
-            !unlocked
-                ? 'Qualify on ${Trail.values[trail.index - 1].title} to unlock.'
-                : record?.fastest != null
+            record?.fastest != null
                 ? 'Best qualifying time ${formatTime(Duration(milliseconds: record!.fastest!))}'
-                : 'First qualifying run earns 36 coins.',
+                : 'First qualifying run earns ${economy.expeditionReward(trail.number, Trail.stages, qualified: true)} coins.',
           ),
           if (record case final best?)
             Text('Furthest ${best.deepest}/10 · Best marks ${best.marks}/4'),
-          if (unlocked) ...[
+          ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 6,
@@ -206,6 +316,7 @@ class _TrailCard extends StatelessWidget {
               children: [
                 for (var stage = 0; stage < Trail.stages; stage++)
                   _Waypoint(
+                    trail: trail,
                     stage: stage,
                     run: run,
                     palette: palette,
@@ -214,6 +325,13 @@ class _TrailCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 9),
+            for (final objective in trail.objectives.entries)
+              Text('Stage ${objective.key + 1} · ${objective.value.label}'),
+            if (run != null)
+              Text(
+                '${run!.marks.length} of 4 marks · ${run!.marks.length >= Trail.requiredMarks ? 'Marks secured' : 'Two needed to qualify'}',
+              ),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 12,
               runSpacing: 4,
@@ -228,7 +346,12 @@ class _TrailCard extends StatelessWidget {
                     children: [
                       Icon(icon, color: palette.muted, size: 16),
                       const SizedBox(width: 4),
-                      Text(label, style: TextStyle(color: palette.muted)),
+                      Flexible(
+                        child: Text(
+                          label,
+                          style: TextStyle(color: palette.muted),
+                        ),
+                      ),
                     ],
                   ),
               ],
@@ -258,11 +381,13 @@ class _TrailCard extends StatelessWidget {
 
 class _Waypoint extends StatelessWidget {
   const _Waypoint({
+    required this.trail,
     required this.stage,
     required this.run,
     required this.palette,
     required this.claimed,
   });
+  final Trail trail;
   final bool claimed;
   final int stage;
   final ExpeditionRun? run;
@@ -270,8 +395,12 @@ class _Waypoint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = FieldMark.at(stage);
-    final reward = economy.expeditionReward(stage + 1, qualified: true);
+    final mark = trail.objectives[stage];
+    final reward = economy.expeditionReward(
+      trail.number,
+      stage + 1,
+      qualified: true,
+    );
     final milestone = reward > 0;
     final current = run?.stage == stage;
     final cleared = stage < (run?.stage ?? 0);
@@ -355,7 +484,7 @@ class ExpeditionSummary extends StatelessWidget {
           Text(_outcome(run), style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 5),
           Text(
-            '${run.trail.title} · ${run.stage}/10 stages · ${run.marks.length}/4 marks',
+            'Trail ${run.trail.number} · ${run.trail.title} · ${run.stage}/10 stages · ${run.marks.length}/4 marks',
           ),
           Text(
             '${formatTime(Duration(milliseconds: run.milliseconds))} active · ${run.coins} coins earned',
@@ -364,9 +493,15 @@ class ExpeditionSummary extends StatelessWidget {
             const Text(
               'Earn at least two field marks to qualify on your next run.',
             ),
-          if (run.outcome == ExpeditionOutcome.qualified &&
-              run.trail == Trail.summit)
-            const Text('Basin Gold is available in the Vault.'),
+          if (run.outcome == ExpeditionOutcome.qualified)
+            for (final theme in PathwiseTheme.values.where(
+              (theme) => theme.expeditionTrail == run.trail.number,
+            ))
+              Text('${theme.label} is available in the Vault.'),
+          if (run.milestoneCoins > 0)
+            Text(
+              'Trail ${run.trail.number} milestone · +${run.milestoneCoins} coins',
+            ),
         ],
       ),
     ),
