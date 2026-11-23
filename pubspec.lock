@@ -165,6 +165,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.17"
+  in_app_update_flutter:
+    dependency: "direct main"
+    description:
+      name: in_app_update_flutter
+      sha256: d9703cf0cedcec428b82016a19421dd0ff7c646d2b3eb861f64d990893c4430b
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.3"
   intl:
     dependency: transitive
     description:

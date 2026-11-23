@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:in_app_update_flutter/in_app_update_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -151,6 +154,8 @@ class SettingsView extends StatelessWidget {
                     );
                   },
                 ),
+                if (defaultTargetPlatform == TargetPlatform.android)
+                  const _CheckForUpdates(),
                 AboutListTile(
                   applicationName: 'Pathwise',
                   applicationVersion: '1.0.0',
@@ -322,5 +327,64 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     title: Text(title),
     trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+  );
+}
+
+class _CheckForUpdates extends StatefulWidget {
+  const _CheckForUpdates();
+
+  @override
+  State<_CheckForUpdates> createState() => _CheckForUpdatesState();
+}
+
+class _CheckForUpdatesState extends State<_CheckForUpdates> {
+  bool _busy = false;
+
+  Future<void> _check() async {
+    setState(() => _busy = true);
+    var message = 'Unable to check for updates. Try again later.';
+    try {
+      final updates = InAppUpdateFlutter();
+      final info = await updates.checkUpdateAndroid();
+      if (info.installStatus == InstallStatusAndroid.downloaded) {
+        await updates.completeUpdateAndroid();
+        message = 'Installing update.';
+      } else if (info.updateAvailability ==
+              UpdateAvailabilityAndroid.updateAvailable &&
+          info.isImmediateUpdateAllowed) {
+        final result = await updates.startImmediateUpdateAndroid();
+        message = result == UpdateResultAndroid.success
+            ? 'Update started.'
+            : 'Update was not completed.';
+      } else if (info.updateAvailability ==
+          UpdateAvailabilityAndroid.updateNotAvailable) {
+        message = 'Pathwise is up to date.';
+      } else {
+        message = 'No update is currently available.';
+      }
+    } on PlatformException {
+      // Play services can be unavailable for offline or sideloaded installs.
+    } on MissingPluginException {
+      // Unsupported installations remain fully playable.
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: const Icon(Icons.system_update_alt_rounded),
+    title: const Text('Check for updates'),
+    trailing: _busy
+        ? const SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : const Icon(Icons.chevron_right),
+    onTap: _busy ? null : _check,
   );
 }
