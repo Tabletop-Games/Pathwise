@@ -94,15 +94,17 @@ public class MainActivity extends FlutterActivity {
                         updateAchievement(call.argument("player"), call.argument("id"),
                                 call.argument("steps"), result);
                         break;
-                    case "serverCode":
-                        String client = call.argument("client");
-                        if (client == null || !client.endsWith(".apps.googleusercontent.com")) {
-                            result.success(null);
+                    case "submitScore":
+                        String board = call.argument("id");
+                        String score = call.argument("score");
+                        if (board == null || board.isEmpty() || score == null ||
+                                !score.matches("[1-9][0-9]{0,8}")) {
+                            result.success(false);
                             break;
                         }
-                        auth.requestServerSideAccess(client, false)
-                                .addOnCompleteListener(task -> result.success(
-                                        task.isSuccessful() ? task.getResult() : null));
+                        PlayGames.getLeaderboardsClient(this)
+                                .submitScoreImmediate(board, Long.parseLong(score))
+                                .addOnCompleteListener(task -> result.success(task.isSuccessful()));
                         break;
                     default:
                         result.notImplemented();

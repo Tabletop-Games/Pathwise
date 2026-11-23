@@ -11,6 +11,7 @@ final class AttackRun {
     this.puzzleStarted,
     this.previousBest, {
     this.minutes = 3,
+    this.unassisted = true,
     List<int>? clears,
     this.finished = false,
     this.coins = 0,
@@ -23,6 +24,7 @@ final class AttackRun {
     data['puzzleStarted'] as int,
     data['previousBest'] as int,
     minutes: data['minutes'] as int? ?? 10,
+    unassisted: data['unassisted'] == true,
     clears: List<int>.from(data['clears'] as List),
     finished: data['finished'] == true,
     coins: data['coins'] as int? ?? 0,
@@ -34,12 +36,14 @@ final class AttackRun {
   int puzzleStarted;
   final List<int> clears;
   bool finished;
+  bool unassisted;
   int coins;
   int get score => clears.length * 100;
   int get average =>
       clears.isEmpty ? 0 : clears.reduce((a, b) => a + b) ~/ clears.length;
   int get fastest => clears.isEmpty ? 0 : clears.reduce(min);
   int get reward => clears.length < 2 ? 0 : min(48, clears.length * 6);
+  bool get canRank => finished && unassisted && score > 0;
   bool get record => score > previousBest;
   int remaining(BootTime now) => finished || now.boot != boot
       ? 0
@@ -58,6 +62,7 @@ final class AttackRun {
     'id': id,
     'boot': boot,
     'minutes': minutes,
+    'unassisted': unassisted,
     'deadline': deadline,
     'puzzleStarted': puzzleStarted,
     'clears': clears,

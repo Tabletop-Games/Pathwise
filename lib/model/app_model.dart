@@ -1289,6 +1289,7 @@ class AppModel extends ChangeNotifier {
     ))
       return;
     correctedByHint = conflict;
+    if (activeId?.mode == PlayMode.attack) attack?.unassisted = false;
     if (useCredit) {
       _hintCredits[key] = extraHints - 1;
     } else {

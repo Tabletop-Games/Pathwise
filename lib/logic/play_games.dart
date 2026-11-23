@@ -17,6 +17,8 @@ class PlayGames {
   static final boards = _ids(
     const String.fromEnvironment('PATHWISE_GAMES_LEADERBOARDS'),
   );
+  static String? timeAttackBoard(int minutes) =>
+      boards['Time Attack · $minutes min'];
   static final achievements = _ids(
     const String.fromEnvironment('PATHWISE_GAMES_ACHIEVEMENTS'),
   );

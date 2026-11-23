@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
+import '../logic/play_games.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
@@ -38,6 +39,8 @@ class PuzzleView extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           id.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
@@ -700,6 +703,35 @@ class _AttackResults extends StatelessWidget {
                   trailing: Text('${run.coins}'),
                 ),
                 AchievementCelebration(model),
+                if (run.canRank && PlayGames.enabled)
+                  if (PlayGames.timeAttackBoard(run.minutes) case final board?)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final signedIn =
+                            await PlayGames.call<bool>('status') == true ||
+                            await PlayGames.call<bool>('signIn') == true;
+                        final posted =
+                            signedIn &&
+                            await PlayGames.call<bool>('submitScore', {
+                                  'id': board,
+                                  'score': '${run.score}',
+                                }) ==
+                                true;
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                posted
+                                    ? 'Score submitted.'
+                                    : 'Score submission unavailable.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.leaderboard_outlined),
+                      label: const Text('Submit to Play Games'),
+                    ),
                 ShareResultButton(
                   result: ShareResult.attack(
                     score: run.score,
