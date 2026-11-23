@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -15,7 +17,11 @@ class FallingCrate extends StatefulWidget {
 
 class _FallingCrateState extends State<FallingCrate>
     with SingleTickerProviderStateMixin {
+  static const _size = 52.0;
+  static const _edge = 4.0;
   late final AnimationController _flight;
+  final _horizontal = Random().nextDouble();
+  bool _caught = false;
 
   @override
   void initState() {
@@ -39,6 +45,7 @@ class _FallingCrateState extends State<FallingCrate>
     if (ModalRoute.isCurrentOf(context) != true || !model.revealCrate(crate))
       return;
     _flight.stop();
+    setState(() => _caught = true);
     try {
       await showDialog<void>(
         context: context,
@@ -57,26 +64,35 @@ class _FallingCrateState extends State<FallingCrate>
 
   @override
   Widget build(BuildContext context) {
+    if (_caught) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
     final reduce = MediaQuery.disableAnimationsOf(context);
     return LayoutBuilder(
       builder: (_, constraints) => ClipRect(
         child: AnimatedBuilder(
           animation: _flight,
-          builder: (_, child) => Stack(
-            children: [
-              Positioned(
-                top:
-                    (constraints.maxHeight - 52).clamp(0.0, double.infinity) *
-                    (reduce ? .12 : _flight.value),
-                right: 2,
-                child: Transform.rotate(
-                  angle: reduce ? 0 : .16 * (_flight.value * 2 - 1),
-                  child: child,
+          builder: (_, child) {
+            final time = _flight.value;
+            final distance = time * (.65 + .35 * time);
+            final horizontalRoom = max(
+              0.0,
+              constraints.maxWidth - _size - 2 * _edge,
+            );
+            return Stack(
+              children: [
+                Positioned(
+                  left: _edge + _horizontal * horizontalRoom,
+                  top: reduce
+                      ? constraints.maxHeight * .12
+                      : -_size + (constraints.maxHeight + _size) * distance,
+                  child: Transform.rotate(
+                    angle: reduce ? 0 : .14 * (time * 2 - 1),
+                    child: child,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
           child: Material(
             color: colors.tertiaryContainer,
             shape: RoundedRectangleBorder(
@@ -89,7 +105,10 @@ class _FallingCrateState extends State<FallingCrate>
               icon: const Icon(Icons.inventory_2_rounded),
               color: colors.onTertiaryContainer,
               iconSize: 27,
-              constraints: const BoxConstraints.tightFor(width: 52, height: 52),
+              constraints: const BoxConstraints.tightFor(
+                width: _size,
+                height: _size,
+              ),
             ),
           ),
         ),
