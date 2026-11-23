@@ -119,13 +119,8 @@ enum _ResearchBranch {
   ]),
   supplies('Supply crates', Icons.inventory_2_outlined, [
     Research.hunter,
-    Research.lucky,
-    Research.rare,
     Research.collector,
-    Research.legendaryCache,
-    Research.salvage,
     Research.scout,
-    Research.discovery,
   ]),
   efficiency('Efficiency', Icons.tune_rounded, [
     Research.efficiency,
@@ -391,8 +386,6 @@ class _ProgressionViewState extends State<ProgressionView> {
     return _Upgrade(
       title: switch (boost) {
         Boost.crateFrequency => 'Supply relay',
-        Boost.crateValue => 'High-value cargo',
-        Boost.crateRarity => 'Rare cargo scanner',
         _ => '${boost.multiplier}× coin boost',
       },
       icon: boost.multiplier > 1

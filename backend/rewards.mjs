@@ -3,6 +3,7 @@ import { awardFortune, liveWheelStamps, publicFortune } from './fortune.mjs';
 
 const placements = {
   coins: 'PATHWISE_ADMOB_REWARDED',
+  crate: 'PATHWISE_ADMOB_REWARDED',
   hint: 'PATHWISE_ADMOB_EXTRA_HINT',
   refill: 'PATHWISE_ADMOB_HINT_REFILL',
   wheel: 'PATHWISE_ADMOB_WHEEL',
@@ -92,7 +93,7 @@ export async function rewardRequest(request, db, { keySet = googleKeys, nowMs = 
     const previous = await wheel.doc(owner).get();
     return [200, publicFortune(previous.data(), nowMs())];
   }
-  const issue = /^\/v1\/rewards\/start\/(coins|hint|refill|wheel)$/.exec(path)?.[1];
+  const issue = /^\/v1\/rewards\/start\/(coins|hint|refill|wheel|crate)$/.exec(path)?.[1];
   if (request.method === 'POST' && issue) {
     const unit = unitId(process.env[placements[issue]]);
     if (!unit) return [503, { error: 'placement_unavailable' }];

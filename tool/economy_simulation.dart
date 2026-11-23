@@ -205,18 +205,18 @@ class Player {
     for (var second = 10; second <= sessionSeconds; second += 10) {
       if (attackMode && second <= 600) continue;
       progression.accrueCrateTime(10000);
-      progression.considerCrate((
+      final crate = progression.considerCrate((
         boot: 1,
         milliseconds: start + second * 1000,
       ), () => random.nextInt(100));
-      final crate = progression.crates.firstOrNull;
       if (crate == null ||
-          random.nextDouble() > 1 - pow(1 - profile.crateRate, 1 / 15)) {
+          !ads ||
+          profile.videos == 0 ||
+          random.nextDouble() > profile.crateRate) {
         continue;
       }
       credit('crates', crate.coins);
-      if (crate.rarity == CrateRarity.legendary) progression.legendary++;
-      progression.crates.removeAt(0);
+      if (crate.coins == 120) progression.legendary++;
     }
     final daily = focus < .92 && (profile.minutes >= 30 || number.isEven);
     streak = daily ? streak + 1 : 0;

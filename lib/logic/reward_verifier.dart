@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-enum RewardPlacement { coins, hint, refill, wheel }
+enum RewardPlacement { coins, hint, refill, wheel, crate }
 
 class RewardVerifier {
   RewardVerifier(this.profile);

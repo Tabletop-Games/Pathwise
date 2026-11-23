@@ -192,7 +192,6 @@ void main() {
     expect(progress.durationBonus, 72);
     expect(progress.discount(100), 66);
     expect(progress.refillPrice, 16);
-    expect(progress.crateOdds(1).reduce((a, b) => a + b), 100);
     progress.activate(Boost.quadrupleTen, 1);
     expect(progress.canActivate(Boost.doubleTen, 2), false);
     expect(progress.multiplier(2), 4);

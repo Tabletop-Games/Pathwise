@@ -1,16 +1,15 @@
-# Supply crates
+# Flying supply crates
 
-The first supply crate becomes eligible after 45 seconds of foreground play in Levels or Daily Challenge. Eligible time accumulates across puzzles and pauses on the results screen, at home, while the crate inventory is open, and in the background. A final move checks eligibility directly. An open puzzle also checks once per second. During a stroke, time accrues without placing a crate in the way.
+Levels and Daily Challenge offer a crate after 45 seconds of eligible foreground play, then at 150-second base intervals. Time accrues across puzzles. The next offer waits for a break between strokes. Puzzle completion and backing out forfeit an active event. At most six offers occur per rolling 24 hours.
 
-| Rarity | Base odds | Base coins |
-| --- | ---: | ---: |
-| Common | 75% | 12 |
-| Uncommon | 18% | 25 |
-| Rare | 6% | 55 |
-| Legendary | 1% | 150 |
+| Coins | Chance |
+| ---: | ---: |
+| 25 | 35% |
+| 40 | 30% |
+| 60 | 20% |
+| 85 | 10% |
+| 120 | 5% |
 
-Crates have a 150-second base cooldown after each drop. The game allows up to six drops in a rolling 24-hour window using Android elapsed time. After a reboot, device uptime supplies a conservative lower bound. Opening a crate, restarting, or changing the calendar cannot reset the limit.
+The prize is fixed at spawn. The crate travels along a rail outside the board and disappears if missed. Crate Collector extends the eight-second flight. Treasure Hunter, Supply Routes and the supply relay boost shorten the interval between offers. Retired reward modifiers are refunded from recorded purchases where applicable. Old unopened crates are discarded. Eligibility and claim history remain saved.
 
-Earned crates stay in the supply inventory until opened. One slot is available by default. Each Crate Collector rank adds one slot. A full inventory pauses new drops. Treasure Hunter and Supply Routes reduce the cooldown. Lucky Crates, Rare Salvage, Legendary Cache, Rare Discovery, Legendary Discovery, and crate boosts retain their effects.
-
-The app saves the unopened inventory, cooldown and quota in its local snapshot. Opening a crate commits its removal and coin credit together. The crate ID is the wallet transaction key. Existing saves carry over their last recorded unopened crate and take credit for earlier drops when the legacy daily count is available.
+A tap opens a reward dialog. Dismissing it forfeits the crate. An unavailable or unverified video can be retried while the dialog remains open. The app credits coins only after the rewarded callback and server receipt. The receipt deduplicates the wallet entry. The crate placement uses the existing coin-reward ad unit and a distinct backend receipt type. Deploy the updated rewards backend to enable production claims. The existing development ad flag supports Google test ads.

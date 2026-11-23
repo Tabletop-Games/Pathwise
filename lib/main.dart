@@ -30,11 +30,16 @@ void main() async {
   await clock.sync();
   AppModel model;
   try {
+    final snapshot = await storage.load();
     model = AppModel(
       storage: storage,
-      snapshot: await storage.load(),
+      snapshot: snapshot,
       bootTime: clock.read,
     );
+    if (snapshot.isNotEmpty &&
+        snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
+      await model.flush();
+    }
   } catch (_) {
     storage.protect();
     model = AppModel(storage: storage, snapshot: {}, bootTime: clock.read)

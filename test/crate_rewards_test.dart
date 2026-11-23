@@ -1,163 +1,163 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../lib/logic/ad_service.dart';
 import '../lib/model/app_model.dart';
-import '../lib/model/economy.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/native_achievements.dart';
 import '../lib/model/progression.dart';
 import '../lib/model/time_attack.dart';
 import '../lib/model/user_preferences.dart';
-import 'app_model_test.dart' show MemoryStorage, complete, fixture;
+import '../lib/views/puzzle_view.dart';
+import 'app_model_test.dart' show MemoryStorage, fixture;
+
+class CrateAds extends AdService {
+  int attempts = 0;
+  @override
+  bool readyFor(RewardPlacement placement) => true;
+
+  @override
+  Future<bool> watchVideo(
+    Future<bool> Function(String) reward, {
+    bool Function()? canPresent,
+    RewardPlacement placement = RewardPlacement.coins,
+    bool waitForReward = false,
+  }) async {
+    expect(placement, RewardPlacement.crate);
+    expect(waitForReward, true);
+    attempts++;
+    if (attempts == 1) return false;
+    if (attempts == 2) return true;
+    expect(await reward('verified-crate'), true);
+    expect(await reward('verified-crate'), false);
+    return true;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('short clears combine their eligible time and the final move awards a crate', () async {
-    final store = MemoryStorage();
-    var clock = (boot: 1, milliseconds: 1000);
-    Future<AppModel> launch() async => AppModel(
-      storage: store,
-      snapshot: await store.load(),
-      bootTime: () => clock,
-      loader: (_) async => fixture(),
-    )..setHaptics(false);
-    var model = await launch();
-    for (var level = 1; level <= 3; level++) {
-      await model.open(PuzzleId.level(level));
-      model.tap(1);
-      clock = (boot: clock.boot, milliseconds: clock.milliseconds + 15000);
-      complete(model);
-      if (level < 3) expect(model.unopenedCrates, isEmpty);
-      model.close();
-      await model.flush();
-      if (level == 2) {
-        model.dispose();
-        clock = (boot: 2, milliseconds: 150000);
-        model = await launch();
-      }
-    }
-    final crate = model.unopenedCrates.single;
-    final before = model.coinBalance;
-    expect(model.transactions.where((tx) => tx.id == crate.id), isEmpty);
-    model.dispose();
-
-    clock = (boot: 3, milliseconds: 2000000);
-    model = await launch();
-    expect(model.unopenedCrates.single, crate);
-    final results = await Future.wait([
-      model.claimCrate(crate.id),
-      model.claimCrate(crate.id),
-    ]);
-    expect(results, [true, false]);
-    expect(model.unopenedCrates, isEmpty);
-    expect(model.coinBalance, greaterThanOrEqualTo(before + crate.coins));
+  test('crate odds, cooldown and rolling cap', () {
     expect(
-      model.transactions.singleWhere((tx) => tx.id == crate.id).amount,
-      crate.coins,
+      List.generate(100, crateCoins).where((coins) => coins == 25).length,
+      35,
     );
-    final earned = model.coinBalance;
-    model.dispose();
-
-    model = await launch();
-    expect(model.coinBalance, earned);
-    expect(model.unopenedCrates, isEmpty);
-    expect(await model.claimCrate(crate.id), false);
-    model.dispose();
+    expect(
+      List.generate(100, crateCoins).where((coins) => coins == 40).length,
+      30,
+    );
+    expect(
+      List.generate(100, crateCoins).where((coins) => coins == 60).length,
+      20,
+    );
+    expect(
+      List.generate(100, crateCoins).where((coins) => coins == 85).length,
+      10,
+    );
+    expect(
+      List.generate(100, crateCoins).where((coins) => coins == 120).length,
+      5,
+    );
+    final progress = Progression({});
+    expect(progress.considerCrate((boot: 1, milliseconds: 0), () => 0), isNull);
+    progress.accrueCrateTime(45000);
+    for (var i = 0; i < 6; i++) {
+      final now = (boot: 1, milliseconds: 45000 + i * 150000);
+      expect(progress.considerCrate(now, () => 0)?.coins, 25);
+      expect(progress.considerCrate(now, () => 0), isNull);
+      progress.accrueCrateTime(150000);
+    }
+    expect(
+      Progression(progress.toJson())
+          .considerCrate((boot: 2, milliseconds: 100), () => 0),
+      isNull,
+    );
   });
 
-  testWidgets(
-    'an open puzzle ticks, pauses in background and waits until a stroke ends',
-    (tester) async {
-      var milliseconds = 100;
-      final model = AppModel(
-        storage: MemoryStorage(),
-        snapshot: {},
-        bootTime: () => (boot: 1, milliseconds: milliseconds),
-        loader: (_) async => fixture(),
-      )..setHaptics(false);
-      await model.open(const PuzzleId.level(1));
-      model.begin(1);
-      milliseconds += 45000;
-      await tester.pump(const Duration(seconds: 45));
-      expect(model.unopenedCrates, isEmpty);
-      model.end();
-      await tester.pump();
-      expect(model.unopenedCrates, hasLength(1));
-      final crate = model.unopenedCrates.single;
-      expect(await model.claimCrate(crate.id), true);
-
-      model.setForeground(false);
-      milliseconds += 300000;
-      await tester.pump(const Duration(minutes: 5));
-      model.setForeground(true);
-      expect(model.unopenedCrates, isEmpty);
-      milliseconds += 150000;
-      await tester.pump(const Duration(minutes: 2, seconds: 30));
-      expect(model.unopenedCrates, hasLength(1));
-      await model.flush();
-      model.dispose();
-    },
-  );
-
-  test(
-    'opening a legendary crate awards coins and its achievement once',
-    () async {
-      final store = MemoryStorage();
-      var model = AppModel(
-        storage: store,
-        snapshot: {
-          'progression': {
-            'serial': 18,
-            'crates': [
-              {'id': 'crate/17', 'rarity': 'legendary', 'coins': 150},
+  for (final width in [320.0, 390.0, 600.0]) {
+    testWidgets(
+      'flight, forfeiture, retry and exactly-once claim at ${width}dp',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 760));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final store = MemoryStorage();
+        final ads = CrateAds();
+        var ms = 100;
+        final model = AppModel(
+          storage: store,
+          snapshot: {},
+          loader: (_) async => fixture(),
+          bootTime: () => (boot: 1, milliseconds: ms),
+        )..setHaptics(false);
+        await model.open(const PuzzleId.level(1));
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: model),
+              ChangeNotifierProvider<AdService>.value(value: ads),
             ],
-          },
-        },
-      );
-      expect(await model.claimCrate('crate/17'), true);
-      expect(model.coinBalance, 250);
-      expect(model.hasAchievement(Achievement.legendaryCrate), true);
-      expect(model.progression.legendary, 1);
-      model.dispose();
+            child: const MaterialApp(home: PuzzleView()),
+          ),
+        );
+        model.tap(1);
+        final catchCrate = find.byTooltip('Catch supply crate');
+        Future<void> drop(int seconds) async {
+          ms += seconds * 1000;
+          await tester.pump(Duration(seconds: seconds));
+          await tester.pump();
+        }
 
-      model = AppModel(storage: store, snapshot: await store.load());
-      expect(await model.claimCrate('crate/17'), false);
-      expect(model.coinBalance, 250);
-      expect(model.progression.legendary, 1);
-      model.dispose();
-    },
-  );
-
-  test('crate cap uses monotonic time across calendar changes and reboot', () {
-    final state = Progression({
-      'crateWait': 0,
-      'ranks': {'collector': 6},
-    });
-    const first = 200000;
-    for (var drop = 0; drop < 6; drop++) {
-      state.accrueCrateTime(150000);
-      expect(
-        state.considerCrate((
-          boot: 1,
-          milliseconds: first + drop * 150000,
-        ), () => 0),
-        true,
-      );
-    }
-    state.accrueCrateTime(150000);
-    final restored = Progression(state.toJson());
-    expect(restored.crates.length, 6);
-    expect(restored.considerCrate((boot: 2, milliseconds: 1), () => 0), false);
-    expect(
-      restored.considerCrate((boot: 2, milliseconds: 86400000), () => 0),
-      true,
+        await drop(44);
+        expect(catchCrate, findsNothing);
+        await drop(1);
+        final first = tester.getCenter(catchCrate);
+        await tester.pump(const Duration(seconds: 2));
+        expect(tester.getCenter(catchCrate).dy, greaterThan(first.dy));
+        await tester.pump(const Duration(seconds: 7));
+        expect(catchCrate, findsNothing);
+        expect(model.coinBalance, 40);
+        await drop(150);
+        await tester.tap(catchCrate);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('No Thanks'));
+        await tester.pumpAndSettle();
+        expect(model.coinBalance, 40);
+        await drop(150);
+        final amount = model.fallingCrate!.coins;
+        await tester.tap(catchCrate);
+        await tester.pumpAndSettle();
+        expect(find.text('+$amount coins'), findsOneWidget);
+        for (final feedback in [
+          'Video unavailable. Try again.',
+          'Video reward wasn’t verified. Try again.',
+        ]) {
+          await tester.tap(find.text('Watch Ad & Claim'));
+          await tester.pumpAndSettle();
+          expect(find.text(feedback), findsOneWidget);
+          expect(model.coinBalance, 40);
+        }
+        await tester.tap(find.text('Watch Ad & Claim'));
+        await tester.pumpAndSettle();
+        expect(find.text('Watch Ad & Claim'), findsNothing);
+        expect(
+          model.transactions
+              .singleWhere((entry) => entry.id == 'crate-ad/verified-crate')
+              .amount,
+          amount,
+        );
+        expect(model.fallingCrate, isNull);
+        expect(
+          (await store.load())['progression'].containsKey('crates'),
+          false,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        model.dispose();
+        ads.dispose();
+      },
     );
-    restored.accrueCrateTime(150000);
-    expect(
-      restored.considerCrate((boot: 2, milliseconds: 86550000), () => 0),
-      false,
-    );
-  });
+  }
 
   test('legacy saves preserve balances, completed puzzles, earned themes and one-time refunds', () async {
     final store = MemoryStorage();
@@ -215,10 +215,10 @@ void main() {
     expect(model.theme, PathwiseTheme.basinGold);
     expect(model.solved, 33);
     expect(model.unassisted, 28);
-    expect(model.progression.rank(Research.legendaryCache), 3);
+    expect(model.progression.ranks, {'hunter': 3});
     expect(model.achievementCounters[AchievementMetric.research], 7);
     expect(model.progression.inventory, {'doubleTen': 1});
-    expect(model.unopenedCrates.single.id, 'crate/11');
+    expect(model.fallingCrate, isNull);
     expect(await model.flush(), true);
     model.dispose();
 
@@ -229,7 +229,8 @@ void main() {
     model = launch(saved);
     expect(model.coinBalance, 1076);
     expect(model.solved, 33);
-    expect(model.unopenedCrates, hasLength(1));
+    expect(model.fallingCrate, isNull);
+    expect(saved['progression'].containsKey('crates'), false);
     model.dispose();
   });
 }

@@ -112,8 +112,8 @@ class AppModel extends ChangeNotifier {
               as int? ??
           0,
     );
-    progression.crates.removeWhere((crate) => _wallet.contains(crate.id));
     _restoreRetiredProgress(snapshot);
+    _refundCrateUpgrades();
     _owned.addAll(
       PathwiseTheme.values.where((theme) => economy.themePrice(theme) == 0),
     );
@@ -211,6 +211,57 @@ class AppModel extends ChangeNotifier {
       'migration/retired-upgrades',
       'Retired upgrades refund',
       refund + supplyRefund,
+      _today(),
+    );
+  }
+
+  void _refundCrateUpgrades() {
+    final history = _wallet.history.toList();
+    var refund = 0;
+    final retiredPurchases = <String>{};
+    for (final key in [
+      'lucky',
+      'rare',
+      'legendaryCache',
+      'expedition',
+      'salvage',
+      'discovery',
+    ]) {
+      final rank = progression.ranks.remove(key);
+      if (rank == null) continue;
+      _retiredRanks += rank;
+      retiredPurchases.add(key);
+      if (key == 'legendaryCache') retiredPurchases.add('expedition');
+    }
+    refund += history
+        .where(
+          (tx) =>
+              tx.id.startsWith('research/') &&
+              retiredPurchases.contains(tx.id.split('/')[1]) &&
+              tx.amount < 0,
+        )
+        .fold(0, (sum, tx) => sum - tx.amount);
+    for (final (key, label) in [
+      ('crateValue', 'Double crate coins'),
+      ('crateRarity', 'More rare crates'),
+    ]) {
+      final available =
+          (progression.inventory.remove(key) ?? 0) +
+          ((progression.active.remove(key) ?? 0) > progressionTime ? 1 : 0);
+      refund += history.reversed
+          .where(
+            (tx) =>
+                tx.id.startsWith('boost/') &&
+                tx.label == label &&
+                tx.amount < 0,
+          )
+          .take(available)
+          .fold(0, (sum, tx) => sum - tx.amount);
+    }
+    _wallet.add(
+      'migration/flying-crates',
+      'Retired crate upgrades refund',
+      refund,
       _today(),
     );
   }
@@ -371,7 +422,11 @@ class AppModel extends ChangeNotifier {
   Timer? _crateTimer;
   BootTime? _crateAnchor;
   int _unsavedCrateTime = 0;
-  bool _crateInventoryVisible = false;
+  Crate? _fallingCrate;
+  bool _crateRevealed = false;
+  Crate? get fallingCrate => _fallingCrate;
+  int get hintsRemaining =>
+      freeHints == 0 ? extraHints : min(hintTank, freeHints);
 
   bool research(Research item) {
     final rank = progression.rank(item);
@@ -421,35 +476,52 @@ class AppModel extends ChangeNotifier {
     return true;
   }
 
-  List<Crate> get unopenedCrates => List.unmodifiable(progression.crates);
-
-  void setCrateInventoryVisible(bool visible) {
-    if (_disposed || _crateInventoryVisible == visible) return;
-    _crateInventoryVisible = visible;
-    _processCrates();
-    if (visible) unawaited(flush());
+  bool revealCrate(Crate crate) {
+    if (_fallingCrate != crate ||
+        _crateRevealed ||
+        isDrawing ||
+        complete ||
+        !_foreground ||
+        storageError)
+      return false;
+    _crateRevealed = true;
+    return true;
   }
 
-  Future<bool> claimCrate(String id) async {
-    if (_disposed || isDrawing || storageError) return false;
-    final index = progression.crates.indexWhere((item) => item.id == id);
-    if (index < 0) return false;
-    final crate = progression.crates[index];
-    if (!_wallet.add(
-      id,
-      '${crate.rarity.name} supply crate',
-      crate.coins,
-      _today(),
-    )) {
+  void dismissCrate(Crate crate) {
+    if (_fallingCrate != crate) return;
+    _fallingCrate = null;
+    _crateRevealed = false;
+    if (!_disposed) {
+      _processCrates();
+      notifyListeners();
+    }
+  }
+
+  Future<bool> claimVerifiedCrate(Crate crate, String receipt) async {
+    if (_disposed ||
+        !_crateRevealed ||
+        _fallingCrate != crate ||
+        complete ||
+        storageError ||
+        receipt.isEmpty ||
+        !_wallet.add(
+          'crate-ad/$receipt',
+          'Supply crate',
+          crate.coins,
+          _today(),
+        )) {
       return false;
     }
-    progression.crates.removeAt(index);
+    _fallingCrate = null;
+    _crateRevealed = false;
     activity.event(EconomyEvent.crateCollected, coinBalance);
-    if (crate.rarity == CrateRarity.legendary) {
+    if (crate.coins == 120) {
       progression.legendary++;
       achievementRevision++;
     }
     _awardAchievements();
+    _processCrates();
     final saved = await flush();
     if (!_disposed) {
       if (saved) haptic.complete();
@@ -477,7 +549,7 @@ class AppModel extends ChangeNotifier {
         !complete &&
         !storageError &&
         !ending &&
-        !_crateInventoryVisible;
+        !_crateRevealed;
     _crateAnchor = eligible ? now : null;
     if (eligible) {
       _crateTimer ??= Timer.periodic(
@@ -493,16 +565,18 @@ class AppModel extends ChangeNotifier {
       progression.accrueCrateTime(now.milliseconds - previous.milliseconds);
       _unsavedCrateTime += before - progression.crateWait;
     }
-    if (now != null &&
-        !storageError &&
-        (eligible || completed) &&
-        (completed || !isDrawing) &&
-        progression.considerCrate(now, () => Random.secure().nextInt(100))) {
+    if (ending || completed) {
+      _fallingCrate = null;
+      _crateRevealed = false;
+    }
+    final crate = eligible && _fallingCrate == null && !isDrawing
+        ? progression.considerCrate(now, () => Random.secure().nextInt(100))
+        : null;
+    if (crate != null) {
+      _fallingCrate = crate;
       haptic.selection();
-      if (!completed) {
-        unawaited(flush());
-        notifyListeners();
-      }
+      unawaited(flush());
+      notifyListeners();
     } else if (_unsavedCrateTime >= 10000 &&
         !isDrawing &&
         !completed &&
@@ -1191,7 +1265,10 @@ class AppModel extends ChangeNotifier {
   void setForeground(bool foreground) {
     if (_foreground == foreground) return;
     _foreground = foreground;
-    if (!foreground) _game?.end();
+    if (!foreground) {
+      _game?.end();
+      if (!_crateRevealed) _fallingCrate = null;
+    }
     _processCrates();
     _syncClock();
     if (!foreground) unawaited(flush());
