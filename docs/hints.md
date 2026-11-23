@@ -1,7 +1,7 @@
-# Puzzle attempt hints
+# Hint wallet
 
-Start a new board, select Next or Replay, or confirm Restart to begin with three standard hints. Each standard hint consumes one allowance and reveals part of the certified route. Clearing the route, backgrounding, and resuming a saved attempt retain its hint usage.
+New profiles receive three hints once. One valid hint reveal spends one unit. The wallet is global across modes and preserves its balance through new puzzles, Replay, Clear, and Time Attack restarts.
 
-If a restored save has a partial tank with unused standard hints, the refill flow restores capacity for the current attempt. It costs 16 coins or one earned refill ad. Refilling never restores a spent standard allowance.
+Buy hints for 60 coins or earn one per completed rewarded video, up to five video rewards per local calendar day. The balance and coin-funded purchases are uncapped. Unsupported or incomplete videos grant nothing. The Home hint button opens the shop even when hints remain.
 
-After three standard hints, each additional hint needs a separate earned video reward. The ad completion is bound to the attempt that opened the offer. Failed or dismissed ads yield no hint. The hint counter and usable credits are persisted with the unfinished board.
+Save migration preserves the remaining legacy balance and identifiable unused rewarded credits once. Earlier experimental credits without a reliable reward source are excluded. Per-attempt usage is retained for result statistics.

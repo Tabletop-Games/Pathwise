@@ -36,7 +36,7 @@ Expected package is `games.tabletop.pathwise`. Compare the APK certificate using
 
 - [ ] Test and release → Testing → Internal testing → Create new release. Accept the signing prompt, upload the signed AAB, add notes, review, and roll out the **internal** release.
 - [ ] Internal testing → Testers → create an email list or add a Google Group. Open the opt-in URL while signed in with the tester account, then install from Play. Settings → License testing → add accounts that will exercise billing; installation-track and license-test access are separate.
-- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, level replays, and route and milestone recovery after force-stop, crate collection, hint exhaustion, refill, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
+- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, level replays, and route and milestone recovery after force-stop, crate collection, hint spending and acquisition, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
 
 ## 3. Before enabling purchases
 
@@ -61,7 +61,7 @@ Play Console → Monetize with Play → Products → One-time products. Create o
 
 ## 4. Before enabling advertisements
 
-- [ ] AdMob → Apps → Add app. Register Android and iOS separately. For each platform create an anchored adaptive banner, interstitial, and four rewarded units for Coins / Supply Crates, Hint Refill, Extra Hint, and Fortune Wheel. Set their platform-specific `PATHWISE_ADMOB_*` fields in the build JSON. Use distinct units per reward category.
+- [ ] AdMob → Apps → Add app. Register Android and iOS separately. For each platform create an anchored adaptive banner, interstitial, and three rewarded units for Coins / Supply Crates / Boosts, Hints, and Fortune Wheel. Set their platform-specific `PATHWISE_ADMOB_*` fields in the build JSON. Use distinct units per reward category.
 - [ ] Export `PATHWISE_ADMOB_APP_ID` for Android. For iOS create ignored `ios/Flutter/AdMob.local.xcconfig` with `PATHWISE_ADMOB_IOS_APP_ID = YOUR_IOS_APP_ID`. The built-in placeholder allows unconfigured offline builds; production iOS advertising refuses to initialize with that ID.
 - [ ] AdMob → Privacy & messaging → publish applicable regional consent messages. Link the store listing’s developer website to `app-ads.txt` and confirm app readiness and crawler status.
 - [ ] Set `PATHWISE_ADS_ENABLED` and `PATHWISE_ADS_CONSENT_CONFIGURED` only for configured builds. Use `--dart-define=PATHWISE_ADS_TEST=true` for debug/profile testing. In a signed release candidate register the test device in AdMob → Settings → Test devices. Sample ad unit IDs never activate release advertising.

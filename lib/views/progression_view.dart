@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
@@ -281,12 +282,19 @@ class _ProgressionViewState extends State<ProgressionView> {
                 if (widget.boosts) ...[
                   const _Heading('Coin multipliers'),
                   for (final boost in Boost.values.where(
-                    (item) => item.multiplier > 1,
+                    (item) =>
+                        item.multiplier > 1 &&
+                        (item.availableToBuy ||
+                            (model.progression.inventory[item.name] ?? 0) > 0 ||
+                            model.progression.remaining(item, now) > 0),
                   ))
                     _boost(model, boost, now),
                   const _Heading('Supply boosts'),
                   for (final boost in Boost.values.where(
-                    (item) => item.multiplier == 1,
+                    (item) =>
+                        item.multiplier == 1 &&
+                        ((model.progression.inventory[item.name] ?? 0) > 0 ||
+                            model.progression.remaining(item, now) > 0),
                   ))
                     _boost(model, boost, now),
                 ] else ...[
@@ -406,15 +414,38 @@ class _ProgressionViewState extends State<ProgressionView> {
         spacing: 10,
         runSpacing: 8,
         children: [
-          _SecondaryAction(
-            label: 'Buy · $price coins',
-            onPressed: !model.storageError && model.coinBalance >= price
-                ? () {
-                    if (model.buyBoost(boost))
-                      _feedback('Added to your boost reserve');
-                  }
-                : null,
-          ),
+          if ((boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
+              context.watch<AdService>().enabled)
+            _SecondaryAction(
+              label: 'Watch ad · +1 boost',
+              onPressed: model.canEarnBoostAd(boost)
+                  ? () async {
+                      final ads = context.read<AdService>();
+                      bool current() =>
+                          mounted && ModalRoute.isCurrentOf(context) == true;
+                      if (!ads.readyFor(RewardPlacement.boost))
+                        await ads.prepare(canPresent: current);
+                      if (!current()) return;
+                      final shown = await ads.watchVideo(
+                        (event) => model.grantBoostAd(boost, event),
+                        placement: RewardPlacement.boost,
+                        canPresent: () =>
+                            current() && model.canEarnBoostAd(boost),
+                      );
+                      if (!shown && current()) _feedback('Video unavailable');
+                    }
+                  : null,
+            ),
+          if (boost.availableToBuy)
+            _SecondaryAction(
+              label: 'Buy · $price coins',
+              onPressed: !model.storageError && model.coinBalance >= price
+                  ? () {
+                      if (model.buyBoost(boost))
+                        _feedback('Added to your boost reserve');
+                    }
+                  : null,
+            ),
           _PrimaryAction(
             label: 'Activate',
             onPressed: canActivate

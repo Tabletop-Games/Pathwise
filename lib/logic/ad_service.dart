@@ -8,7 +8,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../model/economy.dart';
 import 'ad_frequency.dart';
 
-enum RewardPlacement { coins, hint, refill, wheel, crate }
+enum RewardPlacement { coins, hint, wheel, crate, boost }
 
 /// Consent-aware cache with post-game placements and a separate opt-in video.
 class AdService extends ChangeNotifier {
@@ -50,9 +50,14 @@ class AdService extends ChangeNotifier {
             : 'ca-app-pub-3940256099942544/9214589741')
       : _bannerUnit;
   bool get bannerConfigured => _test || validAdUnit(_bannerUnit);
-  Future<bool> _online() async {
+  Future<bool> isOnline() async {
     try {
-      return await _network.invokeMethod<bool>('online') == true;
+      return await _network
+              .invokeMethod<bool>('online')
+              .timeout(const Duration(seconds: 2)) ==
+          true;
+    } on TimeoutException {
+      return false;
     } on PlatformException {
       return false;
     } on MissingPluginException {
@@ -65,16 +70,18 @@ class AdService extends ChangeNotifier {
     _bannerUnit,
     for (final placement in RewardPlacement.values)
       if (placement != RewardPlacement.wheel &&
-          placement != RewardPlacement.crate)
+          placement != RewardPlacement.crate &&
+          placement != RewardPlacement.boost)
         _unit(placement),
   ].toSet();
 
   bool get enabled =>
       (defaultTargetPlatform == TargetPlatform.android || _ios) &&
       (_test ||
-          (_enabled &&
+          (kReleaseMode &&
+              _enabled &&
               _privacyConfigured &&
-              _productionUnits.length == 5 &&
+              _productionUnits.length == 4 &&
               _productionUnits.every(validAdUnit)));
   static bool validAdUnit(String id) =>
       RegExp(r'^ca-app-pub-[0-9]{16}/[0-9]{10}$').hasMatch(id) &&
@@ -101,7 +108,9 @@ class AdService extends ChangeNotifier {
               !_productionUnits.contains(_unit(RewardPlacement.wheel))));
   bool get videoReady => readyFor(RewardPlacement.coins);
   String _unit(RewardPlacement placement) => switch (placement) {
-    RewardPlacement.coins || RewardPlacement.crate => _prodRewarded,
+    RewardPlacement.coins ||
+    RewardPlacement.crate ||
+    RewardPlacement.boost => _prodRewarded,
     RewardPlacement.hint =>
       _ios
           ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_EXTRA_HINT')
@@ -110,10 +119,6 @@ class AdService extends ChangeNotifier {
       _ios
           ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_WHEEL')
           : const String.fromEnvironment('PATHWISE_ADMOB_WHEEL'),
-    RewardPlacement.refill =>
-      _ios
-          ? const String.fromEnvironment('PATHWISE_ADMOB_IOS_HINT_REFILL')
-          : const String.fromEnvironment('PATHWISE_ADMOB_HINT_REFILL'),
   };
   String? message;
 
@@ -318,7 +323,7 @@ class AdService extends ChangeNotifier {
   }) async {
     if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
-    final online = await _online();
+    final online = await isOnline();
     _checkingReward = false;
     if (!online ||
         !readyFor(placement) ||

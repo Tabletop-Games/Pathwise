@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A single versioned snapshot keeps completion records and resume data in sync.
@@ -8,8 +9,10 @@ class GameStateStorage {
 
   final SharedPreferencesAsync? _injected;
   late final _preferences = _injected ?? SharedPreferencesAsync();
-  static const schemaVersion = 10;
-  static const _key = 'pathwise.save.v1';
+  static const schemaVersion = 11;
+  static const _key = kDebugMode
+      ? 'pathwise.debug.save.v1'
+      : 'pathwise.save.v1';
   bool _loaded = false;
 
   Future<Map<String, dynamic>> load() async {
@@ -30,6 +33,7 @@ class GameStateStorage {
             decoded['schemaVersion'] != 7 &&
             decoded['schemaVersion'] != 8 &&
             decoded['schemaVersion'] != 9 &&
+            decoded['schemaVersion'] != 10 &&
             decoded['schemaVersion'] != schemaVersion)) {
       throw const FormatException('Unsupported saved progress');
     }

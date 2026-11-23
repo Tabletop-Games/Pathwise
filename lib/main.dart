@@ -34,6 +34,7 @@ void main() async {
       storage: storage,
       snapshot: snapshot,
       bootTime: clock.read,
+      debugTools: kDebugMode,
     );
     if (snapshot.isNotEmpty &&
         snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {

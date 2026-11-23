@@ -4,7 +4,7 @@ Pathwise is a wall-free Android and iOS route puzzle by Tabletop Games. Draw one
 
 ## Play
 
-Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. Each fresh attempt starts with three standard hints. Resuming restores that attempt’s remaining hints. Every further hint requires its own rewarded ad, including for Premium players. Results appear over the solved board with a prominent next action.
+Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. New players start with three hints in a persistent wallet. Buy more for 60 coins or earn up to five a day through optional videos. Results appear over the solved board with a prominent next action.
 
 Play unlimited Levels, the three-board Daily Challenge, and 1-, 3-, or 5-minute Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
 

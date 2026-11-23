@@ -1,34 +1,32 @@
 # Economy and progression
 
-Pathwise starts with 40 coins. A first Level clear earns 12 coins and its achievement earns another 20, enough for the first 55-coin Coin Magnet rank. A first Daily Challenge clear earns 24 coins. Time Attack pays six coins per solve starting at two solves, up to 48 per session. Research, temporary boosts, and puzzle performance affect eligible gameplay rewards.
+| Activity | Base amount or cost |
+| --- | --- |
+| New profile | 50 coins and 3 hints |
+| First level clear | 5 coins |
+| First Daily Challenge clear | 10 coins |
+| Time Attack | 3 coins per solve, minimum 2 solves, maximum 24 coins |
+| Coin video | 20 coins, up to 6 per local day |
+| Fourth coin video | 40 additional coins once per day |
+| Hint | 60 coins or one earned video, up to 5 hint videos per local day |
+| Wheel spin | 24.75 expected coins; one free and up to six video spins in 24 hours |
+| Supply crate | 40.50 expected coins per claim; up to eight opportunities in 24 hours |
+| Streak Freeze | 250 coins, inventory limit 2 |
+| Every seventh streak day | 25 coins, plus eligible Research |
+| Premium | 1,000 one-time coins |
 
-Supply crates use their own rarity table and disappear when missed. The Fortune Wheel pays 8, 16, 28, 48, 80, or 160 coins, with a mean of 24.44 coins per spin. Puzzle reward multipliers do not apply to these wheel credits. The three-slot hint tank refills for 16 coins or through an earned refill ad. Every hint past the third on one puzzle continues to require its own earned ad. [Crates](crates.md) · [Fortune Wheel](fortune-wheel.md) · [Hints](hints.md)
+Coin Boosts cost 20 for 2× / 10m, 100 for 2× / 60m, 60 for 3× / 15m and 70 for 4× / 10m before discounts. The 10-minute 2× Boost supports three separate videos per day. After four coin videos, one additional optional video unlocks a 3× Boost. Ad-unlocked Boosts enter inventory and require activation. Only one coin multiplier can be active. Legacy Boost inventory remains usable. Research and cosmetic price curves are preserved.
 
-| Permanent catalog | Cost |
-| --- | ---: |
-| Research, 101 ranks | 366,144 coins |
-| Purchasable themes | 128,900 coins |
-| Total | 495,044 coins |
+Day 1/3/7/14/30/60/100 streak milestones pay respectively 20/50/100/200/400/600/1,000 coins and 0/0/1/1/2/2/3 hints. Day 150 and 200 pay 1,200 and 1,500 coins and 3 hints each. Day 7 also pays the periodic reward. Freezes preserve continuity without incrementing the count.
 
-Theme prices run from 90 to 60,000 coins, with four free choices. Basin Gold now costs 1,000, Copper Sky costs 4,500, and High Pass costs 12,000. Players retain previously earned themes. All Themes Forever and Premium continue to unlock every theme. See [Research](research.md) and [Boosts](boosts.md) for effects and prices.
+## Daily earning scenarios
 
-| Item | Old price | New price | Level clears at 12 coins | Purpose |
-| --- | ---: | ---: | ---: | --- |
-| First Coin Magnet rank | 70 | 55 | 5 | Earlier access to permanent earnings |
-| Forest Mint or Warm Walnut | 110 | 90 | 8 | Lower threshold for the first cosmetic |
-| Glacier or Midnight Slate | 160 | 140 | 12 | More early palette choices |
-| 2× boost, 10 min | 35 | 24 | 2 | Break even after two first clears within the window |
-| 2× boost, 15 min | 50 | 36 | 3 | Accessible for a short play session |
-| 2× boost, 30 min | 90 | 72 | 6 | Useful for a longer session |
-| 2× boost, 60 min | 195 | 150 | 13 | Lower commitment for an extended session |
-| 3× boost, 15 min | 110 | 80 | 7 | Break even after four first clears at base reward |
-| 4× boost, 10 min | 120 | 88 | 8 | Break even after three first clears at base reward |
-| Supply Relay | 35 | 28 | 3 | Lower cost for a chance to catch an extra crate |
+| Scenario | New levels | Coin videos | Wheel spins | Crates claimed | Expected coins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Casual | 5 | 2 | 1 | 0 | 89.75 |
+| Regular | 15 | 5 | 4 | 3 | 435.50 |
+| Dedicated | 40 | 6 | 7 | 8 | 857.25 |
 
-## Simulation
+These examples exclude streaks, Daily Challenge, Time Attack, Research, achievements, and Boosts. Six coin videos, seven spins, and eight crates together yield 657.25 expected coins, including the free spin. All placement maxima total 29 optional videos. Actual income depends on gameplay, random draws, and ad availability.
 
-Run `dart run tool/economy_simulation.dart` from the repository root. Each profile uses 24 fixed seeds, with assumptions for attendance, play time, solve speed, supply crate collection, boost purchases, and optional ads. The results estimate progression under those assumptions. They are not telemetry or a forecast of video fill rates.
-
-The 24-seed model placed the first coin theme at day 2 and 30 Research ranks at day 89 for the casual profile. The regular profile reached 30 ranks at day 19 and modeled full completion at day 732. The dedicated profile reached those milestones at days 9 and 232, or days 14 and 272 with ads disabled. The model approximates Daily Challenge completion and assumes available videos for eligible participating profiles. These are balance estimates, not observed player results.
-
-Play Games progress and sharing remain separate from wallet rewards. Internal coin achievements continue to use stable wallet transaction IDs. [Achievement eligibility](google-play-achievements.md)
+Run `dart run tool/economy_simulation.dart` for seeded scenario estimates. The simulation uses declared play-time, attendance, puzzle speed, reward-video, and spending assumptions. [Wheel](fortune-wheel.md) · [Crates](crates.md) · [Hints](hints.md)

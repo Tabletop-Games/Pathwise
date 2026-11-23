@@ -103,22 +103,19 @@ void main() {
     expect(game.begin(0), false);
   });
 
-  test(
-    'final checkpoint rejects an otherwise legal move with uncovered tiles',
-    () {
-      final game = GameController(
-        VerifiedPuzzle(Puzzle(3, [0, 8]), [0, 1, 2, 5, 4, 3, 6, 7, 8]),
-      );
-      game.begin(0);
-      for (final cell in [1, 2, 5]) {
-        game.step(cell);
-      }
-      expect(game.nextCheckpoint, 2);
-      expect(game.step(8), RouteEdit.none);
-      expect(game.path, [0, 1, 2, 5]);
-      expect(game.complete, false);
-    },
-  );
+  test('final checkpoint preserves an incomplete route for undo', () {
+    final game = GameController(
+      VerifiedPuzzle(Puzzle(3, [0, 8]), [0, 1, 2, 5, 4, 3, 6, 7, 8]),
+    );
+    game.begin(0);
+    for (final cell in [1, 2, 5]) {
+      game.step(cell);
+    }
+    expect(game.nextCheckpoint, 2);
+    expect(game.step(8), RouteEdit.advance);
+    expect(game.path, [0, 1, 2, 5, 8]);
+    expect(game.complete, false);
+  });
 
   test('invalid saved path and undo entries cannot corrupt legal play', () {
     game.restore([0, 4], [], 3, null);

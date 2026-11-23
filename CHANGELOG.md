@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a global hint wallet, optional ad rewards and daily milestones, streak freezes, revised prizes, and ad-unlocked Boosts.
+- Allow reaching the last checkpoint early and highlight uncovered cells. Keep Time Attack results above the board.
+- Add a debug dashboard with isolated persistence and CI coverage for Android debug builds.
+
+
 - Scope hints and pending hint rewards to puzzle attempts. Replay starts with three, while resume restores usage.
 - Add Daily Challenge checkpoints and a floating result card.
 - Add 1-, 3-, and 5-minute Time Attack sessions, with separate records, Stop, and Restart.

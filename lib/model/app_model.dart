@@ -14,6 +14,7 @@ import 'economy_activity.dart';
 import 'fortune.dart';
 import 'game_state.dart';
 import 'native_achievements.dart';
+import 'play_streak.dart';
 import 'progression.dart';
 import 'time_attack.dart';
 import 'user_preferences.dart';
@@ -29,10 +30,13 @@ class AppModel extends ChangeNotifier {
     DateTime Function()? today,
     PuzzleLoader? loader,
     BootTime? Function()? bootTime,
+    this.debugTools = false,
   }) : _today = today ?? DateTime.now,
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
        _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
+    _freezeSerial = snapshot['freezeSerial'] as int? ?? 0;
+    streak = PlayStreak(_map(snapshot['playStreak']));
     _achievements = AchievementLedger(_map(snapshot['nativeAchievements']));
     activity = EconomyActivity(_map(snapshot['economyActivity']));
     _attempts.addAll(_map(snapshot['attempts']));
@@ -48,6 +52,23 @@ class AppModel extends ChangeNotifier {
         );
       }
     }
+    if (!snapshot.containsKey('playStreak')) {
+      final historicalDays =
+          _results.keys
+              .where((key) => key.startsWith('daily/'))
+              .map((key) => key.substring('daily/'.length))
+              .where(
+                (day) =>
+                    DateTime.tryParse(day) != null &&
+                    day.compareTo(todayKey) <= 0,
+              )
+              .toList()
+            ..sort();
+      for (final day in historicalDays) {
+        streak.qualify(day);
+      }
+    }
+    streak.reconcile(todayKey);
     for (final entry in _map(snapshot['dailyCheckpoints']).entries) {
       final data = _map(entry.value);
       final time = data['milliseconds'];
@@ -90,31 +111,30 @@ class AppModel extends ChangeNotifier {
     if (snapshot['progressionBoot'] != _bootTime()?.boot) {
       progression.active.clear();
     }
-    _hintTank = (snapshot['hintTank'] as int? ?? 3).clamp(0, 3);
-    _refillSerial = snapshot['refillSerial'] as int? ?? 0;
-    for (final row in _map(snapshot['hintUsage']).entries) {
-      if (row.value is int) _hintUsage[row.key] = row.value as int;
-    }
-    if ((snapshot['schemaVersion'] as int? ?? 1) >= 4) {
-      for (final row in _map(snapshot['hintCredits']).entries) {
-        if (row.value == 1) _hintCredits[row.key] = 1;
-      }
+    final savedHints = snapshot['hintBalance'];
+    final legacyHints = snapshot['hintTank'];
+    _hintBalance = savedHints is int
+        ? max(0, savedHints)
+        : snapshot.isEmpty
+        ? economy.starterHints
+        : (legacyHints is int ? legacyHints.clamp(0, 3) : 0);
+    if (savedHints is! int && (snapshot['schemaVersion'] as int? ?? 1) >= 4) {
+      _hintBalance += _map(snapshot['hintCredits']).entries
+          .where((entry) => !_retiredPuzzle(entry.key) && entry.value == 1)
+          .length;
     }
     _hintEvents.addAll(
       (snapshot['hintEvents'] as List? ?? []).whereType<String>(),
     );
-    if ((snapshot['schemaVersion'] as int? ?? 1) < 3) {
-      for (final row in _attempts.entries) {
-        final count = _map(row.value)['hints'];
-        if (count is int) _hintUsage[row.key] = count;
-      }
-      for (final row in _results.entries) {
-        _hintUsage[row.key] = max(_hintUsage[row.key] ?? 0, row.value.hints);
-      }
+    for (final event in _map(snapshot['hintAdDays']).entries) {
+      if (event.value is String) _hintAdDays[event.key] = event.value as String;
     }
+    for (final event in _map(snapshot['boostAdDays']).entries) {
+      if (event.value is String)
+        _boostAdDays[event.key] = event.value as String;
+    }
+    _hintPurchaseSerial = snapshot['hintPurchaseSerial'] as int? ?? 0;
     _attempts.removeWhere((key, _) => _retiredPuzzle(key));
-    _hintUsage.removeWhere((key, _) => _retiredPuzzle(key));
-    _hintCredits.removeWhere((key, _) => _retiredPuzzle(key));
     final adStamp = _map(snapshot['lastAutomaticAd']);
     if (adStamp['boot'] is int && adStamp['milliseconds'] is int) {
       _lastAutomaticAd = (
@@ -128,7 +148,7 @@ class AppModel extends ChangeNotifier {
       attackHistory.addAll(entries.whereType<Map>().map(AttackRun.fromJson));
     }
     _wallet = Wallet(
-      snapshot['ledger'],
+      snapshot['ledger'] ?? (snapshot.isEmpty ? null : <Object>[]),
       _today(),
       archivedCoins:
           (snapshot['archivedCoins'] ?? snapshot['archivedTrailCoins'])
@@ -319,8 +339,7 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  final _hintUsage = <String, int>{};
-  final _hintCredits = <String, int>{};
+  final _hintAdDays = <String, String>{};
   final _hintEvents = <String>{};
   AttackRun? attack;
   final attackHistory = <AttackRun>[];
@@ -356,8 +375,6 @@ class AppModel extends ChangeNotifier {
     _attackTicker = null;
     final prefix = 'attack/${run.id}/';
     _attempts.removeWhere((key, _) => key.startsWith(prefix));
-    _hintUsage.removeWhere((key, _) => key.startsWith(prefix));
-    _hintCredits.removeWhere((key, _) => key.startsWith(prefix));
     attackRemaining.value = Duration.zero;
     unawaited(flush());
     notifyListeners();
@@ -424,6 +441,7 @@ class AppModel extends ChangeNotifier {
         run.coins = run.reward;
       }
       attackHistory.add(run);
+      if (run.clears.length >= 2) _qualifyStreak();
       _celebrateAchievements(previous);
       final beforeAchievements = coinBalance;
       _awardAchievements();
@@ -431,8 +449,6 @@ class AppModel extends ChangeNotifier {
       if (activeId?.mode == PlayMode.attack) {
         final key = activeId!.key;
         _attempts.remove(key);
-        _hintUsage.remove(key);
-        _hintCredits.remove(key);
         _game?.end();
         _syncClock();
       }
@@ -446,35 +462,6 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  int get attemptRevision => _request;
-  int get freeHints => max(0, 3 - (_hintUsage[activeId?.key] ?? 0));
-  int get extraHints => _hintCredits[activeId?.key] ?? 0;
-  bool get canRequestExtraHint =>
-      activeId != null &&
-      (_game?.canHint ?? false) &&
-      !complete &&
-      !loading &&
-      !storageError &&
-      freeHints == 0 &&
-      extraHints == 0 &&
-      _canPlay;
-
-  Future<bool> grantRewardedHint(String puzzle, String event) async {
-    if (_disposed ||
-        storageError ||
-        (_hintUsage[puzzle] ?? 0) < 3 ||
-        (_hintCredits[puzzle] ?? 0) != 0 ||
-        _retiredPuzzle(puzzle) ||
-        (puzzle.startsWith('attack/') &&
-            (attack?.finished != false ||
-                !puzzle.startsWith('attack/${attack!.id}/'))) ||
-        !_hintEvents.add(event))
-      return false;
-    _hintCredits.update(puzzle, (value) => value + 1, ifAbsent: () => 1);
-    notifyListeners();
-    return flush();
-  }
-
   late final Progression progression;
   int get progressionTime =>
       _bootTime()?.milliseconds ?? _today().millisecondsSinceEpoch;
@@ -484,8 +471,7 @@ class AppModel extends ChangeNotifier {
   Crate? _fallingCrate;
   bool _crateRevealed = false;
   Crate? get fallingCrate => _fallingCrate;
-  int get hintsRemaining =>
-      freeHints == 0 ? extraHints : min(hintTank, freeHints);
+  int get hintsRemaining => _hintBalance;
 
   bool research(Research item) {
     final rank = progression.rank(item);
@@ -507,8 +493,39 @@ class AppModel extends ChangeNotifier {
     return true;
   }
 
+  final _boostAdDays = <String, String>{};
+
+  int boostAdsToday(Boost item) => _boostAdDays.entries
+      .where(
+        (entry) =>
+            entry.key.startsWith('${item.name}/') && entry.value == todayKey,
+      )
+      .length;
+
+  bool canEarnBoostAd(Boost item) =>
+      !_disposed &&
+      !storageError &&
+      (item == Boost.doubleTen &&
+              boostAdsToday(item) < economy.doubleBoostAdsPerDay ||
+          item == Boost.tripleFifteen &&
+              adsToday >= economy.coinAdMilestone &&
+              boostAdsToday(item) == 0);
+
+  Future<bool> grantBoostAd(Boost item, String event) async {
+    if (!canEarnBoostAd(item) || !_hintEvents.add(event)) return false;
+    _boostAdDays['${item.name}/$event'] = todayKey;
+    progression.inventory.update(
+      item.name,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    notifyListeners();
+    return flush();
+  }
+
   bool buyBoost(Boost item) {
     if (storageError ||
+        !item.availableToBuy ||
         !_wallet.add(
           'boost/${progression.serial}',
           item.title,
@@ -533,6 +550,20 @@ class AppModel extends ChangeNotifier {
     progression.activate(item, now);
     _progressionChanged();
     return true;
+  }
+
+  void setDebugResources({int? coins, int? hints}) {
+    if (!developerMode || storageError) return;
+    if (coins != null && coins >= 0) {
+      _wallet.add(
+        'debug/${progression.serial++}',
+        'Developer adjustment',
+        coins - coinBalance,
+        _today(),
+      );
+    }
+    if (hints != null && hints >= 0) _hintBalance = hints;
+    _progressionChanged();
   }
 
   void forceCrateForDebug() {
@@ -588,7 +619,7 @@ class AppModel extends ChangeNotifier {
     _fallingCrate = null;
     _crateRevealed = false;
     activity.event(EconomyEvent.crateCollected, coinBalance);
-    if (crate.coins == 120) {
+    if (crate.coins == crateTopPrize) {
       progression.legendary++;
       achievementRevision++;
     }
@@ -657,33 +688,33 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  int _hintTank = 3;
-  int _refillSerial = 0;
-  int get hintTank => _hintTank;
-  bool get canRefillTank => !_disposed && !storageError && _hintTank < 3;
-  int get refillPrice => progression.refillPrice;
+  late int _hintBalance;
+  int _hintPurchaseSerial = 0;
+  int get hintAdsToday =>
+      _hintAdDays.values.where((day) => day == dayKey(_today())).length;
+  bool get canEarnHintAd =>
+      !_disposed && !storageError && hintAdsToday < economy.hintAdsPerDay;
 
-  bool buyTankRefill() {
-    if (!canRefillTank ||
+  Future<bool> buyHint() async {
+    if (_disposed ||
+        storageError ||
         !_wallet.add(
-          'tank/$_refillSerial',
-          'Hint tank refill',
-          -refillPrice,
+          'hint/purchase/$_hintPurchaseSerial',
+          'Hint',
+          -economy.hintPrice,
           _today(),
         ))
       return false;
-    _fillTank();
-    return true;
+    _hintPurchaseSerial++;
+    _hintBalance++;
+    notifyListeners();
+    return flush();
   }
 
-  Future<bool> grantTankRefill(String event) async {
-    if (!canRefillTank || !_hintEvents.add(event)) return false;
-    return _fillTank();
-  }
-
-  Future<bool> _fillTank() {
-    _hintTank = 3;
-    _refillSerial++;
+  Future<bool> grantHintAd(String event) async {
+    if (!canEarnHintAd || !_hintEvents.add(event)) return false;
+    _hintAdDays[event] = dayKey(_today());
+    _hintBalance++;
     notifyListeners();
     return flush();
   }
@@ -694,6 +725,8 @@ class AppModel extends ChangeNotifier {
     return now != null && (attack?.remaining(now) ?? 0) > 0;
   }
 
+  final bool debugTools;
+  bool get developerMode => kDebugMode && debugTools;
   final GameStateStorage storage;
   final DateTime Function() _today;
   final PuzzleLoader? _loader;
@@ -817,14 +850,12 @@ class AppModel extends ChangeNotifier {
   int? get hintCell => _game?.hintCell;
   int get hintsUsed => _game?.hintsUsed ?? 0;
   int get nextCheckpoint => _game?.nextCheckpoint ?? 1;
+  bool get endedEarly => puzzle != null && !complete && tip == puzzle!.finish;
   bool get complete => _game?.complete ?? false;
   bool get isDrawing => _game?.isDrawing ?? false;
   bool get canUndo => _game?.canUndo ?? false;
   bool get canClear => !complete && (path.length > 1 || hintCell != null);
-  bool get canHint =>
-      _canPlay &&
-      (_game?.canHint ?? false) &&
-      (freeHints > 0 ? hintTank > 0 : extraHints > 0);
+  bool get canHint => _canPlay && (_game?.canHint ?? false) && _hintBalance > 0;
   bool hasAttempt(PuzzleId id) => _attempts.containsKey(id.key);
   RunResult? result(PuzzleId id) => _results[id.key];
   int get solved => _results.length + _retiredSolved;
@@ -832,7 +863,8 @@ class AppModel extends ChangeNotifier {
       _results.values.where((value) => value.unassisted).length + _retiredClean;
   int get levelsSolved => _levelsSolved;
   int get highestUnlocked => _highestUnlocked;
-  bool canPlayLevel(int level) => level > 0 && level <= highestUnlocked;
+  bool canPlayLevel(int level) =>
+      level > 0 && (developerMode || level <= highestUnlocked);
   int get coinBalance => _wallet.balance;
   int get coinsEarned => _wallet.earned;
   int get coinsSpent => _wallet.spent;
@@ -851,7 +883,8 @@ class AppModel extends ChangeNotifier {
         }
         return tx;
       }).toList();
-  bool ownsTheme(PathwiseTheme theme) => hasThemePass || _owned.contains(theme);
+  bool ownsTheme(PathwiseTheme theme) =>
+      developerMode || hasThemePass || _owned.contains(theme);
   int get ownedThemes =>
       hasThemePass ? PathwiseTheme.values.length : _owned.length;
   bool get hasThemePass => _themePass || _premium;
@@ -905,7 +938,8 @@ class AppModel extends ChangeNotifier {
     if (_disposed || storageError || now == null) return 0;
     return max(
       0,
-      4 - _wheelVideos.where((stamp) => _activeWheelVideo(stamp, now)).length,
+      economy.wheelAdsPerDay -
+          _wheelVideos.where((stamp) => _activeWheelVideo(stamp, now)).length,
     );
   }
 
@@ -916,7 +950,10 @@ class AppModel extends ChangeNotifier {
   }) async {
     final now = _bootTime();
     final id = 'wheel/video/$event';
-    if (now == null || fortuneVideosRemaining == 0 || _wallet.contains(id)) {
+    if (now == null ||
+        fortuneVideosRemaining == 0 ||
+        _wallet.contains(id) ||
+        !_hintEvents.add(id)) {
       return null;
     }
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
@@ -1019,13 +1056,26 @@ class AppModel extends ChangeNotifier {
 
   Future<bool> grantAdBonus(String id) async {
     if (_disposed || !canEarnAdBonus) return false;
+    final now = _today();
+    final milestone = 'ad-milestone/${dayKey(now)}';
+    final earnsMilestone =
+        adsToday + 1 == economy.coinAdMilestone && !_wallet.contains(milestone);
     if (!_wallet.add(
       'ad/$id',
       'Optional video bonus',
       economy.rewardedAdCoins,
-      _today(),
-    ))
+      now,
+    )) {
       return false;
+    }
+    if (earnsMilestone) {
+      _wallet.add(
+        milestone,
+        'Fourth video bonus',
+        economy.coinAdMilestoneBonus,
+        now,
+      );
+    }
     notifyListeners();
     return flush();
   }
@@ -1114,6 +1164,57 @@ class AppModel extends ChangeNotifier {
     return bestTime == null ? null : Duration(milliseconds: bestTime);
   }
 
+  late final PlayStreak streak;
+  int _freezeSerial = 0;
+  String get todayKey => dayKey(_today());
+
+  void _qualifyStreak() {
+    final day = todayKey;
+    if (!streak.qualify(day)) return;
+    final count = streak.count;
+    if (EconomyRules.milestones[count] case final reward?) {
+      if (_wallet.add(
+        'play-streak/${streak.first}/$count',
+        '$count-day streak',
+        reward.coins,
+        _today(),
+      )) {
+        _hintBalance += reward.hints;
+      }
+    }
+    if (count % economy.streakInterval == 0) {
+      _wallet.add(
+        'play-streak-week/$day',
+        '$count-day streak bonus',
+        economy.streakBonus + progression.effect(Research.specialist),
+        _today(),
+      );
+    }
+  }
+
+  Future<bool> buyFreeze() async {
+    if (_disposed || storageError) return false;
+    final before = streak.checkedThrough;
+    streak.reconcile(todayKey);
+    if (streak.freezes >= economy.maxFreezes ||
+        !_wallet.add(
+          'freeze/$_freezeSerial',
+          'Streak Freeze',
+          -economy.freezePrice,
+          _today(),
+        )) {
+      if (before != streak.checkedThrough) {
+        notifyListeners();
+        await flush();
+      }
+      return false;
+    }
+    _freezeSerial++;
+    streak.freezes++;
+    notifyListeners();
+    return flush();
+  }
+
   int get dailyStreak {
     final now = _today();
     var day = DateTime.utc(now.year, now.month, now.day);
@@ -1181,11 +1282,6 @@ class AppModel extends ChangeNotifier {
       final recorded = replay
           ? null
           : (result(id) ?? dailyCheckpointResult(id));
-      if (stored.isEmpty && recorded == null) {
-        _hintUsage.remove(id.key);
-        _hintCredits.remove(id.key);
-        _hintTank = 3;
-      }
       try {
         if (stored.isNotEmpty) {
           game.restore(
@@ -1196,12 +1292,6 @@ class AppModel extends ChangeNotifier {
             stored['hints'] as int,
             stored['hintCell'] as int?,
           );
-          final savedUsage = stored['hints'] as int;
-          _hintUsage[id.key] = max(0, savedUsage);
-          final savedTank = stored['hintTank'];
-          _hintTank = savedTank is int
-              ? savedTank.clamp(0, 3)
-              : (3 - savedUsage).clamp(0, 3);
           final savedTime = stored['milliseconds'] as int;
           _baseTime = Duration(milliseconds: savedTime < 0 ? 0 : savedTime);
           _started = stored['started'] == true;
@@ -1212,9 +1302,6 @@ class AppModel extends ChangeNotifier {
         }
       } on TypeError {
         _attempts.remove(id.key);
-        _hintUsage.remove(id.key);
-        _hintCredits.remove(id.key);
-        _hintTank = 3;
       }
       if (replay) {
         _attempts.remove(id.key);
@@ -1276,9 +1363,7 @@ class AppModel extends ChangeNotifier {
 
   void hint() {
     if (!canHint) return;
-    final key = activeId!.key;
-    final used = _hintUsage[key] ?? 0;
-    final useCredit = freeHints == 0;
+    final used = hintsUsed;
     final conflict = _game!.routeConflicts;
     if (!_game!.hint(
       segment: used == 0
@@ -1290,12 +1375,7 @@ class AppModel extends ChangeNotifier {
       return;
     correctedByHint = conflict;
     if (activeId?.mode == PlayMode.attack) attack?.unassisted = false;
-    if (useCredit) {
-      _hintCredits[key] = extraHints - 1;
-    } else {
-      _hintTank--;
-    }
-    _hintUsage[key] = used + 1;
+    _hintBalance--;
     _edited();
     unawaited(flush());
   }
@@ -1321,8 +1401,6 @@ class AppModel extends ChangeNotifier {
         final run = attack!;
         final now = _bootTime();
         _attempts.remove(id.key);
-        _hintUsage.remove(id.key);
-        _hintCredits.remove(id.key);
         if (now != null && run.clear(now)) {
           haptic.complete();
           unawaited(flush());
@@ -1396,17 +1474,8 @@ class AppModel extends ChangeNotifier {
         if (id.mode == PlayMode.daily) {
           _achievements.daily(id.value as String, _bootTime());
           _updateLongestStreak();
-          final day = DateTime.parse('${id.value}T00:00:00Z');
-          final streak = _streakEnding(day);
-          if (streak > 0 && streak % economy.streakInterval == 0) {
-            _wallet.add(
-              'streak/${id.key}',
-              '$streak-day streak',
-              economy.streakBonus + progression.effect(Research.specialist),
-              _today(),
-            );
-          }
         }
+        _qualifyStreak();
       }
       _awardAchievements();
       lastReward = coinBalance - coinsBefore;
@@ -1415,7 +1484,11 @@ class AppModel extends ChangeNotifier {
       haptic.complete();
       unawaited(flush());
     } else {
-      haptic.selection();
+      if (endedEarly) {
+        haptic.light();
+      } else {
+        haptic.selection();
+      }
       _saveSoon();
     }
     notifyListeners();
@@ -1451,7 +1524,12 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void refreshDate() => notifyListeners();
+  void refreshDate() {
+    final before = streak.checkedThrough;
+    streak.reconcile(todayKey);
+    if (before != streak.checkedThrough) unawaited(flush());
+    notifyListeners();
+  }
 
   void setTheme(PathwiseTheme theme) {
     if (!ownsTheme(theme)) return;
@@ -1518,7 +1596,6 @@ class AppModel extends ChangeNotifier {
         'history': game.history,
         'hints': hintsUsed,
         'hintCell': hintCell,
-        'hintTank': _hintTank,
         'started': _started,
         'usedClear': _usedClear,
         'milliseconds': (_baseTime + _watch.elapsed).inMilliseconds,
@@ -1533,10 +1610,12 @@ class AppModel extends ChangeNotifier {
       'progression': progression.toJson(),
       'economyActivity': activity.toJson(),
       'progressionBoot': _bootTime()?.boot,
-      'hintTank': _hintTank,
-      'refillSerial': _refillSerial,
-      'hintUsage': _hintUsage,
-      'hintCredits': _hintCredits,
+      'playStreak': streak.toJson(),
+      'freezeSerial': _freezeSerial,
+      'hintBalance': _hintBalance,
+      'hintPurchaseSerial': _hintPurchaseSerial,
+      'hintAdDays': _hintAdDays,
+      'boostAdDays': _boostAdDays,
       'hintEvents': _hintEvents.toList(),
       'attack': attack?.toJson(),
       'attackMinutes': _attackMinutes,

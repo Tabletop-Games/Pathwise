@@ -159,7 +159,7 @@ class Player {
     sessions++;
     activeMinutes += profile.minutes;
     final videos = ads ? profile.videos : 0;
-    final wheelVideos = videos.clamp(0, 4);
+    final wheelVideos = (videos ~/ 2).clamp(0, economy.wheelAdsPerDay);
     final coinVideos = (videos - wheelVideos).clamp(
       0,
       economy.rewardedAdsPerDay,
@@ -168,7 +168,16 @@ class Player {
       final prize = catalog.pick(random.nextInt(100));
       credit(spin == 0 ? 'free wheel' : 'wheel videos', prize.coins);
     }
-    credit('coin videos', coinVideos * economy.rewardedAdCoins);
+    credit(
+      'coin videos',
+      coinVideos * economy.rewardedAdCoins +
+          (coinVideos >= economy.coinAdMilestone
+              ? economy.coinAdMilestoneBonus
+              : 0),
+    );
+    if (EconomyRules.milestones[streak + 1] case final milestone?) {
+      credit('streak milestones', milestone.coins);
+    }
     final payDay = (number - 1) % 30 == 0;
     if (profile.pay && payDay) {
       final sku = number % 90 == 1
@@ -187,7 +196,7 @@ class Player {
     final attackMode = number % 11 == 0 && profile.minutes >= 30;
     if (attackMode) {
       final solves = min(8, max(1, 600 ~/ stepSeconds));
-      credit('time attack', solves < 2 ? 0 : min(48, solves * 6));
+      credit('time attack', economy.attackReward(solves));
       bestAttack = max(bestAttack, solves);
     }
     if (boosts && profile.strategic && clears >= 4 && coins >= 80) {
@@ -195,8 +204,8 @@ class Player {
       final chosen = ownedBoost > 0
           ? Boost.doubleTen
           : clears >= 13
-          ? Boost.doubleThirty
-          : Boost.doubleFifteen;
+          ? Boost.doubleSixty
+          : Boost.doubleTen;
       if (ownedBoost > 0 || debit(progression.discount(chosen.price))) {
         if (ownedBoost == 0) progression.inventory[chosen.name] = 1;
         progression.activate(chosen, start);
@@ -216,12 +225,12 @@ class Player {
         continue;
       }
       credit('crates', crate.coins);
-      if (crate.coins == 120) progression.legendary++;
+      if (crate.coins == crateTopPrize) progression.legendary++;
     }
     final daily = focus < .92 && (profile.minutes >= 30 || number.isEven);
     streak = daily ? streak + 1 : 0;
     final spendHints = random.nextDouble() < (profile.strategic ? .23 : .46);
-    if (spendHints && debit(progression.refillPrice)) {
+    if (spendHints && debit(economy.hintPrice)) {
       // One tank refill at most per modeled session.
     }
     for (var index = 0; index < clears; index++) {

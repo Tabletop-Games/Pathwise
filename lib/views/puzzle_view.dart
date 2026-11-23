@@ -9,6 +9,7 @@ import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
 import 'components/puzzle_board.dart';
@@ -32,8 +33,13 @@ class PuzzleView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     final puzzle = model.puzzle;
     final timed = id.mode == PlayMode.attack;
-    if (timed && model.attack?.finished == true)
-      return _AttackResults(model: model);
+    final attackFinished = timed && model.attack?.finished == true;
+    if (attackFinished && puzzle == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Time Attack')),
+        body: SafeArea(child: _AttackResults(model: model)),
+      );
+    }
     return Scaffold(
       bottomNavigationBar: timed ? null : const AdBanner(),
       appBar: AppBar(
@@ -58,7 +64,7 @@ class PuzzleView extends StatelessWidget {
                 PopupMenuItem(value: 0, child: Text('Restart puzzle')),
               ],
             ),
-          if (timed)
+          if (timed && !attackFinished)
             PopupMenuButton<bool>(
               tooltip: 'Time Attack controls',
               onSelected: (restart) =>
@@ -247,6 +253,22 @@ class PuzzleView extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (model.endedEarly)
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12,
+                                children: [
+                                  Text(
+                                    '${board.area - model.path.length} tiles left!',
+                                  ),
+                                  FilledButton(
+                                    onPressed: model.canClear
+                                        ? model.clear
+                                        : null,
+                                    child: const Text('Reset board'),
+                                  ),
+                                ],
+                              ),
                             if (model.storageError)
                               const Padding(
                                 padding: EdgeInsets.only(top: 12),
@@ -259,6 +281,12 @@ class PuzzleView extends StatelessWidget {
                   );
                 },
               ),
+              if (attackFinished) ...[
+                const Positioned.fill(
+                  child: ModalBarrier(color: Colors.black54),
+                ),
+                BlockSemantics(child: _AttackResults(model: model)),
+              ],
               if (model.complete && !timed) ...[
                 const Positioned.fill(
                   child: ModalBarrier(color: Colors.black54),
@@ -341,7 +369,9 @@ Future<void> _confirmPuzzleRestart(BuildContext context, AppModel model) async {
     context: context,
     builder: (dialog) => AlertDialog(
       title: const Text('Restart puzzle?'),
-      content: const Text('Start this board again with three hints.'),
+      content: const Text(
+        'This clears your route. Your hint balance stays the same.',
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialog, false),
@@ -540,105 +570,69 @@ class _Completion extends StatelessWidget {
   }
 }
 
+Future<void> showHintShop(BuildContext context, AppModel model) async {
+  final ads = context.read<AdService>();
+  final online = ads.enabled ? ads.isOnline() : Future<bool>.value(false);
+  final action = await showDialog<String>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: const Text('Need a hint?'),
+      content: Text('${model.coinBalance} coins available'),
+      actions: [
+        FutureBuilder<bool>(
+          future: online,
+          builder: (context, snapshot) => FilledButton.icon(
+            onPressed: snapshot.data == true && model.canEarnHintAd
+                ? () => Navigator.pop(dialog, 'ad')
+                : null,
+            icon: const Icon(Icons.play_circle_outline),
+            label: Text(
+              model.canEarnHintAd
+                  ? 'Watch ad · +1 hint'
+                  : 'Daily ad limit reached',
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: model.coinBalance >= economy.hintPrice
+              ? () => Navigator.pop(dialog, 'coins')
+              : null,
+          icon: const Icon(Icons.toll_rounded),
+          label: Text('${economy.hintPrice} coins · +1 hint'),
+        ),
+      ],
+    ),
+  );
+  if (!context.mounted) return;
+  if (action == 'coins') await model.buyHint();
+  if (action != 'ad') return;
+  bool current() => context.mounted && ModalRoute.isCurrentOf(context) == true;
+  if (!ads.readyFor(RewardPlacement.hint)) {
+    await ads.prepare(canPresent: current);
+  }
+  if (!current()) return;
+  final shown = await ads.watchVideo(
+    model.grantHintAd,
+    placement: RewardPlacement.hint,
+    canPresent: () => current() && model.canEarnHintAd,
+  );
+  if (!shown && current()) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Video unavailable. No hint was added.')),
+    );
+  }
+}
+
 class _HintAction extends StatelessWidget {
   const _HintAction({required this.model});
   final AppModel model;
-
-  Future<void> _reward(BuildContext context, {required bool refill}) async {
-    final ads = context.read<AdService>();
-    final id = model.activeId;
-    final revision = model.attemptRevision;
-    final placement = refill ? RewardPlacement.refill : RewardPlacement.hint;
-    bool current() =>
-        context.mounted &&
-        model.activeId == id &&
-        model.attemptRevision == revision &&
-        ModalRoute.isCurrentOf(context) == true;
-    if (ads.enabled && !ads.readyFor(placement))
-      await ads.prepare(canPresent: current);
-    if (!current()) return;
-    final shown = await ads.watchVideo(
-      (event) async =>
-          model.attemptRevision == revision &&
-          await (refill
-              ? model.grantTankRefill(event)
-              : model.grantRewardedHint(id!.key, event)),
-      placement: placement,
-      canPresent: () =>
-          current() &&
-          (refill ? model.canRefillTank : model.canRequestExtraHint),
-    );
-    if (!shown && current())
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Rewarded video unavailable. No reward was added.'),
-        ),
-      );
-  }
-
-  Future<void> _extraHint(BuildContext context) async {
-    final consent = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Extra hint'),
-        content: const Text(
-          'You’ve used your three standard hints for this puzzle. Watch one video to reveal another hint.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Watch ad · 1 hint'),
-          ),
-        ],
-      ),
-    );
-    if (consent == true && context.mounted) {
-      await _reward(context, refill: false);
-    }
-  }
-
-  Future<void> _refill(BuildContext context) async {
-    final action = await showDialog<String>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Refill hint tank'),
-        content: const Text(
-          'Restore the remaining standard hints for this attempt.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, 'ad'),
-            child: const Text('Watch ad'),
-          ),
-          FilledButton(
-            onPressed: model.coinBalance >= model.refillPrice
-                ? () => Navigator.pop(dialog, 'coins')
-                : null,
-            child: Text('Spend ${model.refillPrice} coins'),
-          ),
-        ],
-      ),
-    );
-    if (!context.mounted) return;
-    if (action == 'ad') await _reward(context, refill: true);
-    if (action == 'coins') model.buyTankRefill();
-  }
 
   @override
   Widget build(BuildContext context) => FilledButton.tonalIcon(
     onPressed: model.canHint
         ? model.hint
-        : model.canRequestExtraHint
-        ? () => _extraHint(context)
-        : model.freeHints > 0 &&
-              model.hintTank == 0 &&
-              model.canRefillTank &&
-              !model.complete
-        ? () => _refill(context)
+        : model.hintsRemaining == 0 && !model.complete && !model.storageError
+        ? () => showHintShop(context, model)
         : null,
     icon: const Icon(Icons.lightbulb_outline_rounded),
     label: Text('Hint · ${model.hintsRemaining} left'),
@@ -652,14 +646,16 @@ class _AttackResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final run = model.attack!;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Time Attack')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Material(
+            borderRadius: BorderRadius.circular(22),
+            clipBehavior: Clip.antiAlias,
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               shrinkWrap: true,
               children: [
                 Icon(

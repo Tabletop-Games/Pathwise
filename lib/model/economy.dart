@@ -6,18 +6,41 @@ const economy = EconomyRules();
 class EconomyRules {
   const EconomyRules();
 
-  int get starterCoins => 40;
-  int get streakBonus => 35;
+  int get starterCoins => 50;
+  int get streakBonus => 25;
   int get streakInterval => 7;
   Duration get automaticAdGap => const Duration(minutes: 4);
   Duration get afterRewardedGap => const Duration(minutes: 1);
   int get exitsPerInterstitial => 5;
   int get premiumBonus => 1000;
-  int get rewardedAdCoins => 8;
-  int get rewardedAdsPerDay => 3;
+  int get rewardedAdCoins => 20;
+  int get rewardedAdsPerDay => 6;
+  int get starterHints => 3;
+  int get hintPrice => 60;
+  int get hintAdsPerDay => 5;
+  int get coinAdMilestone => 4;
+  int get coinAdMilestoneBonus => 40;
+  int get doubleBoostAdsPerDay => 3;
+  int get wheelAdsPerDay => 6;
+  int get cratesPerWindow => 8;
+  int attackReward(int solves) =>
+      solves < 2 ? 0 : (solves < 8 ? solves : 8) * 3;
+  int get freezePrice => 250;
+  int get maxFreezes => 2;
+  static const milestones = <int, ({int coins, int hints})>{
+    1: (coins: 20, hints: 0),
+    3: (coins: 50, hints: 0),
+    7: (coins: 100, hints: 1),
+    14: (coins: 200, hints: 1),
+    30: (coins: 400, hints: 2),
+    60: (coins: 600, hints: 2),
+    100: (coins: 1000, hints: 3),
+    150: (coins: 1200, hints: 3),
+    200: (coins: 1500, hints: 3),
+  };
   int clearReward(PlayMode mode) => switch (mode) {
-    PlayMode.levels => 12,
-    PlayMode.daily => 24,
+    PlayMode.levels => 5,
+    PlayMode.daily => 10,
     PlayMode.attack => 0,
   };
   int themePrice(PathwiseTheme theme) => switch (theme) {

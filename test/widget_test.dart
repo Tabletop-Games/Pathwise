@@ -35,7 +35,7 @@ void main() {
     final player = model({});
     await launch(player);
     expect(find.byType(FortuneView), findsOneWidget);
-    expect(player.coinBalance, 40);
+    expect(player.coinBalance, 50);
     await tester.pageBack();
     await tester.pump(const Duration(milliseconds: 400));
     player.setHaptics(false);
@@ -166,8 +166,8 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
       expect(model.fortuneWait, greaterThan(0));
-      expect(model.hintTank, 3);
-      expect(find.text('+${model.coinBalance - 40} coins'), findsOneWidget);
+      expect(model.hintsRemaining, 3);
+      expect(find.text('+${model.coinBalance - 50} coins'), findsOneWidget);
       expect(find.text('${model.coinBalance} coins'), findsOneWidget);
       expect(find.textContaining('Next free spin in'), findsOneWidget);
       final balance = model.coinBalance;
@@ -291,7 +291,7 @@ void main() {
     check();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('40'));
+    await tester.tap(find.text('50'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('High Pass'), 220);
     expect(find.text('High Pass'), findsOneWidget);
@@ -327,54 +327,50 @@ void main() {
     model.dispose();
   });
 
-  testWidgets('extra hint dialog never offers coin payment to Premium', (
-    tester,
-  ) async {
-    final model = AppModel(
-      storage: MemoryStorage(),
-      snapshot: {
-        'schemaVersion': 4,
-        'premium': true,
-        'attempts': {
-          'daily-checkpoint/2026-11-23/1': {
-            'path': [0],
-            'history': <Object>[],
-            'hints': 3,
-            'milliseconds': 0,
-            'started': true,
+  testWidgets(
+    'empty hint wallet offers a coin purchase and disables unconfigured ads',
+    (tester) async {
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {
+          'schemaVersion': 4,
+          'premium': true,
+          'attempts': {
+            'daily-checkpoint/2026-11-23/1': {
+              'path': [0],
+              'history': <Object>[],
+              'hints': 3,
+              'milliseconds': 0,
+              'started': true,
+            },
           },
         },
-      },
-      today: () => DateTime(2026, 11, 23),
-      loader: (_) async => fixture(),
-    );
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
-    );
-    await tester.tap(find.text('Resume'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Hint · 0 left'));
-    await tester.pumpAndSettle();
-    expect(find.text('Extra hint'), findsOneWidget);
-    expect(find.textContaining('Spend'), findsNothing);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Hint · 0 left'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('Watch ad · 1 hint'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Rewarded video unavailable'), findsOneWidget);
-    expect(model.hintTank, 0);
-    expect(model.extraHints, 0);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await model.flush();
-    model.dispose();
-  });
+        today: () => DateTime(2026, 11, 23),
+        loader: (_) async => fixture(),
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.tap(find.text('Resume'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hint · 0 left'));
+      await tester.pumpAndSettle();
+      expect(find.text('Need a hint?'), findsOneWidget);
+      expect(find.text('60 coins · +1 hint'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Watch ad · +1 hint'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(model.hintsRemaining, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
+    },
+  );
 
   testWidgets('themes and statistics are reachable on a narrow phone', (
     tester,
@@ -469,7 +465,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
       );
-      await tester.tap(find.text('40'));
+      await tester.tap(find.text('50'));
       await tester.pumpAndSettle();
       expect(find.text('Vault'), findsOneWidget);
       expect(find.text('Equipped'), findsOneWidget);
@@ -481,7 +477,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(model.theme.label, 'Field');
-      expect(model.coinBalance, 40);
+      expect(model.coinBalance, 50);
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
       model.dispose();
@@ -512,7 +508,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Next checkpoint'));
         await tester.pumpAndSettle();
-        expect(model.hintsRemaining, 3);
+        expect(model.hintsRemaining, 2);
         complete(model);
       }
       final balance = model.coinBalance;

@@ -31,10 +31,17 @@ final class Puzzle {
     ];
   });
 
-  bool canExtend(int cell, int next, int length, int checkpoint) {
-    if (!neighbors[cell].contains(next)) return false;
+  bool canExtend(
+    int cell,
+    int next,
+    int length,
+    int checkpoint, {
+    bool allowEarlyFinish = false,
+  }) {
+    if (cell == finish || !neighbors[cell].contains(next)) return false;
     final number = numbers[next];
     if (number != 0 && number != checkpoint) return false;
+    if (allowEarlyFinish && next == finish) return true;
     return (next == finish) == (length + 1 == area);
   }
 }

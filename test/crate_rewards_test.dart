@@ -40,31 +40,31 @@ void main() {
 
   test('crate odds, cooldown and rolling cap', () {
     expect(
-      List.generate(100, crateCoins).where((coins) => coins == 25).length,
+      List.generate(100, crateCoins).where((coins) => coins == 20).length,
       35,
     );
     expect(
-      List.generate(100, crateCoins).where((coins) => coins == 40).length,
+      List.generate(100, crateCoins).where((coins) => coins == 35).length,
       30,
     );
     expect(
-      List.generate(100, crateCoins).where((coins) => coins == 60).length,
+      List.generate(100, crateCoins).where((coins) => coins == 55).length,
       20,
     );
     expect(
-      List.generate(100, crateCoins).where((coins) => coins == 85).length,
+      List.generate(100, crateCoins).where((coins) => coins == 75).length,
       10,
     );
     expect(
-      List.generate(100, crateCoins).where((coins) => coins == 120).length,
+      List.generate(100, crateCoins).where((coins) => coins == 90).length,
       5,
     );
     final progress = Progression({});
     expect(progress.considerCrate((boot: 1, milliseconds: 0), () => 0), isNull);
     progress.accrueCrateTime(45000);
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 8; i++) {
       final now = (boot: 1, milliseconds: 45000 + i * 150000);
-      expect(progress.considerCrate(now, () => 0)?.coins, 25);
+      expect(progress.considerCrate(now, () => 0)?.coins, 20);
       expect(progress.considerCrate(now, () => 0), isNull);
       progress.accrueCrateTime(150000);
     }
@@ -142,14 +142,14 @@ void main() {
         expect(catchCrate, findsNothing);
         expect(tester.getRect(board), boardAfterMove);
         expect(tester.getRect(progress), barAfterMove);
-        expect(model.coinBalance, 40);
+        expect(model.coinBalance, 50);
         await drop(150);
         await tester.pump(const Duration(seconds: 2));
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
         await tester.tap(find.text('No Thanks'));
         await tester.pumpAndSettle();
-        expect(model.coinBalance, 40);
+        expect(model.coinBalance, 50);
         await drop(150);
         final amount = model.fallingCrate!.coins;
         await tester.pump(const Duration(seconds: 2));
@@ -164,7 +164,7 @@ void main() {
           await tester.tap(find.text('Watch Ad & Claim'));
           await tester.pumpAndSettle();
           expect(find.text(feedback), findsOneWidget);
-          expect(model.coinBalance, 40);
+          expect(model.coinBalance, 50);
         }
         await tester.tap(find.text('Watch Ad & Claim'));
         await tester.pumpAndSettle();
@@ -240,7 +240,7 @@ void main() {
     expect(model.coinBalance, 1076);
     expect(model.highestUnlocked, 71);
     expect(model.result(const PuzzleId.level(70))?.milliseconds, 500);
-    expect(model.hintTank, 2);
+    expect(model.hintsRemaining, 2);
     expect(model.theme, PathwiseTheme.basinGold);
     expect(model.solved, 33);
     expect(model.unassisted, 28);
