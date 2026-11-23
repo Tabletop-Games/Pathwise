@@ -12,3 +12,5 @@ Pathwise is an Android and iOS route puzzle using Flutter and Provider. The code
 Treat puzzle IDs, checkpoint order, accepted route semantics and canonical generation output as compatibility contracts. Keep hint grants and spending in the persistent wallet. Maintain shared movement rules for the solver, gesture controller, restore, and hint routing. Preserve generated legacy boards when extending Levels.
 
 Extension priorities are Play device verification, gesture and large-font visual testing on hardware, ranked score validation, cloud-backed paid-currency recovery and refund reconciliation. Preserve Flutter plugin registration and explicit code and resource shrinking.
+
+The themed Flutter splash reads the saved palette after startup storage loads. Android displays a fixed-color native launch screen before Flutter can access the saved theme. Settings offers an optional Google Play update check using in_app_update_flutter. Play-distributed builds and an eligible newer release are needed to verify the update flow.
