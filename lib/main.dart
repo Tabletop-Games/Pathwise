@@ -12,6 +12,8 @@ import 'logic/billing_service.dart';
 import 'logic/game_state_storage.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
+import 'model/user_preferences.dart';
+import 'views/components/brand_mark.dart';
 import 'views/main_menu_view.dart';
 
 void main() async {
@@ -26,31 +28,117 @@ void main() async {
   });
   final storage = GameStateStorage();
   final clock = AttackClock();
-  await clock.sync();
-  AppModel model;
+  Map<String, dynamic>? snapshot;
   try {
-    final snapshot = await storage.load();
-    model = AppModel(
-      storage: storage,
-      snapshot: snapshot,
-      bootTime: clock.read,
-      debugTools: kDebugMode,
-    );
-    if (snapshot.isNotEmpty &&
-        snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
-      await model.flush();
-    }
+    snapshot = await storage.load();
   } catch (_) {
     storage.protect();
-    model = AppModel(storage: storage, snapshot: {}, bootTime: clock.read)
-      ..storageError = true;
   }
+  final prefs = snapshot?['preferences'];
+  final theme = prefs is Map<String, dynamic>
+      ? UserPreferences.fromJson(prefs).theme
+      : PathwiseTheme.field;
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => model,
-      child: PathwiseApp(clock: clock),
+    PathwiseStartup(
+      theme: theme,
+      clock: clock,
+      initialize: () async {
+        await clock.sync();
+        try {
+          if (snapshot == null) throw StateError('Save could not be loaded');
+          final model = AppModel(
+            storage: storage,
+            snapshot: snapshot,
+            bootTime: clock.read,
+            debugTools: kDebugMode,
+          );
+          if (snapshot.isNotEmpty &&
+              snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
+            await model.flush();
+          }
+          return model;
+        } catch (_) {
+          storage.protect();
+          return AppModel(storage: storage, snapshot: {}, bootTime: clock.read)
+            ..storageError = true;
+        }
+      },
     ),
   );
+}
+
+class PathwiseStartup extends StatefulWidget {
+  const PathwiseStartup({
+    required this.theme,
+    required this.initialize,
+    this.clock,
+    super.key,
+  });
+
+  final PathwiseTheme theme;
+  final Future<AppModel> Function() initialize;
+  final AttackClock? clock;
+
+  @override
+  State<PathwiseStartup> createState() => _PathwiseStartupState();
+}
+
+class _PathwiseStartupState extends State<PathwiseStartup> {
+  late final Future<AppModel> _startup;
+
+  @override
+  void initState() {
+    super.initState();
+    _startup = WidgetsBinding.instance.endOfFrame.then(
+      (_) => widget.initialize(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AppModel>(
+      future: _startup,
+      builder: (context, snapshot) {
+        if (snapshot.data case final model?) {
+          return ChangeNotifierProvider(
+            create: (_) => model,
+            child: PathwiseApp(clock: widget.clock),
+          );
+        }
+        final palette = BoardPalette.palettes[widget.theme]!;
+        return MaterialApp(
+          title: 'Pathwise',
+          debugShowCheckedModeBanner: false,
+          theme: palette.theme,
+          home: Scaffold(
+            key: const ValueKey('pathwise-splash'),
+            backgroundColor: palette.canvas,
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 72,
+                    child: BrandMark(
+                      background: palette.route,
+                      ink: palette.onRoute,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Pathwise',
+                    style: palette.theme.textTheme.headlineMedium?.copyWith(
+                      color: palette.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class PathwiseApp extends StatefulWidget {

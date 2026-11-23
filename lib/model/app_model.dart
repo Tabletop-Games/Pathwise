@@ -645,7 +645,6 @@ class AppModel extends ChangeNotifier {
     if (_fallingCrate != crate ||
         _crateRevealed ||
         isDrawing ||
-        complete ||
         !_foreground ||
         storageError)
       return false;
@@ -667,7 +666,6 @@ class AppModel extends ChangeNotifier {
     if (_disposed ||
         !_crateRevealed ||
         _fallingCrate != crate ||
-        complete ||
         storageError ||
         receipt.isEmpty ||
         !_wallet.add(
@@ -701,7 +699,7 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _processCrates({bool completed = false, bool ending = false}) {
+  void _processCrates({bool ending = false}) {
     final now = _bootTime();
     final previous = _crateAnchor;
     final eligible =
@@ -730,7 +728,7 @@ class AppModel extends ChangeNotifier {
       progression.accrueCrateTime(now.milliseconds - previous.milliseconds);
       _unsavedCrateTime += before - progression.crateWait;
     }
-    if (ending || completed) {
+    if (ending) {
       _fallingCrate = null;
       _crateRevealed = false;
     }
@@ -744,7 +742,7 @@ class AppModel extends ChangeNotifier {
       notifyListeners();
     } else if (_unsavedCrateTime >= 10000 &&
         !isDrawing &&
-        !completed &&
+        !complete &&
         !ending) {
       unawaited(flush());
     }
@@ -1532,7 +1530,7 @@ class AppModel extends ChangeNotifier {
   void _edited() {
     _started = true;
     if (_crateAnchor == null || complete) {
-      _processCrates(completed: complete && activeId?.mode != PlayMode.attack);
+      _processCrates();
     }
     _syncClock();
     if (complete) {
