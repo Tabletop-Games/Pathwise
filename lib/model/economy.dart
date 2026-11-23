@@ -20,12 +20,31 @@ class EconomyRules {
     PlayMode.daily => 24,
     PlayMode.expedition || PlayMode.attack => 0,
   };
-  int expeditionReward(int stages, {required bool qualified}) =>
+  int expeditionReward(int trail, int stages, {required bool qualified}) =>
       switch (stages) {
-        3 || 6 => 12,
-        10 when qualified => 36,
+        3 || 6 => trail <= 3 ? 12 : 4,
+        10 when qualified => trail <= 3 ? 36 : 20 + (trail ~/ 10).clamp(0, 12),
         _ => 0,
       };
+
+  int expeditionMilestone(int trail) => switch (trail) {
+    3 => 0, // Basin Gold is the existing reward.
+    10 => 24,
+    25 => 30,
+    50 => 42,
+    100 => 60,
+    _ when trail > 100 && trail % 100 == 0 => 60,
+    _ when trail > 100 && trail % 25 == 0 => 24,
+    _ => 0,
+  };
+  int nextExpeditionMilestone(int trail) => switch (trail) {
+    <= 3 => 3,
+    <= 10 => 10,
+    <= 25 => 25,
+    <= 50 => 50,
+    <= 100 => 100,
+    _ => (trail ~/ 25 + (trail % 25 == 0 ? 0 : 1)) * 25,
+  };
 
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
@@ -41,7 +60,9 @@ class EconomyRules {
     PathwiseTheme.signal => 500,
     PathwiseTheme.koi || PathwiseTheme.crt => 1000,
     PathwiseTheme.neon || PathwiseTheme.gilded => 1500,
-    PathwiseTheme.basinGold => 0,
+    PathwiseTheme.basinGold ||
+    PathwiseTheme.copperSky ||
+    PathwiseTheme.highPass => 0,
   };
 }
 
@@ -84,9 +105,12 @@ final class CoinTransaction {
   };
 }
 
-/// Currency is an append-only ledger. Stable event IDs make retries idempotent.
+/// Stable event IDs make retries idempotent. The Expedition frontier proves
+/// older trail credits are spent opportunities after they leave the ledger.
 final class Wallet {
-  Wallet(Object? saved, DateTime now) {
+  Wallet(Object? saved, DateTime now, {int archivedTrailCoins = 0})
+    : _earned = archivedTrailCoins,
+      _archivedTrailCoins = archivedTrailCoins {
     if (saved is List) {
       for (final row in saved) {
         if (row is! Map)
@@ -114,7 +138,10 @@ final class Wallet {
   }
 
   final _history = <String, CoinTransaction>{};
-  int _earned = 0;
+  int _earned;
+  int _archivedTrailCoins;
+  int get archivedTrailCoins => _archivedTrailCoins;
+  final _recentTrailIds = <String>[];
   int _spent = 0;
   int get earned => _earned;
   int get spent => _spent;
@@ -125,6 +152,13 @@ final class Wallet {
   bool add(String id, String label, int amount, DateTime date) {
     if (contains(id) || balance + amount < 0 || amount == 0) return false;
     _history[id] = CoinTransaction(id, label, amount, date);
+    if (id.startsWith('trail/') && amount > 0) {
+      _recentTrailIds.add(id);
+      if (_recentTrailIds.length > 32) {
+        final removed = _history.remove(_recentTrailIds.removeAt(0))!;
+        _archivedTrailCoins += removed.amount;
+      }
+    }
     if (amount > 0) {
       _earned += amount;
     } else {

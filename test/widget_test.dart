@@ -23,7 +23,8 @@ void main() {
     );
     await tester.tap(find.text('Expedition'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Start Foothills'));
+    await tester.scrollUntilVisible(find.text('Start Foothills'), 200);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Start Foothills'));
     await tester.pumpAndSettle();
     final grid = find.byKey(const ValueKey('puzzle-grid'));
@@ -82,6 +83,45 @@ void main() {
     expect(model.path, [0]);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
+    model.dispose();
+  });
+
+  testWidgets('Expedition wraps large trail numbers and opens indexed replay', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {
+        'expeditionProgress': {
+          'next': 9007199254740991,
+          'claims': 0,
+          'stages': 0,
+          'clean': 0,
+          'qualifiedClean': 0,
+        },
+      },
+      loader: (_) async => fixture(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.scrollUntilVisible(find.text('Expedition'), 160);
+    await tester.tap(find.text('Expedition'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Trail 9007199254740991 ·'), findsOneWidget);
+    await tester.tap(find.byTooltip('Find a trail'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '100000');
+    await tester.pump();
+    await tester.tap(find.text('Show trail'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Trail 100000 ·'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   });
 

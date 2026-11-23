@@ -17,10 +17,16 @@ Future<void> finishStage(AppModel app, {bool missMark = false}) async {
   final stage = app.expedition!.stage;
   await app.open(app.expeditionPuzzle!);
   if (missMark) {
-    switch (FieldMark.at(stage)) {
+    switch (app.expedition!.trail.objectives[stage]) {
       case FieldMark.noHint:
         app.hint();
       case FieldMark.noClear:
+        app.tap(1);
+        app.clear();
+      case FieldMark.noUndo:
+        app.tap(1);
+        app.undo();
+      case FieldMark.clean:
         app.tap(1);
         app.clear();
       case null:
@@ -59,7 +65,7 @@ void main() {
       expect(app.solved, 1);
       await app.flush();
       final saved = await storage.load();
-      expect(saved['schemaVersion'], 5);
+      expect(saved['schemaVersion'], 6);
       expect(saved['attempts'], isNot(contains('endless/2')));
       expect(saved['hintCredits'], isNot(contains('endless/2')));
       app.dispose();
@@ -84,45 +90,50 @@ void main() {
     expect(record.fastest, 300);
   });
 
-  test('a finite qualifying run unlocks the next trail, reward, record and cosmetic', () async {
-    final storage = MemoryStorage();
-    var app = await load(storage);
-    expect(await app.startExpedition(Trail.ridgeline), false);
-    expect(app.ownsTheme(PathwiseTheme.basinGold), false);
-    expect(app.unlockTheme(PathwiseTheme.basinGold), false);
-    for (final trail in Trail.values) {
-      expect(await app.startExpedition(trail), true);
-      expect(await app.startExpedition(trail), false);
+  test(
+    'qualification unlocks the next trail, reward, record and cosmetic',
+    () async {
+      final storage = MemoryStorage();
+      var app = await load(storage);
+      expect(await app.startExpedition(Trail.ridgeline), false);
+      expect(app.ownsTheme(PathwiseTheme.basinGold), false);
+      expect(app.unlockTheme(PathwiseTheme.basinGold), false);
+      for (final trail in [Trail.foothills, Trail.ridgeline, Trail.summit]) {
+        expect(await app.startExpedition(trail), true);
+        expect(await app.startExpedition(trail), false);
+        for (var stage = 0; stage < Trail.stages; stage++) {
+          await finishStage(app);
+        }
+        expect(app.expedition!.outcome, ExpeditionOutcome.qualified);
+        expect(app.expeditionPuzzle, isNull);
+        expect(app.expedition!.marks, {1, 3, 6, 8});
+        expect(app.trailRecord(trail)!.fastest, isNotNull);
+      }
+      expect(app.coinsEarned, 40 + 3 * (12 + 12 + 36) + 30 + 35);
+      expect(app.hasAchievement(Achievement.expeditionClear), true);
+      expect(app.ownsTheme(PathwiseTheme.basinGold), true);
+      expect(app.trailsQualified, 3);
+      expect(await app.flush(), true);
+      app.dispose();
+
+      app = await load(storage);
+      expect(app.ownsTheme(PathwiseTheme.basinGold), true);
+      expect(app.expeditionHistory.length, 3);
+      expect(app.currentTrail, const Trail(4));
+      expect(app.trailUnlocked(const Trail(4)), true);
+      expect((await app.loadTrailRecord(Trail.foothills))!.deepest, 10);
+      expect((await app.loadTrailRecord(Trail.summit))!.marks, 4);
+      final balance = app.coinBalance;
+      expect(await app.startExpedition(Trail.foothills), true);
       for (var stage = 0; stage < Trail.stages; stage++) {
         await finishStage(app);
       }
-      expect(app.expedition!.outcome, ExpeditionOutcome.qualified);
-      expect(app.expeditionPuzzle, isNull);
-      expect(app.expedition!.marks, {1, 3, 6, 8});
-      expect(app.trailRecord(trail)!.fastest, isNotNull);
-    }
-    expect(app.coinsEarned, 40 + 3 * (12 + 12 + 36) + 30 + 35);
-    expect(app.hasAchievement(Achievement.expeditionClear), true);
-    expect(app.ownsTheme(PathwiseTheme.basinGold), true);
-    expect(app.trailsQualified, 3);
-    expect(await app.flush(), true);
-    app.dispose();
-
-    app = await load(storage);
-    expect(app.ownsTheme(PathwiseTheme.basinGold), true);
-    expect(app.expeditionHistory.length, 3);
-    expect(app.trailRecord(Trail.foothills)!.deepest, 10);
-    expect(app.trailRecord(Trail.summit)!.marks, 4);
-    final balance = app.coinBalance;
-    expect(await app.startExpedition(Trail.foothills), true);
-    for (var stage = 0; stage < Trail.stages; stage++) {
-      await finishStage(app);
-    }
-    expect(app.coinBalance, balance);
-    expect(app.expedition!.coins, 0);
-    expect(app.solved, 30);
-    app.dispose();
-  });
+      expect(app.coinBalance, balance);
+      expect(app.expedition!.coins, 0);
+      expect(app.solved, 30);
+      app.dispose();
+    },
+  );
 
   test('missing marks permits all ten solves but does not qualify or pay the finish bonus', () async {
     final app = await load(MemoryStorage());
@@ -134,7 +145,7 @@ void main() {
     expect(app.expedition!.marks, isEmpty);
     expect(app.hintTank, 1);
     expect(app.trailRecord(Trail.foothills)!.fastest, isNull);
-    expect(app.trailRecord(Trail.foothills)!.deepest, 10);
+    expect((await app.loadTrailRecord(Trail.foothills))!.deepest, 10);
     expect(app.trailUnlocked(Trail.ridgeline), false);
     expect(app.coinBalance, 64);
     app.dispose();
@@ -176,7 +187,7 @@ void main() {
       app.dispose();
       app = await load(storage);
       expect(app.expeditionHistory.single.outcome, ExpeditionOutcome.abandoned);
-      expect(app.trailRecord(Trail.foothills)!.deepest, 4);
+      expect((await app.loadTrailRecord(Trail.foothills))!.deepest, 4);
       await app.startExpedition(Trail.foothills);
       expect(app.expeditionPuzzle!.key, isNot(id.key));
       for (var stage = 0; stage < 3; stage++) {
@@ -216,7 +227,7 @@ void main() {
   test(
     'later stages use larger boards and sparser clues with stable run seeds',
     () {
-      for (final trail in Trail.values) {
+      for (final trail in [Trail.foothills, Trail.ridgeline, Trail.summit]) {
         final first = PuzzleId.expedition(trail, 0, 0).generation;
         final next = PuzzleId.expedition(trail, 0, 1).generation;
         final last = PuzzleId.expedition(trail, 0, 9).generation;

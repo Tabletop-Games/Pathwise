@@ -30,6 +30,9 @@ class PuzzleView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     final puzzle = model.puzzle;
     final timed = id.mode == PlayMode.attack;
+    if (id.mode == PlayMode.expedition && model.expeditionSaving) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (timed && model.attack?.finished == true)
       return _AttackResults(model: model);
     return Scaffold(
@@ -115,7 +118,9 @@ class PuzzleView extends StatelessWidget {
                             'Stage ${id.expedition.stage + 1}/10 · ${model.expedition!.marks.length}/4 field marks',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          if (FieldMark.at(id.expedition.stage)
+                          if (id.expedition.trail.objectives[id
+                                  .expedition
+                                  .stage]
                               case final mark?)
                             Text(
                               model.complete
@@ -124,10 +129,11 @@ class PuzzleView extends StatelessWidget {
                                         )
                                         ? 'Field mark earned'
                                         : 'Field mark missed'
-                                  : (mark == FieldMark.noHint &&
-                                            model.freeHints < 3) ||
-                                        (mark == FieldMark.noClear &&
-                                            model.expedition!.usedClear)
+                                  : !mark.earned(
+                                      hint: model.freeHints < 3,
+                                      clear: model.expedition!.usedClear,
+                                      undo: model.expedition!.usedUndo,
+                                    )
                                   ? 'Field mark missed · Keep going'
                                   : 'Field mark · ${mark.label}',
                               style: TextStyle(color: palette.muted),
@@ -288,9 +294,28 @@ class _Completion extends StatelessWidget {
       return Column(
         children: [
           ExpeditionSummary(run: run),
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Back to trails'),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              if (run.outcome == ExpeditionOutcome.qualified)
+                FilledButton(
+                  onPressed: () async {
+                    if (await model.startExpedition(
+                          model.currentTrail,
+                          fromSummary: true,
+                        ) &&
+                        model.activeId == id) {
+                      await model.open(model.expeditionPuzzle!);
+                    }
+                  },
+                  child: Text('Continue to Trail ${model.currentTrail.number}'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Back to trails'),
+              ),
+            ],
           ),
         ],
       );

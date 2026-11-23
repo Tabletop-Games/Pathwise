@@ -129,7 +129,7 @@ void main() {
     model.close();
     await model.flush();
     final snapshot = await store.load();
-    expect(snapshot['schemaVersion'], 5);
+    expect(snapshot['schemaVersion'], 6);
     final restored = create(store, snapshot);
     expect(restored.coinBalance, economy.starterCoins);
     expect(restored.highestUnlocked, 37);
