@@ -2,30 +2,13 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../model/expedition.dart';
-import 'trail_record_storage.dart';
-
 /// A single versioned snapshot keeps completion records and resume data in sync.
 class GameStateStorage {
-  GameStateStorage([this._injected, this._trailStorage]);
-
-  final TrailRecordStorage? _trailStorage;
-  final _inMemoryTrails = <Trail, TrailRecord>{};
-
-  Future<TrailRecord?> readTrail(Trail trail) async => _trailStorage == null
-      ? _inMemoryTrails[trail]
-      : _trailStorage.read(trail);
-
-  Future<TrailRecord> mergeTrail(Trail trail, TrailRecord candidate) async {
-    if (_trailStorage != null) return _trailStorage.merge(trail, candidate);
-    final record = _inMemoryTrails.putIfAbsent(trail, TrailRecord.new);
-    record.merge(candidate);
-    return record;
-  }
+  GameStateStorage([this._injected]);
 
   final SharedPreferencesAsync? _injected;
   late final _preferences = _injected ?? SharedPreferencesAsync();
-  static const schemaVersion = 8;
+  static const schemaVersion = 9;
   static const _key = 'pathwise.save.v1';
   bool _loaded = false;
 
@@ -45,6 +28,7 @@ class GameStateStorage {
             decoded['schemaVersion'] != 5 &&
             decoded['schemaVersion'] != 6 &&
             decoded['schemaVersion'] != 7 &&
+            decoded['schemaVersion'] != 8 &&
             decoded['schemaVersion'] != schemaVersion)) {
       throw const FormatException('Unsupported saved progress');
     }

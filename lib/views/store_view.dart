@@ -59,8 +59,7 @@ class _StoreViewState extends State<StoreView> {
                 children: [
                   _ThemePreview(theme: preview, palette: palette),
                   if (model.earnedTheme(preview) &&
-                      (preview.expeditionTrail != null ||
-                          economy.themePrice(preview) >= 4500))
+                      economy.themePrice(preview) >= 4500)
                     ShareResultButton(
                       result: ShareResult.cosmetic(preview.label),
                       label: 'Share Theme Discovery',
@@ -86,8 +85,6 @@ class _StoreViewState extends State<StoreView> {
                               ? 'Equipped'
                               : model.ownsTheme(theme)
                               ? 'Owned'
-                              : theme.expeditionTrail != null
-                              ? 'Qualify on Trail ${theme.expeditionTrail} to earn'
                               : '${economy.themePrice(theme)} coins',
                         ),
                         trailing: model.theme == theme
@@ -95,15 +92,9 @@ class _StoreViewState extends State<StoreView> {
                             : TextButton(
                                 onPressed: model.ownsTheme(theme)
                                     ? () => model.setTheme(theme)
-                                    : theme.expeditionTrail != null
-                                    ? null
                                     : () => _confirm(context, model, theme),
                                 child: Text(
-                                  model.ownsTheme(theme)
-                                      ? 'Equip'
-                                      : theme.expeditionTrail != null
-                                      ? 'Trail reward'
-                                      : 'Unlock',
+                                  model.ownsTheme(theme) ? 'Equip' : 'Unlock',
                                 ),
                               ),
                       ),

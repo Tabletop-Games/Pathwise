@@ -1,5 +1,12 @@
 # Changelog
 
+## Gameplay and rewards refinement
+
+- Award supply crates on completion and from accumulated play. Keep unopened crates across restarts.
+- Replace the Fortune Wheel with six equal coin wedges, weighted rewards and a precise landing animation.
+- Retire Expedition and Field Notes. Preserve accumulated balances, lifetime stats and owned themes. Refund purchases for removed progression upgrades from the saved ledger.
+- Redesign Research and Boosts and reduce the Android launcher's central mark by 12%.
+
 ## 1.0.0 — First public release line
 
 - Add text-only sharing for Daily Challenge, Time Attack, Expedition, level milestones, achievements and selected Research and theme discoveries. Messages preview real results and the canonical Google Play link before opening Android or a supported destination.

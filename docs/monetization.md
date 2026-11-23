@@ -4,7 +4,7 @@ Production capability flags default off. The publisher enters app and unit ident
 
 | Format | Placement | Eligibility |
 | --- | --- | --- |
-| Anchored adaptive banner | Level selector and puzzle scaffold, including Time Attack and Expedition | Configured unit and UMP permission. Hidden for Remove Ads and Premium. |
+| Anchored adaptive banner | Level selector and puzzle scaffold, including Time Attack | Configured unit and UMP permission. Hidden for Remove Ads and Premium. |
 | Interstitial | Exit following a completed Level or Daily puzzle | Five qualifying exits, at least four minutes between impressions, one minute after rewarded ads, current route resumed and no active puzzle. Hidden for Remove Ads and Premium. |
 | Rewarded refill | Refill Hints | Tank below capacity. Restores exactly 3/3. |
 | Rewarded extra hint | Extra Hint dialog | Three standard hints already spent. One further hint. |

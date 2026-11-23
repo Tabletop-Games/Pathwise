@@ -18,34 +18,8 @@ class EconomyRules {
   int clearReward(PlayMode mode) => switch (mode) {
     PlayMode.levels => 12,
     PlayMode.daily => 24,
-    PlayMode.expedition || PlayMode.attack => 0,
+    PlayMode.attack => 0,
   };
-  int expeditionReward(int trail, int stages, {required bool qualified}) =>
-      switch (stages) {
-        3 || 6 => trail <= 3 ? 12 : 4,
-        10 when qualified => trail <= 3 ? 36 : 20 + (trail ~/ 10).clamp(0, 12),
-        _ => 0,
-      };
-
-  int expeditionMilestone(int trail) => switch (trail) {
-    3 => 0, // Basin Gold is the existing reward.
-    10 => 24,
-    25 => 30,
-    50 => 42,
-    100 => 60,
-    _ when trail > 100 && trail % 100 == 0 => 60,
-    _ when trail > 100 && trail % 25 == 0 => 24,
-    _ => 0,
-  };
-  int nextExpeditionMilestone(int trail) => switch (trail) {
-    <= 3 => 3,
-    <= 10 => 10,
-    <= 25 => 25,
-    <= 50 => 50,
-    <= 100 => 100,
-    _ => (trail ~/ 25 + (trail % 25 == 0 ? 0 : 1)) * 25,
-  };
-
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
     PathwiseTheme.blackwater ||
@@ -61,9 +35,9 @@ class EconomyRules {
     PathwiseTheme.koi || PathwiseTheme.crt => 1000,
     PathwiseTheme.neon => 30000,
     PathwiseTheme.gilded => 60000,
-    PathwiseTheme.basinGold ||
-    PathwiseTheme.copperSky ||
-    PathwiseTheme.highPass => 0,
+    PathwiseTheme.basinGold => 1000,
+    PathwiseTheme.copperSky => 4500,
+    PathwiseTheme.highPass => 12000,
   };
 }
 
@@ -81,13 +55,7 @@ enum Achievement {
   fiveHundred('Navigator', 'Clear 500 levels', 250),
   thousand('Trail legend', 'Clear 1,000 levels', 500),
   researcher('Applied research', 'Buy 10 research ranks', 50),
-  legendaryCrate('Legendary supply', 'Collect a legendary crate', 60),
-  expeditionClear('Field guide', 'Qualify on an expedition trail', 30),
-  cleanTrail(
-    'Surefooted',
-    'Solve all stages on Trail 10 or later without Hint, Clear or Undo',
-    45,
-  );
+  legendaryCrate('Legendary supply', 'Collect a legendary crate', 60);
 
   const Achievement(this.title, this.description, this.coins);
   final String title;
@@ -111,12 +79,11 @@ final class CoinTransaction {
   };
 }
 
-/// Stable event IDs make retries idempotent. The Expedition frontier proves
-/// older trail credits are spent opportunities after they leave the ledger.
+/// Stable event IDs make retries idempotent. Archived credits remain part of the balance.
 final class Wallet {
-  Wallet(Object? saved, DateTime now, {int archivedTrailCoins = 0})
-    : _earned = archivedTrailCoins,
-      _archivedTrailCoins = archivedTrailCoins {
+  Wallet(Object? saved, DateTime now, {int archivedCoins = 0})
+    : _earned = archivedCoins,
+      _archivedCoins = archivedCoins {
     if (saved is List) {
       for (final row in saved) {
         if (row is! Map)
@@ -145,9 +112,9 @@ final class Wallet {
 
   final _history = <String, CoinTransaction>{};
   int _earned;
-  int _archivedTrailCoins;
-  int get archivedTrailCoins => _archivedTrailCoins;
-  final _recentTrailIds = <String>[];
+  int _archivedCoins;
+  int get archivedCoins => _archivedCoins;
+  final _recentRewardIds = <String>[];
   int _spent = 0;
   int get earned => _earned;
   int get spent => _spent;
@@ -162,10 +129,10 @@ final class Wallet {
             id.startsWith('wheel/') ||
             id.startsWith('notes/')) &&
         amount > 0) {
-      _recentTrailIds.add(id);
-      if (_recentTrailIds.length > 32) {
-        final removed = _history.remove(_recentTrailIds.removeAt(0))!;
-        _archivedTrailCoins += removed.amount;
+      _recentRewardIds.add(id);
+      if (_recentRewardIds.length > 32) {
+        final removed = _history.remove(_recentRewardIds.removeAt(0))!;
+        _archivedCoins += removed.amount;
       }
     }
     if (amount > 0) {

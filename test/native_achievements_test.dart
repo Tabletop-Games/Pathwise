@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import '../lib/logic/achievement_sync.dart';
 import '../lib/model/app_model.dart';
-import '../lib/model/expedition.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/native_achievements.dart';
 import '../lib/model/progression.dart';
@@ -14,7 +13,6 @@ import '../lib/model/time_attack.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/views/play_games_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
-import 'expedition_test.dart' show finishStage;
 
 class GamesFake extends PlayAchievementGateway {
   String? player;
@@ -77,7 +75,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('catalog limits, reachable prices and hidden eligibility', () {
-    expect(nativeAchievements.length, inInclusiveRange(30, 40));
+    expect(nativeAchievements, hasLength(29));
     expect(
       nativeAchievements.map((item) => item.id).toSet(),
       hasLength(nativeAchievements.length),
@@ -172,28 +170,6 @@ void main() {
     resumed.daily('2026-11-22', (boot: 3, milliseconds: 80000000));
     expect(resumed.eligibleDailies, 2);
   });
-
-  test(
-    'expedition and cosmetic metrics derive from first qualification',
-    () async {
-      final app = AppModel(
-        storage: MemoryStorage(),
-        snapshot: {},
-        loader: (_) async => fixture(),
-      );
-      for (var run = 0; run < 2; run++) {
-        expect(await app.startExpedition(Trail.foothills), true);
-        for (var stage = 0; stage < Trail.stages; stage++) {
-          await finishStage(app);
-        }
-        expect(app.achievementCounters[AchievementMetric.trails], 1);
-        expect(app.achievementCounters[AchievementMetric.perfectTrails], 1);
-        expect(app.achievementCounters[AchievementMetric.themes], 0);
-      }
-      await app.flush();
-      app.dispose();
-    },
-  );
 
   test('research and theme purchases count, permanent theme passes grant no progress', () async {
     final app = AppModel(storage: MemoryStorage(), snapshot: {});

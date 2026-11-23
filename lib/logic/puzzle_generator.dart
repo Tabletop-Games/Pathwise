@@ -76,28 +76,3 @@ VerifiedPuzzle generatePuzzle(({int size, int seed, int clues}) request) {
   }
   return VerifiedPuzzle(certified, proof.first!);
 }
-
-/// Prefer a certified layout with longer deductions, within the normal search
-/// budget per attempt. The cap avoids selecting extreme gaps just for length.
-VerifiedPuzzle generateExpeditionPuzzle(
-  ({int size, int seed, int clues}) request,
-) {
-  final first = generatePuzzle(request);
-  final second = generatePuzzle((
-    size: request.size,
-    seed: request.seed ^ 0x49bfa12d,
-    clues: request.clues,
-  ));
-  int score(VerifiedPuzzle board) {
-    final checkpoints = board.puzzle.checkpoints;
-    final positions = {for (final (i, cell) in board.solution.indexed) cell: i};
-    var deductions = 0;
-    for (var i = 1; i < checkpoints.length; i++) {
-      final gap = positions[checkpoints[i]]! - positions[checkpoints[i - 1]]!;
-      deductions += gap.clamp(1, 10) * gap.clamp(1, 10);
-    }
-    return deductions;
-  }
-
-  return score(second) > score(first) ? second : first;
-}

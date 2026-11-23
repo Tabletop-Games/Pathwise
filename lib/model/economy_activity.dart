@@ -8,10 +8,7 @@ enum EconomyEvent {
   researchUnavailable('Unaffordable next ranks seen'),
   themeBought('Themes purchased'),
   boostBought('Boosts purchased'),
-  crateCollected('Crates collected'),
-  noteCompleted('Field Notes objectives completed'),
-  trailMilestone('Expedition milestones'),
-  trailAbandoned('Expeditions abandoned');
+  crateCollected('Crates collected');
 
   const EconomyEvent(this.label);
   final String label;

@@ -6,9 +6,9 @@ Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continu
 
 Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. The shared hint tank starts at 3/3. Refill it with coins or a verified rewarded ad. Fourth and subsequent hints on any puzzle each require their own rewarded ad, including for Premium players. A finished route shows its time, personal best, and earned coins.
 
-The first public release line is **1.0.0**. Play the infinite level campaign, daily boards, Expedition and Time Attack offline. Expedition advances through procedural ten-stage trails with field marks, recurring milestones, and resumable offline runs. Spend earned coins on permanent Research, timed Boosts and themes. Free supply crates appear between gestures during eligible play. Fortune Wheel and Field Notes add free daily and weekly rewards. [Economy and progression](docs/economy.md) [Game modes](docs/game-modes.md)
+Play unlimited Levels, Daily Challenge, and Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Supply crates earned during play stay in your inventory until opened. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
 
-Share text results for Daily Challenge, Time Attack, Expedition and progression milestones. Earn 37 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) [Google Play achievements](docs/google-play-achievements.md)
+Share text results for Daily Challenge, Time Attack and progression milestones. Earn 29 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) · [Google Play achievements](docs/google-play-achievements.md)
 
 Google Play Billing, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 

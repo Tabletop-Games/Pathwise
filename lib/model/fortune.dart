@@ -1,15 +1,13 @@
 import 'dart:convert';
 
-import 'progression.dart';
 import 'time_attack.dart';
 
 const fortuneWindowMs = 24 * 60 * 60 * 1000;
 
 final class FortunePrize {
-  const FortunePrize(this.id, this.label, this.weight, this.coins, this.boost);
+  const FortunePrize(this.id, this.label, this.weight, this.coins);
   final String id, label;
   final int weight, coins;
-  final Boost? boost;
 }
 
 final class FortuneCatalog {
@@ -21,15 +19,13 @@ final class FortuneCatalog {
             row['label'] as String,
             row['weight'] as int,
             row['coins'] as int,
-            row['boost'] == null
-                ? null
-                : Boost.values.byName(row['boost'] as String),
           ),
         ),
       ) {
-    if (prizes.fold(0, (sum, prize) => sum + prize.weight) != 100 ||
+    if (prizes.length != segmentCount ||
+        prizes.fold(0, (sum, prize) => sum + prize.weight) != 100 ||
         prizes.map((prize) => prize.id).toSet().length != prizes.length ||
-        prizes.any((prize) => prize.weight <= 0 || prize.coins < 0)) {
+        prizes.any((prize) => prize.weight <= 0 || prize.coins <= 0)) {
       throw const FormatException('Invalid Fortune Wheel catalog');
     }
   }
@@ -45,19 +41,26 @@ final class FortuneCatalog {
     });
   }
 
+  static const segmentCount = 6;
+  static const segmentTurns = 1 / segmentCount;
+
   double center(FortunePrize prize) {
-    var start = 0;
-    for (final item in prizes) {
-      if (item.id == prize.id) return (start + item.weight / 2) / 100;
-      start += item.weight;
-    }
-    throw ArgumentError.value(prize.id);
+    final index = prizes.indexWhere((item) => item.id == prize.id);
+    if (index < 0) throw ArgumentError.value(prize.id);
+    return (index + .5) * segmentTurns;
   }
+
+  double destination(double current, FortunePrize prize, {int rotations = 5}) =>
+      current + rotations + ((1 - center(prize) - current) % 1);
+
+  FortunePrize atPointer(double rotation) =>
+      prizes[(((-rotation) % 1) * segmentCount).floor() % segmentCount];
 }
 
 final class FortuneStatus {
   FortuneStatus.fromJson(Map data)
-    : now = data['now'] as int,
+    : version = data['version'] as int? ?? 1,
+      now = data['now'] as int,
       stamps = List<int>.from(data['stamps'] as List),
       counts = Map<String, int>.from(data['counts'] as Map),
       last = data['last'] as String?,
@@ -69,7 +72,7 @@ final class FortuneStatus {
     }
   }
 
-  final int now;
+  final int version, now;
   final List<int> stamps;
   final Map<String, int> counts;
   final String? last, receipt;

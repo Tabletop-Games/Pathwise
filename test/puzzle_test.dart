@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import '../lib/logic/puzzle.dart';
 import '../lib/logic/puzzle_generator.dart';
 import '../lib/logic/puzzle_solver.dart';
-import '../lib/model/expedition.dart';
 import '../lib/model/game_state.dart';
 
 /// Independent reference with coordinates and a Set, no pruning or engine rules.
@@ -116,15 +115,13 @@ void main() {
   });
 
   test(
-    'daily and expedition generation is deterministic across sizes and dates',
+    'daily and timed generation is deterministic across sizes and dates',
     () {
       for (final id in [
         for (var day = 1; day <= 8; day++)
           PuzzleId.daily(dayKey(DateTime(2026, 11, day))),
-        for (final trail in [Trail.foothills, Trail.ridgeline, Trail.summit])
-          for (final serial in [0, 5])
-            for (var stage = 0; stage < Trail.stages; stage++)
-              PuzzleId.expedition(trail, serial, stage),
+        for (var stage = 0; stage < 12; stage++)
+          PuzzleId.attack('session/$stage'),
       ]) {
         final a = generatePuzzle(id.generation);
         final b = generatePuzzle(id.generation);

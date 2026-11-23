@@ -7,12 +7,11 @@ import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
-import '../model/expedition.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
 import 'components/brand_mark.dart';
 import 'components/puzzle_board.dart';
-import 'expedition_view.dart';
+import 'crates_view.dart';
 import 'share_view.dart';
 
 String formatTime(Duration value) {
@@ -32,9 +31,6 @@ class PuzzleView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     final puzzle = model.puzzle;
     final timed = id.mode == PlayMode.attack;
-    if (id.mode == PlayMode.expedition && model.expeditionSaving) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
     if (timed && model.attack?.finished == true)
       return _AttackResults(model: model);
     return Scaffold(
@@ -115,33 +111,6 @@ class PuzzleView extends StatelessWidget {
                             '${model.attack!.clears.length} solved · ${model.attack!.score} points',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                        if (id.mode == PlayMode.expedition) ...[
-                          Text(
-                            'Stage ${id.expedition.stage + 1}/10 · ${model.expedition!.marks.length}/4 field marks',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          if (id.expedition.trail.objectives[id
-                                  .expedition
-                                  .stage]
-                              case final mark?)
-                            Text(
-                              model.complete
-                                  ? model.expedition!.marks.contains(
-                                          id.expedition.stage,
-                                        )
-                                        ? 'Field mark earned'
-                                        : 'Field mark missed'
-                                  : !mark.earned(
-                                      hint: model.freeHints < 3,
-                                      clear: model.expedition!.usedClear,
-                                      undo: model.expedition!.usedUndo,
-                                    )
-                                  ? 'Field mark missed · Keep going'
-                                  : 'Field mark · ${mark.label}',
-                              style: TextStyle(color: palette.muted),
-                            ),
-                          const SizedBox(height: 8),
-                        ],
                         if (id.mode == PlayMode.daily)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -198,7 +167,11 @@ class PuzzleView extends StatelessWidget {
                             _HintAction(model: model),
                           ],
                         ),
-                        _CrateTray(model: model),
+                        if (!timed)
+                          const SizedBox(
+                            height: 52,
+                            child: Center(child: CrateAccess()),
+                          ),
                         const SizedBox(height: 12),
                         SizedBox(
                           width: side,
@@ -287,42 +260,8 @@ class _Completion extends StatelessWidget {
       PlayMode.levels when model.canPlayLevel(id.level + 1) => PuzzleId.level(
         id.level + 1,
       ),
-      PlayMode.expedition => model.expeditionPuzzle,
       _ => null,
     };
-    final expedition = id.mode == PlayMode.expedition;
-    final run = expedition ? model.expedition : null;
-    if (run != null && !run.active) {
-      return Column(
-        children: [
-          ExpeditionSummary(run: run),
-          AchievementCelebration(model),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            children: [
-              if (run.outcome == ExpeditionOutcome.qualified)
-                FilledButton(
-                  onPressed: () async {
-                    if (await model.startExpedition(
-                          model.currentTrail,
-                          fromSummary: true,
-                        ) &&
-                        model.activeId == id) {
-                      await model.open(model.expeditionPuzzle!);
-                    }
-                  },
-                  child: Text('Continue to Trail ${model.currentTrail.number}'),
-                ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Back to trails'),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
     final best =
         model.result(id)?.milliseconds ?? model.elapsed.value.inMilliseconds;
     final hints = model.hintsUsed;
@@ -365,10 +304,9 @@ class _Completion extends StatelessWidget {
               spacing: 13,
               runSpacing: 6,
               children: [
-                if (!expedition)
-                  Text(
-                    '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
-                  ),
+                Text(
+                  '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
+                ),
                 Text(
                   model.lastReward > 0
                       ? '+${model.lastReward} coins'
@@ -407,20 +345,13 @@ class _Completion extends StatelessWidget {
                   ),
                 if (next != null)
                   FilledButton(
-                    onPressed: () async {
-                      if (!expedition || await model.flush()) {
-                        if (context.mounted && model.activeId == id) {
-                          await model.open(next);
-                        }
-                      }
-                    },
-                    child: Text(expedition ? 'Next stage' : 'Next level'),
+                    onPressed: () => model.open(next),
+                    child: const Text('Next level'),
                   ),
-                if (!expedition)
-                  OutlinedButton(
-                    onPressed: () => model.open(id, replay: true),
-                    child: const Text('Replay'),
-                  ),
+                OutlinedButton(
+                  onPressed: () => model.open(id, replay: true),
+                  child: const Text('Replay'),
+                ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
@@ -654,71 +585,6 @@ class _AttackResults extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CrateTray extends StatefulWidget {
-  const _CrateTray({required this.model});
-  final AppModel model;
-
-  @override
-  State<_CrateTray> createState() => _CrateTrayState();
-}
-
-class _CrateTrayState extends State<_CrateTray> {
-  int? _collected;
-
-  @override
-  Widget build(BuildContext context) {
-    final model = widget.model;
-    if (model.activeId?.mode == PlayMode.attack) return const SizedBox.shrink();
-    final crate = model.supplyCrate;
-    final reduce = MediaQuery.disableAnimationsOf(context);
-    return SizedBox(
-      height: 42,
-      child: ClipRect(
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: reduce
-                ? Duration.zero
-                : const Duration(milliseconds: 450),
-            transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween(begin: const Offset(0, -1.3), end: Offset.zero)
-                  .animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutBack,
-                    ),
-                  ),
-              child: FadeTransition(opacity: animation, child: child),
-            ),
-            child: model.complete
-                ? const SizedBox.shrink()
-                : _collected != null
-                ? Semantics(
-                    liveRegion: true,
-                    child: Text('Supply crate opened · +$_collected coins'),
-                  )
-                : crate == null
-                ? const SizedBox.shrink()
-                : TextButton.icon(
-                    key: ValueKey(crate.id),
-                    icon: const Icon(Icons.inventory_2_outlined),
-                    label: Text(
-                      '${crate.rarity.name[0].toUpperCase()}${crate.rarity.name.substring(1)} supply crate',
-                    ),
-                    onPressed: () {
-                      if (!model.claimCrate(crate.id)) return;
-                      setState(() => _collected = crate.coins);
-                      Future<void>.delayed(const Duration(seconds: 2), () {
-                        if (mounted) setState(() => _collected = null);
-                      });
-                    },
-                  ),
           ),
         ),
       ),

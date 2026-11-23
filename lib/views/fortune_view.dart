@@ -23,32 +23,46 @@ class _FortuneViewState extends State<FortuneView> {
   Timer? _ticker;
   FortuneStatus? _status;
   BootTime? _receiptClock;
-  FortunePrize? _reveal;
-  FortunePrize? _pending;
+  FortunePrize? _reveal, _pending;
   double _rotation = 0;
-  bool _working = false;
+  bool _working = false, _checkingVideos = false;
+  int _availabilityTicks = 0;
 
   @override
   void initState() {
     super.initState();
-    _catalog = rootBundle
-        .loadString('backend/fortune-prizes.json')
-        .then(FortuneCatalog.new);
+    _catalog = loadFortuneCatalog();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      setState(() {});
+      if (++_availabilityTicks % 30 == 0) unawaited(_refreshVideos());
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_current()) return;
       context.read<AppModel>().recordActivity(EconomyEvent.wheelOpened);
-      final ads = context.read<AdService>();
-      if (!ads.wheelConfigured) return;
-      unawaited(ads.prepare(canPresent: _current));
-      final catalog = await _catalog;
-      if (mounted) await _sync(catalog);
+      unawaited(_refreshVideos());
     });
   }
 
-  bool _current() => mounted && ModalRoute.isCurrentOf(context) == true;
+  Future<void> _refreshVideos() async {
+    if (!_current() || _working || _pending != null || _checkingVideos) return;
+    final ads = context.read<AdService>();
+    if (!ads.wheelConfigured) return;
+    _checkingVideos = true;
+    try {
+      unawaited(ads.prepare(canPresent: _current));
+      await _sync(await _catalog);
+    } catch (_) {
+      // A catalog failure is shown by the main screen.
+    } finally {
+      _checkingVideos = false;
+    }
+  }
+
+  bool _current() =>
+      mounted &&
+      ModalRoute.isCurrentOf(context) == true &&
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
 
   @override
   void dispose() {
@@ -61,13 +75,22 @@ class _FortuneViewState extends State<FortuneView> {
     final ads = context.read<AdService>();
     final model = context.read<AppModel>();
     final data = await ads.verifier?.fortune();
-    if (data == null) return false;
+    if (data == null) {
+      if (mounted) setState(() => _status = null);
+      return false;
+    }
     final FortuneStatus status;
     try {
       status = FortuneStatus.fromJson(data);
+      if (status.version != 2) {
+        if (mounted) setState(() => _status = null);
+        return false;
+      }
     } on FormatException {
+      if (mounted) setState(() => _status = null);
       return false;
     } on TypeError {
+      if (mounted) setState(() => _status = null);
       return false;
     }
     final saved = await model.applyVerifiedFortune(catalog, status);
@@ -76,73 +99,77 @@ class _FortuneViewState extends State<FortuneView> {
       _status = status;
       _receiptClock = model.fortuneClock;
     });
-    if (saved && status.last != null) {
+    if (saved && receipt != null && receipt == status.receipt) {
       final prize = catalog.prizes
           .where((item) => item.id == status.last)
           .firstOrNull;
-      if (prize == null) return saved;
-      if (receipt != null && receipt == status.receipt) {
-        _show(catalog, prize);
-      } else {
-        setState(() => _reveal = prize);
-      }
+      if (prize != null) _show(catalog, prize);
     }
     return saved;
   }
 
-  Future<void> _free(FortuneCatalog catalog) async {
+  Future<void> _spin(FortuneCatalog catalog, {bool video = false}) async {
+    if (_working || _pending != null) return;
     final model = context.read<AppModel>();
     setState(() => _working = true);
-    final prize = await model.spinFreeFortune(catalog);
-    if (!mounted) return;
-    setState(() => _working = false);
-    if (prize != null) _show(catalog, prize);
-  }
-
-  Future<void> _video(FortuneCatalog catalog) async {
-    final ads = context.read<AdService>();
-    context.read<AppModel>().recordActivity(EconomyEvent.wheelRequested);
-    final shown = await ads.watchVideo(
-      (receipt) => _sync(catalog, receipt: receipt),
-      placement: RewardPlacement.wheel,
-      canPresent: _current,
-    );
-    if (!shown && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A wheel video is unavailable.')),
-      );
+    try {
+      if (video) {
+        model.recordActivity(EconomyEvent.wheelRequested);
+        final shown = await context.read<AdService>().watchVideo(
+          (receipt) => _sync(catalog, receipt: receipt),
+          placement: RewardPlacement.wheel,
+          canPresent: _current,
+          waitForReward: true,
+        );
+        if (!shown && mounted) setState(() => _status = null);
+      } else {
+        final prize = await model.spinFreeFortune(catalog);
+        if (mounted && prize != null) _show(catalog, prize);
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
     }
   }
 
   void _show(FortuneCatalog catalog, FortunePrize prize) {
-    final destination = 1 - catalog.center(prize);
-    context.read<AppModel>().haptic.selection();
+    final haptic = context.read<AppModel>().haptic;
+    haptic.selection();
     final reduced = MediaQuery.disableAnimationsOf(context);
     setState(() {
-      _rotation += (reduced ? 0 : 5) + ((destination - _rotation % 1) % 1);
+      _rotation = catalog.destination(
+        _rotation,
+        prize,
+        rotations: reduced ? 0 : 5,
+      );
       _reveal = reduced ? prize : null;
       _pending = reduced ? null : prize;
     });
-    if (reduced) context.read<AppModel>().haptic.complete();
+    if (reduced) haptic.complete();
   }
 
   String _countdown(int wait) {
-    final minutes = (wait + 59999) ~/ 60000;
-    return '${minutes ~/ 60}h ${minutes % 60}m';
+    final seconds = (wait + 999) ~/ 1000;
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds ~/ 60) % 60;
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m ${seconds % 60}s';
   }
 
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final ads = context.watch<AdService>();
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final wait = model.fortuneWait;
     final boot = model.fortuneClock;
     final anchor = _receiptClock;
     final elapsed = boot != null && anchor != null && boot.boot == anchor.boot
         ? boot.milliseconds - anchor.milliseconds
         : 0;
-    final remaining = _status?.remaining(elapsed);
+    final remaining = _status?.remaining(elapsed) ?? 0;
+    final showVideo =
+        ads.wheelConfigured &&
+        ads.readyFor(RewardPlacement.wheel) &&
+        remaining > 0;
     final busy = _working || _pending != null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     return Scaffold(
@@ -154,129 +181,128 @@ class _FortuneViewState extends State<FortuneView> {
             final catalog = snapshot.data;
             if (snapshot.hasError) {
               return const Center(
-                child: Text('The wheel catalog could not be loaded.'),
+                child: Text('The wheel could not be loaded.'),
               );
             }
             if (catalog == null) {
               return const Center(child: CircularProgressIndicator());
             }
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 286),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        alignment: Alignment.topCenter,
-                        children: [
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0, end: _rotation),
-                            duration: reduced
-                                ? Duration.zero
-                                : const Duration(milliseconds: 2700),
-                            curve: Curves.easeInOutCubic,
-                            onEnd: () {
-                              if (_pending == null) return;
-                              setState(() {
-                                _reveal = _pending;
-                                _pending = null;
-                              });
-                              model.haptic.complete();
-                            },
-                            builder: (_, turns, _) => CustomPaint(
-                              painter: _WheelPainter(catalog, colors, turns),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.topCenter,
-                            child: Icon(
-                              Icons.arrow_drop_down_rounded,
-                              size: 42,
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          Center(
-                            child: CircleAvatar(
-                              backgroundColor: colors.surface,
-                              child: Icon(
-                                Icons.auto_awesome,
-                                color: colors.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: reduced
-                      ? Duration.zero
-                      : const Duration(milliseconds: 260),
-                  child: Text(
-                    _reveal?.label ?? 'One free spin every 24 hours',
-                    key: ValueKey(_reveal?.id),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  runSpacing: 8,
-                  spacing: 8,
-                  alignment: WrapAlignment.center,
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   children: [
-                    FilledButton(
-                      onPressed: !busy && wait == 0 && !model.storageError
-                          ? () => _free(catalog)
-                          : null,
-                      child: Text(
-                        wait > 0 ? 'Free in ${_countdown(wait)}' : 'Free spin',
+                    Center(
+                      child: Chip(
+                        avatar: const Icon(Icons.toll_rounded, size: 19),
+                        label: Text('${model.coinBalance} coins'),
                       ),
                     ),
-                    OutlinedButton(
-                      onPressed: ads.wheelConfigured && !busy && remaining != 0
-                          ? () => _video(catalog)
-                          : null,
-                      child: const Text('Watch for a spin'),
+                    const SizedBox(height: 14),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 340),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Semantics(
+                            label: 'Coin wheel. Rewards 8, 16, 28, 48, 80, and 160 coins.',
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0, end: _rotation),
+                                  duration: reduced
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 3200),
+                                  curve: Curves.easeInOutCubic,
+                                  onEnd: () {
+                                    if (_pending == null) return;
+                                    setState(() {
+                                      _reveal = _pending;
+                                      _pending = null;
+                                    });
+                                    model.haptic.complete();
+                                  },
+                                  builder: (_, turns, _) => RepaintBoundary(
+                                    child: CustomPaint(
+                                      painter: _WheelPainter(catalog, turns),
+                                    ),
+                                  ),
+                                ),
+                                const Align(
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 27,
+                                    child: CustomPaint(
+                                      painter: _PointerPainter(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                    const SizedBox(height: 14),
+                    Semantics(
+                      liveRegion: true,
+                      child: AnimatedSwitcher(
+                        duration: reduced
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        child: Text(
+                          _pending != null
+                              ? 'Spinning…'
+                              : _reveal != null
+                              ? '+${_reveal!.coins} coins'
+                              : 'One free spin every 24 hours',
+                          key: ValueKey((_pending?.id, _reveal?.id)),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      onPressed: !busy && wait == 0 && !model.storageError
+                          ? () => _spin(catalog)
+                          : null,
+                      icon: const Icon(Icons.rotate_right_rounded),
+                      label: Text(
+                        wait > 0
+                            ? 'Next free spin in ${_countdown(wait)}'
+                            : 'Free spin',
+                      ),
+                    ),
+                    if (wait < 0)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'The device clock is temporarily unavailable.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    if (showVideo) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: busy
+                            ? null
+                            : () => _spin(catalog, video: true),
+                        child: Text('Watch for a spin · $remaining left'),
+                      ),
+                    ],
                   ],
                 ),
-                if (wait < 0)
-                  const Text(
-                    'A device elapsed-time reading is needed for the free spin.',
-                    textAlign: TextAlign.center,
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    ads.wheelConfigured
-                        ? remaining == null
-                              ? 'Connect to check your four video spins.'
-                              : '$remaining of 4 video spins available'
-                        : 'Optional wheel videos are unavailable.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                if (ads.message case final message?)
-                  Text(message, textAlign: TextAlign.center),
-                Text(
-                  'Prize odds',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                for (final prize in catalog.prizes)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(_icon(prize)),
-                    title: Text(prize.label),
-                    trailing: Text('${prize.weight}%'),
-                  ),
-              ],
+              ),
             );
           },
         ),
@@ -285,74 +311,113 @@ class _FortuneViewState extends State<FortuneView> {
   }
 }
 
-IconData _icon(FortunePrize prize) => switch (prize.id) {
-  'boost' => Icons.bolt,
-  'cache' => Icons.inventory_2_outlined,
-  'summit' => Icons.star_rounded,
-  _ => Icons.toll,
-};
+Future<FortuneCatalog> loadFortuneCatalog() => rootBundle
+    .loadString('backend/fortune-prizes.json')
+    .then(FortuneCatalog.new);
 
 class _WheelPainter extends CustomPainter {
-  _WheelPainter(this.catalog, this.colors, this.turns);
+  _WheelPainter(this.catalog, this.turns);
   final FortuneCatalog catalog;
-  final ColorScheme colors;
   final double turns;
+
+  static const _segments = [
+    Color(0xFF133044),
+    Color(0xFF13545A),
+    Color(0xFF253B57),
+    Color(0xFF176D66),
+    Color(0xFF423B37),
+    Color(0xFFEAC278),
+  ];
+  static const _navy = Color(0xFF0D2335);
+  static const _gold = Color(0xFFFFD789);
 
   @override
   void paint(Canvas canvas, Size size) {
+    const full = math.pi * 2;
+    const sweep = full * FortuneCatalog.segmentTurns;
     final center = size.center(Offset.zero);
-    final radius = (size.shortestSide / 2) - 6;
+    final radius = size.shortestSide / 2 - 12;
     final rect = Rect.fromCircle(center: center, radius: radius);
     final paint = Paint()..isAntiAlias = true;
-    var angle = -math.pi / 2 + turns * math.pi * 2;
+    canvas.drawCircle(center, radius + 4, paint..color = _navy);
     for (final (index, prize) in catalog.prizes.indexed) {
-      final sweep = prize.weight * math.pi * 2 / 100;
-      paint.color = index.isEven
-          ? colors.primaryContainer
-          : colors.secondaryContainer;
-      canvas.drawArc(rect, angle, sweep, true, paint);
-      paint.color = colors.surface;
-      paint.strokeWidth = 2;
+      final start = -math.pi / 2 + ((turns % 1) * full) + index * sweep;
+      canvas.drawArc(rect, start, sweep, true, paint..color = _segments[index]);
       canvas.drawLine(
         center,
-        center + Offset(math.cos(angle), math.sin(angle)) * radius,
-        paint,
+        center + Offset(math.cos(start), math.sin(start)) * radius,
+        paint
+          ..color = _gold.withValues(alpha: .6)
+          ..strokeWidth = 1.5,
       );
-      if (prize.weight >= 4) {
-        final icon = _icon(prize);
-        final text = TextPainter(
-          text: TextSpan(
-            text: String.fromCharCode(icon.codePoint),
-            style: TextStyle(
-              fontFamily: icon.fontFamily,
-              package: icon.fontPackage,
-              color: index.isEven
-                  ? colors.onPrimaryContainer
-                  : colors.onSecondaryContainer,
-              fontSize: prize.weight < 8 ? 15 : 23,
-            ),
+      final angle = start + sweep / 2;
+      final spot =
+          center + Offset(math.cos(angle), math.sin(angle)) * (radius * .68);
+      final ink = index == 5 ? _navy : const Color(0xFFFFF2D6);
+      final coin = spot.translate(0, -radius * .085);
+      final iconSize = radius * .065;
+      canvas.drawCircle(coin, iconSize, paint..color = ink);
+      canvas.drawCircle(coin, iconSize * .66, paint..color = _segments[index]);
+      canvas.drawLine(
+        coin.translate(-iconSize * .3, 0),
+        coin.translate(iconSize * .3, 0),
+        paint
+          ..color = ink
+          ..strokeWidth = 1.2,
+      );
+      final label = TextPainter(
+        text: TextSpan(
+          text: '${prize.coins}',
+          style: TextStyle(
+            color: ink,
+            fontWeight: FontWeight.w800,
+            fontSize: radius * .145,
           ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        final middle = angle + sweep / 2;
-        text.paint(
-          canvas,
-          center +
-              Offset(math.cos(middle), math.sin(middle)) * (radius * .72) -
-              Offset(text.width / 2, text.height / 2),
-        );
-        text.dispose();
-      }
-      angle += sweep;
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(canvas, spot.translate(-label.width / 2, 1));
+      label.dispose();
     }
-    paint
-      ..color = colors.outline
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawCircle(center, radius, paint);
+    canvas.drawCircle(
+      center,
+      radius + 1,
+      paint
+        ..color = _gold
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    paint.style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius * .16, paint..color = _navy);
+    canvas.drawCircle(center, radius * .092, paint..color = _gold);
+    canvas.drawCircle(center, radius * .046, paint..color = _navy);
   }
 
   @override
-  bool shouldRepaint(_WheelPainter oldDelegate) =>
-      oldDelegate.turns != turns || oldDelegate.colors != colors;
+  bool shouldRepaint(_WheelPainter oldDelegate) => oldDelegate.turns != turns;
+}
+
+class _PointerPainter extends CustomPainter {
+  const _PointerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pointer = Path()
+      ..moveTo(3, 3)
+      ..lineTo(size.width - 3, 3)
+      ..lineTo(size.width / 2, size.height - 2)
+      ..close();
+    canvas.drawPath(pointer, Paint()..color = const Color(0xFFFFD789));
+    canvas.drawPath(
+      pointer,
+      Paint()
+        ..color = const Color(0xFF0D2335)
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 2.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PointerPainter oldDelegate) => false;
 }

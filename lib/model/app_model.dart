@@ -11,8 +11,6 @@ import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
 import 'economy.dart';
 import 'economy_activity.dart';
-import 'expedition.dart';
-import 'field_notes.dart';
 import 'fortune.dart';
 import 'game_state.dart';
 import 'native_achievements.dart';
@@ -37,7 +35,6 @@ class AppModel extends ChangeNotifier {
        _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
     _achievements = AchievementLedger(_map(snapshot['nativeAchievements']));
     activity = EconomyActivity(_map(snapshot['economyActivity']));
-    notes = FieldNotes(_map(snapshot['fieldNotes']));
     _attempts.addAll(_map(snapshot['attempts']));
     for (final entry in _map(snapshot['results']).entries) {
       final data = _map(entry.value);
@@ -59,11 +56,16 @@ class AppModel extends ChangeNotifier {
       );
     }
     _wheelClaims.addAll(_map(fortune['claims']).cast<String, int>());
-    progression = Progression(_map(snapshot['progression']));
+    final savedProgression = _map(snapshot['progression']);
+    progression = Progression(savedProgression);
+    progression.migrateCrates(
+      savedProgression,
+      _bootTime(),
+      snapshot['progressionBoot'],
+      dayKey(_today()),
+    );
     if (snapshot['progressionBoot'] != _bootTime()?.boot) {
       progression.active.clear();
-      progression.crate = null;
-      progression.nextCrate = 0;
     }
     _hintTank = (snapshot['hintTank'] as int? ?? 3).clamp(0, 3);
     _refillSerial = snapshot['refillSerial'] as int? ?? 0;
@@ -87,18 +89,9 @@ class AppModel extends ChangeNotifier {
         _hintUsage[row.key] = max(_hintUsage[row.key] ?? 0, row.value.hints);
       }
     }
-    _attempts.removeWhere((key, _) => key.startsWith('endless/'));
-    _hintUsage.removeWhere((key, _) => key.startsWith('endless/'));
-    _hintCredits.removeWhere((key, _) => key.startsWith('endless/'));
-    if (snapshot['expedition'] case final Map data) {
-      expedition = ExpeditionRun.fromJson(data);
-    }
-    _expeditionSerial = snapshot['expeditionSerial'] as int? ?? 0;
-    if (snapshot['expeditionHistory'] case final List entries) {
-      _expeditionHistory.addAll(
-        entries.whereType<Map>().map(ExpeditionRun.fromJson),
-      );
-    }
+    _attempts.removeWhere((key, _) => _retiredPuzzle(key));
+    _hintUsage.removeWhere((key, _) => _retiredPuzzle(key));
+    _hintCredits.removeWhere((key, _) => _retiredPuzzle(key));
     final adStamp = _map(snapshot['lastAutomaticAd']);
     if (adStamp['boot'] is int && adStamp['milliseconds'] is int) {
       _lastAutomaticAd = (
@@ -114,14 +107,15 @@ class AppModel extends ChangeNotifier {
     _wallet = Wallet(
       snapshot['ledger'],
       _today(),
-      archivedTrailCoins: snapshot['archivedTrailCoins'] as int? ?? 0,
+      archivedCoins:
+          (snapshot['archivedCoins'] ?? snapshot['archivedTrailCoins'])
+              as int? ??
+          0,
     );
-    _restoreExpedition(snapshot);
+    progression.crates.removeWhere((crate) => _wallet.contains(crate.id));
+    _restoreRetiredProgress(snapshot);
     _owned.addAll(
-      PathwiseTheme.values.where(
-        (theme) =>
-            theme.expeditionTrail == null && economy.themePrice(theme) == 0,
-      ),
+      PathwiseTheme.values.where((theme) => economy.themePrice(theme) == 0),
     );
     final owned = snapshot['ownedThemes'];
     if (owned is List) {
@@ -161,6 +155,64 @@ class AppModel extends ChangeNotifier {
     }
     _updateLongestStreak();
     haptic = HapticService(enabled: _prefs.haptics);
+  }
+
+  int _retiredSolved = 0, _retiredClean = 0, _retiredRanks = 0;
+
+  static bool _retiredPuzzle(String key) =>
+      key.startsWith('expedition/') || key.startsWith('endless/');
+
+  void _restoreRetiredProgress(Map<String, dynamic> snapshot) {
+    _retiredSolved = snapshot['priorSolves'] as int? ?? 0;
+    _retiredClean = snapshot['priorCleanSolves'] as int? ?? 0;
+    _retiredRanks = snapshot['priorRanks'] as int? ?? 0;
+    final progress = _map(snapshot['expeditionProgress']);
+    if (progress.isNotEmpty) {
+      int count(int mask) =>
+          List.generate(10, (bit) => (mask >> bit) & 1).reduce((a, b) => a + b);
+      _retiredSolved +=
+          max(0, (progress['next'] as int? ?? 1) - 1) * 10 +
+          count(progress['stages'] as int? ?? 0);
+      _retiredClean +=
+          (progress['qualifiedClean'] as int? ?? 0) +
+          count(progress['clean'] as int? ?? 0);
+    }
+    _results.removeWhere((key, result) {
+      if (!key.startsWith('expedition/')) return false;
+      if (progress.isEmpty) {
+        _retiredSolved++;
+        if (result.unassisted) _retiredClean++;
+      }
+      return true;
+    });
+    _retiredRanks +=
+        (progression.ranks.remove('trailYield') ?? 0) +
+        (progression.ranks.remove('fieldwork') ?? 0);
+    final unused = progression.inventory.remove('trailProvisions') ?? 0;
+    final wasActive =
+        (progression.active.remove('trailProvisions') ?? 0) > progressionTime;
+    final history = _wallet.history.toList();
+    final refund = history
+        .where(
+          (tx) =>
+              tx.id.startsWith('research/trailYield/') ||
+              tx.id.startsWith('research/fieldwork/'),
+        )
+        .fold(0, (total, tx) => total - tx.amount);
+    final supplyRefund = history.reversed
+        .where(
+          (tx) =>
+              tx.id.startsWith('boost/') &&
+              tx.label == '50% more first-qualification base coins',
+        )
+        .take(unused + (wasActive ? 1 : 0))
+        .fold(0, (total, tx) => total - tx.amount);
+    _wallet.add(
+      'migration/retired-upgrades',
+      'Retired upgrades refund',
+      refund + supplyRefund,
+      _today(),
+    );
   }
 
   static Future<VerifiedPuzzle> _generate(
@@ -285,236 +337,6 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  ExpeditionRun? expedition;
-  var _expeditionSerial = 0;
-  bool expeditionSaving = false;
-  final _expeditionHistory = <ExpeditionRun>[];
-  final _trailRecords = <Trail, TrailRecord>{};
-  final _recordWrites = <Trail, TrailRecord>{};
-  int _nextTrail = 1;
-  int _trailClaims = 0;
-  int _trailStages = 0;
-  int _trailClean = 0;
-  int _qualifiedClean = 0;
-
-  void _restoreExpedition(Map<String, dynamic> snapshot) {
-    if (snapshot['expeditionProgress'] case final Map progress) {
-      _nextTrail = progress['next'] as int;
-      _trailClaims = progress['claims'] as int;
-      _trailStages = progress['stages'] as int;
-      _trailClean = progress['clean'] as int;
-      _qualifiedClean = progress['qualifiedClean'] as int;
-      return;
-    }
-    final oldRecords = _map(snapshot['trailRecords']);
-    for (var number = 1; number <= 3; number++) {
-      final trail = Trail(number);
-      final id = trail.legacyName!;
-      final saved = oldRecords[id];
-      if (saved is Map) {
-        final record = TrailRecord.fromJson(saved);
-        _rememberTrail(trail, record);
-        _recordWrites[trail] = record;
-        if (number == _nextTrail && record.fastest != null) _nextTrail++;
-      }
-    }
-    for (var number = 1; number <= 3; number++) {
-      final id = Trail(number).legacyName!;
-      for (var stage = 0; stage < Trail.stages; stage++) {
-        final prior = _results.remove('expedition/$id/$stage');
-        if (prior == null) continue;
-        if (number < _nextTrail && prior.unassisted) _qualifiedClean++;
-        if (number == _nextTrail) {
-          _trailStages |= 1 << stage;
-          if (prior.unassisted) _trailClean |= 1 << stage;
-        }
-      }
-      if (number == _nextTrail) {
-        for (final stage in [3, 6]) {
-          if (_wallet.contains('trail/$id/$stage')) _trailClaims |= 1 << stage;
-        }
-      }
-    }
-  }
-
-  static int _stageCount(int mask) {
-    var count = 0;
-    for (var stage = 0; stage < Trail.stages; stage++) {
-      if (mask & (1 << stage) != 0) count++;
-    }
-    return count;
-  }
-
-  List<ExpeditionRun> get expeditionHistory =>
-      List.unmodifiable(_expeditionHistory);
-  TrailRecord? trailRecord(Trail trail) => _trailRecords[trail];
-
-  void _rememberTrail(Trail trail, TrailRecord record) {
-    _trailRecords.remove(trail);
-    _trailRecords[trail] = record;
-    if (_trailRecords.length > 12)
-      _trailRecords.remove(_trailRecords.keys.first);
-  }
-
-  Future<TrailRecord?> loadTrailRecord(Trail trail) async {
-    final record =
-        trailRecord(trail) ??
-        _recordWrites[trail] ??
-        await storage.readTrail(trail);
-    final latest = trailRecord(trail) ?? _recordWrites[trail] ?? record;
-    if (latest != null) _rememberTrail(trail, latest);
-    return latest;
-  }
-
-  Trail get currentTrail => Trail(_nextTrail);
-  int get trailsQualified => _nextTrail - 1;
-  bool trailRewardClaimed(Trail trail, int stage) =>
-      trail.number < _nextTrail ||
-      (trail == currentTrail && _trailClaims & (1 << stage) != 0);
-  bool trailUnlocked(Trail trail) =>
-      trail.number > 0 && trail.number <= _nextTrail;
-  PuzzleId? get expeditionPuzzle {
-    final run = expedition;
-    return run == null || !run.active
-        ? null
-        : PuzzleId.expedition(run.trail, run.serial, run.stage);
-  }
-
-  Future<bool> startExpedition(Trail trail, {bool fromSummary = false}) async {
-    final continuing =
-        fromSummary &&
-        activeId?.mode == PlayMode.expedition &&
-        complete &&
-        expedition?.outcome == ExpeditionOutcome.qualified &&
-        trail == currentTrail;
-
-    if (_disposed ||
-        expeditionSaving ||
-        (activeId != null && !continuing) ||
-        expedition?.active == true ||
-        storageError ||
-        !trailUnlocked(trail))
-      return false;
-    final previous = expedition;
-    final run = ExpeditionRun(trail, _expeditionSerial++);
-    expedition = run;
-    expeditionSaving = true;
-    notifyListeners();
-    final saved = await flush();
-    if (!saved) expedition = previous;
-    expeditionSaving = false;
-    if (!_disposed) notifyListeners();
-    return saved;
-  }
-
-  Future<bool> abandonExpedition() {
-    final run = expedition;
-    if (run == null || !run.active || activeId != null || storageError) {
-      return Future.value(false);
-    }
-    _forgetExpeditionAttempt(expeditionPuzzle!.key);
-    run.outcome = ExpeditionOutcome.abandoned;
-    activity.event(EconomyEvent.trailAbandoned, coinBalance);
-    _archiveExpedition(run);
-    notifyListeners();
-    return flush();
-  }
-
-  void _forgetExpeditionAttempt(String key) {
-    _attempts.remove(key);
-    _hintUsage.remove(key);
-    _hintCredits.remove(key);
-  }
-
-  void _archiveExpedition(ExpeditionRun run) {
-    final record = TrailRecord();
-    if (trailRecord(run.trail) case final prior?) record.merge(prior);
-    if (_recordWrites[run.trail] case final pending?) record.merge(pending);
-    final previousTime = record.fastest;
-    run.personalBest =
-        run.outcome == ExpeditionOutcome.qualified &&
-        previousTime != null &&
-        run.milliseconds < previousTime;
-    record.record(run);
-    _recordWrites[run.trail] = record;
-    _rememberTrail(run.trail, record);
-    _expeditionHistory.add(run);
-    if (_expeditionHistory.length > 12) _expeditionHistory.removeAt(0);
-  }
-
-  void _completeExpeditionStage(
-    PuzzleId id,
-    Map<AchievementMetric, int> previous,
-  ) {
-    final run = expedition!;
-    final stage = run.stage;
-    final time = elapsed.value.inMilliseconds;
-    final before = coinBalance;
-    final usedHint = (_hintUsage[id.key] ?? 0) != 0;
-    final advancing = run.trail == currentTrail;
-    final freshStage = advancing && _trailStages & (1 << stage) == 0;
-    if (freshStage) {
-      if (!usedHint && !_usedClear) _achievements.precision++;
-      _note({NoteGoal.solve, NoteGoal.trail, if (!usedHint) NoteGoal.clean});
-    }
-    if (advancing) {
-      _trailStages |= 1 << stage;
-      if (!usedHint) _trailClean |= 1 << stage;
-    }
-    _forgetExpeditionAttempt(id.key);
-    run.finishStage(time, usedHint: usedHint);
-    final qualified = run.outcome == ExpeditionOutcome.qualified;
-    if (advancing && !trailRewardClaimed(run.trail, run.stage)) {
-      final number = run.trail.number;
-      final id = run.trail.legacyName ?? '$number';
-      final reward = economy.expeditionReward(
-        number,
-        run.stage,
-        qualified: qualified,
-      );
-      if (_wallet.add(
-        'trail/$id/${run.stage}',
-        '${run.trail.title} · stage ${run.stage}',
-        (qualified
-                ? progression.trailQualification(reward, progressionTime)
-                : reward) +
-            (qualified && number > 3 && run.marks.length == 4 ? 4 : 0),
-        _today(),
-      )) {
-        _trailClaims |= 1 << run.stage;
-      }
-      if (qualified) {
-        final milestone = economy.expeditionMilestone(number);
-        if (_wallet.add(
-          'trail/$id/milestone',
-          'Expedition milestone · Trail $number',
-          milestone,
-          _today(),
-        )) {
-          run.milestoneCoins = milestone;
-          activity.event(EconomyEvent.trailMilestone, coinBalance);
-        }
-        _owned.addAll(
-          PathwiseTheme.values.where(
-            (theme) => theme.expeditionTrail == number,
-          ),
-        );
-        if (run.marks.length == 4) _achievements.perfectTrails++;
-        _qualifiedClean += _stageCount(_trailClean);
-        _nextTrail++;
-        _trailClaims = _trailStages = _trailClean = 0;
-      }
-    }
-    if (!run.active) _archiveExpedition(run);
-    _awardAchievements();
-    lastReward = coinBalance - before;
-    run.coins += lastReward;
-    _celebrateAchievements(previous);
-    haptic.complete();
-    unawaited(flush());
-    notifyListeners();
-  }
-
   int get freeHints => max(0, 3 - (_hintUsage[activeId?.key] ?? 0));
   int get extraHints => _hintCredits[activeId?.key] ?? 0;
   bool get canRequestExtraHint =>
@@ -532,7 +354,7 @@ class AppModel extends ChangeNotifier {
         storageError ||
         (_hintUsage[puzzle] ?? 0) < 3 ||
         (_hintCredits[puzzle] ?? 0) != 0 ||
-        (puzzle.startsWith('expedition/') && puzzle != expeditionPuzzle?.key) ||
+        _retiredPuzzle(puzzle) ||
         (puzzle.startsWith('attack/') &&
             (attack?.finished != false ||
                 !puzzle.startsWith('attack/${attack!.id}/'))) ||
@@ -547,6 +369,9 @@ class AppModel extends ChangeNotifier {
   int get progressionTime =>
       _bootTime()?.milliseconds ?? _today().millisecondsSinceEpoch;
   Timer? _crateTimer;
+  BootTime? _crateAnchor;
+  int _unsavedCrateTime = 0;
+  bool _crateInventoryVisible = false;
 
   bool research(Research item) {
     final rank = progression.rank(item);
@@ -596,34 +421,41 @@ class AppModel extends ChangeNotifier {
     return true;
   }
 
-  Crate? get supplyCrate {
-    final crate = progression.crate;
-    return crate != null && crate.deadline > progressionTime ? crate : null;
+  List<Crate> get unopenedCrates => List.unmodifiable(progression.crates);
+
+  void setCrateInventoryVisible(bool visible) {
+    if (_disposed || _crateInventoryVisible == visible) return;
+    _crateInventoryVisible = visible;
+    _processCrates();
+    if (visible) unawaited(flush());
   }
 
-  bool claimCrate(String id) {
-    final crate = supplyCrate;
-    if ((_game?.isDrawing ?? false) ||
-        crate == null ||
-        crate.id != id ||
-        storageError ||
-        !_wallet.add(
-          id,
-          '${crate.rarity.name} supply crate',
-          crate.coins,
-          _today(),
-        ))
+  Future<bool> claimCrate(String id) async {
+    if (_disposed || isDrawing || storageError) return false;
+    final index = progression.crates.indexWhere((item) => item.id == id);
+    if (index < 0) return false;
+    final crate = progression.crates[index];
+    if (!_wallet.add(
+      id,
+      '${crate.rarity.name} supply crate',
+      crate.coins,
+      _today(),
+    )) {
       return false;
-    progression.crate = null;
-    _note({NoteGoal.crate});
+    }
+    progression.crates.removeAt(index);
     activity.event(EconomyEvent.crateCollected, coinBalance);
     if (crate.rarity == CrateRarity.legendary) {
       progression.legendary++;
       achievementRevision++;
     }
     _awardAchievements();
-    _progressionChanged();
-    return true;
+    final saved = await flush();
+    if (!_disposed) {
+      if (saved) haptic.complete();
+      notifyListeners();
+    }
+    return saved;
   }
 
   void _progressionChanged() {
@@ -632,29 +464,50 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _checkCrate() {
-    final id = activeId;
-    if (!_foreground ||
-        id == null ||
-        id.mode == PlayMode.attack ||
-        loading ||
-        complete ||
-        !_started ||
-        storageError ||
-        (_game?.isDrawing ?? false))
-      return;
-    final previous = progression.crate;
-    final oldNext = progression.nextCrate;
-    final spawned = progression.considerCrate(
-      progressionTime,
-      dayKey(_today()),
-      Random.secure().nextInt(100),
-    );
-    if (spawned ||
-        previous != progression.crate ||
-        oldNext != progression.nextCrate) {
+  void _processCrates({bool completed = false, bool ending = false}) {
+    final now = _bootTime();
+    final previous = _crateAnchor;
+    final eligible =
+        now != null &&
+        _foreground &&
+        _inPlay &&
+        _started &&
+        _game != null &&
+        activeId?.mode != PlayMode.attack &&
+        !complete &&
+        !storageError &&
+        !ending &&
+        !_crateInventoryVisible;
+    _crateAnchor = eligible ? now : null;
+    if (eligible) {
+      _crateTimer ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _processCrates(),
+      );
+    } else {
+      _crateTimer?.cancel();
+      _crateTimer = null;
+    }
+    if (previous != null && now != null && previous.boot == now.boot) {
+      final before = progression.crateWait;
+      progression.accrueCrateTime(now.milliseconds - previous.milliseconds);
+      _unsavedCrateTime += before - progression.crateWait;
+    }
+    if (now != null &&
+        !storageError &&
+        (eligible || completed) &&
+        (completed || !isDrawing) &&
+        progression.considerCrate(now, () => Random.secure().nextInt(100))) {
+      haptic.selection();
+      if (!completed) {
+        unawaited(flush());
+        notifyListeners();
+      }
+    } else if (_unsavedCrateTime >= 10000 &&
+        !isDrawing &&
+        !completed &&
+        !ending) {
       unawaited(flush());
-      notifyListeners();
     }
   }
 
@@ -755,17 +608,12 @@ class AppModel extends ChangeNotifier {
     AchievementMetric.daily: _achievements.eligibleDailies,
     AchievementMetric.attackFinished: attackHighest > 0 ? 1 : 0,
     AchievementMetric.attackScore: attackBest,
-    AchievementMetric.trails: trailsQualified,
-    AchievementMetric.perfectTrails: _achievements.perfectTrails,
     AchievementMetric.research: Research.values.fold(
-      0,
+      _retiredRanks,
       (sum, item) => sum + progression.rank(item),
     ),
     AchievementMetric.themes: _owned
-        .where(
-          (theme) =>
-              theme.expeditionTrail != null || economy.themePrice(theme) > 0,
-        )
+        .where((theme) => economy.themePrice(theme) > 0)
         .length,
     AchievementMetric.crates: progression.legendary,
   };
@@ -812,14 +660,9 @@ class AppModel extends ChangeNotifier {
       (freeHints > 0 ? hintTank > 0 : extraHints > 0);
   bool hasAttempt(PuzzleId id) => _attempts.containsKey(id.key);
   RunResult? result(PuzzleId id) => _results[id.key];
-  int get solved =>
-      _results.length +
-      trailsQualified * Trail.stages +
-      _stageCount(_trailStages);
+  int get solved => _results.length + _retiredSolved;
   int get unassisted =>
-      _results.values.where((value) => value.unassisted).length +
-      _qualifiedClean +
-      _stageCount(_trailClean);
+      _results.values.where((value) => value.unassisted).length + _retiredClean;
   int get levelsSolved => _levelsSolved;
   int get highestUnlocked => _highestUnlocked;
   bool canPlayLevel(int level) => level > 0 && level <= highestUnlocked;
@@ -827,7 +670,20 @@ class AppModel extends ChangeNotifier {
   int get coinsEarned => _wallet.earned;
   int get coinsSpent => _wallet.spent;
   List<CoinTransaction> get transactions =>
-      _wallet.history.toList().reversed.toList();
+      _wallet.history.toList().reversed.map((tx) {
+        if (tx.id.startsWith('trail/') ||
+            tx.id.startsWith('notes/') ||
+            tx.id == 'achievement/cleanTrail' ||
+            tx.id == 'achievement/expeditionClear') {
+          return CoinTransaction(
+            tx.id,
+            'Previous mode reward',
+            tx.amount,
+            tx.date,
+          );
+        }
+        return tx;
+      }).toList();
   bool ownsTheme(PathwiseTheme theme) => hasThemePass || _owned.contains(theme);
   int get ownedThemes =>
       hasThemePass ? PathwiseTheme.values.length : _owned.length;
@@ -845,8 +701,7 @@ class AppModel extends ChangeNotifier {
       id.startsWith('levels/') ? int.tryParse(id.substring(7)) : null;
 
   bool unlockTheme(PathwiseTheme theme) {
-    if (theme.expeditionTrail != null || ownsTheme(theme) || storageError)
-      return false;
+    if (ownsTheme(theme) || storageError) return false;
     if (!_wallet.add(
       'theme/${theme.name}',
       'Unlocked ${theme.label}',
@@ -865,55 +720,15 @@ class AppModel extends ChangeNotifier {
   }
 
   late final EconomyActivity activity;
-  late final FieldNotes notes;
-  int get fieldNotesDay => noteDay(_today());
-
   void recordActivity(EconomyEvent event, [int count = 1]) {
     activity.event(event, coinBalance, count);
     unawaited(flush());
-  }
-
-  void _note(Set<NoteGoal> events) {
-    final completed = notes.observe(fieldNotesDay, events);
-    activity.event(EconomyEvent.noteCompleted, coinBalance, completed);
-  }
-
-  int get dailyNoteCoins =>
-      FieldNotes.dailyCoins + progression.effect(Research.fieldwork);
-
-  Future<bool> claimFieldNote(NoteGoal? goal) async {
-    final day = fieldNotesDay;
-    if (_disposed || storageError || !notes.claimable(goal, day)) return false;
-    final id = goal == null
-        ? 'notes/week/${FieldNotes.weekFor(day)}'
-        : 'notes/day/$day/${goal.name}';
-    if (!_wallet.add(
-      id,
-      goal?.title ?? 'Weekly field notes',
-      goal == null ? FieldNotes.weeklyCoins : dailyNoteCoins,
-      _today(),
-    ))
-      return false;
-    notes.markClaimed(goal);
-    final saved = await flush();
-    if (!_disposed) notifyListeners();
-    return saved;
   }
 
   BootTime? _lastFreeFortune;
   final _wheelClaims = <String, int>{};
   int get fortuneWait => freeFortuneWait(_lastFreeFortune, _bootTime());
   BootTime? get fortuneClock => _bootTime();
-
-  void _stockPrize(FortunePrize prize, int count) {
-    if (prize.boost case final boost?) {
-      progression.inventory.update(
-        boost.name,
-        (value) => value + count,
-        ifAbsent: () => count,
-      );
-    }
-  }
 
   Future<FortunePrize?> spinFreeFortune(
     FortuneCatalog catalog, {
@@ -927,7 +742,6 @@ class AppModel extends ChangeNotifier {
       return null;
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
     _lastFreeFortune = clock;
-    _stockPrize(prize, 1);
     activity.prize(prize.label, 1);
     activity.event(EconomyEvent.wheelFree, coinBalance);
     _wallet.add(
@@ -945,11 +759,17 @@ class AppModel extends ChangeNotifier {
     FortuneCatalog catalog,
     FortuneStatus status,
   ) async {
+    // Legacy receipts can arrive after an upgrade. Already credited counts
+    // stay credited. Unclaimed retired prizes settle once as coins.
+    final values = {
+      for (final prize in catalog.prizes) prize.id: prize.coins,
+      'boost': 35,
+      'cache': 20,
+    };
     if (_disposed ||
         storageError ||
-        status.counts.keys.any(
-          (id) => !catalog.prizes.any((prize) => prize.id == id),
-        ) ||
+        status.version != 2 ||
+        status.counts.keys.any((id) => !values.containsKey(id)) ||
         _wheelClaims.entries.any(
           (claim) => (status.counts[claim.key] ?? 0) < claim.value,
         )) {
@@ -958,16 +778,15 @@ class AppModel extends ChangeNotifier {
     final total = status.counts.values.fold(0, (sum, count) => sum + count);
     var coins = 0;
     var changed = false;
-    for (final prize in catalog.prizes) {
-      final count = status.counts[prize.id] ?? 0;
-      final delta = count - (_wheelClaims[prize.id] ?? 0);
+    for (final entry in status.counts.entries) {
+      final delta = entry.value - (_wheelClaims[entry.key] ?? 0);
       if (delta == 0) continue;
       changed = true;
-      _wheelClaims[prize.id] = count;
-      _stockPrize(prize, delta);
-      activity.prize(prize.label, delta);
+      _wheelClaims[entry.key] = entry.value;
+      final value = values[entry.key]!;
+      activity.prize('$value coins', delta);
       activity.event(EconomyEvent.wheelVerified, coinBalance, delta);
-      coins += prize.coins * delta;
+      coins += value * delta;
     }
     if (!changed) return false;
     _wallet.add(
@@ -1062,11 +881,6 @@ class AppModel extends ChangeNotifier {
           ) >=
           10,
       Achievement.legendaryCrate: progression.legendary > 0,
-      Achievement.expeditionClear: trailsQualified > 0,
-      Achievement.cleanTrail:
-          expedition?.outcome == ExpeditionOutcome.qualified &&
-          expedition!.trail.number >= 10 &&
-          expedition!.cleanStages == Trail.stages,
     };
     for (final achievement in Achievement.values) {
       if (conditions[achievement]!) {
@@ -1130,9 +944,6 @@ class AppModel extends ChangeNotifier {
 
   Future<void> open(PuzzleId id, {bool replay = false}) async {
     if (id.mode == PlayMode.levels && !canPlayLevel(id.level)) return;
-    if (id.mode == PlayMode.expedition &&
-        (replay || id.key != expeditionPuzzle?.key))
-      return;
     if (_inPlay) _leave();
     final request = ++_request;
     activeId = id;
@@ -1155,11 +966,7 @@ class AppModel extends ChangeNotifier {
 
     try {
       final generation = id.generation;
-      final board =
-          await (_loader?.call(generation) ??
-              (id.mode == PlayMode.expedition && id.expedition.trail.number > 3
-                  ? compute(generateExpeditionPuzzle, generation)
-                  : _generate(generation)));
+      final board = await (_loader?.call(generation) ?? _generate(generation));
       if (_disposed || request != _request) return;
       final game = GameController(board);
       _game = game;
@@ -1197,6 +1004,7 @@ class AppModel extends ChangeNotifier {
     } finally {
       if (!_disposed && request == _request) {
         loading = false;
+        _processCrates();
         notifyListeners();
       }
     }
@@ -1221,6 +1029,7 @@ class AppModel extends ChangeNotifier {
 
   void end() {
     if (_game?.end() ?? false) {
+      _processCrates();
       _saveSoon();
       notifyListeners();
     }
@@ -1232,15 +1041,12 @@ class AppModel extends ChangeNotifier {
 
   void undo() {
     if (!_canPlay || !(_game?.undo() ?? false)) return;
-    if (activeId?.mode == PlayMode.expedition) expedition!.usedUndo = true;
     _edited();
-    if (activeId?.mode == PlayMode.expedition) unawaited(flush());
   }
 
   void clear() {
     if (!_canPlay || !(_game?.clear() ?? false)) return;
     _usedClear = true;
-    if (activeId?.mode == PlayMode.expedition) expedition!.usedClear = true;
     _edited();
     unawaited(flush());
   }
@@ -1281,10 +1087,9 @@ class AppModel extends ChangeNotifier {
 
   void _edited() {
     _started = true;
-    _crateTimer ??= Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => _checkCrate(),
-    );
+    if (_crateAnchor == null || complete) {
+      _processCrates(completed: complete && activeId?.mode != PlayMode.attack);
+    }
     _syncClock();
     if (complete) {
       final id = activeId!;
@@ -1295,9 +1100,6 @@ class AppModel extends ChangeNotifier {
         _hintUsage.remove(id.key);
         _hintCredits.remove(id.key);
         if (now != null && run.clear(now)) {
-          if (run.clears.length <= 3) {
-            _note({NoteGoal.solve, if (hintsUsed == 0) NoteGoal.clean});
-          }
           haptic.complete();
           unawaited(flush());
           unawaited(open(PuzzleId.attack('${run.id}/${run.clears.length}')));
@@ -1307,10 +1109,6 @@ class AppModel extends ChangeNotifier {
         return;
       }
       final previousAchievements = achievementCounters;
-      if (id.mode == PlayMode.expedition) {
-        _completeExpeditionStage(id, previousAchievements);
-        return;
-      }
       final previous = result(id);
       final time = elapsed.value.inMilliseconds;
       final improved = previous == null || time < previous.milliseconds;
@@ -1324,7 +1122,6 @@ class AppModel extends ChangeNotifier {
       );
       if (previous == null) {
         if (hintsUsed == 0 && !_usedClear) _achievements.precision++;
-        _note({NoteGoal.solve, if (hintsUsed == 0) NoteGoal.clean});
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
           _highestUnlocked = max(_highestUnlocked, id.level + 1);
@@ -1384,6 +1181,7 @@ class AppModel extends ChangeNotifier {
 
   void _leave() {
     _request++;
+    _processCrates(ending: true);
     _game?.end();
     _inPlay = false;
     _syncClock();
@@ -1394,6 +1192,7 @@ class AppModel extends ChangeNotifier {
     if (_foreground == foreground) return;
     _foreground = foreground;
     if (!foreground) _game?.end();
+    _processCrates();
     _syncClock();
     if (!foreground) unawaited(flush());
     notifyListeners();
@@ -1450,6 +1249,7 @@ class AppModel extends ChangeNotifier {
   }
 
   Future<bool> flush() {
+    _unsavedCrateTime = 0;
     _playMilliseconds += max(
       0,
       _watch.elapsedMilliseconds - _accountedMilliseconds,
@@ -1473,8 +1273,10 @@ class AppModel extends ChangeNotifier {
     final payload = jsonEncode({
       'schemaVersion': GameStateStorage.schemaVersion,
       'nativeAchievements': _achievements.toJson(),
+      'priorSolves': _retiredSolved,
+      'priorCleanSolves': _retiredClean,
+      'priorRanks': _retiredRanks,
       'progression': progression.toJson(),
-      'fieldNotes': notes.toJson(),
       'economyActivity': activity.toJson(),
       'progressionBoot': _bootTime()?.boot,
       'hintTank': _hintTank,
@@ -1483,16 +1285,6 @@ class AppModel extends ChangeNotifier {
       'hintCredits': _hintCredits,
       'hintEvents': _hintEvents.toList(),
       'attack': attack?.toJson(),
-      'expedition': expedition?.toJson(),
-      'expeditionSerial': _expeditionSerial,
-      'expeditionHistory': [for (final run in _expeditionHistory) run.toJson()],
-      'expeditionProgress': {
-        'next': _nextTrail,
-        'claims': _trailClaims,
-        'stages': _trailStages,
-        'clean': _trailClean,
-        'qualifiedClean': _qualifiedClean,
-      },
       'fortune': {
         if (_lastFreeFortune case final stamp?) ...{
           'boot': stamp.boot,
@@ -1500,7 +1292,7 @@ class AppModel extends ChangeNotifier {
         },
         'claims': _wheelClaims,
       },
-      'archivedTrailCoins': _wallet.archivedTrailCoins,
+      'archivedCoins': _wallet.archivedCoins,
       if (_lastAutomaticAd case final stamp?)
         'lastAutomaticAd': {
           'boot': stamp.boot,
@@ -1528,13 +1320,6 @@ class AppModel extends ChangeNotifier {
     });
     _pendingWrite = _pendingWrite.then((_) async {
       try {
-        for (final entry in _recordWrites.entries.toList()) {
-          final saved = await storage.mergeTrail(entry.key, entry.value);
-          if (identical(_recordWrites[entry.key], entry.value)) {
-            _recordWrites.remove(entry.key);
-            _rememberTrail(entry.key, saved);
-          }
-        }
         await storage.save(payload);
         if (storageError && !_disposed) {
           storageError = false;

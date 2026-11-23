@@ -29,7 +29,7 @@ export function awardFortune(state, now, receipt, roll = randomInt(100)) {
 
 export function publicFortune(state, now) {
   return {
-    now, stamps: liveWheelStamps(state, now), counts: state?.counts ?? {},
+    version: 2, now, stamps: liveWheelStamps(state, now), counts: state?.counts ?? {},
     last: state?.last ?? null, receipt: state?.receipt ?? null,
   };
 }
