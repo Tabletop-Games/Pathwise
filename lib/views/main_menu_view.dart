@@ -126,7 +126,7 @@ class _MainMenuViewState extends State<MainMenuView>
     context.select(
       (AppModel model) => (
         model.theme,
-        model.daily.key,
+        model.dailyCurrent(model.daily.value as String).key,
         model.highestUnlocked,
         model.levelsSolved,
         model.coinBalance,
@@ -141,6 +141,7 @@ class _MainMenuViewState extends State<MainMenuView>
     final palette = BoardPalette.palettes[model.theme]!;
     final daily = model.daily;
     final result = model.result(daily);
+    final currentDaily = model.dailyCurrent(daily.value as String);
     return Scaffold(
       body: SafeArea(
         child: Align(
@@ -207,15 +208,15 @@ class _MainMenuViewState extends State<MainMenuView>
                   date: '${daily.value}',
                   detail: result != null
                       ? 'Solved in ${formatTime(Duration(milliseconds: result.milliseconds))}'
-                      : model.hasAttempt(daily)
+                      : model.hasAttempt(currentDaily)
                       ? 'In progress'
-                      : 'A new 6 × 6 puzzle each day',
+                      : 'Three puzzles each day',
                   action: result != null
                       ? 'View result'
-                      : model.hasAttempt(daily)
+                      : model.hasAttempt(currentDaily)
                       ? 'Resume'
                       : 'Play daily',
-                  onTap: () => openPuzzle(context, daily),
+                  onTap: () => openPuzzle(context, currentDaily),
                 ),
                 const SizedBox(height: 14),
                 _ModeTile(
@@ -236,11 +237,9 @@ class _MainMenuViewState extends State<MainMenuView>
                   title: 'Time Attack',
                   subtitle: model.attack != null && !model.attack!.finished
                       ? 'Resume challenge'
-                      : '10 minutes · Best ${model.attackBest}',
-                  onTap: () => openPuzzle(
-                    context,
-                    const PuzzleId.attack('start/0'),
-                    timeAttack: true,
+                      : '1, 3, or 5 minutes',
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const _AttackSetup()),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -378,4 +377,56 @@ class _ModeTile extends StatelessWidget {
       onTap: onTap,
     ),
   );
+}
+
+class _AttackSetup extends StatelessWidget {
+  const _AttackSetup();
+
+  @override
+  Widget build(BuildContext context) {
+    final model = context.watch<AppModel>();
+    final running = model.attack?.finished == false;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Time Attack')),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(24),
+              children: [
+                for (final minutes in [1, 3, 5])
+                  ListTile(
+                    enabled: !running,
+                    selected: model.attackMinutes == minutes,
+                    leading: const Icon(Icons.timer_outlined),
+                    title: Text('$minutes MIN'),
+                    subtitle: Text(
+                      'Best ${model.attackBestFor(minutes)} points',
+                    ),
+                    trailing: model.attackMinutes == minutes
+                        ? const Icon(Icons.check_circle_outline)
+                        : null,
+                    onTap: running
+                        ? null
+                        : () => model.selectAttackMinutes(minutes),
+                  ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => openPuzzle(
+                    context,
+                    const PuzzleId.attack('start/0'),
+                    timeAttack: true,
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(running ? 'Resume' : 'Play'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

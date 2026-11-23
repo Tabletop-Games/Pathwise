@@ -4,6 +4,7 @@ enum PlayMode { levels, daily, attack }
 
 const legacyLevelCount = 36;
 const levelsPerPage = 12;
+const dailyCheckpointCount = 3;
 
 int pageForLevel(int level) => (level - 1) ~/ levelsPerPage;
 int firstLevelOnPage(int page) => 1 + page * levelsPerPage;
@@ -14,25 +15,33 @@ String dayKey(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}';
 
 final class PuzzleId {
-  const PuzzleId._(this.mode, this.value);
+  const PuzzleId._(this.mode, this.value, [this.checkpoint]);
 
   const PuzzleId.level(int number) : this._(PlayMode.levels, number);
   const PuzzleId.daily(String day) : this._(PlayMode.daily, day);
+  const PuzzleId.dailyCheckpoint(String day, int number)
+    : this._(PlayMode.daily, day, number);
   const PuzzleId.attack(String key) : this._(PlayMode.attack, key);
 
   final PlayMode mode;
   final Object value;
-  String get key => '${mode.name}/$value';
+  final int? checkpoint;
+  String get key => checkpoint == null
+      ? '${mode.name}/$value'
+      : 'daily-checkpoint/$value/$checkpoint';
 
   String get title => switch (mode) {
     PlayMode.attack => 'Time Attack',
     PlayMode.levels => 'Level $value',
-    PlayMode.daily => 'Daily challenge',
+    PlayMode.daily =>
+      checkpoint == null
+          ? 'Daily challenge'
+          : 'Daily · $checkpoint/$dailyCheckpointCount',
   };
 
   int get size => switch (mode) {
     PlayMode.levels => level <= legacyLevelCount ? 4 + ((level - 1) ~/ 9) : 7,
-    PlayMode.daily => 6,
+    PlayMode.daily => checkpoint == null ? 6 : 3 + checkpoint!,
     PlayMode.attack => (4 + attackIndex ~/ 3).clamp(4, 7),
   };
 

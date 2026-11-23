@@ -159,7 +159,7 @@ void main() {
         expect(catchCrate, findsNothing);
         for (final feedback in [
           'Video unavailable. Try again.',
-          'Video reward wasn’t verified. Try again.',
+          'Video ended without a reward. Try again.',
         ]) {
           await tester.tap(find.text('Watch Ad & Claim'));
           await tester.pumpAndSettle();

@@ -156,13 +156,13 @@ void main() {
       expect(model.coinsEarned, 160);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
-      expect(model.coinBalance, 50);
-      expect(model.coinsSpent, 110);
+      expect(model.coinBalance, 70);
+      expect(model.coinsSpent, 90);
       await model.flush();
       final restored = create(store, await store.load());
       expect(restored.ownsTheme(PathwiseTheme.forestMint), isTrue);
       expect(restored.theme, PathwiseTheme.forestMint);
-      expect(restored.coinBalance, 50);
+      expect(restored.coinBalance, 70);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-a',
@@ -171,7 +171,7 @@ void main() {
         ),
         isTrue,
       );
-      expect(restored.coinBalance, 50);
+      expect(restored.coinBalance, 70);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-pass',

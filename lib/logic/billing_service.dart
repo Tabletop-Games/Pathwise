@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -44,13 +44,15 @@ Future<BillingOutcome> processPurchase({
 }
 
 class BillingService extends ChangeNotifier {
-  BillingService({required this.profile, required this.persist});
+  BillingService({required this.persist});
 
-  final Future<String?> Function() profile;
   final Future<bool> Function(VerifiedGrant) persist;
-  final _endpoint = Uri.tryParse(
-    const String.fromEnvironment('PATHWISE_BILLING_VERIFY_URL'),
+  static const _commerce = MethodChannel('games.tabletop.pathwise/commerce');
+  static const _playKey = String.fromEnvironment(
+    'PATHWISE_PLAY_BILLING_PUBLIC_KEY',
   );
+  bool get _android => defaultTargetPlatform == TargetPlatform.android;
+  String get _storeName => _android ? 'Google Play' : 'the App Store';
   final _retry = <String, PurchaseDetails>{};
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   Future<void> _queue = Future.value();
@@ -60,14 +62,9 @@ class BillingService extends ChangeNotifier {
   String? message;
 
   bool get enabled =>
-      defaultTargetPlatform == TargetPlatform.android &&
       const bool.fromEnvironment('PATHWISE_BILLING_ENABLED') &&
-      _endpoint?.scheme == 'https' &&
-      _endpoint!.hasAuthority &&
-      _endpoint.userInfo.isEmpty &&
-      _endpoint.path == '/v1/play/verify' &&
-      !_endpoint.hasQuery &&
-      !_endpoint.hasFragment;
+      ((_android && _playKey.isNotEmpty) ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   bool get buying => _buying;
 
   Future<void> start() async {
@@ -77,7 +74,7 @@ class BillingService extends ChangeNotifier {
       _receive,
       onError: (Object _) {
         _buying = false;
-        _report('Google Play is temporarily unavailable.');
+        _report('$_storeName is temporarily unavailable.');
       },
     );
     await refreshCatalog();
@@ -95,14 +92,9 @@ class BillingService extends ChangeNotifier {
   Future<void> refreshCatalog() async {
     if (!enabled || _disposed) return;
     try {
-      if (!await _verifierReady()) {
-        products.clear();
-        _report('Purchase verification is unavailable. Try again later.');
-        return;
-      }
       final store = InAppPurchase.instance;
       if (!await store.isAvailable()) {
-        _report('Google Play is unavailable on this device.');
+        _report('$_storeName is unavailable on this device.');
         return;
       }
       final response = await store.queryProductDetails(
@@ -117,26 +109,23 @@ class BillingService extends ChangeNotifier {
         ..addAll(response.productDetails);
       _report(response.error == null ? null : 'Some products are unavailable.');
     } catch (_) {
-      _report('The Google Play catalog could not be loaded.');
+      _report('The store catalog could not be loaded.');
     }
   }
 
   Future<void> buy(ProductDetails product) async {
     if (!enabled || buying || !products.contains(product)) return;
     _buying = true;
-    _report('Opening Google Play…');
+    _report('Opening $_storeName…');
     try {
-      if (!await _verifierReady()) throw StateError('Verification unavailable');
-      final secret = await profile();
-      if (secret == null || _disposed) throw StateError('Profile unavailable');
-      final param = GooglePlayPurchaseParam(
-        productDetails: product,
-        applicationUserName: sha256.convert(utf8.encode(secret)).toString(),
-      );
+      final param = PurchaseParam(productDetails: product);
       final store = InAppPurchase.instance;
       final sent = !consumable(product.id)
           ? await store.buyNonConsumable(purchaseParam: param)
-          : await store.buyConsumable(purchaseParam: param, autoConsume: false);
+          : await store.buyConsumable(
+              purchaseParam: param,
+              autoConsume: !_android,
+            );
       if (!sent) throw StateError('Purchase sheet unavailable');
     } catch (_) {
       _buying = false;
@@ -146,13 +135,13 @@ class BillingService extends ChangeNotifier {
 
   Future<void> restore() async {
     if (!enabled || _disposed || buying) return;
-    _report('Checking purchases with Google Play…');
+    _report('Checking purchases with $_storeName…');
     try {
       for (final purchase in _retry.values.toList()) {
         _receive([purchase]);
       }
       await InAppPurchase.instance.restorePurchases();
-      if (message == 'Checking purchases with Google Play…') {
+      if (message == 'Checking purchases with $_storeName…') {
         _report('Restore requested. Verified purchases will appear here.');
       }
     } catch (_) {
@@ -168,14 +157,16 @@ class BillingService extends ChangeNotifier {
 
   Future<void> _handle(PurchaseDetails purchase) async {
     if (_disposed || !storeProducts.containsKey(purchase.productID)) return;
-    final token = purchase.verificationData.serverVerificationData;
+    final token = _android
+        ? purchase.verificationData.serverVerificationData
+        : (purchase.purchaseID ?? '');
     final outcome = await processPurchase(
       status: purchase.status,
-      verify: () => _verify(purchase.productID, token),
+      verify: () => _verify(purchase, token),
       persist: persist,
       finalize: () async {
         final store = InAppPurchase.instance;
-        if (consumable(purchase.productID)) {
+        if (_android && consumable(purchase.productID)) {
           final result = await store
               .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
               .consumePurchase(purchase);
@@ -195,74 +186,54 @@ class BillingService extends ChangeNotifier {
       _retry.remove(token);
     }
     _report(switch (outcome) {
-      BillingOutcome.pending => 'Payment is pending in Google Play.',
+      BillingOutcome.pending => 'Payment is pending in $_storeName.',
       BillingOutcome.canceled => 'Purchase canceled.',
-      BillingOutcome.rejected => 'Google Play could not verify this purchase.',
+      BillingOutcome.rejected => 'The store could not verify this purchase.',
       BillingOutcome.retry => 'Purchase is awaiting verification or delivery. Use Restore purchases to retry.',
       BillingOutcome.complete => 'Verified purchase applied.',
     });
   }
 
-  Future<bool> _verifierReady() async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-    try {
-      final request = await client.getUrl(_endpoint!.replace(path: '/healthz'));
-      request.followRedirects = false;
-      final response = await request.close().timeout(
-        const Duration(seconds: 5),
-      );
-      if (response.statusCode != 200) return false;
-      final data = jsonDecode(
-        await response
-            .transform(utf8.decoder)
-            .join()
-            .timeout(const Duration(seconds: 5)),
-      );
-      return data is Map &&
-          data['status'] == 'ready' &&
-          data['package'] == 'games.tabletop.pathwise' &&
-          data['catalog'] == 2;
-    } catch (_) {
-      return false;
-    } finally {
-      client.close(force: true);
-    }
-  }
-
-  Future<VerifiedGrant?> _verify(String product, String token) async {
-    final secret = await profile();
-    if (secret == null || token.isEmpty || _disposed)
-      throw StateError('Verification unavailable');
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client.postUrl(_endpoint!);
-      request.followRedirects = false;
-      request.headers.contentType = ContentType.json;
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $secret');
-      request.write(jsonEncode({'product': product, 'token': token}));
-      final response = await request.close().timeout(
-        const Duration(seconds: 12),
-      );
-      if (response.statusCode == 403 || response.statusCode == 422) return null;
-      if (response.statusCode != 200)
-        throw StateError('Verification service unavailable');
-      final body = await response
-          .transform(utf8.decoder)
-          .join()
-          .timeout(const Duration(seconds: 8));
-      final data = jsonDecode(body);
-      if (data is! Map ||
-          data['product'] != product ||
-          data['coins'] != storeProducts[product]!.coins ||
-          data['id'] is! String ||
-          !RegExp(r'^[a-f0-9]{64}$').hasMatch(data['id'] as String)) {
+  Future<VerifiedGrant?> _verify(PurchaseDetails purchase, String token) async {
+    if (_disposed || token.isEmpty) return null;
+    final product = purchase.productID;
+    const package = 'games.tabletop.pathwise';
+    final bool? valid;
+    if (_android && purchase is GooglePlayPurchaseDetails) {
+      final data = purchase.billingClientPurchase;
+      if (data.purchaseState != PurchaseStateWrapper.purchased ||
+          data.packageName != package ||
+          data.purchaseToken != token ||
+          data.products.length != 1 ||
+          data.products.single != product) {
         return null;
       }
-      return (id: data['id'] as String, product: product);
-    } finally {
-      client.close(force: true);
+      valid = await _commerce
+          .invokeMethod<bool>('verifyPlayPurchase', {
+            'key': _playKey,
+            'data': data.originalJson,
+            'signature': data.signature,
+          })
+          .timeout(const Duration(seconds: 5));
+    } else if (!_android) {
+      valid = await _commerce
+          .invokeMethod<bool>('verifyStoreKitPurchase', {
+            'transaction': token,
+            'product': product,
+          })
+          .timeout(const Duration(seconds: 30));
+    } else {
+      return null;
     }
+    if (valid != true) return null;
+    // Keep the Android key identical to the retired verifier's ledger key.
+    final identity = _android
+        ? '$package\u0000$token'
+        : 'storekit/$package/$token';
+    return (
+      id: sha256.convert(utf8.encode(identity)).toString(),
+      product: product,
+    );
   }
 
   void _report(String? value) {

@@ -1,16 +1,16 @@
 # Pathwise
 
-Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continuous path from 1 to the final checkpoint, visiting the numbers in order and covering every tile.
+Pathwise is a wall-free Android and iOS route puzzle by Tabletop Games. Draw one continuous path from 1 to the final checkpoint, visiting the numbers in order and covering every tile.
 
 ## Play
 
-Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. The shared hint tank starts at 3/3. Refill it with coins or a verified rewarded ad. Fourth and subsequent hints on any puzzle each require their own rewarded ad, including for Premium players. A finished route shows its time, personal best, and earned coins.
+Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. Each fresh attempt starts with three standard hints. Resuming restores that attempt’s remaining hints. Every further hint requires its own rewarded ad, including for Premium players. Results appear over the solved board with a prominent next action.
 
-Play unlimited Levels, Daily Challenge, and Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
+Play unlimited Levels, the three-board Daily Challenge, and 1-, 3-, or 5-minute Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
 
 Share text results for Daily Challenge, Time Attack and progression milestones. Earn 29 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) · [Google Play achievements](docs/google-play-achievements.md)
 
-Google Play Billing, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
+Google Play Billing, Apple StoreKit, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 
 ## Build and verify
 

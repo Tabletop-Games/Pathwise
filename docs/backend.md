@@ -1,5 +1,7 @@
 # Backend
 
+> Historical infrastructure. Shipping apps no longer call these endpoints. The code and tests remain for reference and existing deployments.
+
 The Node 22 service targets Cloud Run and Firestore. The HTTP service emits a redacted operation/status/duration record and throttles purchase verification and ad-session creation per installation. Configuration lives in [setup.md](../setup.md). It exposes a purchase readiness probe, Play receipt verification, signed reward callback and receipt endpoints, and Play Games account linking.
 
 - Purchase tokens are sent only to the verifier over HTTPS. Play state, quantity, SKU and obfuscated account must match before a transaction can claim the hashed purchase ID. Client commits the verified grant before consuming or acknowledging. The same installation gets an idempotent response on retry.

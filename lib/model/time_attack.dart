@@ -10,6 +10,7 @@ final class AttackRun {
     this.deadline,
     this.puzzleStarted,
     this.previousBest, {
+    this.minutes = 3,
     List<int>? clears,
     this.finished = false,
     this.coins = 0,
@@ -21,14 +22,15 @@ final class AttackRun {
     data['deadline'] as int,
     data['puzzleStarted'] as int,
     data['previousBest'] as int,
+    minutes: data['minutes'] as int? ?? 10,
     clears: List<int>.from(data['clears'] as List),
     finished: data['finished'] == true,
     coins: data['coins'] as int? ?? 0,
   );
 
-  static const duration = Duration(minutes: 10);
+  static const duration = Duration(minutes: 3);
   final String id;
-  final int boot, deadline, previousBest;
+  final int boot, deadline, previousBest, minutes;
   int puzzleStarted;
   final List<int> clears;
   bool finished;
@@ -41,7 +43,10 @@ final class AttackRun {
   bool get record => score > previousBest;
   int remaining(BootTime now) => finished || now.boot != boot
       ? 0
-      : (deadline - now.milliseconds).clamp(0, duration.inMilliseconds);
+      : (deadline - now.milliseconds).clamp(
+          0,
+          Duration(minutes: minutes).inMilliseconds,
+        );
   bool clear(BootTime now) {
     if (remaining(now) == 0) return false;
     clears.add(max(0, now.milliseconds - puzzleStarted));
@@ -52,6 +57,7 @@ final class AttackRun {
   Map<String, Object> toJson() => {
     'id': id,
     'boot': boot,
+    'minutes': minutes,
     'deadline': deadline,
     'puzzleStarted': puzzleStarted,
     'clears': clears,

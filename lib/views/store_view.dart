@@ -161,7 +161,7 @@ class _StoreViewState extends State<StoreView> {
                   if (billing.enabled) ...[
                     const SizedBox(height: 12),
                     Text(
-                      'Google Play',
+                      'Store purchases',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     for (final product in billing.products)

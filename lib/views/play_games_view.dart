@@ -89,16 +89,6 @@ class _PlayGamesViewState extends State<PlayGamesView> {
                         }),
                   child: Text(board.key),
                 ),
-              OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () => _run(
-                        () async => await PlayGames.link(model)
-                            ? 'Play Games account linked.'
-                            : 'Account link unavailable.',
-                      ),
-                child: const Text('Link online account'),
-              ),
             ],
             if (_message.isNotEmpty)
               Semantics(liveRegion: true, child: Text(_message)),

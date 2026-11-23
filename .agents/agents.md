@@ -9,4 +9,4 @@
 - Keep monetization flags off by default. Use the Play internal track and AdMob test units before enabling live services. Never put a Play service account key, signing key, or receipt token in this repository.
 - Preserve R8 optimization. Add a keep rule only for a diagnosed reflection problem, scope it to the required class/member, then test the minified artifact.
 
-- Keep Time Attack deadlines tied to Android elapsed time and boot identity. Persist hint balances by puzzle ID, and never deliver an ad-funded reward from a dismissal, error, or load callback.
+- Keep Time Attack deadlines tied to Android elapsed time and boot identity. Persist hint balances with unfinished attempts, and never deliver an ad-funded reward from a dismissal, error, or load callback.
