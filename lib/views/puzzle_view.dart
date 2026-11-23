@@ -150,6 +150,11 @@ class PuzzleView extends StatelessWidget {
                                 '${model.attack!.clears.length} solved · ${model.attack!.score} points',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
+                            if (id.layoutLabel case final label?)
+                              Text(
+                                label,
+                                style: TextStyle(color: palette.muted),
+                              ),
                             if (id.mode == PlayMode.daily &&
                                 id.checkpoint == null)
                               Padding(

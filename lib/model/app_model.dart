@@ -420,7 +420,7 @@ class AppModel extends ChangeNotifier {
     refreshAttackClock();
     if (attack == null || attack!.finished) {
       final next = AttackRun(
-        '${now.boot}-${now.milliseconds}-${Random.secure().nextInt(1 << 32)}',
+        'v2-${now.boot}-${now.milliseconds}-${Random.secure().nextInt(1 << 32)}',
         now.boot,
         now.milliseconds + Duration(minutes: _attackMinutes).inMilliseconds,
         now.milliseconds,

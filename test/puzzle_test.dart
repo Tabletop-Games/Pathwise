@@ -54,6 +54,27 @@ void expectSolution(VerifiedPuzzle board) {
 }
 
 void main() {
+  test(
+    'new timed rounds vary checkpoint layouts while legacy seeds stay stable',
+    () {
+      const guided = PuzzleId.attack('v2-test/3');
+      const sparse = PuzzleId.attack('v2-test/4');
+      const standard = PuzzleId.attack('v2-test/5');
+      const legacy = PuzzleId.attack('test/3');
+      expect(guided.generation.clues, greaterThan(standard.generation.clues));
+      expect(sparse.generation.clues, lessThan(standard.generation.clues));
+      expect(
+        legacy.generation.seed,
+        puzzleSeed('pathwise-attack-v1/attack/test/3'),
+      );
+      for (final id in [guided, sparse, standard]) {
+        final board = generatePuzzle(id.generation);
+        expectSolution(board);
+        expect(solve(board.puzzle).unique, isTrue);
+      }
+    },
+  );
+
   test('DFS agrees with independent enumeration for all 3×3 boards with three or four checkpoints', () {
     final cells = List.generate(9, (index) => index);
     final seen = <int>{};

@@ -46,14 +46,31 @@ final class PuzzleId {
   };
 
   int get attackIndex => int.parse((value as String).split('/').last);
+  bool get _variedAttack =>
+      mode == PlayMode.attack && (value as String).startsWith('v2-');
+
+  String? get layoutLabel => !_variedAttack || attackIndex < 3
+      ? null
+      : switch (attackIndex % 3) {
+          0 => 'Guided checkpoints',
+          1 => 'Sparse checkpoints',
+          _ => 'Standard checkpoints',
+        };
+
   int get level => value as int;
 
   ({int size, int seed, int clues}) get generation {
     if (mode == PlayMode.attack) {
+      final baseline = [0, 0, 0, 0, 8, 10, 14, 16][size];
+      final variation = switch (layoutLabel) {
+        'Guided checkpoints' => 2,
+        'Sparse checkpoints' => -2,
+        _ => 0,
+      };
       return (
         size: size,
-        seed: puzzleSeed('pathwise-attack-v1/$key'),
-        clues: [0, 0, 0, 0, 8, 10, 14, 16][size],
+        seed: puzzleSeed('pathwise-attack-${_variedAttack ? 'v2' : 'v1'}/$key'),
+        clues: baseline + variation,
       );
     }
     if (mode == PlayMode.levels && level > legacyLevelCount) {
