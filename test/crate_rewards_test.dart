@@ -77,7 +77,7 @@ void main() {
 
   for (final width in [320.0, 390.0, 600.0]) {
     testWidgets(
-      'flight, forfeiture, retry and exactly-once claim at ${width}dp',
+      'floating layout, input, forfeiture, retry and exactly-once claim at ${width}dp',
       (tester) async {
         await tester.binding.setSurfaceSize(Size(width, 760));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -101,6 +101,7 @@ void main() {
           ),
         );
         model.tap(1);
+        await tester.pumpAndSettle();
         final catchCrate = find.byTooltip('Catch supply crate');
         Future<void> drop(int seconds) async {
           ms += seconds * 1000;
@@ -108,16 +109,42 @@ void main() {
           await tester.pump();
         }
 
+        final board = find.byKey(const ValueKey('puzzle-grid'));
+        final progress = find.byType(LinearProgressIndicator);
+        final boardRect = tester.getRect(board);
+        final barRect = tester.getRect(progress);
+        expect(barRect.width, closeTo((width - 32).clamp(0, 490), .1));
         await drop(44);
         expect(catchCrate, findsNothing);
         await drop(1);
         final first = tester.getCenter(catchCrate);
         await tester.pump(const Duration(seconds: 2));
         expect(tester.getCenter(catchCrate).dy, greaterThan(first.dy));
-        await tester.pump(const Duration(seconds: 7));
+        expect(tester.getRect(catchCrate).left, greaterThanOrEqualTo(0));
+        expect(tester.getRect(catchCrate).right, lessThanOrEqualTo(width));
+        expect(tester.getRect(board), boardRect);
+        expect(tester.getRect(progress), barRect);
+        final next =
+            boardRect.topLeft +
+            Offset(boardRect.width * 5 / 6, boardRect.height / 6);
+        expect(tester.getRect(catchCrate).contains(next), false);
+        await tester.tapAt(next);
+        await tester.pump();
+        expect(model.path.last, 2);
+        final boardAfterMove = tester.getRect(board);
+        final barAfterMove = tester.getRect(progress);
+        await tester.pump(const Duration(seconds: 2));
+        expect(
+          tester.getCenter(catchCrate).dy,
+          inInclusiveRange(boardAfterMove.top, boardAfterMove.bottom),
+        );
+        await tester.pump(const Duration(seconds: 5));
         expect(catchCrate, findsNothing);
+        expect(tester.getRect(board), boardAfterMove);
+        expect(tester.getRect(progress), barAfterMove);
         expect(model.coinBalance, 40);
         await drop(150);
+        await tester.pump(const Duration(seconds: 2));
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
         await tester.tap(find.text('No Thanks'));
@@ -125,9 +152,11 @@ void main() {
         expect(model.coinBalance, 40);
         await drop(150);
         final amount = model.fallingCrate!.coins;
+        await tester.pump(const Duration(seconds: 2));
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
         expect(find.text('+$amount coins'), findsOneWidget);
+        expect(catchCrate, findsNothing);
         for (final feedback in [
           'Video unavailable. Try again.',
           'Video reward wasn’t verified. Try again.',

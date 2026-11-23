@@ -92,170 +92,156 @@ class PuzzleView extends StatelessWidget {
             ),
           ),
           (_, _, null) => const SizedBox.shrink(),
-          (_, _, final board?) => Row(
+          (_, _, final board?) => Stack(
+            fit: StackFit.expand,
             children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final side = math.min(
-                      math.min(constraints.maxWidth - 32, 490.0),
-                      math.max(200.0, constraints.maxHeight - 270),
-                    );
-                    return Center(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 490),
-                          child: Column(
-                            children: [
-                              if (timed)
-                                Text(
-                                  '${model.attack!.clears.length} solved · ${model.attack!.score} points',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final side = math.min(
+                    math.min(constraints.maxWidth - 32, 490.0),
+                    math.max(200.0, constraints.maxHeight - 270),
+                  );
+                  return Center(
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 490),
+                        child: Column(
+                          children: [
+                            if (timed)
+                              Text(
+                                '${model.attack!.clears.length} solved · ${model.attack!.score} points',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            if (id.mode == PlayMode.daily)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  '${id.value}',
+                                  style: TextStyle(color: palette.muted),
                                 ),
-                              if (id.mode == PlayMode.daily)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
+                              ),
+                            Row(
+                              children: [
+                                Expanded(
                                   child: Text(
-                                    '${id.value}',
-                                    style: TextStyle(color: palette.muted),
-                                  ),
-                                ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      model.complete
-                                          ? 'Full route'
-                                          : 'Checkpoint ${model.nextCheckpoint} of ${board.checkpoints.length}',
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                    model.complete
+                                        ? 'Full route'
+                                        : 'Checkpoint ${model.nextCheckpoint} of ${board.checkpoints.length}',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  Text(
-                                    '${model.path.length} / ${board.area} tiles',
-                                    style: TextStyle(color: palette.muted),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 9),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: model.path.length / board.area,
-                                  minHeight: 5,
-                                  color: palette.route,
-                                  backgroundColor: palette.tile,
                                 ),
-                              ),
-                              const SizedBox(height: 14),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: 8,
-                                runSpacing: 3,
-                                children: [
-                                  OutlinedButton.icon(
-                                    onPressed: model.canUndo
-                                        ? model.undo
-                                        : null,
-                                    icon: const Icon(Icons.undo_rounded),
-                                    label: const Text('Undo'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: model.canClear
-                                        ? model.clear
-                                        : null,
-                                    icon: const Icon(Icons.restart_alt_rounded),
-                                    label: const Text('Clear'),
-                                  ),
-                                  _HintAction(model: model),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: side,
-                                height: side,
-                                child: PuzzleBoard(
-                                  key: ObjectKey(board),
-                                  model: model,
-                                  puzzle: board,
-                                  palette: palette,
+                                Text(
+                                  '${model.path.length} / ${board.area} tiles',
+                                  style: TextStyle(color: palette.muted),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 9),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: model.path.length / board.area,
+                                minHeight: 5,
+                                color: palette.route,
+                                backgroundColor: palette.tile,
                               ),
-                              const SizedBox(height: 14),
-                              AnimatedSwitcher(
-                                duration:
-                                    MediaQuery.disableAnimationsOf(context)
-                                    ? Duration.zero
-                                    : const Duration(milliseconds: 360),
-                                switchInCurve: Curves.easeOutCubic,
-                                transitionBuilder: (child, animation) =>
-                                    FadeTransition(
-                                      opacity: animation,
-                                      child: ScaleTransition(
-                                        scale: Tween(
-                                          begin: .96,
-                                          end: 1.0,
-                                        ).animate(animation),
-                                        child: child,
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 3,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: model.canUndo ? model.undo : null,
+                                  icon: const Icon(Icons.undo_rounded),
+                                  label: const Text('Undo'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: model.canClear
+                                      ? model.clear
+                                      : null,
+                                  icon: const Icon(Icons.restart_alt_rounded),
+                                  label: const Text('Clear'),
+                                ),
+                                _HintAction(model: model),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: side,
+                              height: side,
+                              child: PuzzleBoard(
+                                key: ObjectKey(board),
+                                model: model,
+                                puzzle: board,
+                                palette: palette,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            AnimatedSwitcher(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 360),
+                              switchInCurve: Curves.easeOutCubic,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: Tween(
+                                        begin: .96,
+                                        end: 1.0,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  ),
+                              child: model.complete && !timed
+                                  ? _Completion(
+                                      model: model,
+                                      id: id,
+                                      palette: palette,
+                                    )
+                                  : Padding(
+                                      key: const ValueKey('instruction'),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 6,
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        model.hintCell != null
+                                            ? model.correctedByHint
+                                                  ? 'Route corrected. Follow the highlighted tile.'
+                                                  : 'Trace to the highlighted tile.'
+                                            : model.path.length == 1
+                                            ? 'Start at 1. Visit the numbers in order and fill every tile.'
+                                            : 'Drag from the tip to extend. Tap the trail to backtrack.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: palette.muted),
                                       ),
                                     ),
-                                child: model.complete && !timed
-                                    ? _Completion(
-                                        model: model,
-                                        id: id,
-                                        palette: palette,
-                                      )
-                                    : Padding(
-                                        key: const ValueKey('instruction'),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6,
-                                          horizontal: 8,
-                                        ),
-                                        child: Text(
-                                          model.hintCell != null
-                                              ? model.correctedByHint
-                                                    ? 'Route corrected. Follow the highlighted tile.'
-                                                    : 'Trace to the highlighted tile.'
-                                              : model.path.length == 1
-                                              ? 'Start at 1. Visit the numbers in order and fill every tile.'
-                                              : 'Drag from the tip to extend. Tap the trail to backtrack.',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: palette.muted,
-                                          ),
-                                        ),
-                                      ),
+                            ),
+                            if (model.storageError)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 12),
+                                child: Text('Progress couldn’t be saved.'),
                               ),
-                              if (model.storageError)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 12),
-                                  child: Text('Progress couldn’t be saved.'),
-                                ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
               if (!timed)
-                SizedBox(
-                  width: 56,
-                  child: switch (model.fallingCrate) {
-                    null => null,
-                    final crate => FallingCrate(
-                      key: ValueKey(crate.id),
-                      crate: crate,
-                    ),
-                  },
-                ),
+                if (model.fallingCrate case final crate?)
+                  Positioned.fill(
+                    child: FallingCrate(key: ValueKey(crate.id), crate: crate),
+                  ),
             ],
           ),
         },
