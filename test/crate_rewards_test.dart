@@ -101,6 +101,7 @@ void main() {
           ),
         );
         model.tap(1);
+        await tester.pumpAndSettle();
         final catchCrate = find.byTooltip('Catch supply crate');
         Future<void> drop(int seconds) async {
           ms += seconds * 1000;
