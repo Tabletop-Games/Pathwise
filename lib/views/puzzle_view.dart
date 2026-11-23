@@ -14,8 +14,8 @@ import '../model/game_state.dart';
 import 'components/ad_banner.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
-import 'share_view.dart';
 import 'fortune_view.dart';
+import 'share_view.dart';
 
 String formatTime(Duration value) {
   final minutes = value.inMinutes;
@@ -261,19 +261,42 @@ class PuzzleView extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (board.wall != null)
-                              const Text('Walls block the route.'),
-                            if (board.arrow != null)
+                            if (board.wall != null && board.portal != null)
+                              TextButton.icon(
+                                onPressed: () => showDialog<void>(
+                                  context: context,
+                                  builder: (dialog) => AlertDialog(
+                                    title: const Text('Mixed board rules'),
+                                    content: const Text(
+                                      'Walls block the path. Arrows direct exits. Collect the key to open its gate. '
+                                      'The marked portal jumps to its ring. Ice slides one tile straight ahead.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialog),
+                                        child: const Text('Done'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                icon: const Icon(Icons.help_outline_rounded),
+                                label: const Text('Board rules'),
+                              )
+                            else if (board.wall != null)
+                              const Text('Walls block the route.')
+                            else if (board.arrow != null)
                               const Text(
                                 'Follow the arrow when leaving its tile.',
-                              ),
-                            if (board.gate != null)
+                              )
+                            else if (board.gate != null)
                               const Text(
-                                'Collect the key ⚿ before entering its gate ▣.',
-                              ),
-                            if (board.portal != null)
-                              const Text('Enter ◉ to jump to ◎.'),
-                            if (board.ice != null)
+                                'Collect the key before entering its lock.',
+                              )
+                            else if (board.portal != null)
+                              const Text(
+                                'Enter the dotted portal to jump to its ring.',
+                              )
+                            else if (board.ice != null)
                               const Text('Ice slides one tile straight ahead.'),
                             if (model.endedEarly)
                               Wrap(

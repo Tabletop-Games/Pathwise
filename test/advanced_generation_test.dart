@@ -1,11 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/game_controller.dart';
+import '../lib/logic/puzzle.dart';
 import '../lib/logic/puzzle_generator.dart';
 import '../lib/logic/puzzle_solver.dart';
 import '../lib/model/game_state.dart';
 
 void main() {
+  test('advanced rules reject blocked or unqualified moves', () {
+    expect(Puzzle(3, [0, 8], wall: (0, 1)).canExtend(0, 1, 1, 2), isFalse);
+    expect(Puzzle(3, [0, 8], arrow: (1, 2)).canExtend(1, 4, 2, 2), isFalse);
+    final gated = Puzzle(3, [0, 8], gate: (2, 4));
+    expect(gated.canExtend(1, 4, 2, 2), isFalse);
+    expect(
+      gated.canExtend(1, 4, 4, 2, hasVisited: (cell) => cell == 2),
+      isTrue,
+    );
+    final portal = Puzzle(3, [0, 8], portal: (1, 5));
+    expect(portal.canExtend(1, 5, 2, 2), isTrue);
+    expect(portal.canExtend(4, 5, 2, 2), isFalse);
+    final ice = Puzzle(3, [0, 8], ice: 1);
+    expect(ice.canExtend(1, 2, 2, 2, previous: 0), isTrue);
+    expect(ice.canExtend(1, 4, 2, 2, previous: 0), isFalse);
+  });
+
   test('advancement bands generate and play certified routes', () {
     for (final level in [
       20,

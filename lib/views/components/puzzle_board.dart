@@ -258,44 +258,71 @@ class _BoardPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round,
       );
     }
-    void marker(int cell, String symbol) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: symbol,
-          style: TextStyle(
-            color: palette.ink,
-            fontSize: .24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      painter.paint(canvas, _center(cell) + const Offset(-.40, -.43));
-      painter.dispose();
+    final marks = <int, int>{};
+    Paint symbolInk() => Paint()
+      ..color = palette.ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .035
+      ..strokeCap = StrokeCap.round;
+    Offset marker(int cell) {
+      final slot = marks.update(cell, (count) => count + 1, ifAbsent: () => 0);
+      return _center(cell) + Offset(-.32 + slot * .19, -.31);
     }
 
     if (puzzle.arrow case (final from, final to)) {
-      final delta = to - from;
-      marker(
-        from,
-        delta == 1
-            ? '→'
-            : delta == -1
-            ? '←'
-            : delta > 0
-            ? '↓'
-            : '↑',
-      );
+      final center = marker(from);
+      final direction = _center(to) - _center(from);
+      final side = Offset(-direction.dy, direction.dx) * .05;
+      final tip = center + direction * .085;
+      final paint = symbolInk();
+      canvas.drawLine(center - direction * .08, tip, paint);
+      canvas.drawLine(tip, center + side, paint);
+      canvas.drawLine(tip, center - side, paint);
     }
     if (puzzle.gate case (final key, final gate)) {
-      marker(key, '⚿');
-      marker(gate, '▣');
+      final keyCenter = marker(key);
+      final gateCenter = marker(gate);
+      final paint = symbolInk();
+      canvas.drawCircle(keyCenter - const Offset(.04, 0), .040, paint);
+      canvas.drawLine(keyCenter, keyCenter + const Offset(.095, 0), paint);
+      canvas.drawLine(
+        keyCenter + const Offset(.07, 0),
+        keyCenter + const Offset(.07, .044),
+        paint,
+      );
+      canvas.drawRect(
+        Rect.fromCenter(center: gateCenter, width: .14, height: .11),
+        paint,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: gateCenter - const Offset(0, .05),
+          width: .08,
+          height: .09,
+        ),
+        math.pi,
+        math.pi,
+        false,
+        paint,
+      );
     }
     if (puzzle.portal case (final entry, final exit)) {
-      marker(entry, '◉');
-      marker(exit, '◎');
+      final start = marker(entry);
+      final end = marker(exit);
+      final paint = symbolInk();
+      canvas.drawCircle(start, .081, paint);
+      canvas.drawCircle(start, .033, paint..style = PaintingStyle.fill);
+      canvas.drawCircle(end, .081, symbolInk());
     }
-    if (puzzle.ice case final ice?) marker(ice, '❄');
+    if (puzzle.ice case final ice?) {
+      final center = marker(ice);
+      for (var ray = 0; ray < 3; ray++) {
+        final theta = ray * math.pi / 3;
+        final delta = Offset(math.cos(theta), math.sin(theta)) * .085;
+        canvas.drawLine(center - delta, center + delta, symbolInk());
+      }
+    }
+
     final first = _center(route.first);
     final tip = _center(route.last);
     final stroke = Path()..moveTo(first.dx, first.dy);

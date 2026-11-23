@@ -1,11 +1,15 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/game_state_storage.dart';
+import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
 import '../model/app_model.dart';
 import '../model/game_state.dart';
 import '../model/progression.dart';
 import 'main_menu_view.dart';
+import 'puzzle_view.dart';
 
 class DeveloperView extends StatefulWidget {
   const DeveloperView({super.key});
@@ -19,6 +23,58 @@ class _DeveloperViewState extends State<DeveloperView> {
   String? _result;
   int _previewSize = 5;
   int _mechanicLevel = 0;
+  int _seed = 0;
+  int _clueFactor = 2;
+  VerifiedPuzzle? _generated;
+
+  void _generate(int seed) {
+    try {
+      final board = generatePuzzle((
+        size: _previewSize,
+        seed: seed,
+        clues: _previewSize * _clueFactor,
+      ), level: _mechanicLevel);
+      final puzzle = board.puzzle;
+      final active = [
+        if (puzzle.wall != null) 'Walls',
+        if (puzzle.arrow != null) 'One-way',
+        if (puzzle.gate != null) 'Keys',
+        if (puzzle.portal != null) 'Portals',
+        if (puzzle.ice != null) 'Ice',
+      ];
+      setState(() {
+        _seed = seed;
+        _generated = board;
+        _result =
+            'Certified unique · seed $seed\n${active.isEmpty ? 'Classic' : active.join(', ')} · ${board.solution.length} cells';
+      });
+    } catch (error) {
+      setState(() {
+        _generated = null;
+        _result = 'Generation failed for seed $seed. $error';
+      });
+    }
+  }
+
+  Future<void> _play(VerifiedPuzzle board) async {
+    final preview = AppModel(
+      storage: _PreviewStorage(),
+      snapshot: const {},
+      loader: (_) async => board,
+    );
+    await preview.open(const PuzzleId.level(1));
+    if (mounted) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider.value(
+            value: preview,
+            child: const PuzzleView(),
+          ),
+        ),
+      );
+    }
+    preview.dispose();
+  }
 
   @override
   void dispose() {
@@ -119,22 +175,51 @@ class _DeveloperViewState extends State<DeveloperView> {
                 ),
             ],
           ),
-          OutlinedButton(
-            onPressed: () {
-              final seed = int.tryParse(_input.text);
-              if (seed == null) return;
-              final board = generatePuzzle((
-                size: _previewSize,
-                seed: seed,
-                clues: _previewSize * 2,
-              ), level: _mechanicLevel);
-              setState(
-                () => _result =
-                    'Generated ${board.puzzle.size}×${board.puzzle.size}, seed $seed\n${board.solution.join(' → ')}',
-              );
-            },
-            child: const Text('Generate certified board from seed'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final (name, factor) in [
+                ('Sparse', 1),
+                ('Standard', 2),
+                ('Guided', 3),
+              ])
+                ChoiceChip(
+                  label: Text(name),
+                  selected: _clueFactor == factor,
+                  onSelected: (_) => setState(() => _clueFactor = factor),
+                ),
+            ],
           ),
+          FilledButton(
+            onPressed: () {
+              if (int.tryParse(_input.text) case final seed?) _generate(seed);
+            },
+            child: const Text('Generate'),
+          ),
+          if (_generated case final board?)
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () => _play(board),
+                  child: const Text('Play'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _generate(_seed + 1),
+                  child: const Text('Regenerate'),
+                ),
+                OutlinedButton(
+                  onPressed: () =>
+                      setState(() => _result = board.solution.join(' → ')),
+                  child: const Text('Show solution'),
+                ),
+                OutlinedButton(
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: '$_seed')),
+                  child: const Text('Copy seed'),
+                ),
+              ],
+            ),
           for (final (label, action)
               in <(String, Future<bool> Function(String))>[
                 ('Simulate earned coin video', model.grantAdBonus),
@@ -167,4 +252,9 @@ class _DeveloperViewState extends State<DeveloperView> {
       ),
     );
   }
+}
+
+class _PreviewStorage extends GameStateStorage {
+  @override
+  Future<void> save(String snapshot) async {}
 }
