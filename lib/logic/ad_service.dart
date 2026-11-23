@@ -7,10 +7,13 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../model/economy.dart';
 import 'ad_frequency.dart';
+import 'reward_verifier.dart';
+export 'reward_verifier.dart' show RewardPlacement;
 
 /// Consent-aware cache with post-game placements and a separate opt-in video.
 class AdService extends ChangeNotifier {
-  AdService({this.reserveInterstitial, this.onRewardedClosed});
+  AdService({this.reserveInterstitial, this.onRewardedClosed, this.verifier});
+  final RewardVerifier? verifier;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
   bool _reserving = false;
@@ -51,13 +54,19 @@ class AdService extends ChangeNotifier {
     }
   }
 
+  static final _productionUnits = [
+    _prodInterstitial,
+    _bannerUnit,
+    for (final placement in RewardPlacement.values) _unit(placement),
+  ].toSet();
+
   bool get enabled =>
       defaultTargetPlatform == TargetPlatform.android &&
       (_test ||
           (_enabled &&
               _privacyConfigured &&
-              validAdUnit(_prodInterstitial) &&
-              validAdUnit(_prodRewarded)));
+              _productionUnits.length == 5 &&
+              _productionUnits.every(validAdUnit)));
   static bool validAdUnit(String id) =>
       RegExp(r'^ca-app-pub-[0-9]{16}/[0-9]{10}$').hasMatch(id) &&
       !id.startsWith('ca-app-pub-3940256099942544/');
@@ -70,11 +79,22 @@ class AdService extends ChangeNotifier {
   Ad? _showing;
   bool get _fullScreen => _showing != null;
   bool _loadingInterstitial = false;
-  bool _loadingRewarded = false;
+  final _loadingRewarded = <RewardPlacement>{};
   int _consentGeneration = 0;
   (InterstitialAd, DateTime)? _interstitial;
-  (RewardedAd, DateTime)? _rewarded;
-  bool get videoReady => ready(_rewarded) && _canRequest && !_fullScreen;
+  final _rewarded = <RewardPlacement, (RewardedAd, DateTime)>{};
+  bool readyFor(RewardPlacement placement) =>
+      ready(_rewarded[placement]) && _canRequest && !_fullScreen;
+  bool get videoReady => readyFor(RewardPlacement.coins);
+  static String _unit(RewardPlacement placement) => switch (placement) {
+    RewardPlacement.coins => _prodRewarded,
+    RewardPlacement.hint => const String.fromEnvironment(
+      'PATHWISE_ADMOB_EXTRA_HINT',
+    ),
+    RewardPlacement.refill => const String.fromEnvironment(
+      'PATHWISE_ADMOB_HINT_REFILL',
+    ),
+  };
   String? message;
 
   bool ready((Ad, DateTime)? cached) =>
@@ -184,35 +204,38 @@ class AdService extends ChangeNotifier {
         }),
       );
     }
-    if (!_loadingRewarded && !ready(_rewarded)) {
-      _rewarded?.$1.dispose();
-      _rewarded = null;
-      _loadingRewarded = true;
+    for (final placement in RewardPlacement.values) {
+      if (!_test &&
+          (verifier?.enabled != true || !validAdUnit(_unit(placement))))
+        continue;
+      if (ready(_rewarded[placement]) || !_loadingRewarded.add(placement))
+        continue;
+      _rewarded.remove(placement)?.$1.dispose();
       unawaited(
         RewardedAd.load(
           adUnitId: _test
               ? 'ca-app-pub-3940256099942544/5224354917'
-              : _prodRewarded,
+              : _unit(placement),
           request: const AdRequest(),
           rewardedAdLoadCallback: RewardedAdLoadCallback(
             onAdLoaded: (ad) {
-              _loadingRewarded = false;
+              _loadingRewarded.remove(placement);
               if (_disposed ||
                   !_canRequest ||
                   generation != _consentGeneration) {
                 ad.dispose();
               } else {
-                _rewarded = (ad, DateTime.now());
+                _rewarded[placement] = (ad, DateTime.now());
                 _report(null);
               }
             },
             onAdFailedToLoad: (_) {
-              _loadingRewarded = false;
+              _loadingRewarded.remove(placement);
               _report('No videos available. Try again later.');
             },
           ),
         ).catchError((Object _) {
-          _loadingRewarded = false;
+          _loadingRewarded.remove(placement);
           _report('No videos available. Try again later.');
         }),
       );
@@ -261,17 +284,37 @@ class AdService extends ChangeNotifier {
   Future<bool> watchVideo(
     Future<bool> Function(String) reward, {
     bool Function()? canPresent,
+    RewardPlacement placement = RewardPlacement.coins,
   }) async {
-    if (!videoReady || _disposed || _checkingReward) return false;
+    if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
     final online = await _online();
+    final ticket = online && !_test ? await verifier?.start(placement) : null;
     _checkingReward = false;
-    if (!online || !videoReady || _disposed || canPresent?.call() == false) {
+    if ((!_test && ticket == null) ||
+        !online ||
+        !readyFor(placement) ||
+        _disposed ||
+        canPresent?.call() == false) {
       _report('Video unavailable. Check your connection and try again.');
       return false;
     }
-    final ad = _rewarded!.$1;
-    _rewarded = null;
+    final ad = _rewarded.remove(placement)!.$1;
+    if (ticket != null) {
+      try {
+        await ad.setServerSideOptions(
+          ServerSideVerificationOptions(customData: ticket.token),
+        );
+      } catch (_) {
+        unawaited(ad.dispose());
+        _preload();
+        return false;
+      }
+      if (_disposed || _fullScreen || canPresent?.call() == false) {
+        unawaited(ad.dispose());
+        return false;
+      }
+    }
     _showing = ad;
     var granted = false;
     final id = List.generate(
@@ -290,8 +333,19 @@ class AdService extends ChangeNotifier {
               if (granted || _disposed) return;
               granted = true;
               if (!await _online() || _disposed) return;
+              final receipt = ticket == null
+                  ? id
+                  : await verifier!.confirm(
+                      placement,
+                      ticket.token,
+                      ticket.secret,
+                    );
+              if (receipt == null || _disposed) {
+                _report('Reward could not be verified.');
+                return;
+              }
               unawaited(
-                reward(id).then((saved) {
+                reward(receipt).then((saved) {
                   if (!saved) _report('The video bonus could not be saved.');
                 }),
               );
@@ -322,9 +376,11 @@ class AdService extends ChangeNotifier {
 
   void _clearCache() {
     _interstitial?.$1.dispose();
-    _rewarded?.$1.dispose();
+    for (final ad in _rewarded.values) {
+      ad.$1.dispose();
+    }
     _interstitial = null;
-    _rewarded = null;
+    _rewarded.clear();
   }
 
   @override

@@ -11,6 +11,7 @@
             android:value="${pathwiseAdmobAppId}" />
         <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
             android:value="true" />
+        <meta-data android:name="com.google.android.gms.games.APP_ID" android:value="@string/pathwise_games_project" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

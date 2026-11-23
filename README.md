@@ -4,11 +4,11 @@ Pathwise is a wall-free Android route puzzle by Tabletop Games. Draw one continu
 
 ## Play
 
-Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. Three free hints are available per puzzle. Extra hints require an earned video reward or coins with an ad-free entitlement. A finished route shows its time, personal best, and earned coins.
+Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. The shared hint tank starts at 3/3. Refill it with coins or a verified rewarded ad. Fourth and subsequent hints on any puzzle each require their own rewarded ad, including for Premium players. A finished route shows its time, personal best, and earned coins.
 
-Version 1.2.0 adds offline Time Attack, three progressive free hints per puzzle, an expanded store, and adaptive launcher icons. It retains the unlimited level campaign, daily and endless modes, coin shop, and achievements. Earn coins by playing and unlock cosmetics offline. The daily puzzle uses the device's local calendar. Progress, previous boards, and equipped themes from 1.0 are preserved.
+The first public release line is **1.0.0**. Play the infinite level campaign, daily boards, Endless and Time Attack offline. Spend earned coins on permanent Research, timed Boosts and themes. Free supply crates appear between gestures during eligible play.
 
-Optional Google Play purchases and AdMob placements are disabled by default. They require production setup and testing. [Changelog](CHANGELOG.md) · [Economy](docs/economy.md) · [Monetization setup](docs/monetization.md)
+Google Play Billing, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 
 ## Build and verify
 
@@ -20,12 +20,14 @@ flutter pub get
 dart format .
 flutter analyze
 flutter test
+npm --prefix backend ci
 npm --prefix backend test
+dart run tool/economy_simulation.dart
 flutter build apk --release
 flutter build appbundle --release
 ```
 
-For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without them Gradle builds unsigned artifacts. [Release verification and measurements](docs/release-1.2.0.md)
+For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_KEY_ALIAS`, and `PATHWISE_KEY_PASSWORD` in the build environment. Without them Gradle builds unsigned artifacts. [Release verification and measurements](docs/performance.md)
 
 ## Source and licensing
 

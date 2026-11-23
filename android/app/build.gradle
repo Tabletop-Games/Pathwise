@@ -17,6 +17,15 @@ def dartDefines = (findProperty("dart-defines") ?: "").split(",")
         def pair = new String(it.decodeBase64(), "UTF-8").split("=", 2)
         [(pair[0]): pair.size() == 2 ? pair[1] : ""]
     }
+def gamesProject = providers.environmentVariable("PATHWISE_GAMES_PROJECT_ID").orNull ?: "0"
+if (!(gamesProject ==~ /[0-9]{1,24}/)) {
+    throw new GradleException("PATHWISE_GAMES_PROJECT_ID must be the numeric Play Games project ID.")
+}
+
+dependencies {
+    implementation "com.google.android.gms:play-services-games-v2:22.1.0"
+}
+
 def productionAds = dartDefines["PATHWISE_ADS_ENABLED"] == "true"
 def admobAppId = providers.environmentVariable("PATHWISE_ADMOB_APP_ID").orNull
 if (productionAds && (!admobAppId || !(admobAppId ==~ /ca-app-pub-[0-9]{16}~[0-9]{10}/)
@@ -25,6 +34,7 @@ if (productionAds && (!admobAppId || !(admobAppId ==~ /ca-app-pub-[0-9]{16}~[0-9
 }
 
 android {
+    buildFeatures { resValues = true }
     namespace = "games.tabletop.pathwise"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
@@ -40,6 +50,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue "string", "pathwise_games_project", gamesProject
         manifestPlaceholders["pathwiseAdmobAppId"] = productionAds
             ? admobAppId : "ca-app-pub-3940256099942544~3347511713"
     }

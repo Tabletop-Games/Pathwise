@@ -22,6 +22,8 @@ final class GameController {
   int? hintCell;
   int hintsUsed = 0;
 
+  bool get isDrawing => _beforeStroke != null;
+
   bool get canUndo => _undo.isNotEmpty && !complete && _beforeStroke == null;
 
   bool begin(int cell) {

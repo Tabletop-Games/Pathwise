@@ -7,6 +7,7 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
+import 'play_games_view.dart';
 import 'puzzle_view.dart';
 import 'store_view.dart';
 
@@ -85,9 +86,17 @@ class SettingsView extends StatelessWidget {
                     },
                   ),
                 const Divider(),
+                ListTile(
+                  title: const Text('Play Games'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlayGamesView()),
+                  ),
+                ),
                 AboutListTile(
                   applicationName: 'Pathwise',
-                  applicationVersion: '1.2.0',
+                  applicationVersion: '1.0.0',
                   icon: const Icon(Icons.info_outline_rounded),
                   aboutBoxChildren: const [
                     Text(

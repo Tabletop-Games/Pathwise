@@ -44,7 +44,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(model.path, [0]);
 
-    await tester.tap(find.text('Hint · 3 free'));
+    await tester.tap(find.text('Hint · 3 left'));
     await tester.pumpAndSettle();
     expect(model.hintCell, 1);
     await tester.tapAt(center(1));
@@ -72,10 +72,51 @@ void main() {
     expect(model.solved, 1);
     expect(tester.takeException(), isNull);
 
+    await tester.ensureVisible(find.text('Next puzzle'));
     await tester.tap(find.text('Next puzzle'));
     await tester.pumpAndSettle();
     expect(find.text('Endless · 2'), findsOneWidget);
     expect(model.path, [0]);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await model.flush();
+    model.dispose();
+  });
+
+  testWidgets('extra hint dialog never offers coin payment to Premium', (
+    tester,
+  ) async {
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {
+        'schemaVersion': 4,
+        'premium': true,
+        'hintUsage': {'endless/1': 3},
+      },
+      loader: (_) async => fixture(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.tap(find.text('Endless'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Watch ad · 1 hint'));
+    await tester.pumpAndSettle();
+    expect(find.text('Extra hint'), findsOneWidget);
+    expect(find.textContaining('Spend'), findsNothing);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Watch ad · 1 hint'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Watch ad · 1 hint'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Rewarded video unavailable'), findsOneWidget);
+    expect(model.hintTank, 3);
+    expect(model.extraHints, 0);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();
@@ -176,7 +217,7 @@ void main() {
       );
       await tester.tap(find.text('40'));
       await tester.pumpAndSettle();
-      expect(find.text('Cosmetics'), findsOneWidget);
+      expect(find.text('Vault'), findsOneWidget);
       expect(find.text('Equipped'), findsOneWidget);
       expect(find.text('Restore purchases'), findsNothing);
       expect(find.textContaining('Optional video'), findsNothing);
