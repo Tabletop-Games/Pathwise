@@ -46,7 +46,13 @@ final class GameController {
       cell >= 0 &&
       cell < puzzle.area &&
       !_path.contains(cell) &&
-      puzzle.canExtend(tip, cell, length, nextCheckpoint);
+      puzzle.canExtend(
+        tip,
+        cell,
+        length,
+        nextCheckpoint,
+        allowEarlyFinish: true,
+      );
 
   RouteEdit step(int cell) {
     if (complete || _beforeStroke == null) return RouteEdit.none;
@@ -133,6 +139,7 @@ final class GameController {
         saved[index],
         index,
         checkpoint,
+        allowEarlyFinish: true,
       )) {
         return false;
       }

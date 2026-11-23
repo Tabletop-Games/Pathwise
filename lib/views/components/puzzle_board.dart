@@ -234,6 +234,15 @@ class _BoardPainter extends CustomPainter {
       );
       fill.color = visited.contains(cell) ? palette.covered : palette.tile;
       canvas.drawRRect(tile, fill);
+      if (!complete && route.last == puzzle.finish && !visited.contains(cell)) {
+        canvas.drawRRect(
+          tile.deflate(.045),
+          Paint()
+            ..color = palette.accent
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .065,
+        );
+      }
     }
 
     final first = _center(route.first);

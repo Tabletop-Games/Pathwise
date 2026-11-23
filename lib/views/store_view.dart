@@ -109,7 +109,7 @@ class _StoreViewState extends State<StoreView> {
                         !model.canEarnAdBonus
                             ? 'Daily limit reached'
                             : ads.message ??
-                                  '${economy.rewardedAdsPerDay - model.adsToday} rewards left today',
+                                  '${model.adsToday} of ${economy.rewardedAdsPerDay} watched today',
                       ),
                       trailing: TextButton(
                         onPressed: !model.canEarnAdBonus
@@ -119,12 +119,17 @@ class _StoreViewState extends State<StoreView> {
                                 final messenger = ScaffoldMessenger.of(context);
                                 final shown = await ads.watchVideo(
                                   (id) async {
+                                    final bonus =
+                                        model.adsToday + 1 ==
+                                        economy.coinAdMilestone;
                                     final saved = await model.grantAdBonus(id);
                                     if (saved && messenger.mounted)
                                       messenger.showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            '+${economy.rewardedAdCoins} coins added',
+                                            bonus
+                                                ? 'Bonus unlocked! +${economy.coinAdMilestoneBonus} bonus coins'
+                                                : '+${economy.rewardedAdCoins} coins added',
                                           ),
                                         ),
                                       );

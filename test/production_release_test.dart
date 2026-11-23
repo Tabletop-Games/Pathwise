@@ -54,14 +54,14 @@ void main() {
     expect(restored.attack!.average, 6000);
     expect(restored.attack!.fastest, 5000);
     expect(restored.attackBest, 200);
-    expect(restored.attack!.coins, 12);
-    expect(restored.coinBalance, 52);
+    expect(restored.attack!.coins, 6);
+    expect(restored.coinBalance, 76);
     restored.refreshAttackClock();
     await restored.flush();
     final restarted = app(store, data: await store.load(), now: () => time);
     restarted.refreshAttackClock();
     expect(restarted.attackHistory, hasLength(1));
-    expect(restarted.coinBalance, 52);
+    expect(restarted.coinBalance, 76);
     restored.dispose();
     restarted.dispose();
   });
@@ -86,7 +86,7 @@ void main() {
       expect(model.hintsRemaining, 2);
       expect(await model.restartAttack(), true);
       expect(model.attack!.id, isNot(first));
-      expect(model.hintsRemaining, 3);
+      expect(model.hintsRemaining, 2);
       expect(model.attackHistory, isEmpty);
       model.stopAttack();
       clock = (boot: 1, milliseconds: 1000000);
@@ -103,7 +103,7 @@ void main() {
   );
 
   test(
-    'resume preserves hints; replay resets them and ad grants stay idempotent',
+    'resume and replay preserve the global wallet and ad deduplication',
     () async {
       final store = MemoryStorage();
       final model = app(store);
@@ -120,32 +120,27 @@ void main() {
       model.hint();
       expect(model.path.length, 5);
       model.clear();
-      expect(model.freeHints, 0);
+      expect(model.hintsRemaining, 0);
       expect(model.canHint, isFalse);
       model.hint();
       expect(model.hintCell, isNull);
       await model.open(id);
-      expect(model.freeHints, 0);
+      expect(model.hintsRemaining, 0);
       final ads = AdService();
-      expect(
-        await ads.watchVideo((event) => model.grantRewardedHint(id.key, event)),
-        isFalse,
-      );
-      expect(model.extraHints, 0);
-      expect(await model.grantRewardedHint(id.key, 'reward-1'), isTrue);
-      expect(await model.grantRewardedHint(id.key, 'reward-1'), isFalse);
-      expect(model.extraHints, 1);
+      expect(await ads.watchVideo(model.grantHintAd), isFalse);
+      expect(model.hintsRemaining, 0);
+      expect(await model.grantHintAd('reward-1'), isTrue);
+      expect(await model.grantHintAd('reward-1'), isFalse);
+      expect(model.hintsRemaining, 1);
       model.hint();
-      expect(model.extraHints, 0);
+      expect(model.hintsRemaining, 0);
       await model.flush();
       final restored = app(store, data: await store.load());
       await restored.open(id);
-      expect(restored.freeHints, 0);
+      expect(restored.hintsRemaining, 0);
       await restored.open(id, replay: true);
-      expect(restored.freeHints, 3);
-      expect(restored.hintsRemaining, 3);
-      expect(restored.extraHints, 0);
-      expect(await restored.grantRewardedHint(id.key, 'reward-1'), isFalse);
+      expect(restored.hintsRemaining, 0);
+      expect(await restored.grantHintAd('reward-1'), isFalse);
       ads.dispose();
       model.dispose();
       restored.dispose();
@@ -172,7 +167,7 @@ void main() {
       expect(model.hasThemePass && model.adFree && model.premium, isTrue);
       expect(
         model.coinBalance,
-        40 + economy.premiumBonus + Achievement.collector.coins,
+        50 + economy.premiumBonus + Achievement.collector.coins,
       );
       await model.flush();
       final restored = app(store, data: await store.load());
@@ -189,14 +184,10 @@ void main() {
         restored.hint();
         restored.clear();
       }
-      expect(restored.buyTankRefill(), isTrue);
-      expect(restored.buyTankRefill(), isFalse);
-      expect(
-        await restored.grantRewardedHint('levels/1', 'reward-ad-free'),
-        isTrue,
-      );
-      expect(restored.coinsSpent, restored.refillPrice);
-      expect(restored.extraHints, 1);
+      expect(await restored.buyHint(), isTrue);
+      expect(await restored.grantHintAd('reward-ad-free'), isTrue);
+      expect(restored.coinsSpent, economy.hintPrice);
+      expect(restored.hintsRemaining, 2);
       model.dispose();
       restored.dispose();
     },
@@ -244,7 +235,7 @@ void main() {
         },
       );
       await v2.open(const PuzzleId.level(4), replay: true);
-      expect(v2.freeHints, 3);
+      expect(v2.hintsRemaining, 0);
       expect(v2.hasThemePass, isTrue);
       expect(v2.adFree, isFalse);
       expect(v2.ownedThemes, 23);

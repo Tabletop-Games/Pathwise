@@ -8,12 +8,14 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
+import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
 import 'puzzle_view.dart';
 import 'settings_view.dart';
 import 'store_view.dart';
+import 'streak_view.dart';
 
 Future<void> openPuzzle(
   BuildContext context,
@@ -126,6 +128,8 @@ class _MainMenuViewState extends State<MainMenuView>
     context.select(
       (AppModel model) => (
         model.theme,
+        model.streak.count,
+        model.hintsRemaining,
         model.dailyCurrent(model.daily.value as String).key,
         model.highestUnlocked,
         model.levelsSolved,
@@ -186,6 +190,14 @@ class _MainMenuViewState extends State<MainMenuView>
                     ),
                   ],
                 ),
+                if (model.developerMode)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const DeveloperView()),
+                    ),
+                    icon: const Icon(Icons.bug_report_outlined),
+                    label: const Text('Developer dashboard'),
+                  ),
                 const SizedBox(height: 17),
                 Text(
                   'Pathwise',
@@ -203,6 +215,39 @@ class _MainMenuViewState extends State<MainMenuView>
                   style: TextStyle(fontSize: 17, color: palette.muted),
                 ),
                 const SizedBox(height: 25),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  onPressed: () => openPuzzle(
+                    context,
+                    PuzzleId.level(model.highestUnlocked),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(
+                    model.levelsSolved == 0
+                        ? 'Play level 1'
+                        : 'Continue · Level ${model.highestUnlocked}',
+                  ),
+                ),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const StreakView()),
+                      ),
+                      icon: const Icon(Icons.local_fire_department_outlined),
+                      label: Text('${model.streak.count}-day streak'),
+                    ),
+                    ActionChip(
+                      onPressed: () => showHintShop(context, model),
+                      avatar: const Icon(Icons.lightbulb_outline, size: 18),
+                      label: Text('${model.hintsRemaining} hints'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 _DailyCard(
                   palette: palette,
                   date: '${daily.value}',

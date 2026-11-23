@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'economy.dart';
 import 'time_attack.dart';
 
 enum Research {
@@ -73,29 +74,36 @@ enum Research {
 }
 
 enum Boost {
-  doubleTen('2× coins', 10, 24, 2),
+  doubleTen('2× coins', 10, 20, 2),
   doubleFifteen('2× coins', 15, 36, 2),
   doubleThirty('2× coins', 30, 72, 2),
-  doubleSixty('2× coins', 60, 150, 2),
-  tripleFifteen('3× coins', 15, 80, 3),
-  quadrupleTen('4× coins', 10, 88, 4),
+  doubleSixty('2× coins', 60, 100, 2),
+  tripleFifteen('3× coins', 15, 60, 3),
+  quadrupleTen('4× coins', 10, 70, 4),
   crateFrequency('Twice as many crate opportunities', 15, 28, 1);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;
   final int minutes, price, multiplier;
+  bool get availableToBuy =>
+      this == doubleTen ||
+      this == doubleSixty ||
+      this == tripleFifteen ||
+      this == quadrupleTen;
   String get slot => multiplier > 1 ? 'coins' : name;
 }
 
 typedef Crate = ({String id, int coins});
 
+const crateTopPrize = 90;
+
 int crateCoins(int roll) =>
     switch (RangeError.checkValueInInterval(roll, 0, 99)) {
-      < 35 => 25,
-      < 65 => 40,
-      < 85 => 60,
-      < 95 => 85,
-      _ => 120,
+      < 35 => 20,
+      < 65 => 35,
+      < 85 => 55,
+      < 95 => 75,
+      _ => crateTopPrize,
     };
 
 final class Progression {
@@ -147,7 +155,6 @@ final class Progression {
       (price * (100 - effect(Research.savings) - effect(Research.procurement)) +
           99) ~/
       100;
-  int get refillPrice => 16;
   bool unlocked(Research item) =>
       item.prerequisite == null || rank(item.prerequisite!) >= 3;
   int get durationBonus =>
@@ -179,7 +186,7 @@ final class Progression {
           : now.milliseconds;
       return elapsed >= const Duration(hours: 24).inMilliseconds;
     });
-    if (crateDrops.length >= 6) return null;
+    if (crateDrops.length >= economy.cratesPerWindow) return null;
     final crate = (id: 'crate/${serial++}', coins: crateCoins(roll()));
     crateWait =
         (150 - effect(Research.hunter) - effect(Research.scout)) *

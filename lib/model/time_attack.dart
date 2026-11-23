@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'economy.dart';
+
 /// Elapsed milliseconds since Android boot, including time spent asleep.
 typedef BootTime = ({int boot, int milliseconds});
 
@@ -42,7 +44,7 @@ final class AttackRun {
   int get average =>
       clears.isEmpty ? 0 : clears.reduce((a, b) => a + b) ~/ clears.length;
   int get fastest => clears.isEmpty ? 0 : clears.reduce(min);
-  int get reward => clears.length < 2 ? 0 : min(48, clears.length * 6);
+  int get reward => economy.attackReward(clears.length);
   bool get canRank => finished && unassisted && score > 0;
   bool get record => score > previousBest;
   int remaining(BootTime now) => finished || now.boot != boot

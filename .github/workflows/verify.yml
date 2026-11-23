@@ -62,6 +62,10 @@ jobs:
           key: flutter-android-${{ runner.os }}-3.50.1-${{ hashFiles('pubspec.lock') }}
       - *flutter
       - run: flutter pub get --enforce-lockfile
+      - name: Compile Android debug APK
+        run: |
+          flutter build apk --debug
+          test -s build/app/outputs/flutter-apk/app-debug.apk
       - name: Compile Android release artifacts
         env:
           PATHWISE_STORE_PASSWORD: verification-only
@@ -93,6 +97,15 @@ jobs:
           test -s build/app/outputs/mapping/release/mapping.txt
           test -s build/app/outputs/mapping/release/resources.txt
           wc -c "$apk" "$bundle"
+      - name: Archive Android verification builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: pathwise-android-verification
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-release.apk
   ios:
     name: Compile unsigned iOS release
     runs-on: macos-15

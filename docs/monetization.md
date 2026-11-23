@@ -6,11 +6,11 @@ Production flags default off. See the publisher configuration and device test ch
 | --- | --- | --- |
 | Adaptive banner | Level selector and standard puzzle | Configured AdMob unit, UMP permission, adequate height, and no Remove Ads or Premium |
 | Interstitial | Exit after completing a Level or Daily Challenge | Five qualifying exits, four minutes between impressions, one minute after a rewarded ad, and no active puzzle |
-| Rewarded refill | Refill Hints | Restores remaining eligible standard hints |
-| Rewarded extra hint | Extra Hint | A separate earned reward for each hint after the third |
-| Rewarded coins | Vault | Eight coins, up to three per local day |
+| Rewarded hint | Hint shop | One hint per earned callback, up to five per local day |
+| Rewarded coins | Vault | Twenty coins per video, six per day, plus forty on the fourth |
+| Rewarded boost | Boosts | Three 10-minute 2× Boosts per day; one separate 3× offer after four coin videos |
 | Rewarded supply crate | Falling crate dialog | One successful viewing for the displayed amount |
-| Rewarded Fortune Wheel | Fortune Wheel | Four video spins per rolling 24 hours, plus the separate free spin |
+| Rewarded Fortune Wheel | Fortune Wheel | Six video spins per rolling 24 hours, plus the separate free spin |
 
 Client-side AdMob rewards require the SDK earned callback. Placement-specific handlers apply a unique transaction to the local save. Dismissal without earning has no payout. Optional rewards remain available to ad-free purchasers. Local payouts offer weaker tamper resistance than remotely verified receipts.
 

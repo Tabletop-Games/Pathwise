@@ -51,8 +51,8 @@ void main() {
   });
 
   test('six equal wedges always land on the preselected coin, independent of weights', () {
-    expect(catalog.prizes.map((p) => p.coins), [8, 16, 28, 48, 80, 160]);
-    expect(catalog.prizes.map((p) => p.weight), [32, 29, 21, 12, 5, 1]);
+    expect(catalog.prizes.map((p) => p.coins), [8, 15, 25, 40, 70, 100]);
+    expect(catalog.prizes.map((p) => p.weight), [30, 25, 20, 15, 8, 2]);
     expect(FortuneCatalog.segmentTurns * 360, 60);
     var rotation = 0.0;
     for (final prize in catalog.prizes) {
@@ -103,8 +103,8 @@ void main() {
       app.spinFreeFortune(catalog, random: FixedRoll(0)),
     ]);
     expect(draws.whereType<FortunePrize>().single.coins, 8);
-    expect(app.coinBalance, 48);
-    expect(app.hintTank, 3);
+    expect(app.coinBalance, 58);
+    expect(app.hintsRemaining, 3);
     app.dispose();
 
     app = launch(await storage.load());
@@ -124,7 +124,7 @@ void main() {
       (await app.spinFreeFortune(catalog, random: FixedRoll(0)))!.coins,
       8,
     );
-    expect(app.coinBalance, 64);
+    expect(app.coinBalance, 74);
     app.dispose();
   });
 
@@ -139,7 +139,7 @@ void main() {
       app.spinRewardedFortune(catalog, 'first', random: FixedRoll(99)),
     ]);
     expect(prizes.nonNulls.single.coins, 8);
-    for (var spin = 2; spin <= 4; spin++) {
+    for (var spin = 2; spin <= 6; spin++) {
       expect(await app.spinRewardedFortune(catalog, 'video-$spin'), isNotNull);
     }
     expect(app.fortuneVideosRemaining, 0);
@@ -152,7 +152,7 @@ void main() {
     expect(app.coinBalance, balance);
     expect(app.fortuneVideosRemaining, 0);
     clock = (boot: 1, milliseconds: 500 + fortuneWindowMs);
-    expect(app.fortuneVideosRemaining, 4);
+    expect(app.fortuneVideosRemaining, 6);
     expect(await app.spinRewardedFortune(catalog, 'first'), isNull);
     expect(await app.spinRewardedFortune(catalog, 'new'), isNotNull);
     app.dispose();
@@ -178,9 +178,9 @@ void main() {
     expect(verified.remaining(0), 0);
     expect(verified.remaining(fortuneWindowMs - 1), 0);
     expect(verified.remaining(fortuneWindowMs), 4);
-    expect(app.coinBalance, 99);
+    expect(app.coinBalance, 109);
     expect(app.progression.inventory, isEmpty);
-    expect(app.hintTank, 3);
+    expect(app.hintsRemaining, 3);
     app.dispose();
     app = AppModel(storage: storage, snapshot: await storage.load());
     expect(await app.applyVerifiedFortune(catalog, verified), false);
@@ -198,7 +198,7 @@ void main() {
       ),
       true,
     );
-    expect(app.coinBalance, 119);
+    expect(app.coinBalance, 129);
     expect(app.progression.inventory, isEmpty);
     app.dispose();
   });
@@ -221,7 +221,6 @@ void main() {
     }
     expect(progress.durationBonus, 72);
     expect(progress.discount(100), 66);
-    expect(progress.refillPrice, 16);
     progress.activate(Boost.quadrupleTen, 1);
     expect(progress.canActivate(Boost.doubleTen, 2), false);
     expect(progress.multiplier(2), 4);

@@ -75,18 +75,18 @@ void main() {
     await model.open(const PuzzleId.level(1));
     complete(model);
     expect(model.highestUnlocked, 2);
-    expect(model.lastReward, 32);
-    expect(model.coinBalance, 72);
+    expect(model.lastReward, 45);
+    expect(model.coinBalance, 95);
     expect(model.hasAchievement(Achievement.trailhead), isTrue);
     await model.open(const PuzzleId.level(1), replay: true);
     complete(model);
     expect(model.lastReward, 0);
-    expect(model.coinBalance, 72);
+    expect(model.coinBalance, 95);
     expect(model.levelsSolved, 1);
     await model.flush();
     final restored = create(store, await store.load());
     expect(restored.highestUnlocked, 2);
-    expect(restored.coinBalance, 72);
+    expect(restored.coinBalance, 95);
     expect(
       restored.transactions.where((tx) => tx.id == 'achievement/trailhead'),
       hasLength(1),
@@ -132,7 +132,7 @@ void main() {
     final snapshot = await store.load();
     expect(snapshot['schemaVersion'], GameStateStorage.schemaVersion);
     final restored = create(store, snapshot);
-    expect(restored.coinBalance, economy.starterCoins);
+    expect(restored.coinBalance, 0);
     expect(restored.highestUnlocked, 37);
     expect(restored.hasAttempt(const PuzzleId.level(14)), isTrue);
     model.dispose();
@@ -153,16 +153,16 @@ void main() {
         await model.applyVerifiedPurchase('grant-a', coins: 120, themes: false),
         isTrue,
       );
-      expect(model.coinsEarned, 160);
+      expect(model.coinsEarned, 170);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
-      expect(model.coinBalance, 70);
+      expect(model.coinBalance, 80);
       expect(model.coinsSpent, 90);
       await model.flush();
       final restored = create(store, await store.load());
       expect(restored.ownsTheme(PathwiseTheme.forestMint), isTrue);
       expect(restored.theme, PathwiseTheme.forestMint);
-      expect(restored.coinBalance, 70);
+      expect(restored.coinBalance, 80);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-a',
@@ -171,7 +171,7 @@ void main() {
         ),
         isTrue,
       );
-      expect(restored.coinBalance, 70);
+      expect(restored.coinBalance, 80);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-pass',
@@ -204,8 +204,32 @@ void main() {
     expect(await model.grantAdBonus('first'), isFalse);
     expect(await model.grantAdBonus('second'), isTrue);
     expect(await model.grantAdBonus('third'), isTrue);
-    expect(await model.grantAdBonus('fourth'), isFalse);
-    expect(model.coinBalance, 64);
+    expect(await model.grantAdBonus('fourth'), isTrue);
+    expect(model.coinBalance, 170);
+    expect(await model.grantAdBonus('fifth'), isTrue);
+    expect(await model.grantAdBonus('sixth'), isTrue);
+    expect(await model.grantAdBonus('seventh'), isFalse);
+    expect(model.coinBalance, 210);
+    model.dispose();
+  });
+
+  test('reward days survive restart and reject rollback', () async {
+    var now = DateTime(2026, 11, 23, 23, 59);
+    final store = MemoryStorage();
+    AppModel launch(Map<String, dynamic> snapshot) =>
+        AppModel(storage: store, snapshot: snapshot, today: () => now);
+    var model = launch({});
+    expect(await model.grantAdBonus('before-midnight'), true);
+    await model.flush();
+    model.dispose();
+    model = launch(await store.load());
+    expect(model.adsToday, 1);
+    now = DateTime(2026, 11, 24);
+    expect(model.adsToday, 0);
+    expect(await model.grantAdBonus('after-midnight'), true);
+    now = DateTime(2026, 11, 23);
+    expect(await model.grantAdBonus('rollback'), false);
+    expect(await model.grantHintAd('rollback-hint'), false);
     model.dispose();
   });
 
@@ -268,7 +292,7 @@ void main() {
       }
       expect(model.dailyStreak, 7);
       expect(model.longestStreak, 7);
-      expect(model.lastReward, 24 + 35 + 45);
+      expect(model.lastReward, 10 + 100 + 25 + 45);
       final balance = model.coinBalance;
       await model.open(model.daily, replay: true);
       complete(model);
@@ -279,7 +303,9 @@ void main() {
       expect(restored.longestStreak, 7);
       expect(restored.hasAchievement(Achievement.weeklyRitual), isTrue);
       expect(
-        restored.transactions.where((item) => item.id.startsWith('streak/')),
+        restored.transactions.where(
+          (item) => item.id.startsWith('play-streak-week/'),
+        ),
         hasLength(1),
       );
       model.dispose();

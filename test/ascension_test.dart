@@ -31,66 +31,69 @@ void main() {
         'hintCredits': {'levels/1': 1},
       });
       await app.open(const PuzzleId.level(1));
-      expect(app.hintTank, 0);
-      expect(app.freeHints, 0);
-      expect(app.extraHints, 0);
+      expect(app.hintsRemaining, 0);
+
       expect(app.canHint, false);
       app.dispose();
     },
   );
 
   test(
-    'tank resets with attempts and cannot supply fourth or fifth hint',
+    'global hints support unlimited ownership and five daily ad receipts',
     () async {
       final storage = MemoryStorage();
       final app = model(storage);
-      expect(app.hintTank, 3);
-      expect(app.buyTankRefill(), false);
-      await app.open(const PuzzleId.level(1));
-      app.hint();
-      expect(app.hintTank, 2);
-      expect(app.buyTankRefill(), true);
-      expect(app.hintTank, 3);
-      expect(app.freeHints, 2);
-      await app.open(const PuzzleId.daily('2026-11-23'));
-      app.hint();
-      expect(app.hintTank, 2);
-      await app.open(const PuzzleId.level(1), replay: true);
       expect(app.hintsRemaining, 3);
-      app.hint();
-      app.clear();
-      app.hint();
-      app.clear();
-      app.hint();
-      app.clear();
-      expect(app.hintTank, 0);
-      expect(app.freeHints, 0);
-      expect(await app.grantTankRefill('verified-refill'), true);
-      expect(await app.grantTankRefill('verified-refill'), false);
-      expect(app.hintTank, 3);
-      expect(app.canHint, false);
-      expect(await app.grantRewardedHint('levels/1', 'verified-fourth'), true);
-      app.hint();
-      app.clear();
-      expect(app.hintTank, 3);
-      expect(app.canHint, false);
-      expect(await app.grantRewardedHint('levels/1', 'verified-fourth'), false);
+      expect(await app.buyHint(), false);
+      await app.applyVerifiedPurchase('funds', coins: 600, themes: false);
+      for (var index = 0; index < 10; index++) {
+        expect(await app.buyHint(), true);
+      }
+      for (var index = 0; index < 5; index++) {
+        expect(await app.grantHintAd('hint-$index'), true);
+        expect(await app.grantHintAd('hint-$index'), false);
+      }
+      expect(await app.grantHintAd('sixth'), false);
+      expect(app.hintsRemaining, 18);
+      await app.open(const PuzzleId.level(1));
+      for (var index = 0; index < 8; index++) {
+        app.hint();
+        app.clear();
+      }
+      expect(app.hintsRemaining, 10);
+      await app.open(const PuzzleId.level(1), replay: true);
       await app.flush();
-      app.dispose();
       final restored = model(storage, await storage.load());
-      await restored.open(const PuzzleId.level(1));
-      expect(restored.hintTank, 3);
-      expect(restored.canHint, false);
-      expect(
-        await restored.grantRewardedHint('levels/1', 'verified-fifth'),
-        true,
-      );
-      restored.hint();
-      restored.clear();
-      expect(restored.canHint, false);
+      expect(restored.hintsRemaining, 10);
+      expect(restored.hintAdsToday, 5);
+      app.dispose();
       restored.dispose();
     },
   );
+
+  test('ad boost limits, fourth-ad gate and inventory persist', () async {
+    final storage = MemoryStorage();
+    final app = model(storage);
+    expect(await app.grantBoostAd(Boost.tripleFifteen, 'locked'), false);
+    for (var index = 0; index < 4; index++) {
+      expect(await app.grantAdBonus('coin-$index'), true);
+    }
+    expect(await app.grantBoostAd(Boost.tripleFifteen, 'triple'), true);
+    expect(await app.grantBoostAd(Boost.tripleFifteen, 'triple-again'), false);
+    for (var index = 0; index < 3; index++) {
+      expect(await app.grantBoostAd(Boost.doubleTen, 'boost-$index'), true);
+      expect(await app.grantBoostAd(Boost.doubleTen, 'boost-$index'), false);
+    }
+    expect(await app.grantBoostAd(Boost.doubleTen, 'fourth'), false);
+    await app.flush();
+    final restored = model(storage, await storage.load());
+    expect(restored.progression.inventory[Boost.doubleTen.name], 3);
+    expect(restored.progression.inventory[Boost.tripleFifteen.name], 1);
+    expect(restored.canEarnBoostAd(Boost.doubleTen), false);
+    expect(restored.canEarnBoostAd(Boost.tripleFifteen), false);
+    app.dispose();
+    restored.dispose();
+  });
 
   test(
     'research debit and boost inventory survive restore without stacking',
