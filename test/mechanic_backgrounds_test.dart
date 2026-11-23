@@ -14,11 +14,11 @@ import 'app_model_test.dart' show MemoryStorage;
 void main() {
   const samples = {
     21: ['Walls'],
-    41: ['Directional tile'],
+    41: ['Ice'],
     71: ['Keys and gates'],
     101: ['Portals'],
     151: ['Ice'],
-    1000: ['Walls', 'Directional tile', 'Keys and gates', 'Portals', 'Ice'],
+    1000: ['Walls', 'Keys and gates', 'Portals', 'Ice'],
   };
 
   for (final (theme, window) in [

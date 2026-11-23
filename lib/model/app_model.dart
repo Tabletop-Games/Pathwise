@@ -92,6 +92,17 @@ class AppModel extends ChangeNotifier {
         ].where((key) => key.startsWith('levels/')),
       );
     }
+    _legacyMechanicLevels.addAll(
+      (snapshot['legacyMechanicLevels'] as List? ?? []).whereType<String>(),
+    );
+    if (!snapshot.containsKey('legacyMechanicLevels')) {
+      _legacyMechanicLevels.addAll(
+        [
+          ..._results.keys,
+          ..._attempts.keys,
+        ].where((key) => key.startsWith('levels/')),
+      );
+    }
     final attackMinutes = snapshot['attackMinutes'];
     if (attackMinutes == 1 || attackMinutes == 3 || attackMinutes == 5) {
       _attackMinutes = attackMinutes as int;
@@ -355,10 +366,12 @@ class AppModel extends ChangeNotifier {
   static Future<VerifiedPuzzle> _generate(
     ({int size, int seed, int clues}) request,
     int level,
-  ) => compute((request) => generatePuzzle(request.$1, level: request.$2), (
-    request,
-    level,
-  ));
+    bool legacy,
+  ) => compute(
+    (request) =>
+        generatePuzzle(request.$1, level: request.$2, legacy: request.$3),
+    (request, level, legacy),
+  );
 
   final BootTime? Function() _bootTime;
   BootTime? _lastAutomaticAd;
@@ -818,6 +831,7 @@ class AppModel extends ChangeNotifier {
 
   final PuzzleLoader? _loader;
   final _classicLevels = <String>{};
+  final _legacyMechanicLevels = <String>{};
   final UserPreferences _prefs;
   late final Wallet _wallet;
   final _owned = <PathwiseTheme>{};
@@ -1399,6 +1413,7 @@ class AppModel extends ChangeNotifier {
                 id.mode == PlayMode.levels && !_classicLevels.contains(id.key)
                     ? id.level
                     : 0,
+                _legacyMechanicLevels.contains(id.key),
               ));
       if (_disposed || request != _request) return;
       final game = GameController(board);
@@ -1738,6 +1753,7 @@ class AppModel extends ChangeNotifier {
       'playStreak': streak.toJson(),
       'freezeSerial': _freezeSerial,
       'classicLevels': _classicLevels.toList(),
+      'legacyMechanicLevels': _legacyMechanicLevels.toList(),
       'hintBalance': _hintBalance,
       'hintPurchaseSerial': _hintPurchaseSerial,
       'hintAdDays': _hintAdDays,

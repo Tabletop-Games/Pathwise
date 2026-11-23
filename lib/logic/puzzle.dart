@@ -3,12 +3,16 @@ final class Puzzle {
   Puzzle(
     this.size,
     Iterable<int> checkpoints, {
-    this.wall,
+    (int, int)? wall,
+    Iterable<(int, int)> walls = const [],
     this.arrow,
     this.gate,
     this.portal,
-    this.ice,
-  }) : checkpoints = List.unmodifiable(checkpoints) {
+    int? ice,
+    Iterable<int> iceTiles = const [],
+  }) : walls = Set.unmodifiable({...walls, if (wall != null) wall}),
+       iceTiles = Set.unmodifiable({...iceTiles, if (ice != null) ice}),
+       checkpoints = List.unmodifiable(checkpoints) {
     if (size < 2 || size > 7) throw ArgumentError.value(size);
     if (this.checkpoints.length < 2 ||
         this.checkpoints.toSet().length != this.checkpoints.length ||
@@ -21,12 +25,13 @@ final class Puzzle {
     }
   }
 
-  final (int, int)? wall, arrow, gate, portal;
-  final int? ice;
+  final (int, int)? arrow, gate, portal;
+  final Set<(int, int)> walls;
+  final Set<int> iceTiles;
 
   int? forcedNext(int? previous, int cell) {
     if (portal?.$1 == cell) return portal!.$2;
-    if (ice != cell || previous == null) return null;
+    if (!iceTiles.contains(cell) || previous == null) return null;
     final nextX = 2 * (cell % size) - previous % size;
     final nextY = 2 * (cell ~/ size) - previous ~/ size;
     if (nextX < 0 || nextX >= size || nextY < 0 || nextY >= size) return -1;
@@ -68,7 +73,8 @@ final class Puzzle {
     bool Function(int)? hasVisited,
   }) {
     if (cell == finish || !movesFrom(cell).contains(next)) return false;
-    if (wall == (cell, next) || wall == (next, cell)) return false;
+    if (walls.contains((cell, next)) || walls.contains((next, cell)))
+      return false;
     if (arrow?.$1 == cell && arrow!.$2 != next) return false;
     if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) return false;
     if (portal?.$2 == next && portal!.$1 != cell) return false;

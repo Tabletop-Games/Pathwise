@@ -24,4 +24,4 @@
 
 ## Advanced Levels
 
-Levels 1–20 are classic. Levels 21–40 show blocked edges, 41–70 directional exits, 71–100 key-controlled gates, 101–150 portal pairs, 151–200 ice, and 201+ combine all five. Entering the source portal automatically appends the destination. An ice tile automatically appends the next tile in the entry direction. Blocked forced moves are rejected as a group. The route solver verifies the same rules used by gameplay. Existing saved boards retain their original generation rules.
+Levels 1–20 are classic. Levels 21–40 show blocked edges, 41–70 ice, 71–100 key-controlled gates, 101–150 portal pairs, 151–200 ice, and 201+ combine walls, keys and gates, portals, and ice. Entering the source portal automatically appends the destination. Ice automatically appends tiles in the entry direction until reaching a regular tile. Saved boards from before this change can still show their original directional arrows. Newly generated tiles reserve separate cells for checkpoints and mechanics. Blocked forced moves are rejected as a group. The route solver verifies the same rules used by gameplay. Existing saved boards retain their original generation rules.

@@ -254,7 +254,7 @@ Iterable<_Mark> _marksAt(Puzzle puzzle, int cell, Set<int> visited) sync* {
     if (cell == entry) yield _mark(_TileMark.portalEntry);
     if (cell == exit) yield _mark(_TileMark.portalExit);
   }
-  if (cell == puzzle.ice) yield _mark(_TileMark.ice);
+  if (puzzle.iceTiles.contains(cell)) yield _mark(_TileMark.ice);
 }
 
 void _paintTile(
@@ -370,19 +370,20 @@ void _paintTile(
         canvas.drawCircle(const Offset(0, .115), .026, ink);
       case _TileMark.portalEntry:
       case _TileMark.portalExit:
-        canvas.drawCircle(Offset.zero, .355, ink);
-        canvas.drawCircle(
-          Offset.zero,
-          .235,
-          ink..color = color.withValues(alpha: .34),
+        final portal = Rect.fromCircle(center: Offset.zero, radius: .34);
+        canvas.drawArc(portal, .16, math.pi - .32, false, ink);
+        canvas.drawArc(portal, math.pi + .16, math.pi - .32, false, ink);
+        final entry = mark.kind == _TileMark.portalEntry;
+        final diamond = Path()
+          ..moveTo(0, -.14)
+          ..lineTo(.14, 0)
+          ..lineTo(0, .14)
+          ..lineTo(-.14, 0)
+          ..close();
+        canvas.drawPath(
+          diamond,
+          ink..style = entry ? PaintingStyle.fill : PaintingStyle.stroke,
         );
-        if (mark.kind == _TileMark.portalEntry) {
-          final dot = ink
-            ..color = color.withValues(alpha: .53)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(Offset.zero, .055, dot);
-          canvas.drawCircle(const Offset(0, -.355), .046, dot);
-        }
       case _TileMark.ice:
         for (var ray = 0; ray < 6; ray++) {
           canvas.save();
@@ -398,10 +399,16 @@ void _paintTile(
   canvas.restore();
 }
 
-void _paintWall(Canvas canvas, Offset a, Offset b, BoardPalette palette) {
+void _paintWall(
+  Canvas canvas,
+  Offset a,
+  Offset b,
+  BoardPalette palette, {
+  bool continuous = false,
+}) {
   final delta = b - a;
   final midpoint = (a + b) / 2;
-  final ends = Offset(-delta.dy, delta.dx) * .44;
+  final ends = Offset(-delta.dy, delta.dx) * (continuous ? .50 : .44);
   canvas.drawLine(
     midpoint - ends,
     midpoint + ends,
@@ -424,7 +431,7 @@ class BoardRulesButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rules = [
-      if (puzzle.wall != null)
+      if (puzzle.walls.isNotEmpty)
         (
           'Walls',
           'A thick line blocks the shared edge.',
@@ -458,16 +465,16 @@ class BoardRulesButton extends StatelessWidget {
       if (puzzle.portal != null)
         (
           'Portals',
-          'Enter the dotted ring to jump to its partner.',
+          'Enter the solid diamond to jump to the matching open diamond.',
           [
             [_mark(_TileMark.portalEntry)],
             [_mark(_TileMark.portalExit)],
           ],
         ),
-      if (puzzle.ice != null)
+      if (puzzle.iceTiles.isNotEmpty)
         (
           'Ice',
-          'Slide one more tile in the direction you entered.',
+          'Slide straight through the ice until you reach a regular tile.',
           [
             [_mark(_TileMark.ice)],
           ],
@@ -600,8 +607,14 @@ class _BoardPainter extends CustomPainter {
       }
     }
 
-    if (puzzle.wall case (final from, final to)) {
-      _paintWall(canvas, _center(from), _center(to), palette);
+    for (final (from, to) in puzzle.walls) {
+      _paintWall(
+        canvas,
+        _center(from),
+        _center(to),
+        palette,
+        continuous: puzzle.walls.length > 1,
+      );
     }
 
     final first = _center(route.first);
