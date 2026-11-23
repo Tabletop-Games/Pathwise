@@ -109,6 +109,7 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
   Widget build(BuildContext context) {
     final model = widget.model;
     final path = model.path;
+    final visited = path.toSet();
     return LayoutBuilder(
       builder: (context, constraints) {
         final side = constraints.maxWidth / _size;
@@ -173,7 +174,7 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
                               (path.contains(cell) || model.canStep(cell))
                           ? () => model.tap(cell)
                           : null,
-                      label: _label(cell, path),
+                      label: _label(cell, path, visited),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -185,7 +186,7 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
     );
   }
 
-  String _label(int cell, List<int> path) {
+  String _label(int cell, List<int> path, Set<int> visited) {
     final number = widget.puzzle.numbers[cell];
     final state = switch (cell) {
       _ when cell == widget.model.hintCell => ', hinted',
@@ -194,8 +195,337 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
       _ => '',
     };
     final label = number == 0 ? '' : ', checkpoint $number';
-    return 'Row ${cell ~/ _size + 1}, column ${cell % _size + 1}$label$state';
+    final mechanics = _marksAt(widget.puzzle, cell, visited)
+        .map(
+          (mark) => switch (mark.kind) {
+            _TileMark.arrow =>
+              mark.direction.dx > 0
+                  ? 'exit right'
+                  : mark.direction.dx < 0
+                  ? 'exit left'
+                  : mark.direction.dy > 0
+                  ? 'exit down'
+                  : 'exit up',
+            _TileMark.key => 'key',
+            _TileMark.lockedGate => 'locked gate',
+            _TileMark.openGate => 'unlocked gate',
+            _TileMark.portalEntry => 'portal entry',
+            _TileMark.portalExit => 'portal exit',
+            _TileMark.ice => 'ice',
+          },
+        )
+        .map((text) => ', $text')
+        .join();
+    return 'Row ${cell ~/ _size + 1}, column ${cell % _size + 1}$label$mechanics$state';
   }
+}
+
+enum _TileMark {
+  arrow,
+  key,
+  lockedGate,
+  openGate,
+  portalEntry,
+  portalExit,
+  ice,
+}
+
+typedef _Mark = ({_TileMark kind, Offset direction});
+_Mark _mark(_TileMark kind) => (kind: kind, direction: Offset.zero);
+
+Offset _cellCenter(int cell, int size) =>
+    Offset(cell % size + .5, cell ~/ size + .5);
+
+Iterable<_Mark> _marksAt(Puzzle puzzle, int cell, Set<int> visited) sync* {
+  if (puzzle.arrow case (final from, final to) when from == cell) {
+    yield (
+      kind: _TileMark.arrow,
+      direction: _cellCenter(to, puzzle.size) - _cellCenter(from, puzzle.size),
+    );
+  }
+  if (puzzle.gate case (final key, final gate)) {
+    if (cell == key && !visited.contains(key)) yield _mark(_TileMark.key);
+    if (cell == gate)
+      yield _mark(
+        visited.contains(key) ? _TileMark.openGate : _TileMark.lockedGate,
+      );
+  }
+  if (puzzle.portal case (final entry, final exit)) {
+    if (cell == entry) yield _mark(_TileMark.portalEntry);
+    if (cell == exit) yield _mark(_TileMark.portalExit);
+  }
+  if (cell == puzzle.ice) yield _mark(_TileMark.ice);
+}
+
+void _paintTile(
+  Canvas canvas,
+  Offset center,
+  BoardPalette palette,
+  List<_Mark> marks, {
+  bool visited = false,
+}) {
+  final base = visited ? palette.covered : palette.tile;
+  final dark = marks.isNotEmpty && base.computeLuminance() < .25;
+  Color hue(_TileMark kind) => switch (kind) {
+    _TileMark.key || _TileMark.lockedGate || _TileMark.openGate =>
+      dark ? const Color(0xffffcb66) : const Color(0xffaa6811),
+    _TileMark.portalEntry || _TileMark.portalExit =>
+      dark ? const Color(0xff70e3d5) : const Color(0xff087b78),
+    _TileMark.ice => dark ? const Color(0xff93d4ff) : const Color(0xff2469a5),
+    _TileMark.arrow => palette.ink,
+  };
+  final tile = RRect.fromRectAndRadius(
+    Rect.fromCenter(center: center, width: .94, height: .94),
+    const Radius.circular(.17),
+  );
+  canvas.save();
+  canvas.clipRRect(tile);
+  canvas.drawRect(tile.outerRect, Paint()..color = base);
+  for (final (index, mark) in marks.indexed) {
+    final color = hue(mark.kind);
+    final single = marks.length == 1;
+    final horizontal = marks.length == 2;
+    final offset = single
+        ? Offset.zero
+        : horizontal
+        ? Offset(index == 0 ? -.215 : .215, 0)
+        : Offset(index.isEven ? -.215 : .215, index < 2 ? -.215 : .215);
+    final area = single
+        ? tile.outerRect
+        : Rect.fromCenter(
+            center: center + offset,
+            width: horizontal ? .43 : .41,
+            height: horizontal ? .90 : .41,
+          );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(area, const Radius.circular(.12)),
+      Paint()..color = color.withValues(alpha: .15),
+    );
+    canvas.save();
+    final arrowOffset = visited && mark.kind == _TileMark.arrow
+        ? Offset(-mark.direction.dy, mark.direction.dx) * .19
+        : Offset.zero;
+    final origin = center + offset + arrowOffset;
+    canvas.translate(origin.dx, origin.dy);
+    if (!single) canvas.scale(.54);
+    final ink = Paint()
+      ..color = color.withValues(
+        alpha: mark.kind == _TileMark.arrow ? .43 : .76,
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .051
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    switch (mark.kind) {
+      case _TileMark.arrow:
+        final d = mark.direction;
+        final cross = Offset(-d.dy, d.dx);
+        canvas.drawPath(
+          Path()
+            ..moveTo((-d * .30).dx, (-d * .30).dy)
+            ..lineTo((d * .28).dx, (d * .28).dy)
+            ..moveTo((d * .08 + cross * .17).dx, (d * .08 + cross * .17).dy)
+            ..lineTo((d * .28).dx, (d * .28).dy)
+            ..lineTo((d * .08 - cross * .17).dx, (d * .08 - cross * .17).dy),
+          ink..strokeWidth = .10,
+        );
+      case _TileMark.key:
+        canvas.rotate(-math.pi / 4);
+        canvas.drawCircle(const Offset(-.18, 0), .12, ink);
+        canvas.drawLine(const Offset(-.06, 0), const Offset(.30, 0), ink);
+        for (final x in [.16, .27]) {
+          canvas.drawLine(Offset(x, 0), Offset(x, .105), ink);
+        }
+      case _TileMark.lockedGate:
+      case _TileMark.openGate:
+        final open = mark.kind == _TileMark.openGate;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTRB(-.35, -.025, .35, .35),
+            const Radius.circular(.06),
+          ),
+          ink,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(-.29, -.03)
+            ..lineTo(-.29, -.13)
+            ..cubicTo(-.29, -.45, .29, -.45, .29, -.13)
+            ..lineTo(.29, open ? -.15 : -.03),
+          ink,
+        );
+        canvas.drawCircle(const Offset(0, .115), .026, ink);
+      case _TileMark.portalEntry:
+      case _TileMark.portalExit:
+        canvas.drawCircle(Offset.zero, .355, ink);
+        canvas.drawCircle(Offset.zero, .235, ink);
+        if (mark.kind == _TileMark.portalEntry) {
+          final dot = ink..style = PaintingStyle.fill;
+          canvas.drawCircle(Offset.zero, .055, dot);
+          canvas.drawCircle(const Offset(0, -.355), .056, dot);
+        }
+      case _TileMark.ice:
+        for (var ray = 0; ray < 6; ray++) {
+          canvas.save();
+          canvas.rotate(ray * math.pi / 3);
+          canvas.drawLine(Offset.zero, const Offset(0, -.34), ink);
+          canvas.drawLine(const Offset(0, -.21), const Offset(-.09, -.28), ink);
+          canvas.drawLine(const Offset(0, -.21), const Offset(.09, -.28), ink);
+          canvas.restore();
+        }
+    }
+    canvas.restore();
+  }
+  canvas.restore();
+}
+
+void _paintWall(Canvas canvas, Offset a, Offset b, BoardPalette palette) {
+  final delta = b - a;
+  final midpoint = (a + b) / 2;
+  final ends = Offset(-delta.dy, delta.dx) * .44;
+  canvas.drawLine(
+    midpoint - ends,
+    midpoint + ends,
+    Paint()
+      ..color = palette.ink
+      ..strokeWidth = .10
+      ..strokeCap = StrokeCap.round,
+  );
+}
+
+class BoardRulesButton extends StatelessWidget {
+  const BoardRulesButton({
+    super.key,
+    required this.puzzle,
+    required this.palette,
+  });
+  final Puzzle puzzle;
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final rules = [
+      if (puzzle.wall != null)
+        (
+          'Walls',
+          'A thick line blocks the shared edge.',
+          const <List<_Mark>>[],
+        ),
+      if (puzzle.arrow case (final from, final to))
+        (
+          'Directional tile',
+          'Leave this tile in the direction of the arrow.',
+          [
+            [
+              (
+                kind: _TileMark.arrow,
+                direction:
+                    _cellCenter(to, puzzle.size) -
+                    _cellCenter(from, puzzle.size),
+              ),
+            ],
+          ],
+        ),
+      if (puzzle.gate != null)
+        (
+          'Keys and gates',
+          'Collect the gold key to open the matching lock.',
+          [
+            [_mark(_TileMark.key)],
+            [_mark(_TileMark.lockedGate)],
+            [_mark(_TileMark.openGate)],
+          ],
+        ),
+      if (puzzle.portal != null)
+        (
+          'Portals',
+          'Enter the dotted ring to jump to its partner.',
+          [
+            [_mark(_TileMark.portalEntry)],
+            [_mark(_TileMark.portalExit)],
+          ],
+        ),
+      if (puzzle.ice != null)
+        (
+          'Ice',
+          'Slide one more tile in the direction you entered.',
+          [
+            [_mark(_TileMark.ice)],
+          ],
+        ),
+    ];
+    if (rules.isEmpty) return const SizedBox.shrink();
+    return TextButton.icon(
+      onPressed: () => showDialog<void>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Board rules'),
+          scrollable: true,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (title, description, marks) in rules)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: (marks.isEmpty ? 2 : marks.length) * 36,
+                        height: 36,
+                        child: CustomPaint(
+                          key: ValueKey('rule-sample-$title'),
+                          painter: _RuleSample(palette, marks),
+                        ),
+                      ),
+                      Text(title, style: Theme.of(dialog).textTheme.titleSmall),
+                      Text(description),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      ),
+      icon: const Icon(Icons.help_outline_rounded, size: 18),
+      label: const Text('Board rules'),
+    );
+  }
+}
+
+class _RuleSample extends CustomPainter {
+  const _RuleSample(this.palette, this.marks);
+  final BoardPalette palette;
+  final List<List<_Mark>> marks;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.height);
+    if (marks.isEmpty) {
+      const a = Offset(.5, .5);
+      const b = Offset(1.5, .5);
+      _paintTile(canvas, a, palette, const []);
+      _paintTile(canvas, b, palette, const []);
+      _paintWall(canvas, a, b, palette);
+    } else {
+      for (final (index, tile) in marks.indexed) {
+        _paintTile(canvas, Offset(index + .5, .5), palette, tile);
+      }
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_RuleSample oldDelegate) =>
+      oldDelegate.palette != palette || oldDelegate.marks != marks;
 }
 
 class _BoardPainter extends CustomPainter {
@@ -232,8 +562,13 @@ class _BoardPainter extends CustomPainter {
         Rect.fromCenter(center: _center(cell), width: .94, height: .94),
         const Radius.circular(.17),
       );
-      fill.color = visited.contains(cell) ? palette.covered : palette.tile;
-      canvas.drawRRect(tile, fill);
+      _paintTile(
+        canvas,
+        _center(cell),
+        palette,
+        _marksAt(puzzle, cell, visited).toList(),
+        visited: visited.contains(cell),
+      );
       if (!complete && route.last == puzzle.finish && !visited.contains(cell)) {
         canvas.drawRRect(
           tile.deflate(.045),
@@ -246,81 +581,7 @@ class _BoardPainter extends CustomPainter {
     }
 
     if (puzzle.wall case (final from, final to)) {
-      final delta = _center(to) - _center(from);
-      final center = (_center(from) + _center(to)) / 2;
-      final side = Offset(-delta.dy, delta.dx) * .45;
-      canvas.drawLine(
-        center - side,
-        center + side,
-        Paint()
-          ..color = palette.ink
-          ..strokeWidth = .10
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-    final marks = <int, int>{};
-    Paint symbolInk() => Paint()
-      ..color = palette.ink
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .035
-      ..strokeCap = StrokeCap.round;
-    Offset marker(int cell) {
-      final slot = marks.update(cell, (count) => count + 1, ifAbsent: () => 0);
-      return _center(cell) + Offset(-.32 + slot * .19, -.31);
-    }
-
-    if (puzzle.arrow case (final from, final to)) {
-      final center = marker(from);
-      final direction = _center(to) - _center(from);
-      final side = Offset(-direction.dy, direction.dx) * .05;
-      final tip = center + direction * .085;
-      final paint = symbolInk();
-      canvas.drawLine(center - direction * .08, tip, paint);
-      canvas.drawLine(tip, center + side, paint);
-      canvas.drawLine(tip, center - side, paint);
-    }
-    if (puzzle.gate case (final key, final gate)) {
-      final keyCenter = marker(key);
-      final gateCenter = marker(gate);
-      final paint = symbolInk();
-      canvas.drawCircle(keyCenter - const Offset(.04, 0), .040, paint);
-      canvas.drawLine(keyCenter, keyCenter + const Offset(.095, 0), paint);
-      canvas.drawLine(
-        keyCenter + const Offset(.07, 0),
-        keyCenter + const Offset(.07, .044),
-        paint,
-      );
-      canvas.drawRect(
-        Rect.fromCenter(center: gateCenter, width: .14, height: .11),
-        paint,
-      );
-      canvas.drawArc(
-        Rect.fromCenter(
-          center: gateCenter - const Offset(0, .05),
-          width: .08,
-          height: .09,
-        ),
-        math.pi,
-        math.pi,
-        false,
-        paint,
-      );
-    }
-    if (puzzle.portal case (final entry, final exit)) {
-      final start = marker(entry);
-      final end = marker(exit);
-      final paint = symbolInk();
-      canvas.drawCircle(start, .081, paint);
-      canvas.drawCircle(start, .033, paint..style = PaintingStyle.fill);
-      canvas.drawCircle(end, .081, symbolInk());
-    }
-    if (puzzle.ice case final ice?) {
-      final center = marker(ice);
-      for (var ray = 0; ray < 3; ray++) {
-        final theta = ray * math.pi / 3;
-        final delta = Offset(math.cos(theta), math.sin(theta)) * .085;
-        canvas.drawLine(center - delta, center + delta, symbolInk());
-      }
+      _paintWall(canvas, _center(from), _center(to), palette);
     }
 
     final first = _center(route.first);
