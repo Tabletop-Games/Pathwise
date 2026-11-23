@@ -9,7 +9,7 @@ class EconomyRules {
   int get starterCoins => 50;
   int get streakBonus => 25;
   int get streakInterval => 7;
-  Duration get automaticAdGap => const Duration(minutes: 4);
+  static const automaticAdGap = Duration(minutes: 3);
   Duration get afterRewardedGap => const Duration(minutes: 1);
   int get exitsPerInterstitial => 5;
   int get premiumBonus => 1000;

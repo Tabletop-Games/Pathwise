@@ -36,7 +36,7 @@ class AdService extends ChangeNotifier {
       : const String.fromEnvironment('PATHWISE_ADMOB_REWARDED');
   static const _network = MethodChannel('games.tabletop.pathwise/clock');
   final _frequency = AdFrequency(
-    minimumGap: economy.automaticAdGap,
+    minimumGap: EconomyRules.automaticAdGap,
     rewardedGap: economy.afterRewardedGap,
     exitsPerInterstitial: economy.exitsPerInterstitial,
   );

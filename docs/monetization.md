@@ -5,7 +5,7 @@ Production flags default off. See the publisher configuration and device test ch
 | Format | Placement | Eligibility |
 | --- | --- | --- |
 | Adaptive banner | Level selector and standard puzzle | Configured AdMob unit, UMP permission, adequate height, and no Remove Ads or Premium |
-| Interstitial | Exit after completing a Level or Daily Challenge | Five qualifying exits, four minutes between impressions, one minute after a rewarded ad, and no active puzzle |
+| Interstitial | Exit after completing a Level or Daily Challenge | Five qualifying exits, at least three minutes between impressions, one minute after a rewarded ad, and no active puzzle |
 | Rewarded hint | Hint shop | One hint per earned callback, up to five per local day |
 | Rewarded coins | Vault | Twenty coins per video, six per day, plus forty on the fourth |
 | Rewarded boost | Boosts | Three 10-minute 2× Boosts per day; one separate 3× offer after four coin videos |
