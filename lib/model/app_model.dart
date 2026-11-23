@@ -219,16 +219,27 @@ class AppModel extends ChangeNotifier {
     final history = _wallet.history.toList();
     var refund = 0;
     final retiredPurchases = <String>{};
-    for (final key in ['lucky', 'rare', 'legendaryCache', 'expedition', 'salvage', 'discovery']) {
+    for (final key in [
+      'lucky',
+      'rare',
+      'legendaryCache',
+      'expedition',
+      'salvage',
+      'discovery',
+    ]) {
       final rank = progression.ranks.remove(key);
       if (rank == null) continue;
       _retiredRanks += rank;
       retiredPurchases.add(key);
       if (key == 'legendaryCache') retiredPurchases.add('expedition');
     }
-    refund += history.where((tx) =>
-        tx.id.startsWith('research/') &&
-        retiredPurchases.contains(tx.id.split('/')[1]) && tx.amount < 0)
+    refund += history
+        .where(
+          (tx) =>
+              tx.id.startsWith('research/') &&
+              retiredPurchases.contains(tx.id.split('/')[1]) &&
+              tx.amount < 0,
+        )
         .fold(0, (sum, tx) => sum - tx.amount);
     for (final (key, label) in [
       ('crateValue', 'Double crate coins'),
