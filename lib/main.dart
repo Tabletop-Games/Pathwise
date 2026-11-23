@@ -13,7 +13,6 @@ import 'logic/game_state_storage.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
 import 'model/user_preferences.dart';
-import 'views/components/brand_mark.dart';
 import 'views/main_menu_view.dart';
 
 void main() async {
@@ -114,24 +113,12 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
             key: const ValueKey('pathwise-splash'),
             backgroundColor: palette.canvas,
             body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox.square(
-                    dimension: 72,
-                    child: BrandMark(
-                      background: palette.route,
-                      ink: palette.onRoute,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Pathwise',
-                    style: palette.theme.textTheme.headlineMedium?.copyWith(
-                      color: palette.ink,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Pathwise',
+                style: palette.theme.textTheme.headlineMedium?.copyWith(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
+import '../lib/views/components/brand_mark.dart';
 import '../lib/views/fortune_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
@@ -58,6 +59,79 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     coolingDown.dispose();
   });
+
+  testWidgets(
+    'home orders play and shortcuts and reserves the mark for About',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 820));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {
+          'playStreak': {'count': 1},
+          'hintBalance': 3,
+        },
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Pathwise'), findsOneWidget);
+      expect(find.byType(BrandMark), findsNothing);
+      expect(find.text('One route through every tile.'), findsNothing);
+      expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
+      Offset position(String label) => tester.getCenter(find.text(label));
+      expect(position('3 hints').dx, greaterThan(position('1-day streak').dx));
+      expect(
+        find.ancestor(
+          of: find.text('3 hints'),
+          matching: find.byType(FilledButton),
+        ),
+        findsOneWidget,
+      );
+
+      final ordered = [
+        'Daily challenge',
+        'Play level 1',
+        'Levels',
+        'Time Attack',
+      ];
+      for (var i = 1; i < ordered.length; i++) {
+        expect(
+          position(ordered[i]).dy,
+          greaterThan(position(ordered[i - 1]).dy),
+        );
+      }
+      await tester.scrollUntilVisible(find.text('Boosts'), 230);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('Fortune Wheel')).dy,
+        tester.getTopLeft(find.text('Themes')).dy,
+      );
+      expect(position('Research').dy, position('Boosts').dy);
+      expect(
+        position('Research').dy,
+        greaterThan(position('Fortune Wheel').dy),
+      );
+      expect(position('Fortune Wheel').dx, lessThan(position('Themes').dx));
+      expect(position('Research').dx, lessThan(position('Boosts').dx));
+
+      await tester.scrollUntilVisible(find.byTooltip('Settings'), -250);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Settings'));
+      await tester.pumpAndSettle();
+      final about = find.byType(AboutListTile);
+      await tester.scrollUntilVisible(about, 270);
+      await tester.pumpAndSettle();
+      await tester.tap(about);
+      await tester.pumpAndSettle();
+      expect(find.byType(BrandMark), findsOneWidget);
+      expect(find.textContaining('by Tabletop Games'), findsOneWidget);
+      expect(find.text('View licenses'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      model.dispose();
+    },
+  );
 
   testWidgets('fast drag, reverse drag, Undo, Clear, Hint and completion', (
     tester,
@@ -153,6 +227,7 @@ void main() {
         ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
       );
       await tester.scrollUntilVisible(find.text('Fortune Wheel'), 150);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Fortune Wheel'));
       await tester.pump();
       await tester.runAsync(

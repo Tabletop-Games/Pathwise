@@ -9,6 +9,7 @@ import '../model/economy.dart';
 import '../model/fortune.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
+import 'components/brand_mark.dart';
 import 'fortune_view.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
@@ -147,9 +148,19 @@ class SettingsView extends StatelessWidget {
                   applicationName: 'Pathwise',
                   applicationVersion: '1.0.0',
                   icon: const Icon(Icons.info_outline_rounded),
+                  applicationIcon: BrandMark(
+                    background: Theme.of(context).colorScheme.primary,
+                    ink: Theme.of(context).colorScheme.onPrimary,
+                  ),
                   aboutBoxChildren: const [
                     Text(
-                      'Pathwise adapts the GPL-3.0 Flutter architecture of shenmareparas/Chess.',
+                      'A route puzzle by Tabletop Games. Draw one continuous '
+                      'path through every tile, visiting checkpoints in order.',
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Play unlimited Levels, a three-puzzle Daily Challenge, '
+                      'or race the clock in Time Attack.',
                     ),
                   ],
                 ),
