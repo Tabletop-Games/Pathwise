@@ -5,8 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
-import '../logic/social_sharing.dart';
 import '../logic/play_games.dart';
+import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
