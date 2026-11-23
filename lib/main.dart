@@ -152,7 +152,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         title: 'Pathwise',
         theme: BoardPalette.palettes[theme]!.theme,
-        home: const MainMenuView(),
+        home: MainMenuView(offerDailySpin: widget.clock != null),
       ),
     );
   }
