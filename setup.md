@@ -1,6 +1,6 @@
 # Pathwise publisher setup
 
-Application ID `games.tabletop.pathwise`. Public version `1.0.0`, repository code `4`. **Before upload**, inspect Play Console → App bundle explorer and every testing track. If any artifact has used code 4 or greater, pass `--build-number=HIGHEST_PLUS_ONE` to both release build commands. Play Console is the authority for upload history. The repository starts with external integrations disabled.
+Application ID `games.tabletop.pathwise`. Public version `1.0.0`, repository code `5`. **Before upload**, inspect Play Console → App bundle explorer and every testing track. If any artifact has used code 5 or greater, pass `--build-number=HIGHEST_PLUS_ONE` to both release build commands. Play Console is the authority for upload history. The repository starts with external integrations disabled.
 
 ## 1. Before building
 
@@ -36,7 +36,7 @@ Expected package is `games.tabletop.pathwise`. Compare the APK certificate using
 
 - [ ] Test and release → Testing → Internal testing → Create new release. Accept the signing prompt, upload the signed AAB, add notes, review, and roll out the **internal** release.
 - [ ] Internal testing → Testers → create an email list or add a Google Group. Open the opt-in URL while signed in with the tester account, then install from Play. Settings → License testing → add accounts that will exercise billing; installation-track and license-test access are separate.
-- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, crate collection, hint exhaustion, refill, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
+- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, Expedition route and milestone recovery after force-stop, crate collection, hint exhaustion, refill, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
 
 ## 3. Before enabling purchases
 
@@ -92,7 +92,7 @@ Use a private copy of [the Cloud Run example](config/cloud-run.env.example.yaml)
 
 - [ ] Play Console → Grow users → Play Games Services → Setup and management → Configuration. Create the game project, associate Android package `games.tabletop.pathwise`, and add an Android OAuth credential using the **Play App Signing SHA-1** from App integrity. For a sideloaded build, add a separate credential for its signing certificate. Add tester accounts and publish the Play Games configuration when ready.
 - [ ] Set the numeric project ID in environment variable `PATHWISE_GAMES_PROJECT_ID` at build. Set `PATHWISE_GAMES_ENABLED` true in the external JSON for an authorized test. To link the verified Play identity, add a server/Web OAuth credential to the PGS project. Set the client ID in Android `PATHWISE_GAMES_WEB_CLIENT_ID` and backend `PATHWISE_PGS_WEB_CLIENT_ID`. Store its client secret in Secret Manager and bind it to Cloud Run as `PATHWISE_PGS_WEB_CLIENT_SECRET` using `--set-secrets`. Give only the runtime identity `roles/secretmanager.secretAccessor` on that secret. Enable `games.googleapis.com`.
-- [ ] Create one-time achievement definitions in Play Games Services → Achievements. Copy generated IDs into the JSON string map `PATHWISE_GAMES_ACHIEVEMENTS`. Keys are `trailhead`, `trailblazer`, `pathfinder`, `dailyHabit`, `weeklyRitual`, `unaided`, `collector`, `timeTrial`, `twentyFive`, `hundred`, `fiveHundred`, `thousand`, `researcher`, `legendaryCrate`. IDs are created by Google and are unavailable in this repository.
+- [ ] Create one-time achievement definitions in Play Games Services → Achievements. Copy generated IDs into the JSON string map `PATHWISE_GAMES_ACHIEVEMENTS`. Keys are `trailhead`, `trailblazer`, `pathfinder`, `dailyHabit`, `weeklyRitual`, `unaided`, `collector`, `timeTrial`, `twentyFive`, `hundred`, `fiveHundred`, `thousand`, `researcher`, `legendaryCrate`, `expeditionClear`. IDs are created by Google and are unavailable in this repository.
 - [ ] Leaderboards → Create leaderboard. Use larger-is-better for Time Attack score and most puzzles solved, and smaller-is-better for a dedicated verified elapsed-time board. The JSON string map `PATHWISE_GAMES_LEADERBOARDS` maps display names to Google-generated IDs. The app opens native leaderboard screens **read-only**. Ranked submission, daily online seasons, move proofs, Play Integrity verification, and server-authoritative rankings are unimplemented. Do not advertise online competition until those services exist. Local Time Attack remains available offline.
 
 ## 6. Before publishing

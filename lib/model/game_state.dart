@@ -1,6 +1,7 @@
 import '../logic/puzzle_generator.dart';
+import 'expedition.dart';
 
-enum PlayMode { levels, daily, endless, attack }
+enum PlayMode { levels, daily, expedition, attack }
 
 const legacyLevelCount = 36;
 const levelsPerPage = 12;
@@ -18,32 +19,48 @@ final class PuzzleId {
 
   const PuzzleId.level(int number) : this._(PlayMode.levels, number);
   const PuzzleId.daily(String day) : this._(PlayMode.daily, day);
-  const PuzzleId.endless(int number) : this._(PlayMode.endless, number);
+  const PuzzleId.expedition(Trail trail, int serial, int stage)
+    : this._(PlayMode.expedition, (trail: trail, serial: serial, stage: stage));
 
   const PuzzleId.attack(String key) : this._(PlayMode.attack, key);
 
   final PlayMode mode;
   final Object value;
-  String get key => '${mode.name}/$value';
+  ({Trail trail, int serial, int stage}) get expedition =>
+      value as ({Trail trail, int serial, int stage});
+  String get key => mode == PlayMode.expedition
+      ? 'expedition/${expedition.trail.name}/${expedition.serial}/${expedition.stage}'
+      : '${mode.name}/$value';
 
   String get title => switch (mode) {
     PlayMode.attack => 'Time Attack',
     PlayMode.levels => 'Level $value',
     PlayMode.daily => 'Daily challenge',
-    PlayMode.endless => 'Endless · $value',
+    PlayMode.expedition => expedition.trail.title,
   };
 
   int get size => switch (mode) {
     PlayMode.levels => level <= legacyLevelCount ? 4 + ((level - 1) ~/ 9) : 7,
     PlayMode.daily => 6,
     PlayMode.attack => (4 + attackIndex ~/ 3).clamp(4, 7),
-    PlayMode.endless => 5 + (((value as int) - 1) % 3),
+    PlayMode.expedition => expedition.trail.difficulty(expedition.stage).size,
   };
 
   int get attackIndex => int.parse((value as String).split('/').last);
   int get level => value as int;
 
   ({int size, int seed, int clues}) get generation {
+    if (mode == PlayMode.expedition) {
+      final (trail: trail, serial: serial, stage: stage) = expedition;
+      final difficulty = trail.difficulty(stage);
+      return (
+        size: difficulty.size,
+        seed: puzzleSeed(
+          'pathwise-expedition-v1/${trail.name}/${serial % 12}/$stage',
+        ),
+        clues: difficulty.clues,
+      );
+    }
     if (mode == PlayMode.attack) {
       return (
         size: size,

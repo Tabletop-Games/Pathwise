@@ -204,11 +204,11 @@ void main() {
       expect(v2.freeHints, 1);
       expect(v2.hasThemePass, isTrue);
       expect(v2.adFree, isFalse);
-      expect(v2.ownedThemes, 20);
+      expect(v2.ownedThemes, 21);
       expect(v2.theme.label, 'Warm Walnut');
       expect(v2.coinBalance, 90);
       await v2.flush();
-      expect((await store.load())['schemaVersion'], 4);
+      expect((await store.load())['schemaVersion'], 5);
       v2.dispose();
     },
   );

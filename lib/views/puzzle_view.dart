@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/expedition.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
 import 'components/brand_mark.dart';
 import 'components/puzzle_board.dart';
+import 'expedition_view.dart';
 
 String formatTime(Duration value) {
   final minutes = value.inMinutes;
@@ -108,6 +110,30 @@ class PuzzleView extends StatelessWidget {
                             '${model.attack!.clears.length} solved · ${model.attack!.score} points',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
+                        if (id.mode == PlayMode.expedition) ...[
+                          Text(
+                            'Stage ${id.expedition.stage + 1}/10 · ${model.expedition!.marks.length}/4 field marks',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (FieldMark.at(id.expedition.stage)
+                              case final mark?)
+                            Text(
+                              model.complete
+                                  ? model.expedition!.marks.contains(
+                                          id.expedition.stage,
+                                        )
+                                        ? 'Field mark earned'
+                                        : 'Field mark missed'
+                                  : (mark == FieldMark.noHint &&
+                                            model.freeHints < 3) ||
+                                        (mark == FieldMark.noClear &&
+                                            model.expedition!.usedClear)
+                                  ? 'Field mark missed · Keep going'
+                                  : 'Field mark · ${mark.label}',
+                              style: TextStyle(color: palette.muted),
+                            ),
+                          const SizedBox(height: 8),
+                        ],
                         if (id.mode == PlayMode.daily)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -253,9 +279,22 @@ class _Completion extends StatelessWidget {
       PlayMode.levels when model.canPlayLevel(id.level + 1) => PuzzleId.level(
         id.level + 1,
       ),
-      PlayMode.endless => model.endless,
+      PlayMode.expedition => model.expeditionPuzzle,
       _ => null,
     };
+    final expedition = id.mode == PlayMode.expedition;
+    final run = expedition ? model.expedition : null;
+    if (run != null && !run.active) {
+      return Column(
+        children: [
+          ExpeditionSummary(run: run),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back to trails'),
+          ),
+        ],
+      );
+    }
     final best =
         model.result(id)?.milliseconds ?? model.elapsed.value.inMilliseconds;
     final hints = model.hintsUsed;
@@ -298,9 +337,10 @@ class _Completion extends StatelessWidget {
               spacing: 13,
               runSpacing: 6,
               children: [
-                Text(
-                  '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
-                ),
+                if (!expedition)
+                  Text(
+                    '${model.newBest ? 'New best' : 'Personal best'} ${formatTime(Duration(milliseconds: best))}',
+                  ),
                 Text(
                   model.lastReward > 0
                       ? '+${model.lastReward} coins'
@@ -318,12 +358,16 @@ class _Completion extends StatelessWidget {
               children: [
                 if (next != null)
                   FilledButton(
-                    onPressed: () => model.open(next),
-                    child: Text(
-                      id.mode == PlayMode.levels ? 'Next level' : 'Next puzzle',
-                    ),
+                    onPressed: () async {
+                      if (!expedition || await model.flush()) {
+                        if (context.mounted && model.activeId == id) {
+                          await model.open(next);
+                        }
+                      }
+                    },
+                    child: Text(expedition ? 'Next stage' : 'Next level'),
                   ),
-                if (id.mode != PlayMode.endless)
+                if (!expedition)
                   OutlinedButton(
                     onPressed: () => model.open(id, replay: true),
                     child: const Text('Replay'),

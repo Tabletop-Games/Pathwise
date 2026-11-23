@@ -1,6 +1,6 @@
 # Economy
 
-Welcome balance is 40 coins. First level clears earn 12 and daily clears earn 24. A seven-day streak earns 35, with research bonuses where applicable. Local Time Attack pays six per clear starting at two clears, capped at 48 per run. Achievements grant 20–500 once. Optional rewarded coin videos grant eight, up to three per local day. Endless and ordinary replays have no base clear reward. See [Research](research.md), [Boosts](boosts.md), [crates](crates.md) and the [hint tank](hints.md).
+Welcome balance is 40 coins. First level clears earn 12 and daily clears earn 24. A seven-day streak earns 35, with research bonuses where applicable. Local Time Attack pays six per clear starting at two clears, capped at 48 per run. Achievements grant 20–500 once. Optional rewarded coin videos grant eight, up to three per local day. Ordinary replays have no base clear reward. [Expedition](game-modes.md#economy-and-integrity) pays at most 60 milestone coins per trail, plus a one-time Field Guide achievement. See [Research](research.md), [Boosts](boosts.md), [crates](crates.md) and the [hint tank](hints.md).
 
 The Vault has three free palettes. Paid prices are 110 for Forest Mint and Warm Walnut, 160 for Glacier and Midnight Slate, 220 for Oceanic Breeze and Royal Velvet, 500 for Chalk, AMOLED Carbon, Parchment, Lavender Hour and High Contrast, 1,000 for Canyon, Tidal, Koi Pond and Retro Terminal, and 1,500 for Neon and Gilded Ink. The Vault displays localized Play prices for the [eight products](../setup.md#3-before-enabling-purchases).
 

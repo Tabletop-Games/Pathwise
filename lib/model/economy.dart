@@ -18,8 +18,15 @@ class EconomyRules {
   int clearReward(PlayMode mode) => switch (mode) {
     PlayMode.levels => 12,
     PlayMode.daily => 24,
-    PlayMode.endless || PlayMode.attack => 0,
+    PlayMode.expedition || PlayMode.attack => 0,
   };
+  int expeditionReward(int stages, {required bool qualified}) =>
+      switch (stages) {
+        3 || 6 => 12,
+        10 when qualified => 36,
+        _ => 0,
+      };
+
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
     PathwiseTheme.blackwater ||
@@ -34,6 +41,7 @@ class EconomyRules {
     PathwiseTheme.signal => 500,
     PathwiseTheme.koi || PathwiseTheme.crt => 1000,
     PathwiseTheme.neon || PathwiseTheme.gilded => 1500,
+    PathwiseTheme.basinGold => 0,
   };
 }
 
@@ -51,7 +59,8 @@ enum Achievement {
   fiveHundred('Navigator', 'Clear 500 levels', 250),
   thousand('Trail legend', 'Clear 1,000 levels', 500),
   researcher('Applied research', 'Buy 10 research ranks', 50),
-  legendaryCrate('Legendary supply', 'Collect a legendary crate', 60);
+  legendaryCrate('Legendary supply', 'Collect a legendary crate', 60),
+  expeditionClear('Field guide', 'Qualify on an expedition trail', 30);
 
   const Achievement(this.title, this.description, this.coins);
   final String title;

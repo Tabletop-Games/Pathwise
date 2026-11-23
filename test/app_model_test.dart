@@ -86,54 +86,47 @@ void main() {
     },
   );
 
-  test(
-    'result, daily streak and endless advancement persist once per puzzle',
-    () async {
-      final app = await launch();
-      final yesterday = app.daily;
-      await app.open(yesterday);
-      complete(app);
-      final finishTime = app.elapsed.value;
-      expect(app.complete, true);
-      expect(app.solved, 1);
-      expect(app.dailyStreak, 1);
-      await app.open(app.daily);
-      expect(app.complete, true);
-      expect(app.solved, 1);
-      expect(app.elapsed.value.inMilliseconds, finishTime.inMilliseconds);
-      now = DateTime(2026, 11, 23);
-      expect(app.daily.key, 'daily/2026-11-23');
-      expect(app.dailyStreak, 1);
-      await app.open(app.daily);
-      complete(app);
-      expect(app.dailyStreak, 2);
+  test('result and daily streak persist once per puzzle', () async {
+    final app = await launch();
+    final yesterday = app.daily;
+    await app.open(yesterday);
+    complete(app);
+    final finishTime = app.elapsed.value;
+    expect(app.complete, true);
+    expect(app.solved, 1);
+    expect(app.dailyStreak, 1);
+    await app.open(app.daily);
+    expect(app.complete, true);
+    expect(app.solved, 1);
+    expect(app.elapsed.value.inMilliseconds, finishTime.inMilliseconds);
+    now = DateTime(2026, 11, 23);
+    expect(app.daily.key, 'daily/2026-11-23');
+    expect(app.dailyStreak, 1);
+    await app.open(app.daily);
+    complete(app);
+    expect(app.dailyStreak, 2);
 
-      await app.open(app.endless);
-      complete(app);
-      expect(app.endless.value, 2);
-      await app.flush();
-      app.close();
-      await app.flush();
-      app.dispose();
+    await app.flush();
+    app.close();
+    await app.flush();
+    app.dispose();
 
-      final restored = await launch();
-      expect(restored.endless.value, 2);
-      expect(restored.solved, 3);
-      expect(restored.unassisted, 3);
-      expect(restored.dailyStreak, 2);
-      now = DateTime(2026, 11, 25);
-      expect(restored.dailyStreak, 0);
-      expect(restored.best(PlayMode.daily), isNotNull);
-      await restored.flush();
-      restored.dispose();
-    },
-  );
+    final restored = await launch();
+    expect(restored.solved, 2);
+    expect(restored.unassisted, 2);
+    expect(restored.dailyStreak, 2);
+    now = DateTime(2026, 11, 25);
+    expect(restored.dailyStreak, 0);
+    expect(restored.best(PlayMode.daily), isNotNull);
+    await restored.flush();
+    restored.dispose();
+  });
 
   test(
     'background finalizes the active stroke and failed writes recover',
     () async {
       final app = await launch();
-      await app.open(app.endless);
+      await app.open(const PuzzleId.level(1));
       app.begin(0);
       app.step(1);
       store.fail = true;

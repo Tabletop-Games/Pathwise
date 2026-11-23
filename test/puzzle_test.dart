@@ -1,10 +1,9 @@
-import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/puzzle.dart';
 import '../lib/logic/puzzle_generator.dart';
 import '../lib/logic/puzzle_solver.dart';
+import '../lib/model/expedition.dart';
 import '../lib/model/game_state.dart';
 
 /// Independent reference with coordinates and a Set, no pruning or engine rules.
@@ -117,14 +116,15 @@ void main() {
   });
 
   test(
-    'daily and endless generation is deterministic across sizes and dates',
+    'daily and expedition generation is deterministic across sizes and dates',
     () {
-      final seeds = Random(23);
       for (final id in [
         for (var day = 1; day <= 8; day++)
           PuzzleId.daily(dayKey(DateTime(2026, 11, day))),
-        for (var index = 0; index < 12; index++)
-          PuzzleId.endless(1 + seeds.nextInt(100000)),
+        for (final trail in Trail.values)
+          for (final serial in [0, 5])
+            for (var stage = 0; stage < Trail.stages; stage++)
+              PuzzleId.expedition(trail, serial, stage),
       ]) {
         final a = generatePuzzle(id.generation);
         final b = generatePuzzle(id.generation);

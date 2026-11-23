@@ -18,6 +18,6 @@ Research ranks are permanent and use the same local coin ledger as cosmetics. Co
 | Smart Savings | 140 | 6 | 3% eligible price discount, rounded up after discount |
 | Momentum | 150 | 8 | +4 at every fifth first level clear |
 | Daily Specialist | 210 | 6 | +8 on each seven-day streak award |
-| Expedition | 360 | 5 | +15 legendary crate coins, requires Lucky Crates 3 |
+| Legendary Cache | 360 | 5 | +15 legendary crate coins, requires Lucky Crates 3 |
 
 The full catalog costs 76,925 coins. Research never raises hint capacity or the per-puzzle allowance.

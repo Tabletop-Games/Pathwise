@@ -6,4 +6,4 @@ When the tank is below capacity, an explicit coin purchase or verified tank-refi
 
 After three standard hints on a board the sole authorization is one separate verified rewarded ad per additional hint. This applies to Premium and ad-free purchasers. A completed refill ad cannot be redeemed as an extra-hint ad. A failed, cancelled, unverified, or unavailable video yields no hint. Debug sample units exercise SDK callbacks. Release ads require the production signature verification flow.
 
-Level, daily and Endless identity stays stable across reopen, replay, clearing and restart. Time Attack uses run and board indexes. A released extra hint authorizes one reveal and the receipt ID cannot be reused. Old development-only extra-hint credits do not survive schema 4.
+Level and daily identity stays stable across reopen, replay, clearing and restart. Expedition and Time Attack use run and stage indexes. Resuming an expedition preserves hint use, and using a hint forfeits an active hint-free field mark. A released extra hint authorizes one reveal and the receipt ID cannot be reused. Old development-only extra-hint credits are discarded when upgrading from schemas 1–3.

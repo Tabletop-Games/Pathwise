@@ -2,12 +2,13 @@
 
 ## 1.0.0 — First public release line
 
+- Replace Endless with three finite Expedition trails with field marks, trail records, milestone rewards and the Basin Gold theme.
 - Add 13 permanent Research upgrades, eight temporary boosts and collectible supply crates.
 - Replace per-puzzle free resets with a persistent shared three-slot hint tank. Coin refills restore three. Each hint after the third on a board requires a separate rewarded ad.
-- Expand the Vault to 20 themes and update the Play coin packs to 500, 1,250, 3,000, 7,500 and 18,000 coins.
+- Expand the Vault to 21 themes and update the Play coin packs to 500, 1,250, 3,000, 7,500 and 18,000 coins.
 - Add signed AdMob reward verification for tank refills, extra hints and coins. Raise interstitial spacing to four minutes and require five qualifying exits per opportunity.
 - Add Android Play Games v2 authentication, local achievement synchronization, account linking and configured leaderboard viewing. See the publisher guide for activation requirements and integration limits.
-- Use Android build code 4 in the repository, subject to the publisher confirming the Play Console artifact history.
+- Use Android build code 5 in the repository, subject to the publisher confirming the Play Console artifact history.
 
 Internal development versions follow.
 
