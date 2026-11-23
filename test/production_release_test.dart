@@ -208,7 +208,7 @@ void main() {
       expect(v2.theme.label, 'Warm Walnut');
       expect(v2.coinBalance, 90);
       await v2.flush();
-      expect((await store.load())['schemaVersion'], 6);
+      expect((await store.load())['schemaVersion'], 7);
       v2.dispose();
     },
   );

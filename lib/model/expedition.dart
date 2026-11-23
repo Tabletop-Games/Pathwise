@@ -127,6 +127,8 @@ final class ExpeditionRun {
           ..milliseconds = data['milliseconds'] as int
           ..usedClear = data['usedClear'] == true
           ..usedUndo = data['usedUndo'] == true
+          ..cleanStages = data['cleanStages'] as int? ?? 0
+          ..personalBest = data['personalBest'] == true
           ..coins = data['coins'] as int
           ..milestoneCoins = data['milestoneCoins'] as int? ?? 0
           ..outcome = ExpeditionOutcome.values.byName(
@@ -163,6 +165,8 @@ final class ExpeditionRun {
   int milliseconds = 0;
   bool usedClear = false;
   bool usedUndo = false;
+  int cleanStages = 0;
+  bool personalBest = false;
   int coins = 0;
   int milestoneCoins = 0;
   ExpeditionOutcome outcome = ExpeditionOutcome.active;
@@ -178,6 +182,7 @@ final class ExpeditionRun {
         ) ==
         true)
       marks.add(stage);
+    if (!usedHint && !usedClear && !usedUndo) cleanStages++;
     milliseconds += time;
     usedClear = false;
     usedUndo = false;
@@ -197,6 +202,8 @@ final class ExpeditionRun {
     'milliseconds': milliseconds,
     'usedClear': usedClear,
     'usedUndo': usedUndo,
+    'cleanStages': cleanStages,
+    'personalBest': personalBest,
     'coins': coins,
     'milestoneCoins': milestoneCoins,
     'outcome': outcome.name,

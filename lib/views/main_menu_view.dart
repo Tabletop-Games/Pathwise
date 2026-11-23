@@ -9,6 +9,8 @@ import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
 import 'expedition_view.dart';
+import 'field_notes_view.dart';
+import 'fortune_view.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
 import 'puzzle_view.dart';
@@ -236,6 +238,26 @@ class MainMenuView extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                Align(
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FortuneView()),
+                    ),
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    label: const Text('Fortune Wheel'),
+                  ),
+                ),
+                Align(
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FieldNotesView()),
+                    ),
+                    icon: const Icon(Icons.checklist_rounded),
+                    label: const Text('Field Notes'),
+                  ),
                 ),
                 if (model.storageError)
                   const Padding(

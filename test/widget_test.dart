@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -124,6 +125,47 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   });
+
+  testWidgets(
+    'Fortune Wheel exposes odds and an offline free spin without video',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 820));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.runAsync(
+        () => rootBundle.loadString('backend/fortune-prizes.json'),
+      );
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {},
+        bootTime: () => (boot: 1, milliseconds: 500),
+      )..setHaptics(false);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.scrollUntilVisible(find.text('Fortune Wheel'), 150);
+      await tester.tap(find.text('Fortune Wheel'));
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      final ad = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Watch for a spin'),
+      );
+      expect(ad.onPressed, isNull);
+      expect(find.text('Prize odds'), findsOneWidget);
+      await tester.tap(find.text('Free spin'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(model.fortuneWait, greaterThan(0));
+      expect(model.hintTank, 3);
+      expect(find.textContaining('Free in'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      model.dispose();
+    },
+  );
 
   testWidgets('extra hint dialog never offers coin payment to Premium', (
     tester,

@@ -30,3 +30,9 @@ Run `dart run tool/benchmark_puzzles.dart`. Median and 95th-percentile service t
 | 1,000,000 | 11.95 ms | 14.11 ms |
 
 ADB listed no Android devices. Android startup, rendering frame timing, memory and minified runtime behavior still require device testing. Desktop Flutter widget renders were inspected for the Play screen, a partially drawn daily puzzle and the Research screen.
+
+## Fortune economy release
+
+Build 7 was measured with the local release-verification key. The signed APK is 56,434,818 bytes. The standard signed AAB is 58,459,819 bytes. The signed slim Play upload is 30,696,447 bytes. The packaged prize catalog is 527 bytes, and the Wheel uses Flutter drawing and the existing icon font. It adds no image or animation dependency.
+
+Bundletool validated the slim bundle. APK signing and 16 KB ZIP alignment passed. All 12 native binaries matched, with all three ABIs present. The R8 map and resource reachability output were present. The latter reported 1,209 unreachable resource entries. Animated and reduced-motion branches use the same prize selection code. The offline Wheel view was exercised in a widget test. No Android device was connected, so device frame timing and startup were not measured for this build.

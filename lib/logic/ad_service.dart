@@ -57,7 +57,8 @@ class AdService extends ChangeNotifier {
   static final _productionUnits = [
     _prodInterstitial,
     _bannerUnit,
-    for (final placement in RewardPlacement.values) _unit(placement),
+    for (final placement in RewardPlacement.values)
+      if (placement != RewardPlacement.wheel) _unit(placement),
   ].toSet();
 
   bool get enabled =>
@@ -85,11 +86,20 @@ class AdService extends ChangeNotifier {
   final _rewarded = <RewardPlacement, (RewardedAd, DateTime)>{};
   bool readyFor(RewardPlacement placement) =>
       ready(_rewarded[placement]) && _canRequest && !_fullScreen;
+  bool get wheelConfigured =>
+      enabled &&
+      !_test &&
+      verifier?.enabled == true &&
+      validAdUnit(_unit(RewardPlacement.wheel)) &&
+      !_productionUnits.contains(_unit(RewardPlacement.wheel));
   bool get videoReady => readyFor(RewardPlacement.coins);
   static String _unit(RewardPlacement placement) => switch (placement) {
     RewardPlacement.coins => _prodRewarded,
     RewardPlacement.hint => const String.fromEnvironment(
       'PATHWISE_ADMOB_EXTRA_HINT',
+    ),
+    RewardPlacement.wheel => const String.fromEnvironment(
+      'PATHWISE_ADMOB_WHEEL',
     ),
     RewardPlacement.refill => const String.fromEnvironment(
       'PATHWISE_ADMOB_HINT_REFILL',
@@ -205,6 +215,7 @@ class AdService extends ChangeNotifier {
       );
     }
     for (final placement in RewardPlacement.values) {
+      if (placement == RewardPlacement.wheel && !wheelConfigured) continue;
       if (!_test &&
           (verifier?.enabled != true || !validAdUnit(_unit(placement))))
         continue;

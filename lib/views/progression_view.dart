@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../model/app_model.dart';
+import '../model/economy_activity.dart';
 import '../model/progression.dart';
 
 class ProgressionView extends StatefulWidget {
@@ -20,6 +21,26 @@ class _ProgressionViewState extends State<ProgressionView> {
   @override
   void initState() {
     super.initState();
+    if (!widget.boosts) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final model = context.read<AppModel>();
+        final research = model.progression;
+        final open = Research.values.where(
+          (item) => research.unlocked(item) && research.rank(item) < item.limit,
+        );
+        final affordable = open
+            .where(
+              (item) => item.price(research.rank(item)) <= model.coinBalance,
+            )
+            .length;
+        model.recordActivity(EconomyEvent.researchAffordable, affordable);
+        model.recordActivity(
+          EconomyEvent.researchUnavailable,
+          open.length - affordable,
+        );
+      });
+    }
     if (widget.boosts) {
       _tick = Timer.periodic(
         const Duration(seconds: 1),
@@ -109,14 +130,15 @@ class _ProgressionViewState extends State<ProgressionView> {
                     ]
                   : [
                       for (final (index, item) in Research.values.indexed) ...[
-                        if (const {0, 4, 8, 12}.contains(index))
+                        if (const {0, 4, 8, 12, 13}.contains(index))
                           Padding(
                             padding: const EdgeInsets.fromLTRB(5, 14, 0, 8),
                             child: Text(switch (index) {
                               0 => 'Coin production',
                               4 => 'Supply crates',
                               8 => 'Efficiency',
-                              _ => 'Advanced research',
+                              12 => 'Rare finds',
+                              _ => 'Long-term specializations',
                             }, style: theme.textTheme.headlineSmall),
                           ),
                         Card(
@@ -130,7 +152,10 @@ class _ProgressionViewState extends State<ProgressionView> {
                             ),
                             title: Text(item.title),
                             subtitle: Text(
-                              'Rank ${progression.rank(item)} / ${item.limit}\n${item.benefit} · +${item.increment}',
+                              'Rank ${progression.rank(item)} / ${item.limit}\n'
+                              '${item.benefit} · +${progression.effect(item)}'
+                              '${progression.rank(item) < item.limit ? ' → +${item.effectAt(progression.rank(item) + 1)}' : ''}'
+                              '${!progression.unlocked(item) ? '\nRequires ${item.prerequisite!.title} rank 3' : ''}',
                             ),
                             trailing: progression.rank(item) >= item.limit
                                 ? const Icon(Icons.check)

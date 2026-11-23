@@ -20,3 +20,7 @@ Expedition wins because a route has a finish, voluntary stage objectives, a qual
 ## Current rules
 
 The original three trails ended at Summit, which cut off further progression even though replay was still available. All three now introduce a longer journey. Its trail map now presents the current trail, a preview, upcoming milestones, and searchable replays of any unlocked trail. Ten stages and field marks make each trail a distinct run. Qualifying immediately opens the next indexed trail. The ongoing journey uses the original wall-free board rules and shared hint economy. [Generation, rewards, and storage](expedition.md)
+
+## Optional Field Notes
+
+Daily notes offer three rotating objectives from first clears, hint-free clears, new Expedition stages and supply crates. The weekly note gives one longer first-clear target across modes. Players collect completed rewards from Field Notes. Separate Expedition contracts would duplicate field marks. A separate mastery shop would overlap with prestige themes and local achievements. The expansion keeps a single objective screen and adds Surefooted for a clean qualifying trail. Personal-best feedback tracks a faster qualified time without repeatable coin payouts.

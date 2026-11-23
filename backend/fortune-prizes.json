@@ -1,0 +1,10 @@
+[
+  {"id":"sprout","label":"8 coins","weight":30,"coins":8},
+  {"id":"leaf","label":"16 coins","weight":27,"coins":16},
+  {"id":"branch","label":"28 coins","weight":20,"coins":28},
+  {"id":"grove","label":"48 coins","weight":11,"coins":48},
+  {"id":"ridge","label":"80 coins","weight":5,"coins":80},
+  {"id":"summit","label":"160 coins","weight":1,"coins":160},
+  {"id":"boost","label":"2× coins · 10 min","weight":4,"coins":0,"boost":"doubleTen"},
+  {"id":"cache","label":"Supply cache · 20 coins","weight":2,"coins":20}
+]
