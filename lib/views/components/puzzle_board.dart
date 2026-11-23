@@ -300,7 +300,7 @@ void _paintTile(
           );
     canvas.drawRRect(
       RRect.fromRectAndRadius(area, const Radius.circular(.12)),
-      Paint()..color = color.withValues(alpha: .15),
+      Paint()..color = color.withValues(alpha: .075),
     );
     canvas.save();
     final direction = mark.direction;
@@ -314,17 +314,19 @@ void _paintTile(
     final origin = center + offset + motifOffset;
     canvas.translate(origin.dx, origin.dy);
     if (!single) {
-      canvas.scale(.54);
+      canvas.scale(.47);
     } else if (checkpoint &&
         (mark.kind == _TileMark.key || mark.kind == _TileMark.arrow)) {
-      canvas.scale(.65);
+      canvas.scale(.57);
+    } else {
+      canvas.scale(.82);
     }
     final ink = Paint()
       ..color = color.withValues(
-        alpha: mark.kind == _TileMark.arrow ? .43 : .76,
+        alpha: mark.kind == _TileMark.arrow ? .28 : .53,
       )
       ..style = PaintingStyle.stroke
-      ..strokeWidth = .051
+      ..strokeWidth = .037
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     switch (mark.kind) {
@@ -338,7 +340,7 @@ void _paintTile(
             ..moveTo((d * .08 + cross * .17).dx, (d * .08 + cross * .17).dy)
             ..lineTo((d * .28).dx, (d * .28).dy)
             ..lineTo((d * .08 - cross * .17).dx, (d * .08 - cross * .17).dy),
-          ink..strokeWidth = .10,
+          ink..strokeWidth = .072,
         );
       case _TileMark.key:
         canvas.rotate(-math.pi / 4);
@@ -369,11 +371,17 @@ void _paintTile(
       case _TileMark.portalEntry:
       case _TileMark.portalExit:
         canvas.drawCircle(Offset.zero, .355, ink);
-        canvas.drawCircle(Offset.zero, .235, ink);
+        canvas.drawCircle(
+          Offset.zero,
+          .235,
+          ink..color = color.withValues(alpha: .34),
+        );
         if (mark.kind == _TileMark.portalEntry) {
-          final dot = ink..style = PaintingStyle.fill;
+          final dot = ink
+            ..color = color.withValues(alpha: .53)
+            ..style = PaintingStyle.fill;
           canvas.drawCircle(Offset.zero, .055, dot);
-          canvas.drawCircle(const Offset(0, -.355), .056, dot);
+          canvas.drawCircle(const Offset(0, -.355), .046, dot);
         }
       case _TileMark.ice:
         for (var ray = 0; ray < 6; ray++) {
@@ -399,7 +407,7 @@ void _paintWall(Canvas canvas, Offset a, Offset b, BoardPalette palette) {
     midpoint + ends,
     Paint()
       ..color = palette.ink
-      ..strokeWidth = .10
+      ..strokeWidth = .075
       ..strokeCap = StrokeCap.round,
   );
 }
