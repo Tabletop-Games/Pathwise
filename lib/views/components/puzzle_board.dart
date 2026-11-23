@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../logic/game_controller.dart';
 import '../../logic/puzzle.dart';
-import '../../model/app_model.dart';
 import '../../model/app_themes.dart';
 
 class PuzzleBoard extends StatefulWidget {
@@ -16,7 +16,7 @@ class PuzzleBoard extends StatefulWidget {
     super.key,
   });
 
-  final AppModel model;
+  final BoardControls model;
   final Puzzle puzzle;
   final BoardPalette palette;
 

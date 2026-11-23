@@ -23,7 +23,7 @@ typedef PuzzleLoader = Future<VerifiedPuzzle> Function(
   ({int size, int seed, int clues}) request,
 );
 
-class AppModel extends ChangeNotifier {
+class AppModel extends ChangeNotifier implements BoardControls {
   AppModel({
     required this.storage,
     required Map<String, dynamic> snapshot,
@@ -35,6 +35,9 @@ class AppModel extends ChangeNotifier {
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
        _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
+    _levelOneDemoSeen = snapshot['levelOneDemoSeen'] is bool
+        ? snapshot['levelOneDemoSeen'] as bool
+        : snapshot.isNotEmpty;
     _freezeSerial = snapshot['freezeSerial'] as int? ?? 0;
     streak = PlayStreak(_map(snapshot['playStreak']));
     _achievements = AchievementLedger(_map(snapshot['nativeAchievements']));
@@ -1717,6 +1720,15 @@ class AppModel extends ChangeNotifier {
     );
   }
 
+  late bool _levelOneDemoSeen;
+  bool get shouldOfferLevelOneDemo => !_levelOneDemoSeen && !storageError;
+
+  Future<bool> markLevelOneDemoSeen() async {
+    if (!shouldOfferLevelOneDemo) return false;
+    _levelOneDemoSeen = true;
+    return flush();
+  }
+
   Future<bool> flush() {
     _unsavedCrateTime = 0;
     _playMilliseconds += max(
@@ -1741,6 +1753,7 @@ class AppModel extends ChangeNotifier {
     }
     final payload = jsonEncode({
       'schemaVersion': GameStateStorage.schemaVersion,
+      'levelOneDemoSeen': _levelOneDemoSeen,
       'nativeAchievements': _achievements.toJson(),
       'priorSolves': _retiredSolved,
       'priorCleanSolves': _retiredClean,

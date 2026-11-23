@@ -2,6 +2,21 @@ import 'puzzle.dart';
 
 enum RouteEdit { none, advance, retract }
 
+/// Input and render state shared by scored play and guided practice.
+abstract interface class BoardControls {
+  List<int> get path;
+  int? get tip;
+  int? get hintCell;
+  int get nextCheckpoint;
+  bool get complete;
+
+  bool begin(int cell);
+  bool canStep(int cell);
+  void step(int cell);
+  void end();
+  void tap(int cell);
+}
+
 /// Owns legal route edits, gesture transactions, and the hint state.
 final class GameController {
   GameController(this.board) : _path = [board.puzzle.start];

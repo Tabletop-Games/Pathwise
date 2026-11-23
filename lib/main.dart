@@ -101,7 +101,7 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
         if (snapshot.data case final model?) {
           return ChangeNotifierProvider(
             create: (_) => model,
-            child: PathwiseApp(clock: widget.clock),
+            child: PathwiseApp(clock: widget.clock, offerLevelOneDemo: true),
           );
         }
         final palette = BoardPalette.palettes[widget.theme]!;
@@ -129,7 +129,8 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
 }
 
 class PathwiseApp extends StatefulWidget {
-  const PathwiseApp({this.clock, super.key});
+  const PathwiseApp({this.clock, this.offerLevelOneDemo = false, super.key});
+  final bool offerLevelOneDemo;
   final AttackClock? clock;
 
   @override
@@ -230,7 +231,10 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         title: 'Pathwise',
         theme: BoardPalette.palettes[theme]!.theme,
-        home: MainMenuView(offerDailySpin: widget.clock != null),
+        home: MainMenuView(
+          offerDailySpin: widget.clock != null,
+          offerLevelOneDemo: widget.offerLevelOneDemo,
+        ),
       ),
     );
   }

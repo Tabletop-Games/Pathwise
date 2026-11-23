@@ -11,6 +11,7 @@ import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import 'components/brand_mark.dart';
 import 'fortune_view.dart';
+import 'level_one_demo.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
 import 'share_view.dart';
@@ -46,6 +47,12 @@ class SettingsView extends StatelessWidget {
                   onChanged: model.setSharingSuggestions,
                 ),
                 const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.school_outlined),
+                  title: const Text('Level 1 demo'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => openLevelOneDemo(context),
+                ),
                 const ListTile(title: Text('Theme')),
                 RadioGroup<PathwiseTheme>(
                   groupValue: model.theme,

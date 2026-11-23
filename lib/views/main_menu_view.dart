@@ -10,6 +10,7 @@ import '../model/game_state.dart';
 import '../model/progression.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
+import 'level_one_demo.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
 import 'puzzle_view.dart';
@@ -66,7 +67,13 @@ Future<void> openPuzzle(
 }
 
 class MainMenuView extends StatefulWidget {
-  const MainMenuView({this.offerDailySpin = false, super.key});
+  const MainMenuView({
+    this.offerDailySpin = false,
+    this.offerLevelOneDemo = false,
+    super.key,
+  });
+
+  final bool offerLevelOneDemo;
   final bool offerDailySpin;
 
   @override
@@ -95,10 +102,10 @@ class _MainMenuViewState extends State<MainMenuView>
     }
   }
 
-  void _checkLaunch() {
+  Future<void> _checkLaunch() async {
     if (!mounted ||
         _launchChecked ||
-        !widget.offerDailySpin ||
+        (!widget.offerDailySpin && !widget.offerLevelOneDemo) ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed)
       return;
     _launchChecked = true;
@@ -106,10 +113,21 @@ class _MainMenuViewState extends State<MainMenuView>
     if (ModalRoute.isCurrentOf(context) != true ||
         model.activeId != null ||
         model.attack?.finished == false ||
-        model.storageError ||
-        (model.fortuneWait != 0 && model.pendingFortune == null))
+        model.storageError) {
       return;
-    _openWheel();
+    }
+    if (widget.offerLevelOneDemo && model.shouldOfferLevelOneDemo) {
+      if (await model.markLevelOneDemoSeen() &&
+          mounted &&
+          ModalRoute.isCurrentOf(context) == true) {
+        await openLevelOneDemo(context);
+      }
+      return;
+    }
+    if (widget.offerDailySpin &&
+        (model.fortuneWait == 0 || model.pendingFortune != null)) {
+      _openWheel();
+    }
   }
 
   void _openWheel() =>
