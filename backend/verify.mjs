@@ -2,9 +2,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 
 export const appPackage = 'games.tabletop.pathwise';
 const products = Object.freeze({
-  pathwise_coins_120: 120, pathwise_coins_340: 340, pathwise_coins_800: 800,
-  pathwise_coins_500: 500, pathwise_coins_1200: 1200, pathwise_coins_3500: 3500,
-  pathwise_coins_8000: 8000, pathwise_coins_20000: 20000,
+  pathwise_coins_500: 500, pathwise_coins_1250: 1250, pathwise_coins_3000: 3000,
+  pathwise_coins_7500: 7500, pathwise_coins_18000: 18000,
   pathwise_themes_forever: 0, pathwise_remove_ads: 0, pathwise_premium: 0,
 });
 const digest = (text) => createHash('sha256').update(text).digest('hex');

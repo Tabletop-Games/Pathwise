@@ -29,7 +29,7 @@ class _StoreViewState extends State<StoreView> {
       data: palette.theme,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Cosmetics'),
+          title: const Text('Vault'),
           actions: [
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 14),
@@ -164,7 +164,7 @@ class _StoreViewState extends State<StoreView> {
                             'Unlocks every current and future theme.',
                           ),
                           removeAdsProduct => const Text(
-                            'Removes banners and automatic ads. Optional coin videos remain.',
+                            'Removes banners and automatic ads. Optional rewarded videos remain.',
                           ),
                           premiumProduct => Text(
                             'Remove Ads, every current and future theme, and ${economy.premiumBonus} coins once. Previously purchased items are not refunded.',

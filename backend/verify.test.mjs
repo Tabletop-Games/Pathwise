@@ -7,7 +7,7 @@ import { verifyReceipt } from './verify.mjs';
 const secret = 'f'.repeat(64);
 const credential = `Bearer ${secret}`;
 const token = 'valid-token-example';
-const product = 'pathwise_coins_120';
+const product = 'pathwise_coins_500';
 
 function fixture() {
   const ledger = new Map();
@@ -52,7 +52,7 @@ test('pending and canceled purchase states cannot be fulfilled', async () => {
 test('rejects a different installation, wrong sku, refunded order, malformed credential and consumed first claim', async () => {
   const { play, ledger, deps } = fixture();
   assert.equal((await verifyReceipt(`Bearer ${'a'.repeat(64)}`, { product, token }, deps)).status, 403);
-  assert.equal((await verifyReceipt(credential, { product: 'pathwise_coins_800', token }, deps)).status, 403);
+  assert.equal((await verifyReceipt(credential, { product: 'pathwise_coins_18000', token }, deps)).status, 403);
   assert.equal((await verifyReceipt('invalid', { product, token }, deps)).status, 403);
   const offer = play.productLineItem[0].productOfferDetails;
   offer.refundableQuantity = 0;
@@ -66,11 +66,11 @@ test('rejects a different installation, wrong sku, refunded order, malformed cre
 test('returns authoritative amounts for new coin packs and accepts verified permanent Premium', async () => {
   const { play, ledger, deps } = fixture();
   const line = play.productLineItem[0];
-  const pack = 'pathwise_coins_3500';
+  const pack = 'pathwise_coins_3000';
   line.productId = pack;
   const credit = await verifyReceipt(credential, { product: pack, token }, deps);
-  assert.equal(credit.body.coins, 3500);
-  assert.equal(ledger.get(credit.body.id).coins, 3500);
+  assert.equal(credit.body.coins, 3000);
+  assert.equal(ledger.get(credit.body.id).coins, 3000);
   const premium = 'pathwise_premium';
   line.productId = premium;
   const pass = await verifyReceipt(credential, { product: premium, token: 'premium-token-example' }, deps);

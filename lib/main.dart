@@ -9,6 +9,7 @@ import 'logic/ad_service.dart';
 import 'logic/attack_clock.dart';
 import 'logic/billing_service.dart';
 import 'logic/game_state_storage.dart';
+import 'logic/reward_verifier.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
 import 'views/main_menu_view.dart';
@@ -66,6 +67,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     super.initState();
     _model = context.read<AppModel>();
     _ads = AdService(
+      verifier: RewardVerifier(_model.billingProfile),
       reserveInterstitial: _model.reserveAutomaticAd,
       onRewardedClosed: _model.recordRewardedAdExit,
     );

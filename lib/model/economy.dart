@@ -13,7 +13,6 @@ class EconomyRules {
   Duration get afterRewardedGap => const Duration(minutes: 1);
   int get exitsPerInterstitial => 5;
   int get premiumBonus => 1000;
-  int get extraHintPrice => 6;
   int get rewardedAdCoins => 8;
   int get rewardedAdsPerDay => 3;
   int clearReward(PlayMode mode) => switch (mode) {
@@ -30,7 +29,11 @@ class EconomyRules {
     PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 220,
     PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
     PathwiseTheme.canyon || PathwiseTheme.tidal => 1000,
-    PathwiseTheme.neon => 1500,
+    PathwiseTheme.parchment ||
+    PathwiseTheme.violet ||
+    PathwiseTheme.signal => 500,
+    PathwiseTheme.koi || PathwiseTheme.crt => 1000,
+    PathwiseTheme.neon || PathwiseTheme.gilded => 1500,
   };
 }
 
@@ -42,7 +45,13 @@ enum Achievement {
   weeklyRitual('Weekly ritual', 'Reach a 7-day streak', 45),
   unaided('Unaided', 'Solve 10 puzzles without hints', 35),
   collector('Collector', 'Own 6 themes', 30),
-  timeTrial('Time trial', 'Solve 3 puzzles in one Time Attack', 25);
+  timeTrial('Time trial', 'Solve 3 puzzles in one Time Attack', 25),
+  twentyFive('Surveyor', 'Clear 25 levels', 50),
+  hundred('Cartographer', 'Clear 100 levels', 100),
+  fiveHundred('Navigator', 'Clear 500 levels', 250),
+  thousand('Trail legend', 'Clear 1,000 levels', 500),
+  researcher('Applied research', 'Buy 10 research ranks', 50),
+  legendaryCrate('Legendary supply', 'Collect a legendary crate', 60);
 
   const Achievement(this.title, this.description, this.coins);
   final String title;

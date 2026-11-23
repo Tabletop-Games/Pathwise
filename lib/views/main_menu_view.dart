@@ -9,6 +9,7 @@ import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/brand_mark.dart';
 import 'levels_view.dart';
+import 'progression_view.dart';
 import 'puzzle_view.dart';
 import 'settings_view.dart';
 import 'store_view.dart';
@@ -196,6 +197,36 @@ class MainMenuView extends StatelessWidget {
                     const PuzzleId.attack('start/0'),
                     timeAttack: true,
                   ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProgressionView(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.science_outlined),
+                        label: const Text('Research'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProgressionView(boosts: true),
+                          ),
+                        ),
+                        icon: const Icon(Icons.bolt_outlined),
+                        label: const Text('Boosts'),
+                      ),
+                    ),
+                  ],
                 ),
                 if (model.storageError)
                   const Padding(

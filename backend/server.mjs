@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import { GoogleAuth } from 'google-auth-library';
 
+import { linkGameAccount } from './games.mjs';
+import { rewardRequest } from './rewards.mjs';
 import { appPackage, verifyReceipt } from './verify.mjs';
 
 const db = new Firestore();
@@ -51,6 +54,22 @@ function claim(id, grant, { consumed }) {
   });
 }
 
+async function permitPurchaseCheck(authorization) {
+  const profile = createHash('sha256').update(authorization.slice(7)).digest('hex');
+  const ref = db.collection('pathwise-play-rate').doc(profile);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const prior = await tx.get(ref);
+    const start = prior.get('start') ?? 0;
+    const inWindow = now - start < 60000;
+    const count = inWindow ? prior.get('count') : 0;
+    if (count >= 30) return false;
+    tx.set(ref, { start: inWindow ? start : now, count: count + 1,
+      expiresAt: new Date(now + 86400000) });
+    return true;
+  });
+}
+
 function send(response, status, body) {
   response.writeHead(status, {
     'Content-Type': 'application/json',
@@ -61,6 +80,35 @@ function send(response, status, body) {
 }
 
 const server = createServer(async (request, response) => {
+  const started = Date.now();
+  const route = request.url.split('?')[0];
+  const operation = route === '/healthz' ? 'health' :
+    route === '/v1/play/verify' ? 'purchase' :
+    route === '/v1/games/link' ? 'account' :
+    route === '/v1/rewards/callback' ? 'ad-callback' :
+    route.startsWith('/v1/rewards/') ? 'ad-session' : 'unknown';
+  response.on('finish', () => {
+    if (operation !== 'health' || response.statusCode >= 500) {
+      console.log(JSON.stringify({
+        severity: response.statusCode >= 500 ? 'WARNING' : 'INFO',
+        operation, status: response.statusCode, durationMs: Date.now() - started,
+      }));
+    }
+  });
+  if (request.method === 'POST' && request.url === '/v1/games/link') {
+    try { send(response, ...await linkGameAccount(request, db)); }
+    catch (_) { send(response, 503, { error: 'account_service_unavailable' }); }
+    return;
+  }
+  if (request.url.startsWith('/v1/rewards/')) {
+    try {
+      const result = await rewardRequest(request, db);
+      send(response, ...result);
+    } catch (_) {
+      send(response, 503, { error: 'reward_verifier_unavailable' });
+    }
+    return;
+  }
   if (request.method === 'GET' && request.url === '/healthz') {
     const ready = await checkReadiness().catch(() => false);
     send(response, ready ? 200 : 503, { status: ready ? 'ready' : 'disabled', package: appPackage, catalog: 2 });
@@ -92,6 +140,10 @@ const server = createServer(async (request, response) => {
       chunks.push(chunk);
     }
     const body = JSON.parse(Buffer.concat(chunks).toString());
+    if (!await permitPurchaseCheck(request.headers.authorization)) {
+      send(response, 429, { error: 'rate_limit' });
+      return;
+    }
     const result = await verifyReceipt(request.headers.authorization, body, { getPurchase, claim });
     send(response, result.status, result.body);
   } catch (error) {
@@ -103,4 +155,6 @@ const server = createServer(async (request, response) => {
 });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
-server.listen(Number(process.env.PORT ?? 8080));
+server.listen(Number(process.env.PORT ?? 8080), () => {
+  console.log(JSON.stringify({ severity: 'INFO', event: 'listening', port: server.address().port }));
+});

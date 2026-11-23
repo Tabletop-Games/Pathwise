@@ -12,7 +12,13 @@ enum PathwiseTheme {
   amoledCarbon('AMOLED Carbon'),
   canyon('Painted Canyon'),
   neon('Night Signal'),
-  tidal('Tidal Glass');
+  tidal('Tidal Glass'),
+  parchment('Parchment'),
+  violet('Lavender Hour'),
+  koi('Koi Pond'),
+  crt('Retro Terminal'),
+  gilded('Gilded Ink'),
+  signal('High Contrast');
 
   const PathwiseTheme(this.label);
   final String label;

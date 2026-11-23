@@ -1,19 +1,21 @@
-# Pathwise Coins
+# Economy
 
-| Event | Amount | Limit |
-| --- | ---: | --- |
-| Welcome | 40 | Once per player save |
-| Level completion | 12 | First clear of each level |
-| Daily completion | 24 | First clear of each local calendar day |
-| Daily streak | 35 | At 7-day multiples, once per qualifying date |
-| Achievements | 20–80 | Once per milestone |
-| Optional rewarded video | 8 | Up to three credited videos per local day |
-| Replay and endless | 0 | Best times and milestones still count |
+Welcome balance is 40 coins. First level clears earn 12 and daily clears earn 24. A seven-day streak earns 35, with research bonuses where applicable. Local Time Attack pays six per clear starting at two clears, capped at 48 per run. Achievements grant 20–500 once. Optional rewarded coin videos grant eight, up to three per local day. Endless and ordinary replays have no base clear reward. See [Research](research.md), [Boosts](boosts.md), [crates](crates.md) and the [hint tank](hints.md).
 
-Theme prices are 110, 160, or 220 coins. Field, Blackwater and Terracotta remain available to everyone. The six premium palettes cost 980 coins together. Every purchase displays its price and is recorded in the coin history. Cosmetics have no gameplay effects.
+The Vault has three free palettes. Paid prices are 110 for Forest Mint and Warm Walnut, 160 for Glacier and Midnight Slate, 220 for Oceanic Breeze and Royal Velvet, 500 for Chalk, AMOLED Carbon, Parchment, Lavender Hour and High Contrast, 1,000 for Canyon, Tidal, Koi Pond and Retro Terminal, and 1,500 for Neon and Gilded Ink. The Vault displays localized Play prices for the [eight products](../setup.md#3-before-enabling-purchases).
 
-Without daily challenges or videos, a new player has (40 + 20 + 12n) coins after (n) first level clears, before other milestones or spending. A 110-coin theme therefore takes five clears, a 160-coin theme takes nine, and a 220-coin theme takes twelve once the 40-coin twelve-level milestone is included. At a planning pace of two to four minutes per early level, the first theme takes about 10–20 minutes. Three level clears and one daily yield at least 120 coins and can also buy a first theme. These are balancing assumptions, not measured play times.
+## Deterministic model
 
-First-clear IDs, achievement IDs, theme IDs, and verified purchase-token grants are idempotent. Migrated clears count toward milestones but do not reissue a first-clear reward. Unclaimed historical milestones can be earned at the next eligible player action. Existing preferences and attempts are kept. The optional monetization services do not determine unlocks, rewards from standard play, or route validity.
+Run `dart run tool/economy_simulation.dart`. The model assumes one eligible daily solve per session, first-clear levels only, and 70% collection of available crates at their base odds. It excludes future achievements, researched income, time spent in menus or viewing ads, and spend. Coin/hour figures normalize one session and are constrained by the six crate opportunities per day. They are not indefinite production rates. Unlock estimates are linear budget estimates after welcome coins and the first-level achievement.
 
-Time Attack awards six coins per solved board after at least two solves, up to 48 at expiration. Three solves in a run earn the one-time 25-coin Time Trial achievement. An extra hint costs six coins for ad-free owners after their three free hints. New themes cost 500 coins for Chalk and AMOLED Carbon, 1,000 for Painted Canyon and Tidal Glass, and 1,500 for Night Signal. Existing prices stay in place. Premium includes a single 1,000-coin ledger credit.
+| Profile | Minutes | Level clears | Coins per active hour | Estimated first research | Estimated first paid theme |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Casual, no ads | 15 | 4 | 595 | 1.0 min | 5.0 min |
+| Average, no ads | 30 | 10 | 442 | 1.4 min | 6.8 min |
+| Engaged, no ads | 60 | 25 | 401 | 1.5 min | 7.5 min |
+| Average, three optional ads | 30 | 10 | 490 | 1.2 min | 6.1 min |
+| Average, Starter purchase | 30 | 10 | 442 gameplay | Immediately | Immediately |
+
+The initial 70-coin Magnet rank breaks even after 35 unboosted level clears. Full research costs 76,925 coins, equivalent to about 174 hours at the fixed 442-coins/hour reference before compounding and spend. Five coin boosts require 3, 5, 8, 5 and 4 eligible first level clears respectively to break even at base earnings. Crates average 18.30 coins per offer and contribute up to about 77 coins per day at the modeled collection rate before research. Research increases inflow in bounded ranks. Late-play net holdings depend on boost use, repeated play and purchases and need observation on an internal test cohort.
+
+At illustrative USD prices the five packs deliver about 505, 628, 752, 939 and 1,126 coins per dollar. Actual pricing comes from Google Play.

@@ -146,13 +146,13 @@ void main() {
         restored.hint();
         restored.clear();
       }
-      expect(restored.buyHint(), isTrue);
-      expect(restored.buyHint(), isFalse);
+      expect(restored.buyTankRefill(), isTrue);
+      expect(restored.buyTankRefill(), isFalse);
       expect(
         await restored.grantRewardedHint('levels/1', 'reward-ad-free'),
-        isFalse,
+        isTrue,
       );
-      expect(restored.coinsSpent, economy.extraHintPrice);
+      expect(restored.coinsSpent, restored.refillPrice);
       expect(restored.extraHints, 1);
       model.dispose();
       restored.dispose();
@@ -204,11 +204,11 @@ void main() {
       expect(v2.freeHints, 1);
       expect(v2.hasThemePass, isTrue);
       expect(v2.adFree, isFalse);
-      expect(v2.ownedThemes, 14);
+      expect(v2.ownedThemes, 20);
       expect(v2.theme.label, 'Warm Walnut');
       expect(v2.coinBalance, 90);
       await v2.flush();
-      expect((await store.load())['schemaVersion'], 3);
+      expect((await store.load())['schemaVersion'], 4);
       v2.dispose();
     },
   );

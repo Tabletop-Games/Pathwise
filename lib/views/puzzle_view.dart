@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
-import '../model/economy.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
 import 'components/brand_mark.dart';
@@ -165,6 +164,7 @@ class PuzzleView extends StatelessWidget {
                             _HintAction(model: model),
                           ],
                         ),
+                        _CrateTray(model: model),
                         const SizedBox(height: 12),
                         SizedBox(
                           width: side,
@@ -347,81 +347,141 @@ class _HintAction extends StatelessWidget {
   const _HintAction({required this.model});
   final AppModel model;
 
-  @override
-  Widget build(BuildContext context) {
-    final ads = context.watch<AdService>();
-    final label = model.freeHints > 0
-        ? 'Hint · ${model.freeHints} free'
-        : model.extraHints > 0
-        ? 'Hint · ${model.extraHints} extra'
-        : model.adFree
-        ? 'More hints · ${economy.extraHintPrice} coins'
-        : 'Get hint';
-    return FilledButton.tonalIcon(
-      onPressed: model.canHint
-          ? model.hint
-          : model.canRequestExtraHint
-          ? () async {
-              bool current() =>
-                  context.mounted && ModalRoute.isCurrentOf(context) == true;
-              final id = model.activeId;
-              if (model.adFree) {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (dialog) => AlertDialog(
-                    title: const Text('Buy an additional hint?'),
-                    content: Text(
-                      'Spend ${economy.extraHintPrice} coins. Balance ${model.coinBalance}.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialog, false),
-                        child: const Text('Cancel'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(dialog, true),
-                        child: const Text('Buy hint'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true &&
-                    current() &&
-                    model.activeId == id &&
-                    !model.buyHint()) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Not enough coins or hint unavailable.'),
-                    ),
-                  );
-                }
-                return;
-              }
-              if (ads.enabled && !ads.videoReady)
-                await ads.prepare(canPresent: current);
-              if (!current() || model.activeId != id) return;
-              final shown = await ads.watchVideo(
-                (event) => model.grantRewardedHint(id!.key, event),
-                canPresent: () =>
-                    current() &&
-                    model.activeId == id &&
-                    model.canRequestExtraHint &&
-                    !model.adFree,
-              );
-              if (!shown && current())
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Rewarded video unavailable. No hint was added.',
-                    ),
-                  ),
-                );
-            }
-          : null,
-      icon: const Icon(Icons.lightbulb_outline_rounded),
-      label: Text(label),
+  Future<void> _reward(BuildContext context, {required bool refill}) async {
+    final ads = context.read<AdService>();
+    final id = model.activeId;
+    final placement = refill ? RewardPlacement.refill : RewardPlacement.hint;
+    bool current() =>
+        context.mounted &&
+        model.activeId == id &&
+        ModalRoute.isCurrentOf(context) == true;
+    if (ads.enabled && !ads.readyFor(placement))
+      await ads.prepare(canPresent: current);
+    if (!current()) return;
+    final shown = await ads.watchVideo(
+      refill
+          ? model.grantTankRefill
+          : (event) => model.grantRewardedHint(id!.key, event),
+      placement: placement,
+      canPresent: () =>
+          current() &&
+          (refill ? model.canRefillTank : model.canRequestExtraHint),
     );
+    if (!shown && current())
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Rewarded video unavailable. No reward was added.'),
+        ),
+      );
   }
+
+  Future<void> _extraHint(BuildContext context) async {
+    final consent = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Extra hint'),
+        content: const Text(
+          'You’ve used your three standard hints for this puzzle. Watch one video to reveal another hint.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Watch ad · 1 hint'),
+          ),
+        ],
+      ),
+    );
+    if (consent == true && context.mounted) {
+      await _reward(context, refill: false);
+    }
+  }
+
+  Future<void> _refill(BuildContext context) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Refill hint tank'),
+        content: const Text(
+          'Restore the shared tank to 3/3. Refilling keeps this puzzle’s hint count.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, 'ad'),
+            child: const Text('Watch ad'),
+          ),
+          FilledButton(
+            onPressed: model.coinBalance >= model.refillPrice
+                ? () => Navigator.pop(dialog, 'coins')
+                : null,
+            child: Text('Spend ${model.refillPrice} coins'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'ad') await _reward(context, refill: true);
+    if (action == 'coins') model.buyTankRefill();
+  }
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 6,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      FilledButton.tonalIcon(
+        onPressed: model.canHint
+            ? model.hint
+            : model.canRequestExtraHint
+            ? () => _extraHint(context)
+            : model.freeHints > 0 &&
+                  model.hintTank == 0 &&
+                  model.canRefillTank &&
+                  !model.complete
+            ? () => _refill(context)
+            : null,
+        icon: const Icon(Icons.lightbulb_outline_rounded),
+        label: Text(
+          model.freeHints > 0
+              ? model.hintTank > 0
+                    ? 'Hint · ${model.freeHints} left'
+                    : 'Refill hints'
+              : model.extraHints > 0
+              ? 'Use extra hint'
+              : 'Watch ad · 1 hint',
+        ),
+      ),
+      TextButton(
+        onPressed: model.canRefillTank && !model.complete
+            ? () => _refill(context)
+            : null,
+        child: Semantics(
+          label: 'Hint tank ${model.hintTank} of 3',
+          excludeSemantics: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var slot = 0; slot < 3; slot++)
+                Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Icon(
+                    slot < model.hintTank
+                        ? Icons.circle
+                        : Icons.circle_outlined,
+                    size: 9,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Text('${model.hintTank}/3'),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _AttackResults extends StatelessWidget {
@@ -491,6 +551,71 @@ class _AttackResults extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CrateTray extends StatefulWidget {
+  const _CrateTray({required this.model});
+  final AppModel model;
+
+  @override
+  State<_CrateTray> createState() => _CrateTrayState();
+}
+
+class _CrateTrayState extends State<_CrateTray> {
+  int? _collected;
+
+  @override
+  Widget build(BuildContext context) {
+    final model = widget.model;
+    if (model.activeId?.mode == PlayMode.attack) return const SizedBox.shrink();
+    final crate = model.supplyCrate;
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    return SizedBox(
+      height: 42,
+      child: ClipRect(
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: reduce
+                ? Duration.zero
+                : const Duration(milliseconds: 450),
+            transitionBuilder: (child, animation) => SlideTransition(
+              position: Tween(begin: const Offset(0, -1.3), end: Offset.zero)
+                  .animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
+                    ),
+                  ),
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: model.complete
+                ? const SizedBox.shrink()
+                : _collected != null
+                ? Semantics(
+                    liveRegion: true,
+                    child: Text('Supply crate opened · +$_collected coins'),
+                  )
+                : crate == null
+                ? const SizedBox.shrink()
+                : TextButton.icon(
+                    key: ValueKey(crate.id),
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    label: Text(
+                      '${crate.rarity.name[0].toUpperCase()}${crate.rarity.name.substring(1)} supply crate',
+                    ),
+                    onPressed: () {
+                      if (!model.claimCrate(crate.id)) return;
+                      setState(() => _collected = crate.coins);
+                      Future<void>.delayed(const Duration(seconds: 2), () {
+                        if (mounted) setState(() => _collected = null);
+                      });
+                    },
+                  ),
           ),
         ),
       ),

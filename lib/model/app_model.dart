@@ -11,6 +11,7 @@ import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
 import 'economy.dart';
 import 'game_state.dart';
+import 'progression.dart';
 import 'time_attack.dart';
 import 'user_preferences.dart';
 
@@ -42,16 +43,26 @@ class AppModel extends ChangeNotifier {
         );
       }
     }
+    progression = Progression(_map(snapshot['progression']));
+    if (snapshot['progressionBoot'] != _bootTime()?.boot) {
+      progression.active.clear();
+      progression.crate = null;
+      progression.nextCrate = 0;
+    }
+    _hintTank = (snapshot['hintTank'] as int? ?? 3).clamp(0, 3);
+    _refillSerial = snapshot['refillSerial'] as int? ?? 0;
     for (final row in _map(snapshot['hintUsage']).entries) {
       if (row.value is int) _hintUsage[row.key] = row.value as int;
     }
-    for (final row in _map(snapshot['hintCredits']).entries) {
-      if (row.value is int) _hintCredits[row.key] = row.value as int;
+    if (snapshot['schemaVersion'] == GameStateStorage.schemaVersion) {
+      for (final row in _map(snapshot['hintCredits']).entries) {
+        if (row.value == 1) _hintCredits[row.key] = 1;
+      }
     }
     _hintEvents.addAll(
       (snapshot['hintEvents'] as List? ?? []).whereType<String>(),
     );
-    if (snapshot['schemaVersion'] != 3) {
+    if ((snapshot['schemaVersion'] as int? ?? 1) < 3) {
       for (final row in _attempts.entries) {
         final count = _map(row.value)['hints'];
         if (count is int) _hintUsage[row.key] = count;
@@ -251,8 +262,9 @@ class AppModel extends ChangeNotifier {
 
   Future<bool> grantRewardedHint(String puzzle, String event) async {
     if (_disposed ||
-        adFree ||
         storageError ||
+        (_hintUsage[puzzle] ?? 0) < 3 ||
+        (_hintCredits[puzzle] ?? 0) != 0 ||
         (puzzle.startsWith('attack/') &&
             (attack?.finished != false ||
                 !puzzle.startsWith('attack/${attack!.id}/'))) ||
@@ -263,21 +275,142 @@ class AppModel extends ChangeNotifier {
     return flush();
   }
 
-  bool buyHint() {
-    if (!adFree || !canRequestExtraHint) return false;
-    final key = activeId!.key;
-    final event = 'coin-hint/$key/${_hintUsage[key] ?? 0}';
-    if (!_wallet.add(
-      event,
-      'Additional hint',
-      -economy.extraHintPrice,
-      _today(),
-    ))
+  late final Progression progression;
+  int get progressionTime =>
+      _bootTime()?.milliseconds ?? _today().millisecondsSinceEpoch;
+  Timer? _crateTimer;
+
+  bool research(Research item) {
+    final rank = progression.rank(item);
+    if (storageError ||
+        rank >= item.limit ||
+        !progression.unlocked(item) ||
+        !_wallet.add(
+          'research/${item.name}/$rank',
+          item.title,
+          -item.price(rank),
+          _today(),
+        ))
       return false;
-    _hintCredits[key] = 1;
+    progression.ranks[item.name] = rank + 1;
+    _awardAchievements();
+    _progressionChanged();
+    return true;
+  }
+
+  bool buyBoost(Boost item) {
+    if (storageError ||
+        !_wallet.add(
+          'boost/${progression.serial}',
+          item.title,
+          -progression.discount(item.price),
+          _today(),
+        ))
+      return false;
+    progression.serial++;
+    progression.inventory.update(
+      item.name,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+    _progressionChanged();
+    return true;
+  }
+
+  bool activateBoost(Boost item) {
+    final now = progressionTime;
+    if (storageError || !progression.canActivate(item, now)) return false;
+    progression.activate(item, now);
+    _progressionChanged();
+    return true;
+  }
+
+  Crate? get supplyCrate {
+    final crate = progression.crate;
+    return crate != null && crate.deadline > progressionTime ? crate : null;
+  }
+
+  bool claimCrate(String id) {
+    final crate = supplyCrate;
+    if ((_game?.isDrawing ?? false) ||
+        crate == null ||
+        crate.id != id ||
+        storageError ||
+        !_wallet.add(
+          id,
+          '${crate.rarity.name} supply crate',
+          crate.coins,
+          _today(),
+        ))
+      return false;
+    progression.crate = null;
+    if (crate.rarity == CrateRarity.legendary) progression.legendary++;
+    _awardAchievements();
+    _progressionChanged();
+    return true;
+  }
+
+  void _progressionChanged() {
+    haptic.selection();
     unawaited(flush());
     notifyListeners();
+  }
+
+  void _checkCrate() {
+    final id = activeId;
+    if (!_foreground ||
+        id == null ||
+        id.mode == PlayMode.attack ||
+        loading ||
+        complete ||
+        !_started ||
+        storageError ||
+        (_game?.isDrawing ?? false))
+      return;
+    final previous = progression.crate;
+    final oldNext = progression.nextCrate;
+    final spawned = progression.considerCrate(
+      progressionTime,
+      dayKey(_today()),
+      Random.secure().nextInt(100),
+    );
+    if (spawned ||
+        previous != progression.crate ||
+        oldNext != progression.nextCrate) {
+      unawaited(flush());
+      notifyListeners();
+    }
+  }
+
+  int _hintTank = 3;
+  int _refillSerial = 0;
+  int get hintTank => _hintTank;
+  bool get canRefillTank => !_disposed && !storageError && _hintTank < 3;
+  int get refillPrice => progression.refillPrice;
+
+  bool buyTankRefill() {
+    if (!canRefillTank ||
+        !_wallet.add(
+          'tank/$_refillSerial',
+          'Hint tank refill',
+          -refillPrice,
+          _today(),
+        ))
+      return false;
+    _fillTank();
     return true;
+  }
+
+  Future<bool> grantTankRefill(String event) async {
+    if (!canRefillTank || !_hintEvents.add(event)) return false;
+    return _fillTank();
+  }
+
+  Future<bool> _fillTank() {
+    _hintTank = 3;
+    _refillSerial++;
+    notifyListeners();
+    return flush();
   }
 
   bool get _canPlay {
@@ -347,7 +480,7 @@ class AppModel extends ChangeNotifier {
   bool get canHint =>
       _canPlay &&
       (_game?.canHint ?? false) &&
-      (freeHints > 0 || extraHints > 0);
+      (freeHints > 0 ? hintTank > 0 : extraHints > 0);
   bool hasAttempt(PuzzleId id) => _attempts.containsKey(id.key);
   RunResult? result(PuzzleId id) => _results[id.key];
   int get solved => _results.length;
@@ -464,13 +597,24 @@ class AppModel extends ChangeNotifier {
       Achievement.unaided: unassisted >= 10,
       Achievement.collector: ownedThemes >= 6,
       Achievement.timeTrial: attackHighest >= 3,
+      Achievement.twentyFive: levelsSolved >= 25,
+      Achievement.hundred: levelsSolved >= 100,
+      Achievement.fiveHundred: levelsSolved >= 500,
+      Achievement.thousand: levelsSolved >= 1000,
+      Achievement.researcher:
+          Research.values.fold(
+            0,
+            (total, item) => total + progression.rank(item),
+          ) >=
+          10,
+      Achievement.legendaryCrate: progression.legendary > 0,
     };
     for (final achievement in Achievement.values) {
       if (conditions[achievement]!) {
         _wallet.add(
           'achievement/${achievement.name}',
           achievement.title,
-          achievement.coins,
+          achievement.coins + progression.effect(Research.mastery),
           _today(),
         );
       }
@@ -640,7 +784,11 @@ class AppModel extends ChangeNotifier {
     ))
       return;
     correctedByHint = conflict;
-    if (useCredit) _hintCredits[key] = extraHints - 1;
+    if (useCredit) {
+      _hintCredits[key] = extraHints - 1;
+    } else {
+      _hintTank--;
+    }
     _hintUsage[key] = used + 1;
     _edited();
     unawaited(flush());
@@ -648,6 +796,10 @@ class AppModel extends ChangeNotifier {
 
   void _edited() {
     _started = true;
+    _crateTimer ??= Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _checkCrate(),
+    );
     _syncClock();
     if (complete) {
       final id = activeId!;
@@ -687,7 +839,20 @@ class AppModel extends ChangeNotifier {
         _wallet.add(
           'clear/${id.key}',
           'Completed ${id.title}',
-          economy.clearReward(id.mode),
+          (economy.clearReward(id.mode) +
+                  (id.mode == PlayMode.levels
+                      ? progression.effect(Research.magnet)
+                      : 0) +
+                  (id.mode == PlayMode.daily
+                      ? progression.effect(Research.fortune)
+                      : 0) +
+                  (id.mode != PlayMode.endless && hintsUsed == 0
+                      ? progression.effect(Research.golden)
+                      : 0) +
+                  (id.mode == PlayMode.levels && _levelsSolved % 5 == 0
+                      ? progression.effect(Research.momentum)
+                      : 0)) *
+              progression.multiplier(progressionTime),
           _today(),
         );
         if (id.mode == PlayMode.daily) {
@@ -698,7 +863,7 @@ class AppModel extends ChangeNotifier {
             _wallet.add(
               'streak/${id.key}',
               '$streak-day streak',
-              economy.streakBonus,
+              economy.streakBonus + progression.effect(Research.specialist),
               _today(),
             );
           }
@@ -806,7 +971,11 @@ class AppModel extends ChangeNotifier {
       };
     }
     final payload = jsonEncode({
-      'schemaVersion': 3,
+      'schemaVersion': GameStateStorage.schemaVersion,
+      'progression': progression.toJson(),
+      'progressionBoot': _bootTime()?.boot,
+      'hintTank': _hintTank,
+      'refillSerial': _refillSerial,
       'hintUsage': _hintUsage,
       'hintCredits': _hintCredits,
       'hintEvents': _hintEvents.toList(),
@@ -862,6 +1031,7 @@ class AppModel extends ChangeNotifier {
     _saveTimer?.cancel();
     _attackTicker?.cancel();
     attackRemaining.dispose();
+    _crateTimer?.cancel();
     elapsed.dispose();
     super.dispose();
   }
