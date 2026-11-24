@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../logic/game_controller.dart';
 import '../../logic/puzzle.dart';
 import '../../logic/puzzle_generator.dart';
+import '../../logic/tip_tracker.dart';
 import '../../model/app_themes.dart';
 import '../../model/game_state.dart';
 import '../../model/path_tips.dart';
@@ -73,6 +74,7 @@ class LevelOneBoardPreview extends StatelessWidget {
           palette: palette,
           tipStyle: tip,
           directionOverride: directionOverride,
+          showTip: true,
           route: previewRoute,
           hint: null,
           next:
@@ -153,9 +155,43 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _attemptPath = null;
   }
 
-  final _pointerPosition = ValueNotifier<Offset?>(null);
+  /// Transient picture of the tip while a finger is down. Never persisted.
+  final _visual = ValueNotifier<TipVisual?>(null);
+
+  /// Set only while the tip retracts along the trail, so the board redraws
+  /// the route up to the tip. Forward drags never repaint the board layer.
+  final _trim = ValueNotifier<({int cell, Offset tip})?>(null);
+  late TipTracker _tracker = _newTracker();
+
+  TipTracker _newTracker() => TipTracker(
+    tipRadius: tipRadiusOf(widget.tipStyle),
+    checkpointLead: tipLead(widget.tipStyle),
+  );
   int? _pointer;
   Offset? _previous;
+
+  void _track(Offset position) {
+    final controls = widget.model;
+    final route = controls.path;
+    final visual = _tracker.update(
+      puzzle: widget.puzzle,
+      route: route,
+      pointer: position,
+      acceptedFacing: tipDirection(widget.puzzle, route),
+      canEnter: controls.canStep,
+    );
+    _visual.value = visual;
+    final trim = visual.trim ? (cell: visual.cell, tip: visual.tip) : null;
+    if (trim?.cell != _trim.value?.cell || trim?.tip != _trim.value?.tip) {
+      _trim.value = trim;
+    }
+  }
+
+  void _settle() {
+    _tracker.reset();
+    _visual.value = null;
+    _trim.value = null;
+  }
 
   int get _size => widget.puzzle.size;
 
@@ -189,7 +225,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _pointer = event.pointer;
     _rejectedCell = null;
     _previous = position;
-    _pointerPosition.value = position;
+    _track(position);
   }
 
   void _move(PointerMoveEvent event, double side) {
@@ -230,20 +266,21 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     }
     if (_cell(target) != _rejectedCell) _rejectedCell = null;
     _previous = target;
-    _pointerPosition.value = target;
+    _track(target);
   }
 
   void _up(PointerEvent event) {
     if (_pointer != event.pointer) return;
     _pointer = null;
     _previous = null;
-    _pointerPosition.value = null;
+    _settle();
     widget.model.end();
   }
 
   @override
   void dispose() {
-    _pointerPosition.dispose();
+    _visual.dispose();
+    _trim.dispose();
     _rejection.dispose();
     super.dispose();
   }
@@ -251,6 +288,10 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   @override
   void didUpdateWidget(covariant PuzzleBoard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.tipStyle != widget.tipStyle) {
+      _tracker = _newTracker();
+      _settle();
+    }
     if (oldWidget.puzzle != widget.puzzle ||
         widget.model.complete ||
         (_rejectedMove != null &&
@@ -298,6 +339,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       complete: model.complete,
                       rejection: _rejection,
                       rejectedMove: () => _rejectedMove,
+                      trim: _trim,
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -306,17 +348,14 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                   RepaintBoundary(
                     key: const ValueKey('pointer-layer'),
                     child: CustomPaint(
-                      painter: _PointerPainter(
+                      painter: _TipPainter(
                         puzzle: widget.puzzle,
-                        color: widget.palette.route,
-                        tipColor: widget.palette.accent,
+                        palette: widget.palette,
                         tipStyle: widget.tipStyle,
+                        route: path,
+                        visual: _visual,
                         rejection: _rejection,
-                        validCells: widget.puzzle.neighbors[path.last]
-                            .where(model.canStep)
-                            .toSet(),
-                        tip: path.last,
-                        pointer: _pointerPosition,
+                        reduced: MediaQuery.disableAnimationsOf(context),
                       ),
                     ),
                   ),
@@ -773,9 +812,22 @@ class _BoardPainter extends CustomPainter {
     this.directionOverride,
     this.rejection,
     this.rejectedMove,
+    this.trim,
+    this.showTip = false,
     this.reducedMotion = false,
   }) : visited = route.toSet(),
-       super(repaint: rejection);
+       super(
+         repaint: Listenable.merge([
+           if (rejection != null) rejection,
+           if (trim != null) trim,
+         ]),
+       );
+
+  /// Present only while the tip retracts along the trail.
+  final ValueNotifier<({int cell, Offset tip})?>? trim;
+
+  /// The static preview paints its own tip. Live boards use the tip layer.
+  final bool showTip;
 
   final Puzzle puzzle;
   final BoardPalette palette;
@@ -877,10 +929,12 @@ class _BoardPainter extends CustomPainter {
     }
 
     final first = _center(route.first);
-    final tip = _center(route.last);
+    final trimmed = trim?.value;
     final stroke = Path()..moveTo(first.dx, first.dy);
     for (final cell in route.skip(1)) {
-      final point = _center(cell);
+      final point = trimmed != null && cell == route.last && trimmed.cell == cell
+          ? trimmed.tip
+          : _center(cell);
       if (puzzle.portal?.$2 == cell) {
         stroke.moveTo(point.dx, point.dy);
       } else {
@@ -945,31 +999,18 @@ class _BoardPainter extends CustomPainter {
       canvas.restore();
       text.dispose();
     }
-    if (puzzle.numbers[route.last] == 0) {
-      paintPathTip(
+    if (showTip && !complete) {
+      paintTip(
         canvas,
-        tip,
-        tipStyle == PathTip.classic ? .1685 : .22,
-        tipStyle,
+        puzzle,
         palette,
-        quarterTurns: directionOverride ?? tipDirection(puzzle, route),
-      );
-    } else if (!complete && tipStyle != PathTip.classic) {
-      // A small badge on the checkpoint rim keeps its number readable.
-      final direction = directionOverride ?? tipDirection(puzzle, route);
-      final offset = switch (direction) {
-        1 => const Offset(0, .39),
-        2 => const Offset(-.39, 0),
-        3 => const Offset(0, -.39),
-        _ => const Offset(.39, 0),
-      };
-      paintPathTip(
-        canvas,
-        tip + offset,
-        .10,
         tipStyle,
-        palette,
-        quarterTurns: direction,
+        TipTracker.rest(
+          puzzle,
+          route,
+          directionOverride ?? tipDirection(puzzle, route),
+          checkpointLead: tipLead(tipStyle),
+        ),
       );
     }
     canvas.restore();
@@ -981,6 +1022,8 @@ class _BoardPainter extends CustomPainter {
       oldDelegate.palette != palette ||
       oldDelegate.tipStyle != tipStyle ||
       oldDelegate.directionOverride != directionOverride ||
+      oldDelegate.showTip != showTip ||
+      oldDelegate.trim != trim ||
       oldDelegate.next != next ||
       oldDelegate.hint != hint ||
       oldDelegate.complete != complete ||
@@ -989,104 +1032,95 @@ class _BoardPainter extends CustomPainter {
       !identical(oldDelegate.route, route);
 }
 
-/// Pointer motion between accepted cells only repaints this light overlay.
-class _PointerPainter extends CustomPainter {
-  _PointerPainter({
+/// How far ahead of a checkpoint centre a cosmetic tip rests. Classic keeps
+/// its highlighted-disc treatment and needs no lead.
+double tipLead(PathTip style) => style == PathTip.classic ? 0 : .46;
+
+/// Tip radius in cells. One size on every cell; checkpoints do not shrink it.
+double tipRadiusOf(PathTip style) => style == PathTip.classic ? .1685 : .22;
+
+/// Paints the leading segment and the tip in board units. The canvas is
+/// already scaled so one unit is one cell.
+void paintTip(
+  Canvas canvas,
+  Puzzle puzzle,
+  BoardPalette palette,
+  PathTip style,
+  TipVisual v,
+) {
+  final checkpoint = puzzle.numbers[v.cell] != 0;
+  final classic = style == PathTip.classic;
+  // Classic on a checkpoint is the highlighted disc itself.
+  if (classic && checkpoint && v.extension <= .275) return;
+  if (v.extension > 0 && !v.trim) {
+    final dir = v.tip - v.center;
+    final unit = dir / dir.distance;
+    // On a checkpoint start at the rim so the number is never covered.
+    final start = checkpoint ? v.center + unit * .275 : v.center;
+    canvas.drawLine(
+      start,
+      v.tip,
+      Paint()
+        ..color = palette.route
+        ..strokeWidth = .25
+        ..strokeCap = checkpoint ? StrokeCap.butt : StrokeCap.round,
+    );
+  }
+  paintPathTip(
+    canvas,
+    v.tip,
+    tipRadiusOf(style),
+    style,
+    palette,
+    quarterTurns: v.facing,
+  );
+}
+
+/// The tip and its leading segment. Pointer motion repaints only this layer.
+class _TipPainter extends CustomPainter {
+  _TipPainter({
     required this.puzzle,
-    required this.color,
-    required this.tipColor,
+    required this.palette,
     required this.tipStyle,
-    required this.validCells,
-    required this.tip,
-    required this.pointer,
+    required this.route,
+    required this.visual,
     required this.rejection,
-  }) : super(repaint: Listenable.merge([pointer, rejection]));
+    required this.reduced,
+  }) : super(repaint: Listenable.merge([visual, rejection]));
 
   final Puzzle puzzle;
-  final Color color, tipColor;
+  final BoardPalette palette;
   final PathTip tipStyle;
-  final Set<int> validCells;
-  final int tip;
-  final ValueNotifier<Offset?> pointer;
+  final List<int> route;
+  final ValueNotifier<TipVisual?> visual;
   final AnimationController rejection;
+  final bool reduced;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final position = pointer.value;
-    if (position == null ||
-        rejection.isAnimating ||
-        tipStyle != PathTip.classic)
-      return;
-    final center = Offset(tip % puzzle.size + .5, tip ~/ puzzle.size + .5);
-    final delta = position - center;
-    if (delta.distance > .85) return;
-    final sameCell =
-        position.dx.floor() == tip % puzzle.size &&
-        position.dy.floor() == tip ~/ puzzle.size;
-    Offset extension;
-    if (sameCell) {
-      extension = Offset(delta.dx.clamp(-.49, .49), delta.dy.clamp(-.49, .49));
-      bool wallBetween(int neighbor) =>
-          puzzle.neighbors[tip].contains(neighbor) &&
-          (puzzle.walls.contains((tip, neighbor)) ||
-              puzzle.walls.contains((neighbor, tip)));
-      // The marker can approach a wall, but its radius must not cross it.
-      if (extension.dx > 0 && wallBetween(tip + 1)) {
-        extension = Offset(extension.dx.clamp(0.0, .34), extension.dy);
-      } else if (extension.dx < 0 && wallBetween(tip - 1)) {
-        extension = Offset(extension.dx.clamp(-.34, 0.0), extension.dy);
-      }
-      if (extension.dy > 0 && wallBetween(tip + puzzle.size)) {
-        extension = Offset(extension.dx, extension.dy.clamp(0.0, .34));
-      } else if (extension.dy < 0 && wallBetween(tip - puzzle.size)) {
-        extension = Offset(extension.dx, extension.dy.clamp(-.34, 0.0));
-      }
-    } else {
-      extension = delta.dx.abs() > delta.dy.abs()
-          ? Offset(delta.dx.clamp(-.49, .49), 0)
-          : Offset(0, delta.dy.clamp(-.49, .49));
-      final neighbor =
-          tip +
-          (extension.dx != 0
-              ? extension.dx.sign.toInt()
-              : extension.dy.sign.toInt() * puzzle.size);
-      if (!validCells.contains(neighbor)) return;
-    }
-    final checkpoint = puzzle.numbers[tip] != 0;
-    if (checkpoint && extension.distance <= .275) return;
-    final side = size.width / puzzle.size;
-    final start = center * side;
-    final end = (center + extension) * side;
-    if (!checkpoint && tipStyle == PathTip.classic) {
-      // Cover the stationary marker without changing the stored route.
-      canvas.drawCircle(start, .16 * side, Paint()..color = color);
-    }
-    final lineStart = checkpoint
-        ? (center + extension * (.275 / extension.distance)) * side
-        : start;
-    canvas.drawLine(
-      lineStart,
-      end,
-      Paint()
-        ..color = color
-        ..strokeWidth = .25 * side
-        ..strokeCap = StrokeCap.round,
-    );
-    if (tipStyle == PathTip.classic) {
-      canvas.drawCircle(end, .16 * side, Paint()..color = color);
-      canvas.drawCircle(end, .095 * side, Paint()..color = tipColor);
-    }
+    // The rejection layer draws the tip while its temporary segment plays.
+    if (rejection.isAnimating && !reduced) return;
+    final v =
+        visual.value ??
+        TipTracker.rest(
+          puzzle,
+          route,
+          tipDirection(puzzle, route),
+          checkpointLead: tipLead(tipStyle),
+        );
+    canvas.save();
+    canvas.scale(size.width / puzzle.size);
+    paintTip(canvas, puzzle, palette, tipStyle, v);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_PointerPainter oldDelegate) =>
-      oldDelegate.puzzle != puzzle ||
-      oldDelegate.color != color ||
-      oldDelegate.tipColor != tipColor ||
-      oldDelegate.tipStyle != tipStyle ||
-      oldDelegate.rejection != rejection ||
-      oldDelegate.tip != tip ||
-      !setEquals(oldDelegate.validCells, validCells);
+  bool shouldRepaint(_TipPainter old) =>
+      old.puzzle != puzzle ||
+      old.palette != palette ||
+      old.tipStyle != tipStyle ||
+      old.reduced != reduced ||
+      !listEquals(old.route, route);
 }
 
 /// Paints transient feedback above the board without changing hit testing or
@@ -1145,32 +1179,45 @@ class _RejectionPainter extends CustomPainter {
         : 1.0;
     final checkpoint = puzzle.numbers[origin] != 0;
     final end = segment * distance;
-    if (checkpoint && end <= .275) return;
-    if (!checkpoint && tipStyle == PathTip.classic) {
-      canvas.drawCircle(from, side * .16, Paint()..color = routeColor);
-    }
-    final endPoint = Offset.lerp(from, to, end)!;
-    canvas.drawLine(
-      checkpoint ? Offset.lerp(from, to, .275)! : from,
-      endPoint,
-      Paint()
-        ..color = routeColor
-        ..strokeWidth = side * .25
-        ..strokeCap = StrokeCap.round,
-    );
-    if (tipStyle == PathTip.classic) {
-      canvas.drawCircle(endPoint, side * .16, Paint()..color = routeColor);
-      canvas.drawCircle(endPoint, side * .095, Paint()..color = tipColor);
-    } else if (!checkpoint) {
-      paintPathTip(
-        canvas,
-        from,
-        side * .22,
-        tipStyle,
-        palette,
-        quarterTurns: direction,
+    final classic = tipStyle == PathTip.classic;
+    final lead = tipLead(tipStyle);
+    // Face the attempted neighbour, not the accepted heading.
+    final stepX = destination % puzzle.size - origin % puzzle.size;
+    final stepY = destination ~/ puzzle.size - origin ~/ puzzle.size;
+    final attempted = stepX == 1 && stepY == 0
+        ? 0
+        : stepX == 0 && stepY == 1
+        ? 1
+        : stepX == -1 && stepY == 0
+        ? 2
+        : stepX == 0 && stepY == -1
+        ? 3
+        : direction;
+    final travel = checkpoint ? math.max(end, lead) : end;
+    final endPoint = Offset.lerp(from, to, travel)!;
+    final rim = checkpoint ? .275 : 0.0;
+    if (travel > rim && !(classic && checkpoint && end <= .275)) {
+      canvas.drawLine(
+        Offset.lerp(from, to, rim)!,
+        endPoint,
+        Paint()
+          ..color = routeColor
+          ..strokeWidth = side * .25
+          ..strokeCap = checkpoint ? StrokeCap.butt : StrokeCap.round,
       );
     }
+    if (classic && checkpoint && end <= .275) return;
+    canvas.save();
+    canvas.scale(side);
+    paintPathTip(
+      canvas,
+      endPoint / side,
+      tipRadiusOf(tipStyle),
+      tipStyle,
+      palette,
+      quarterTurns: attempted,
+    );
+    canvas.restore();
   }
 
   @override
