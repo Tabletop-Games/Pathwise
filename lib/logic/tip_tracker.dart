@@ -56,7 +56,7 @@ class TipTracker {
     this.tipRadius = .22,
     this.deadZone = .10,
     this.hysteresis = .10,
-    this.checkpointLead = .31,
+    this.checkpointLead = .42,
     this.rebaseRadius = .2,
   });
 
@@ -106,7 +106,7 @@ class TipTracker {
     Puzzle puzzle,
     List<int> route,
     int facing, {
-    double checkpointLead = .31,
+    double checkpointLead = .42,
   }) {
     final cell = route.last;
     final center = centerOf(puzzle, cell);

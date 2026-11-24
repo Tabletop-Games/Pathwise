@@ -10,6 +10,8 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/progression.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'level_one_demo.dart';
@@ -64,21 +66,25 @@ Future<void> openPuzzle(
         !context.read<BillingService>().buying &&
         await model.recordCoinOffer() &&
         canPresent()) {
-      final watch = await showDialog<bool>(
+      final watch = await showGameDialog<bool>(
         context: context,
-        builder: (dialog) => AlertDialog(
-          title: const Text('Want some extra coins?'),
-          content: Text(
-            'Watch a short video to earn ${economy.rewardedAdCoins} coins.',
+        builder: (dialog) => GameDialog(
+          art: GameArt(
+            ArtKind.coinStack3,
+            palette: dialog.palette,
+            size: 72,
           ),
+          child: Center(child: RewardAmount(economy.rewardedAdCoins)),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Not now'),
+            ActionPill(
+              label: 'Not now',
+              onTap: () => Navigator.pop(dialog, false),
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: const Text('Watch video'),
+            ActionPill(
+              label: 'Watch video',
+              tone: ActionTone.primary,
+              icon: Icons.play_arrow_rounded,
+              onTap: () => Navigator.pop(dialog, true),
             ),
           ],
         ),
@@ -216,6 +222,11 @@ class _MainMenuViewState extends State<MainMenuView>
         )
         .length;
     final spinReady = model.fortuneWait == 0 && !model.storageError;
+    final dailyDone = result != null
+        ? dailyCheckpointCount
+        : currentDaily.checkpoint == null
+        ? dailyCheckpointCount - 1
+        : currentDaily.checkpoint! - 1;
     return Scaffold(
       body: SafeArea(
         child: Align(
@@ -223,103 +234,82 @@ class _MainMenuViewState extends State<MainMenuView>
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 530),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
               children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                Row(
                   children: [
-                    Text(
-                      'Pathwise',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.8,
-                          ),
+                    Expanded(
+                      child: Text(
+                        'Pathwise',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                            ),
+                      ),
                     ),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const StoreView(section: StoreSection.coins),
-                            ),
-                          ),
-                          icon: const Icon(Icons.toll_rounded),
-                          label: Text('${model.coinBalance}'),
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(50, 48),
-                          ),
+                    BalanceChip(
+                      coins: model.coinBalance,
+                      onTap: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const StoreView(section: StoreSection.coins),
                         ),
-                        IconButton(
-                          tooltip: 'Store',
-                          onPressed: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const StoreView(),
-                            ),
-                          ),
-                          icon: const Icon(Icons.shopping_bag_outlined),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Statistics',
+                      onPressed: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StatisticsView(),
                         ),
-                        IconButton(
-                          tooltip: 'Statistics',
-                          onPressed: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const StatisticsView(),
-                            ),
-                          ),
-                          icon: const Icon(Icons.insights_rounded),
-                        ),
-                        IconButton(
-                          tooltip: 'Settings',
-                          onPressed: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsView(),
-                            ),
-                          ),
-                          icon: const Icon(Icons.settings_outlined),
-                        ),
-                      ],
+                      ),
+                      icon: const Icon(Icons.insights_rounded),
+                    ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      onPressed: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsView()),
+                      ),
+                      icon: const Icon(Icons.settings_outlined),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
-                      child: TextButton.icon(
-                        onPressed: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(builder: (_) => const StreakView()),
-                        ),
-                        icon: _StreakFlame(count: model.streak.count),
-                        label: Text('${model.streak.count}-day streak'),
+                    _CounterChip(
+                      key: const ValueKey('streak-chip'),
+                      art: ArtKind.flame,
+                      palette: palette,
+                      value: '${model.streak.count}',
+                      label: '${model.streak.count}-day streak',
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const StreakView()),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Flexible(
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => showHintShop(context, model),
-                        icon: const Icon(Icons.lightbulb_outline_rounded),
-                        label: Text('${model.hintsRemaining} hints'),
-                      ),
+                    _CounterChip(
+                      key: const ValueKey('hint-chip'),
+                      art: ArtKind.hint,
+                      palette: palette,
+                      value: '${model.hintsRemaining}',
+                      label: '${model.hintsRemaining} hints. Get hints',
+                      onTap: () => showHintShop(context, model),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _DailyCard(
                   palette: palette,
-                  date: '${daily.value}',
-                  detail: result != null
-                      ? 'Solved in ${formatTime(Duration(milliseconds: result.milliseconds))}'
-                      : model.hasAttempt(currentDaily)
-                      ? 'In progress'
-                      : 'Three puzzles each day',
+                  done: dailyDone,
+                  time: result == null
+                      ? null
+                      : formatTime(Duration(milliseconds: result.milliseconds)),
                   action: result != null
                       ? 'View result'
                       : model.hasAttempt(currentDaily)
@@ -327,10 +317,15 @@ class _MainMenuViewState extends State<MainMenuView>
                       : 'Play daily',
                   onTap: () => openPuzzle(context, currentDaily),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        GameTokens.cardRadius,
+                      ),
+                    ),
                   ),
                   onPressed: () => openPuzzle(
                     context,
@@ -343,68 +338,60 @@ class _MainMenuViewState extends State<MainMenuView>
                         : 'Continue · Level ${model.highestUnlocked}',
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _ModeTile(
                   palette: palette,
-                  icon: Icons.layers_outlined,
+                  art: ArtKind.levels,
                   title: 'Levels',
-                  subtitle:
-                      'Level ${model.highestUnlocked} · ${model.levelsSolved} solved',
+                  trailing: '${model.levelsSolved} solved',
                   onTap: () => Navigator.push<void>(
                     context,
                     MaterialPageRoute(builder: (_) => const LevelsView()),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _ModeTile(
                   palette: palette,
-                  icon: Icons.timer_outlined,
+                  art: ArtKind.timer,
                   title: 'Time Attack',
-                  subtitle: model.attack != null && !model.attack!.finished
-                      ? 'Resume challenge'
-                      : '1, 3, or 5 minutes',
+                  trailing: model.attack != null && !model.attack!.finished
+                      ? 'Resume'
+                      : model.attackBest > 0
+                      ? 'Best ${model.attackBest}'
+                      : null,
                   onTap: () => Navigator.of(context).push<void>(
                     MaterialPageRoute(builder: (_) => const _AttackSetup()),
                   ),
                 ),
-                const SizedBox(height: 10),
-                _ShortcutRow(
-                  children: [
-                    _HomeShortcut(
-                      icon: Icons.cyclone_rounded,
-                      title: 'Fortune Wheel',
-                      featured: spinReady,
-                      detail: spinReady
-                          ? 'Free spin ready'
-                          : model.fortuneWait > 0
-                          ? 'Next spin in ${fortuneCountdown(model.fortuneWait)}'
-                          : 'Free spin unavailable',
-                      onTap: _openWheel,
-                    ),
-                    _HomeShortcut(
-                      icon: Icons.palette_outlined,
-                      title: 'Themes',
-                      detail: 'Preview palettes',
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const StoreView(section: StoreSection.themes),
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                _StoreCard(
+                  palette: palette,
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const StoreView()),
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
+                _ModeTile(
+                  key: const ValueKey('wheel-tile'),
+                  palette: palette,
+                  art: ArtKind.wheel,
+                  title: 'Fortune Wheel',
+                  featured: spinReady,
+                  trailing: spinReady
+                      ? 'Free spin'
+                      : model.fortuneWait > 0
+                      ? fortuneCountdown(model.fortuneWait)
+                      : null,
+                  onTap: _openWheel,
+                ),
+                const SizedBox(height: 8),
                 _ShortcutRow(
                   children: [
                     _HomeShortcut(
-                      icon: Icons.hub_outlined,
+                      art: ArtKind.research,
+                      palette: palette,
                       title: 'Research',
-                      detail: switch (researched) {
-                        0 => 'Permanent upgrades',
-                        1 => '1 upgrade begun',
-                        _ => '$researched upgrades begun',
-                      },
+                      badge: researched > 0 ? '$researched' : null,
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(
                           builder: (_) => const ProgressionView(),
@@ -412,13 +399,15 @@ class _MainMenuViewState extends State<MainMenuView>
                       ),
                     ),
                     _HomeShortcut(
-                      icon: Icons.bolt_rounded,
+                      art: ArtKind.bolt,
+                      palette: palette,
                       title: 'Boosts',
-                      detail: active > 0
-                          ? '$active active · $owned in reserve'
+                      featured: active > 0,
+                      badge: active > 0
+                          ? '$active on'
                           : owned > 0
-                          ? '$owned in reserve'
-                          : 'Timed effects',
+                          ? '$owned'
+                          : null,
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(
                           builder: (_) => const ProgressionView(boosts: true),
@@ -484,139 +473,228 @@ class _ShortcutRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: children.first),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(child: children.last),
       ],
     ),
   );
 }
 
+/// Compact icon-and-number counter in the header row.
+class _CounterChip extends StatelessWidget {
+  const _CounterChip({
+    required this.art,
+    required this.palette,
+    required this.value,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final ArtKind art;
+  final BoardPalette palette;
+  final String value, label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: label,
+    excludeSemantics: true,
+    onTap: onTap,
+    child: InkResponse(
+      onTap: onTap,
+      radius: 32,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: GameTokens.minTouch),
+        child: Center(
+          widthFactor: 1,
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: palette.quiet,
+              borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+              border: Border.all(color: palette.cardEdge),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GameArt(art, palette: palette, size: 20),
+                const SizedBox(width: 6),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _HomeShortcut extends StatelessWidget {
   const _HomeShortcut({
-    required this.icon,
+    required this.art,
+    required this.palette,
     required this.title,
-    required this.detail,
     required this.onTap,
+    this.badge,
     this.featured = false,
   });
 
-  final IconData icon;
-  final String title, detail;
+  final ArtKind art;
+  final BoardPalette palette;
+  final String title;
+  final String? badge;
   final VoidCallback onTap;
   final bool featured;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: featured ? colors.primaryContainer : colors.surface,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(icon, color: colors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      detail,
-                      style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => GameCard(
+    onTap: onTap,
+    selected: false,
+    color: featured
+        ? Color.lerp(palette.card, palette.accent, palette.dark ? .14 : .2)
+        : null,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    semanticLabel: badge == null ? title : '$title, $badge',
+    child: Row(
+      children: [
+        GameArt(art, palette: palette, size: 28),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
           ),
         ),
-      ),
-    );
-  }
+        if (badge != null)
+          Text(
+            badge!,
+            style: TextStyle(
+              color: palette.mutedInk,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 class _DailyCard extends StatelessWidget {
   const _DailyCard({
     required this.palette,
-    required this.date,
-    required this.detail,
+    required this.done,
+    required this.time,
     required this.action,
     required this.onTap,
   });
 
   final BoardPalette palette;
-  final String date, detail, action;
+  final int done;
+  final String? time;
+  final String action;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
     decoration: BoxDecoration(
       color: palette.route,
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(GameTokens.cardRadius + 4),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
       children: [
-        Row(
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              color: palette.onRoute,
-              size: 19,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                date,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Daily challenge',
                 style: TextStyle(
                   color: palette.onRoute,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Daily challenge',
-          style: TextStyle(
-            color: palette.onRoute,
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _OnRoutePips(done: done, palette: palette),
+                  if (time != null) ...[
+                    const SizedBox(width: 10),
+                    Text(
+                      time!,
+                      style: TextStyle(
+                        color: palette.onRoute,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 5),
-        Text(detail, style: TextStyle(color: palette.onRoute, fontSize: 15)),
-        const SizedBox(height: 14),
-        FilledButton.icon(
+        FilledButton(
           onPressed: onTap,
           style: FilledButton.styleFrom(
             backgroundColor: palette.accent,
             foregroundColor: palette.onAccent,
+            minimumSize: const Size(48, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+            ),
           ),
-          icon: const Icon(Icons.arrow_forward_rounded),
-          label: Text(action),
+          child: Text(action),
         ),
+      ],
+    ),
+  );
+}
+
+/// Three stage pips drawn on the route-coloured daily card.
+class _OnRoutePips extends StatelessWidget {
+  const _OnRoutePips({required this.done, required this.palette});
+  final int done;
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '$done of $dailyCheckpointCount puzzles solved today',
+    excludeSemantics: true,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < dailyCheckpointCount; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i < done ? palette.accent : Colors.transparent,
+              border: Border.all(
+                color: i < done
+                    ? palette.accent
+                    : palette.onRoute.withValues(alpha: .6),
+                width: 2,
+              ),
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -625,36 +703,99 @@ class _DailyCard extends StatelessWidget {
 class _ModeTile extends StatelessWidget {
   const _ModeTile({
     required this.palette,
-    required this.icon,
+    required this.art,
     required this.title,
-    required this.subtitle,
     required this.onTap,
+    this.trailing,
+    this.featured = false,
+    super.key,
   });
 
   final BoardPalette palette;
-  final IconData icon;
-  final String title, subtitle;
+  final ArtKind art;
+  final String title;
+  final String? trailing;
+  final bool featured;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: palette.surface,
-    borderRadius: BorderRadius.circular(20),
-    child: ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      leading: CircleAvatar(
-        backgroundColor: palette.tile,
-        foregroundColor: palette.ink,
-        child: Icon(icon),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
-      ),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
+  Widget build(BuildContext context) => GameCard(
+    onTap: onTap,
+    color: featured
+        ? Color.lerp(palette.card, palette.accent, palette.dark ? .14 : .2)
+        : null,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    semanticLabel: trailing == null ? title : '$title, $trailing',
+    child: Row(
+      children: [
+        GameArt(art, palette: palette, size: 30),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+        ),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: TextStyle(
+              color: featured ? palette.ink : palette.mutedInk,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        const SizedBox(width: 4),
+        Icon(Icons.chevron_right_rounded, color: palette.mutedInk),
+      ],
+    ),
+  );
+}
+
+/// The Store is a destination, not a settings entry: full width, illustrated
+/// and tinted with the theme accent.
+class _StoreCard extends StatelessWidget {
+  const _StoreCard({required this.palette, required this.onTap});
+  final BoardPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GameCard(
+    key: const ValueKey('store-card'),
+    onTap: onTap,
+    color: Color.lerp(palette.card, palette.accent, palette.dark ? .18 : .26),
+    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+    semanticLabel: 'Store. Themes, tips and more',
+    child: Row(
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: palette.surface.withValues(alpha: .7),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: GameArt(ArtKind.store, palette: palette, size: 40),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Store',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+              ),
+              Text(
+                'Themes, tips & more',
+                style: TextStyle(color: palette.mutedInk, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        Icon(Icons.chevron_right_rounded, color: palette.ink),
+      ],
     ),
   );
 }
@@ -665,6 +806,7 @@ class _AttackSetup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
+    final palette = BoardPalette.palettes[model.theme]!;
     final running = model.attack?.finished == false;
     return Scaffold(
       appBar: AppBar(title: const Text('Time Attack')),
@@ -674,39 +816,59 @@ class _AttackSetup extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(16),
               children: [
-                const Text('How long can you keep going?'),
-                const SizedBox(height: 16),
                 for (final minutes in [1, 3, 5])
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: ListTile(
-                        enabled: !running,
-                        selected: model.attackMinutes == minutes,
-                        leading: const Icon(Icons.timer_outlined),
-                        title: Text('$minutes min'),
-                        selectedTileColor: Theme.of(context)
-                            .colorScheme
-                            .primaryContainer,
-                        minTileHeight: 72,
-                        subtitle: Text(
-                          'Best: ${model.attackBestFor(minutes)} points',
-                        ),
-                        trailing: model.attackMinutes == minutes
-                            ? const Icon(Icons.check_circle_outline)
-                            : null,
-                        onTap: running
-                            ? null
-                            : () => model.selectAttackMinutes(minutes),
+                    child: GameCard(
+                      selected: model.attackMinutes == minutes,
+                      onTap: running
+                          ? null
+                          : () => model.selectAttackMinutes(minutes),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      semanticLabel:
+                          '$minutes minutes. Best ${model.attackBestFor(minutes)} points',
+                      child: Row(
+                        children: [
+                          GameArt(ArtKind.timer, palette: palette, size: 34),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              '$minutes min',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ),
+                          GameArt(ArtKind.trophy, palette: palette, size: 22),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${model.attackBestFor(minutes)}',
+                            style: TextStyle(
+                              color: palette.mutedInk,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        GameTokens.cardRadius,
+                      ),
+                    ),
+                  ),
                   onPressed: () => openPuzzle(
                     context,
                     const PuzzleId.attack('start/0'),

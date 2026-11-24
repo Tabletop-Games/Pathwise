@@ -251,7 +251,6 @@ class _PillFrame extends StatelessWidget {
       onTap: onTap,
       child: InkResponse(
         onTap: onTap,
-        containerColor: Colors.transparent,
         radius: 28,
         child: ConstrainedBox(
           constraints: const BoxConstraints(

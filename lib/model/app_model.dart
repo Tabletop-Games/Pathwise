@@ -1361,6 +1361,17 @@ class AppModel extends ChangeNotifier
   }
 
   int get adsToday => _coinAdDays.values.where((day) => day == todayKey).length;
+
+  /// The milestone bonus for today has already been paid.
+  bool get coinMilestoneClaimed =>
+      _wallet.contains('ad-milestone/${dayKey(_today())}');
+
+  /// The next eligible video also earns the milestone bonus. Mirrors the rule
+  /// in [grantAdBonus], so the Store never promises a bonus that will not pay.
+  bool get nextCoinVideoEarnsMilestone =>
+      canEarnAdBonus &&
+      adsToday + 1 == economy.coinAdMilestone &&
+      !coinMilestoneClaimed;
   bool get canEarnAdBonus =>
       !storageError &&
       _rewardDayAvailable &&

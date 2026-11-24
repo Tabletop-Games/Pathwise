@@ -170,7 +170,9 @@ void main() {
         final bytes = (await image.toByteData(
           format: ui.ImageByteFormat.rawRgba,
         ))!;
-        expect(bytes.getUint8((50 * image.width + 105) * 4 + 3), 0);
+        // The classic tip follows the finger, but stops short of the wall.
+        expect(bytes.getUint8((50 * image.width + 105) * 4 + 3), greaterThan(0));
+        expect(bytes.getUint8((50 * image.width + 140) * 4 + 3), 0);
         image.dispose();
       });
       await gesture.moveTo(origin + const Offset(150, 50));
@@ -269,7 +271,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
   testWidgets(
-    'the tip follows a valid drag within a tile and returns on release',
+    'the classic tip follows the finger continuously and settles on release',
     (tester) async {
       final puzzle = Puzzle(3, [0, 2, 4, 8]);
       final controls = _Controls(
@@ -304,33 +306,40 @@ void main() {
       await drag.moveTo(origin + const Offset(50, 150));
       await tester.pump();
       expect(controls.path, [0, 3]);
-      await drag.moveTo(origin + const Offset(80, 150));
-      await tester.pump();
       final layer = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(const ValueKey('pointer-layer')),
       );
-      await tester.runAsync(() async {
-        final image = await layer.toImage();
-        final bytes = (await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!;
-        int pixel(int x, int y, int channel) =>
-            bytes.getUint8((y * image.width + x) * 4 + channel);
-        expect(pixel(80, 150, 0), closeTo((palette.accent.r * 255).round(), 1));
-        expect(pixel(50, 150, 0), closeTo((palette.route.r * 255).round(), 1));
-        image.dispose();
-      });
-      expect(controls.path, [0, 3]);
+      Future<List<int>> pixel(int x, int y) async =>
+          (await tester.runAsync(() async {
+            final image = await layer.toImage();
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            final i = (y * image.width + x) * 4;
+            final out = [
+              bytes.getUint8(i),
+              bytes.getUint8(i + 1),
+              bytes.getUint8(i + 2),
+              bytes.getUint8(i + 3),
+            ];
+            image.dispose();
+            return out;
+          }))!;
+      // Move the finger part way toward the next cell. The tip must be there
+      // before the cell is accepted, not stuck on the cell centre.
+      await drag.moveTo(origin + const Offset(50, 185));
+      await tester.pump();
+      expect(controls.path, [0, 3], reason: 'the route has not changed');
+      final tip = await pixel(50, 185);
+      expect(tip[3], greaterThan(0), reason: 'something is painted at the tip');
+      expect(tip[0], closeTo((palette.accent.r * 255).round(), 2));
+      await drag.moveTo(origin + const Offset(80, 185));
+      await tester.pump();
+      final sideways = await pixel(80, 185);
+      expect(sideways[3], 0, reason: 'the tip stays on its vertical axis');
       await drag.up();
       await tester.pump();
-      await tester.runAsync(() async {
-        final image = await layer.toImage();
-        final bytes = (await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!;
-        expect(bytes.getUint8((150 * image.width + 80) * 4 + 3), 0);
-        image.dispose();
-      });
+      expect((await pixel(50, 185))[3], 0, reason: 'transient tip is gone');
       expect(controls.path, [0, 3]);
     },
   );
