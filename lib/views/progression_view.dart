@@ -232,9 +232,16 @@ class _ProgressionViewState extends State<ProgressionView> {
         ),
       );
     } else if (!unlocked) {
-      action = InfoChip(
-        icon: GameArt(ArtKind.lock, palette: palette, size: 16),
-        label: '${item.prerequisite!.title} 3',
+      action = ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 104),
+        child: Semantics(
+          label: 'Requires ${item.prerequisite!.title} rank 3',
+          excludeSemantics: true,
+          child: InfoChip(
+            icon: GameArt(ArtKind.lock, palette: palette, size: 16),
+            label: '${item.prerequisite!.title} 3',
+          ),
+        ),
       );
     } else {
       action = PricePill(
