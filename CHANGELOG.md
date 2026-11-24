@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Declare Pathwise Android-only. Remove the iOS CI job and iOS verification requirements. The `ios/` directory is kept as dormant scaffolding.
 - Replace the custom backend with client-managed cloud saves. Progress syncs through Play Games Services Saved Games, with versioned, digest-checked saves, conservative conflict handling and a backup before every replacement. No server, Firestore or Cloud Run is required.
 - Require an internet connection to play. A connectivity service checks a Google connectivity endpoint, pauses the board on connection loss without losing the route, and offers Retry.
 - Restore direct Google Play Billing: product availability, pending and cancelled handling, durable grants, and permanent entitlements reconciled against Google Play ownership. Coin packs require a successful cloud sync before purchase.

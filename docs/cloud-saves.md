@@ -113,9 +113,9 @@ The accepted limitations below are the trade-offs of avoiding a hosted backend:
 
 The debug package has no Play Games project, so debug builds use `FakeCloudSaves` unless `PATHWISE_GAMES_ENABLED=true` is set. The fake keeps its saves under `pathwise.debug.fakecloud.v1`, and the sync base uses `pathwise.debug.cloud.*` keys. Debug and production never share keys, so no test coin grant or test purchase can reach a production save. The fake also supports simulated outages, write conflicts and separate accounts, which the automated tests use.
 
-## iOS
+## Platform scope
 
-iOS has no Saved Games integration, so `UnsupportedCloudSaves` is used. The game still requires a connection, purchases of coin packs stay off on iOS until a platform-specific solution exists, and progress stays on the device only.
+Pathwise is Android-only (see [Android-only policy](android-only.md)). Cloud saves use Play Games Saved Games. Other platforms would use `UnsupportedCloudSaves`, which is not built or tested.
 
 ## Code map
 

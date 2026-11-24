@@ -1,5 +1,6 @@
 # Development guide
 
+- Pathwise is Android-only. Do not build, compile, sign, test or investigate iOS. See [the Android-only policy](../docs/android-only.md).
 - Work in Tabletop-Games/Pathwise and preserve its history. The Chess repository is a read-only GPL-3.0 reference. Keep upstream attribution and bundled font notices.
 - Pathwise has no custom backend. Do not add a hosted service, Firestore, Cloud Run or custom API endpoints. Progress syncs through Play Games Saved Games (see `docs/cloud-saves.md`). The archived server-authoritative implementation is on the branch `archive/server-authoritative-backend`.
 - Put domain rules in `lib/logic` and `lib/cloud` (pure rules are unit-tested), app commands and persistence coordination in `AppModel`, and sync orchestration in `CloudSyncService`. Keep views declarative and route visual settings through `BoardPalette`. Keep pointer-only updates inside the board's repaint layers.

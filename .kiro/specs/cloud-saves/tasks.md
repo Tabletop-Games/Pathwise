@@ -11,7 +11,7 @@
 - [x] Sync planning table (`cloud_save_format_test.dart`).
 - [x] Serialized sync, interrupted upload, write conflict, damaged save, account switch, backup and restore, urgent and debounced triggers (`cloud_sync_service_test.dart`).
 - [x] Persistent fake provider for debug builds and tests.
-- [x] Provider selection and iOS fallback; debug isolation (`cloud_guard_test.dart`).
+- [x] Provider selection (unsupported platforms); debug isolation (`cloud_guard_test.dart`).
 - [x] Entitlement reconciliation against Play ownership; Premium bonus and token dedupe; ad reward dedupe; daily ad limits (`cloud_guard_test.dart`).
 - [x] Play Games Saved Games bridge (`CloudSaveChannel.java`), registered in `MainActivity`.
 - [x] Settings → Cloud save section and conflict dialog.

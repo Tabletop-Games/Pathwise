@@ -1,6 +1,6 @@
 # Project context
 
-Pathwise is an online-first Android and iOS route puzzle using Flutter and Provider. The code adapts GPL-3.0 architecture from [shenmareparas/Chess](https://github.com/shenmareparas/Chess). Preserve attribution and the Bricolage Grotesque font notice.
+Pathwise is an online-first Android route puzzle using Flutter and Provider. The code adapts GPL-3.0 architecture from [shenmareparas/Chess](https://github.com/shenmareparas/Chess). Preserve attribution and the Bricolage Grotesque font notice.
 
 - [Architecture and persistence](../docs/architecture.md)
 - [Internet requirement and connection handling](../docs/connectivity.md)
@@ -13,6 +13,6 @@ Pathwise is an online-first Android and iOS route puzzle using Flutter and Provi
 
 Treat puzzle IDs, checkpoint order, accepted route semantics and canonical generation output as compatibility contracts. Keep hint grants and spending in the persistent wallet. Maintain shared movement rules for the solver, gesture controller, restore, and hint routing. Preserve generated legacy boards when extending Levels.
 
-Extension priorities are Play device verification of Saved Games and billing on configured accounts, gesture and large-font visual testing on hardware, the Play Integrity client path if a verifier ever exists, and an iOS cloud-save solution.
+Pathwise is Android-only (see [Android-only policy](../docs/android-only.md)). Extension priorities are Play device verification of Saved Games and billing on configured accounts, gesture and large-font visual testing on hardware, and the Play Integrity client path if a verifier ever exists.
 
 Android keeps its black native launch screen visible while saved state and the clock load, then renders the home screen with the saved theme. Settings offers an optional Google Play update check using in_app_update_flutter. Play-distributed builds and an eligible newer release are needed to verify the update flow.

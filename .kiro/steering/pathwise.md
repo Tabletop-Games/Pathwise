@@ -1,5 +1,7 @@
 # Pathwise working rules
 
+- Pathwise is Android-only. See `.kiro/steering/android-only.md` and `docs/android-only.md`.
+
 - There is no custom backend. Do not add Cloud Run, Firestore, custom APIs or backend-issued identities. Progress syncs through Play Games Saved Games (`docs/cloud-saves.md`).
 - Gameplay needs a confirmed internet connection through `ConnectivityService`. Do not add per-screen network checks.
 - Economy and progress live in the device save and the cloud envelope. Economy that changed on both sides is never merged automatically.

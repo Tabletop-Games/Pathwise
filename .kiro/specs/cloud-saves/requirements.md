@@ -10,5 +10,5 @@ Source: the developer's brief of this change. Scope decisions are recorded in de
 6. Coin purchases require a recoverable account and a successful sync. Permanent entitlements are reconciled against Google Play ownership. Pending and cancelled purchases are never granted. Grants are durable and deduplicated.
 7. Rewarded ads grant each reward once, only after the SDK's earned callback. Remove Ads and Premium remove automatic ads; Themes Forever alone does not.
 8. Settings has a Cloud save section with status, sign-in, sync, restore and sign-out, and never shows identifiers or raw errors.
-9. Debug and production saves are isolated. Debug builds use a local fake save unless Play Games is enabled for the debug package. iOS compiles and falls back to local saves.
+9. Debug and production saves are isolated. Debug builds use a local fake save unless Play Games is enabled for the debug package. The project is Android-only, so no iOS build or fallback is required (see docs/android-only.md).
 10. The previous backend stays available on the branch `archive/server-authoritative-backend`.

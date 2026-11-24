@@ -1,6 +1,6 @@
 # Pathwise
 
-Pathwise is an Android and iOS route puzzle by Tabletop Games. Draw one continuous path from 1 to the final checkpoint, visiting the numbers in order and covering every tile.
+Pathwise is an Android route puzzle by Tabletop Games. Draw one continuous path from 1 to the final checkpoint, visiting the numbers in order and covering every tile.
 
 ## Play
 

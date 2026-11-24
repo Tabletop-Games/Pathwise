@@ -1,11 +1,10 @@
 # Pathwise setup
 
-Pathwise is an online-first Android and iOS puzzle. It needs an internet connection to play and syncs progress through Google Play Games Services Saved Games. There is no custom backend to deploy. For the Google-side configuration, see [Play Console and AdMob setup](docs/play-console-setup.md). For the design, see [cloud saves](docs/cloud-saves.md) and [connectivity](docs/connectivity.md).
+Pathwise is an online-first Android puzzle. The project is Android-only; see [the Android-only policy](docs/android-only.md). It needs an internet connection to play and syncs progress through Google Play Games Services Saved Games. There is no custom backend to deploy. For the Google-side configuration, see [Play Console and AdMob setup](docs/play-console-setup.md). For the design, see [cloud saves](docs/cloud-saves.md) and [connectivity](docs/connectivity.md).
 
 ## 1. Prerequisites
 
 - Flutter 3.50.1 with Dart 3.14 or later, JDK 21, Android SDK platform 36 and build tools 36, NDK 28.2.13676358. Accept SDK licences with `flutter doctor --android-licenses`.
-- For iOS compilation: Xcode on macOS with the Flutter iOS toolchain.
 - A Google account that is a tester on the Play Games project (for cloud saves) and a license tester (for purchases), when testing those features.
 
 ```sh
@@ -121,4 +120,3 @@ CI runs these on every pull request, and also builds the minified release APK an
 
 - The debug package uses a local fake save unless `PATHWISE_GAMES_ENABLED` is set. Its test progress never reaches the production Play Games save.
 - Android backup is disabled, so reinstalling restores progress from Play Games, not from a local backup.
-- iOS compiles and runs with the same gameplay and internet requirement, but cloud saves and coin-pack purchases are not available there yet.
