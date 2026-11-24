@@ -317,7 +317,9 @@ void main() {
       (tester) async {
         final reportError = FlutterError.onError;
         FlutterError.onError = (details) {
-          debugPrint('OVERFLOW-FULL: ${FlutterError.dumpErrorToString(details)}');
+          debugPrint(
+            'OVERFLOW-FULL: ${details.toDiagnosticsNode().toStringDeep()}',
+          );
           reportError?.call(details);
         };
         addTearDown(() => FlutterError.onError = reportError);
