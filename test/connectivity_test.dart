@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/connectivity_service.dart';
 import '../lib/model/app_model.dart';
-import '../lib/model/app_themes.dart';
+import '../lib/model/user_preferences.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/progression.dart';
 import 'app_model_test.dart' show MemoryStorage, fixture;
@@ -26,11 +26,14 @@ void main() {
 
     tearDown(() => service.dispose());
 
-    test('starts as checking and becomes online after a successful probe', () async {
-      expect(service.state, ConnectivityState.checking);
-      await service.start();
-      expect(service.online, isTrue);
-    });
+    test(
+      'starts as checking and becomes online after a successful probe',
+      () async {
+        expect(service.state, ConnectivityState.checking);
+        await service.start();
+        expect(service.online, isTrue);
+      },
+    );
 
     test('an unreachable first probe reports offline straight away', () async {
       reachable = false;
@@ -42,39 +45,49 @@ void main() {
       await service.start();
       reachable = false;
       await service.check();
-      expect(service.online, isTrue, reason: 'a single failure is not confirmed');
+      expect(
+        service.online,
+        isTrue,
+        reason: 'a single failure is not confirmed',
+      );
       reachable = true;
       await service.check();
       expect(service.online, isTrue);
     });
 
-    test('two failures spaced by the confirmation delay report offline', () async {
-      await service.start();
-      reachable = false;
-      await service.check();
-      clock = clock.add(const Duration(seconds: 2));
-      await service.check();
-      expect(service.online, isTrue, reason: 'too soon to confirm');
-      clock = clock.add(const Duration(seconds: 3));
-      await service.check();
-      expect(service.state, ConnectivityState.offline);
-    });
+    test(
+      'two failures spaced by the confirmation delay report offline',
+      () async {
+        await service.start();
+        reachable = false;
+        await service.check();
+        clock = clock.add(const Duration(seconds: 2));
+        await service.check();
+        expect(service.online, isTrue, reason: 'too soon to confirm');
+        clock = clock.add(const Duration(seconds: 3));
+        await service.check();
+        expect(service.state, ConnectivityState.offline);
+      },
+    );
 
-    test('a successful probe brings the service back online and notifies', () async {
-      await service.start();
-      reachable = false;
-      await service.check();
-      clock = clock.add(const Duration(seconds: 10));
-      await service.check();
-      expect(service.state, ConnectivityState.offline);
+    test(
+      'a successful probe brings the service back online and notifies',
+      () async {
+        await service.start();
+        reachable = false;
+        await service.check();
+        clock = clock.add(const Duration(seconds: 10));
+        await service.check();
+        expect(service.state, ConnectivityState.offline);
 
-      var notified = 0;
-      service.addListener(() => notified++);
-      reachable = true;
-      await service.retry();
-      expect(service.online, isTrue);
-      expect(notified, 1);
-    });
+        var notified = 0;
+        service.addListener(() => notified++);
+        reachable = true;
+        await service.retry();
+        expect(service.online, isTrue);
+        expect(notified, 1);
+      },
+    );
 
     test('a probe that throws counts as unreachable', () async {
       final thrower = ConnectivityService(

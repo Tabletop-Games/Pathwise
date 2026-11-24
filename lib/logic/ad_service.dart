@@ -15,10 +15,14 @@ class AdService extends ChangeNotifier {
   AdService({
     this.reserveInterstitial,
     this.onRewardedClosed,
+    this.isConnected,
     bool testAds = const bool.fromEnvironment('PATHWISE_ADS_TEST'),
   }) : _test = !kReleaseMode && testAds;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
+
+  /// The app's connectivity service. Falls back to a platform check when absent.
+  final bool Function()? isConnected;
   bool _reserving = false;
   final bool _test;
   static const _verifyConsent =
@@ -337,7 +341,7 @@ class AdService extends ChangeNotifier {
   }) async {
     if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
-    final online = await isOnline();
+    final online = isConnected?.call() ?? await isOnline();
     _checkingReward = false;
     if (!online ||
         !readyFor(placement) ||

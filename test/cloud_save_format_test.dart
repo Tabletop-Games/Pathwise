@@ -14,9 +14,19 @@ Map<String, dynamic> save({
 }) => {
   'schemaVersion': 13,
   'ledger': [
-    {'id': 'starter', 'label': 'Welcome coins', 'amount': 50, 'at': '2026-11-22T00:00:00Z'},
+    {
+      'id': 'starter',
+      'label': 'Welcome coins',
+      'amount': 50,
+      'at': '2026-11-22T00:00:00Z',
+    },
     if (coins != 50)
-      {'id': 'other', 'label': 'Other', 'amount': coins - 50, 'at': '2026-11-22T00:00:00Z'},
+      {
+        'id': 'other',
+        'label': 'Other',
+        'amount': coins - 50,
+        'at': '2026-11-22T00:00:00Z',
+      },
   ],
   'hintBalance': 3,
   'results': results,
@@ -42,16 +52,26 @@ void main() {
     });
 
     test('rejects tampered payloads, wrong formats and empty data', () {
-      final bytes = CloudEnvelope.wrap(save(), revision: 1, savedAt: 1).encode();
+      final bytes = CloudEnvelope.wrap(
+        save(),
+        revision: 1,
+        savedAt: 1,
+      ).encode();
       final text = utf8.decode(bytes);
-      final tampered = utf8.encode(text.replaceFirst('"hintBalance":3', '"hintBalance":300'));
+      final tampered = utf8.encode(
+        text.replaceFirst('"hintBalance":3', '"hintBalance":300'),
+      );
       expect(() => CloudEnvelope.decode(tampered), throwsA(isA<CorruptSave>()));
       expect(
-        () => CloudEnvelope.decode(utf8.encode('{"format":"other","version":1}')),
+        () =>
+            CloudEnvelope.decode(utf8.encode('{"format":"other","version":1}')),
         throwsA(isA<CorruptSave>()),
       );
       expect(() => CloudEnvelope.decode(const []), throwsA(isA<CorruptSave>()));
-      expect(() => CloudEnvelope.decode(utf8.encode('not json')), throwsA(isA<CorruptSave>()));
+      expect(
+        () => CloudEnvelope.decode(utf8.encode('not json')),
+        throwsA(isA<CorruptSave>()),
+      );
       expect(
         () => CloudEnvelope.decode(List.filled(cloudSaveMaxBytes + 1, 32)),
         throwsA(isA<CorruptSave>()),
@@ -59,28 +79,67 @@ void main() {
     });
 
     test('digests ignore key order and volatile crate timers', () {
-      final reordered = {for (final key in save().keys.toList().reversed) key: save()[key]};
+      final reordered = {
+        for (final key in save().keys.toList().reversed) key: save()[key],
+      };
       expect(digestOf(reordered), digestOf(save()));
-      expect(economyDigest(save(crateWait: 1000)), economyDigest(save(crateWait: 9000)));
-      expect(digestOf(save(crateWait: 1000)), isNot(digestOf(save(crateWait: 9000))));
+      expect(
+        economyDigest(save(crateWait: 1000)),
+        economyDigest(save(crateWait: 9000)),
+      );
+      expect(
+        digestOf(save(crateWait: 1000)),
+        isNot(digestOf(save(crateWait: 9000))),
+      );
     });
 
     test('progress-only changes do not change the economy digest', () {
       final base = economyDigest(save());
       expect(economyDigest(save(tutorials: {'walls': 'completed'})), base);
       expect(economyDigest(save(playMs: 5000)), base);
-      expect(economyDigest(save(attempts: {'levels/1': {'path': [0]}})), base);
+      expect(
+        economyDigest(
+          save(
+            attempts: {
+              'levels/1': {
+                'path': [0],
+              },
+            },
+          ),
+        ),
+        base,
+      );
       expect(economyDigest(save(coins: 60)), isNot(base));
-      expect(economyDigest(save(results: {'levels/1': {'ms': 5}})), isNot(base));
+      expect(
+        economyDigest(
+          save(
+            results: {
+              'levels/1': {'ms': 5},
+            },
+          ),
+        ),
+        isNot(base),
+      );
     });
   });
 
   group('merge', () {
     test('unions tutorials and attempts and keeps the longer play time', () {
-      final local = save(tutorials: {'walls': 'completed'}, playMs: 100, attempts: {'levels/2': 'a'});
-      final remote = save(tutorials: {'ice': 'skipped'}, playMs: 900, attempts: {'levels/3': 'b'});
+      final local = save(
+        tutorials: {'walls': 'completed'},
+        playMs: 100,
+        attempts: {'levels/2': 'a'},
+      );
+      final remote = save(
+        tutorials: {'ice': 'skipped'},
+        playMs: 900,
+        attempts: {'levels/3': 'b'},
+      );
       final merged = mergeProgress(local, remote);
-      expect(merged['mechanicTutorials'], {'ice': 'skipped', 'walls': 'completed'});
+      expect(merged['mechanicTutorials'], {
+        'ice': 'skipped',
+        'walls': 'completed',
+      });
       expect(merged['attempts'], {'levels/2': 'a', 'levels/3': 'b'});
       expect(merged['playMilliseconds'], 900);
       expect(economyDigest(merged), economyDigest(local));
@@ -91,7 +150,10 @@ void main() {
       final remote = save(coins: 60, tutorials: {'ice': 'completed'});
       final combined = combine(remote, mergeProgress(local, remote));
       expect(combined['ledger'], remote['ledger']);
-      expect(combined['mechanicTutorials'], {'ice': 'completed', 'walls': 'completed'});
+      expect(combined['mechanicTutorials'], {
+        'ice': 'completed',
+        'walls': 'completed',
+      });
     });
 
     test('summaries are human readable facts', () {
@@ -107,13 +169,16 @@ void main() {
   });
 
   group('planSync', () {
-    CloudBase baseOf(Map<String, dynamic> payload, {int revision = 1, String account = 'a'}) =>
-        CloudBase(
-          revision: revision,
-          economy: economyDigest(payload),
-          payloadDigest: digestOf(payload),
-          account: account,
-        );
+    CloudBase baseOf(
+      Map<String, dynamic> payload, {
+      int revision = 1,
+      String account = 'a',
+    }) => CloudBase(
+      revision: revision,
+      economy: economyDigest(payload),
+      payloadDigest: digestOf(payload),
+      account: account,
+    );
 
     CloudEnvelope remoteOf(Map<String, dynamic> payload, {int revision = 1}) =>
         CloudEnvelope.wrap(payload, revision: revision, savedAt: 1);
@@ -127,21 +192,33 @@ void main() {
 
     test('unchanged cloud and clean device do nothing', () {
       final local = save();
-      final plan = planSync(base: baseOf(local), local: local, remote: remoteOf(local));
+      final plan = planSync(
+        base: baseOf(local),
+        local: local,
+        remote: remoteOf(local),
+      );
       expect(plan, isA<PlanNone>());
     });
 
     test('unchanged cloud and local changes upload', () {
       final base = save();
       final local = save(coins: 80);
-      final plan = planSync(base: baseOf(base), local: local, remote: remoteOf(base));
+      final plan = planSync(
+        base: baseOf(base),
+        local: local,
+        remote: remoteOf(base),
+      );
       expect(plan, isA<PlanUpload>());
     });
 
     test('cloud changed elsewhere and device is clean adopts the cloud', () {
       final base = save();
       final cloud = save(coins: 90);
-      final plan = planSync(base: baseOf(base), local: base, remote: remoteOf(cloud, revision: 2));
+      final plan = planSync(
+        base: baseOf(base),
+        local: base,
+        remote: remoteOf(cloud, revision: 2),
+      );
       expect(plan, isA<PlanApply>());
       expect((plan as PlanApply).payload, cloud);
       expect(plan.upload, isFalse);
@@ -158,7 +235,10 @@ void main() {
       );
       expect(plan, isA<PlanApply>());
       final applied = (plan as PlanApply).payload;
-      expect(applied['mechanicTutorials'], {'ice': 'completed', 'walls': 'completed'});
+      expect(applied['mechanicTutorials'], {
+        'ice': 'completed',
+        'walls': 'completed',
+      });
       expect(plan.upload, isTrue);
     });
 
@@ -195,7 +275,11 @@ void main() {
       final local = save(coins: 80);
       final cloud = save(coins: 90);
       expect(
-        planSync(base: baseOf(base), local: local, remote: remoteOf(cloud, revision: 2)),
+        planSync(
+          base: baseOf(base),
+          local: local,
+          remote: remoteOf(cloud, revision: 2),
+        ),
         isA<PlanAskUser>(),
       );
     });
@@ -208,14 +292,20 @@ void main() {
       expect((plan as PlanApply).upload, isFalse);
     });
 
-    test('first sign-in on a used device with different economy asks the player', () {
-      final used = save(coins: 80, results: {'levels/1': {}});
-      final cloud = save(coins: 120, results: {'levels/1': {}, 'levels/2': {}});
-      expect(
-        planSync(base: null, local: used, remote: remoteOf(cloud)),
-        isA<PlanAskUser>(),
-      );
-    });
+    test(
+      'first sign-in on a used device with different economy asks the player',
+      () {
+        final used = save(coins: 80, results: {'levels/1': {}});
+        final cloud = save(
+          coins: 120,
+          results: {'levels/1': {}, 'levels/2': {}},
+        );
+        expect(
+          planSync(base: null, local: used, remote: remoteOf(cloud)),
+          isA<PlanAskUser>(),
+        );
+      },
+    );
 
     test('identical saves on first sign-in merge without a prompt', () {
       final same = save(results: {'levels/1': {}});

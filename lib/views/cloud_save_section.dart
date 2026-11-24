@@ -16,20 +16,18 @@ String _when(DateTime? time) {
 }
 
 String _statusLine(CloudSyncService cloud) => switch (cloud.status) {
-  CloudSyncStatus.unsupported =>
-    'Cloud save isn’t available on this device.',
+  CloudSyncStatus.unsupported => 'Cloud save isn’t available on this device.',
   CloudSyncStatus.signedOut =>
     'Not signed in. Sign in to protect your progress and coins.',
-  CloudSyncStatus.idle => cloud.signedIn
-      ? 'Connected to ${cloud.providerName}.'
-      : 'Not signed in.',
+  CloudSyncStatus.idle =>
+    cloud.signedIn ? 'Connected to ${cloud.providerName}.' : 'Not signed in.',
   CloudSyncStatus.syncing => 'Syncing your progress…',
   CloudSyncStatus.waitingForNetwork =>
     'Waiting for an internet connection to sync.',
   CloudSyncStatus.conflict =>
     'Your device and the cloud have different progress. Choose which to keep.',
-  CloudSyncStatus.damaged => cloud.message ??
-      'Your cloud save could not be read.',
+  CloudSyncStatus.damaged =>
+    cloud.message ?? 'Your cloud save could not be read.',
   CloudSyncStatus.error => cloud.message ?? 'Sync failed. Try again later.',
 };
 
@@ -110,18 +108,23 @@ class CloudSaveSection extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmRestore(BuildContext context, CloudSyncService cloud) async {
+  Future<void> _confirmRestore(
+    BuildContext context,
+    CloudSyncService cloud,
+  ) async {
     final confirmed = await _ask(
       context,
       title: 'Restore from cloud?',
-      body:
-          'This device’s progress will be replaced by your cloud save. The current device progress is kept as a backup.',
+      body: 'This device’s progress will be replaced by your cloud save. The current device progress is kept as a backup.',
       action: 'Restore',
     );
     if (confirmed) await cloud.restoreFromCloud();
   }
 
-  Future<void> _confirmBackup(BuildContext context, CloudSyncService cloud) async {
+  Future<void> _confirmBackup(
+    BuildContext context,
+    CloudSyncService cloud,
+  ) async {
     final confirmed = await _ask(
       context,
       title: 'Restore the previous save?',
@@ -243,7 +246,10 @@ class _ConflictDialog extends StatelessWidget {
               'Coins and purchases from two devices can’t be combined safely, so please choose one copy. The other is kept as a backup on this device.',
             ),
             const SizedBox(height: 16),
-            Text('This device', style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              'This device',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             Text(_line(choice.device)),
             const SizedBox(height: 12),
             Text(

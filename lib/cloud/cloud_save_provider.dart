@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -43,8 +42,12 @@ final class CloudFetch {
 /// Result of writing the saved game. A conflict means another device wrote
 /// after this device read; nothing was written.
 final class CloudCommit {
-  const CloudCommit.committed() : committed = true, conflictId = null, conflictRemote = null;
-  const CloudCommit.conflict(this.conflictId, this.conflictRemote) : committed = false;
+  const CloudCommit.committed()
+    : committed = true,
+      conflictId = null,
+      conflictRemote = null;
+  const CloudCommit.conflict(this.conflictId, this.conflictRemote)
+    : committed = false;
 
   final bool committed;
   final String? conflictId;
@@ -77,7 +80,8 @@ abstract interface class CloudSaveProvider {
 /// [UnsupportedCloudSaves].
 class PlayGamesCloudSaves implements CloudSaveProvider {
   PlayGamesCloudSaves({MethodChannel? channel, Duration? timeout})
-    : _channel = channel ?? const MethodChannel('games.tabletop.pathwise/cloud'),
+    : _channel =
+          channel ?? const MethodChannel('games.tabletop.pathwise/cloud'),
       _timeout = timeout ?? const Duration(seconds: 25);
 
   final MethodChannel _channel;
@@ -87,7 +91,10 @@ class PlayGamesCloudSaves implements CloudSaveProvider {
   bool get supported =>
       defaultTargetPlatform == TargetPlatform.android && PlayGames.enabled;
 
-  Future<Map<Object?, Object?>> _call(String method, [Map<String, Object?>? args]) async {
+  Future<Map<Object?, Object?>> _call(
+    String method, [
+    Map<String, Object?>? args,
+  ]) async {
     if (!supported) throw const CloudUnavailable('unsupported');
     try {
       final result = await _channel
@@ -104,8 +111,7 @@ class PlayGamesCloudSaves implements CloudSaveProvider {
     }
   }
 
-  static List<int>? _bytes(Object? value) =>
-      value is Uint8List ? value : null;
+  static List<int>? _bytes(Object? value) => value is Uint8List ? value : null;
 
   @override
   Future<String?> currentAccount() async {
@@ -140,7 +146,11 @@ class PlayGamesCloudSaves implements CloudSaveProvider {
   }
 
   @override
-  Future<CloudCommit> commit(String name, List<int> bytes, String description) async {
+  Future<CloudCommit> commit(
+    String name,
+    List<int> bytes,
+    String description,
+  ) async {
     final result = await _call('commit', {
       'name': name,
       'bytes': Uint8List.fromList(bytes),
@@ -178,8 +188,11 @@ class UnsupportedCloudSaves implements CloudSaveProvider {
   Future<CloudFetch> fetch(String name) =>
       Future.error(const CloudUnavailable('unsupported'));
   @override
-  Future<CloudCommit> commit(String name, List<int> bytes, String description) =>
-      Future.error(const CloudUnavailable('unsupported'));
+  Future<CloudCommit> commit(
+    String name,
+    List<int> bytes,
+    String description,
+  ) => Future.error(const CloudUnavailable('unsupported'));
   @override
   Future<void> resolve(String conflictId, List<int> bytes) =>
       Future.error(const CloudUnavailable('unsupported'));
@@ -226,7 +239,10 @@ class FakeCloudSaves implements CloudSaveProvider {
     _key,
     jsonEncode({
       'account': account,
-      'saves': {for (final entry in _saves.entries) entry.key: base64Encode(entry.value)},
+      'saves': {
+        for (final entry in _saves.entries)
+          entry.key: base64Encode(entry.value),
+      },
     }),
   );
 
@@ -292,7 +308,11 @@ class FakeCloudSaves implements CloudSaveProvider {
   }
 
   @override
-  Future<CloudCommit> commit(String name, List<int> bytes, String description) async {
+  Future<CloudCommit> commit(
+    String name,
+    List<int> bytes,
+    String description,
+  ) async {
     await _load();
     _checkOnline();
     if (failNextCommits > 0) {

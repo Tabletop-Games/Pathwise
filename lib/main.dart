@@ -161,7 +161,8 @@ class PathwiseRoot extends StatefulWidget {
   State<PathwiseRoot> createState() => _PathwiseRootState();
 }
 
-class _PathwiseRootState extends State<PathwiseRoot> with WidgetsBindingObserver {
+class _PathwiseRootState extends State<PathwiseRoot>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -209,7 +210,9 @@ class _PathwiseRootState extends State<PathwiseRoot> with WidgetsBindingObserver
       value: session.model,
       child: MultiProvider(
         providers: [
-          ChangeNotifierProvider<ConnectivityService>.value(value: session.connectivity),
+          ChangeNotifierProvider<ConnectivityService>.value(
+            value: session.connectivity,
+          ),
           ChangeNotifierProvider<CloudSyncService>.value(value: session.cloud),
         ],
         child: PathwiseApp(
@@ -361,9 +364,11 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
       readyForConsumable: cloud == null
           ? null
           : () => cloud.prepareForPurchase(),
-      beforeConsume: cloud == null ? null : () async {
-        await cloud.syncNow();
-      },
+      beforeConsume: cloud == null
+          ? null
+          : () async {
+              await cloud.syncNow();
+            },
       onOwnedProducts: _model.reconcileOwnedProducts,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -442,10 +447,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
             : (context, child) => CloudChoiceWatcher(
                 navigatorKey: _navigator,
                 cloud: cloud,
-                child: ConnectionGate(
-                  connectivity: connectivity,
-                  child: child,
-                ),
+                child: ConnectionGate(connectivity: connectivity, child: child),
               ),
         home: MainMenuView(
           offerDailySpin: widget.clock != null,

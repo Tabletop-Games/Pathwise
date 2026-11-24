@@ -64,7 +64,9 @@ String economyDigest(Map<String, dynamic> payload) {
     if (progressKeys.contains(entry.key)) continue;
     if (entry.key == 'progression' && entry.value is Map) {
       final progression = Map<String, dynamic>.from(entry.value as Map);
-      progression.removeWhere((key, _) => _volatileProgressionKeys.contains(key));
+      progression.removeWhere(
+        (key, _) => _volatileProgressionKeys.contains(key),
+      );
       economy[entry.key] = progression;
     } else {
       economy[entry.key] = entry.value;
@@ -168,17 +170,32 @@ Map<String, dynamic> mergeProgress(
   final result = Map<String, dynamic>.from(local);
   Map<String, dynamic> map(Object? value) =>
       value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-  result['mechanicTutorials'] = {
-    ...map(remote['mechanicTutorials']),
-    ...map(local['mechanicTutorials']),
-  };
-  result['attempts'] = {...map(remote['attempts']), ...map(local['attempts'])};
-  result['levelOneDemoSeen'] =
-      local['levelOneDemoSeen'] == true || remote['levelOneDemoSeen'] == true;
+  // Only keys present on one side are written, so the merged payload has the
+  // same shape as the inputs and never gains empty fields.
+  if (local.containsKey('mechanicTutorials') ||
+      remote.containsKey('mechanicTutorials')) {
+    result['mechanicTutorials'] = {
+      ...map(remote['mechanicTutorials']),
+      ...map(local['mechanicTutorials']),
+    };
+  }
+  if (local.containsKey('attempts') || remote.containsKey('attempts')) {
+    result['attempts'] = {
+      ...map(remote['attempts']),
+      ...map(local['attempts']),
+    };
+  }
+  if (local.containsKey('levelOneDemoSeen') ||
+      remote.containsKey('levelOneDemoSeen')) {
+    result['levelOneDemoSeen'] =
+        local['levelOneDemoSeen'] == true || remote['levelOneDemoSeen'] == true;
+  }
   final localTime = local['playMilliseconds'];
   final remoteTime = remote['playMilliseconds'];
   if (localTime is int && remoteTime is int) {
-    result['playMilliseconds'] = localTime > remoteTime ? localTime : remoteTime;
+    result['playMilliseconds'] = localTime > remoteTime
+        ? localTime
+        : remoteTime;
   }
   return result;
 }
@@ -201,7 +218,8 @@ bool isFreshSave(Map<String, dynamic> payload) {
   final results = payload['results'];
   final attempts = payload['attempts'];
   final ledger = payload['ledger'];
-  final onlyWelcome = ledger is! List ||
+  final onlyWelcome =
+      ledger is! List ||
       ledger.every((row) => row is Map && row['id'] == 'starter');
   return onlyWelcome &&
       (results is! Map || results.isEmpty) &&
@@ -231,7 +249,9 @@ final class SaveSummary {
     final results = payload['results'];
     var levels = 0;
     if (results is Map) {
-      levels = results.keys.where((key) => key.toString().startsWith('levels/')).length;
+      levels = results.keys
+          .where((key) => key.toString().startsWith('levels/'))
+          .length;
     }
     return SaveSummary(
       coins: coins,

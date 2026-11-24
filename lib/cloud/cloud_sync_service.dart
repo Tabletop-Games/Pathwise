@@ -21,7 +21,11 @@ enum CloudSyncStatus {
 
 /// Both copies, summarised, for the player's decision.
 final class SyncChoice {
-  const SyncChoice({required this.device, required this.cloud, required this.remote});
+  const SyncChoice({
+    required this.device,
+    required this.cloud,
+    required this.remote,
+  });
   final SaveSummary device;
   final SaveSummary cloud;
   final CloudEnvelope remote;
@@ -80,6 +84,7 @@ class CloudSyncService extends ChangeNotifier {
   final bool Function() _isOnline;
   final DateTime Function() _now;
   final String saveName;
+
   /// Shown to the player, for example "Google Play Games".
   final String providerName;
   final Duration debounce;
@@ -112,7 +117,10 @@ class CloudSyncService extends ChangeNotifier {
   /// Purchases of consumables require a recoverable account and a successful
   /// sync that is not waiting on a player decision.
   bool get readyForConsumablePurchase =>
-      _signedIn && _status == CloudSyncStatus.idle && _lastSynced != null && _choice == null;
+      _signedIn &&
+      _status == CloudSyncStatus.idle &&
+      _lastSynced != null &&
+      _choice == null;
 
   Future<void> start() async {
     _base = await _loadBase();
@@ -135,7 +143,8 @@ class CloudSyncService extends ChangeNotifier {
   /// progress such as an unfinished route waits for the debounce window.
   void localChanged(Map<String, dynamic> payload) {
     if (_disposed || !_provider.supported || !_signedIn) return;
-    final economyChanged = _base == null || economyDigest(payload) != _base!.economy;
+    final economyChanged =
+        _base == null || economyDigest(payload) != _base!.economy;
     scheduleSync(urgent: economyChanged);
   }
 
@@ -283,14 +292,18 @@ class CloudSyncService extends ChangeNotifier {
           // Another device wrote while this one was reading. Keep the device's
           // view as a backup, then let the cloud's copy win and re-plan.
           await _backup(fetch.conflictLocal ?? const []);
-          await _provider.resolve(fetch.conflictId!, fetch.conflictRemote ?? const []);
+          await _provider.resolve(
+            fetch.conflictId!,
+            fetch.conflictRemote ?? const [],
+          );
           continue;
         }
         final CloudEnvelope? remote;
         try {
           remote = _decodeOrNull(fetch.bytes);
         } on CorruptSave {
-          _message = 'Your cloud save could not be read. Your device copy is safe.';
+          _message =
+              'Your cloud save could not be read. Your device copy is safe.';
           _set(CloudSyncStatus.damaged);
           return false;
         }
@@ -341,7 +354,8 @@ class CloudSyncService extends ChangeNotifier {
       _scheduleRetry();
       return false;
     } on CloudAuthFailed {
-      _message = 'Sign in to Google Play Games again to keep your progress synced.';
+      _message =
+          'Sign in to Google Play Games again to keep your progress synced.';
       _set(CloudSyncStatus.error);
       _signedIn = false;
       return false;
@@ -349,7 +363,9 @@ class CloudSyncService extends ChangeNotifier {
       _message = error.reason == 'offline' || error.reason == 'timeout'
           ? 'Could not reach Google Play Games. Your progress is saved on this device.'
           : 'Cloud sync failed. Your progress is saved on this device.';
-      _set(_isOnline() ? CloudSyncStatus.error : CloudSyncStatus.waitingForNetwork);
+      _set(
+        _isOnline() ? CloudSyncStatus.error : CloudSyncStatus.waitingForNetwork,
+      );
       _scheduleRetry();
       return false;
     }
@@ -384,7 +400,10 @@ class CloudSyncService extends ChangeNotifier {
     if (result.committed) return true;
     // Another device wrote between our read and this write. Keep the cloud's
     // copy and let the next attempt plan against it.
-    await _provider.resolve(result.conflictId!, result.conflictRemote ?? const []);
+    await _provider.resolve(
+      result.conflictId!,
+      result.conflictRemote ?? const [],
+    );
     return false;
   }
 
@@ -407,8 +426,12 @@ class CloudSyncService extends ChangeNotifier {
       return;
     }
     await _backup(
-      CloudEnvelope.wrap(local, revision: _base?.revision ?? 0, savedAt: _now().millisecondsSinceEpoch)
-          .encode(),
+      CloudEnvelope.wrap(
+        local,
+        // The envelope needs a positive revision. Backups are never uploaded.
+        revision: _base?.revision ?? 1,
+        savedAt: _now().millisecondsSinceEpoch,
+      ).encode(),
     );
   }
 
@@ -431,7 +454,12 @@ class CloudSyncService extends ChangeNotifier {
     _base = base;
     _lastSynced = _now();
     unawaited(_store.setString(_baseKey, jsonEncode(base.toJson())));
-    unawaited(_store.setString(_syncedKey, _lastSynced!.millisecondsSinceEpoch.toString()));
+    unawaited(
+      _store.setString(
+        _syncedKey,
+        _lastSynced!.millisecondsSinceEpoch.toString(),
+      ),
+    );
   }
 
   Future<String> _accountKey() async {

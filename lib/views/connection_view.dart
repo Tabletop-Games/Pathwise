@@ -20,14 +20,12 @@ import 'components/brand_mark.dart';
     ConnectivityState.online => (title: '', message: '', retry: false),
     ConnectivityState.offline when inPlay => (
       title: 'Connection lost',
-      message:
-          'Your puzzle is paused and your route is saved. It resumes as soon as you are back online.',
+      message: 'Your puzzle is paused and your route is saved. It resumes as soon as you are back online.',
       retry: true,
     ),
     ConnectivityState.offline => (
       title: 'No internet connection',
-      message:
-          'Pathwise needs an internet connection to play. Connect to Wi-Fi or mobile data, then try again.',
+      message: 'Pathwise needs an internet connection to play. Connect to Wi-Fi or mobile data, then try again.',
       retry: true,
     ),
   };
@@ -47,7 +45,9 @@ class ConnectionGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.select((ConnectivityService service) => service.state);
+    final state = context.select(
+      (ConnectivityService service) => service.state,
+    );
     final inPlay = context.select((AppModel model) => model.activeId != null);
     final theme = context.select((AppModel model) => model.theme);
     final blocked = state != ConnectivityState.online;
@@ -95,9 +95,7 @@ class ConnectionPane extends StatelessWidget {
     return Material(
       key: const ValueKey('pathwise-connection'),
       // Keep the board visible behind the overlay during play.
-      color: inPlay
-          ? palette.canvas.withValues(alpha: 0.94)
-          : palette.canvas,
+      color: inPlay ? palette.canvas.withValues(alpha: 0.94) : palette.canvas,
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(

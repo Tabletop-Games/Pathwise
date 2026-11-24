@@ -13,11 +13,14 @@ void main() {
   group('save provider selection', () {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
-    test('debug builds without Play Games use a local fake, never Play Games', () {
-      expect(kDebugMode, isTrue, reason: 'widget tests run in debug mode');
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      expect(cloudProviderFor(MemoryKeyValueStore()), isA<FakeCloudSaves>());
-    });
+    test(
+      'debug builds without Play Games use a local fake, never Play Games',
+      () {
+        expect(kDebugMode, isTrue, reason: 'widget tests run in debug mode');
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        expect(cloudProviderFor(MemoryKeyValueStore()), isA<FakeCloudSaves>());
+      },
+    );
 
     test('iOS gets the unsupported provider and no sign-in', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -25,13 +28,20 @@ void main() {
       expect(provider, isA<UnsupportedCloudSaves>());
       expect(provider.supported, isFalse);
       expect(await provider.signIn(), isNull);
-      expect(provider.fetch('pathwise-progress-v1'), throwsA(isA<CloudUnavailable>()));
+      expect(
+        provider.fetch('pathwise-progress-v1'),
+        throwsA(isA<CloudUnavailable>()),
+      );
     });
 
     test('the Play Games provider is inert until it is configured', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final provider = PlayGamesCloudSaves();
-      expect(provider.supported, isFalse, reason: 'PATHWISE_GAMES_ENABLED is not set in tests');
+      expect(
+        provider.supported,
+        isFalse,
+        reason: 'PATHWISE_GAMES_ENABLED is not set in tests',
+      );
       expect(await provider.currentAccount(), isNull);
     });
 
@@ -63,34 +73,66 @@ void main() {
 
     tearDown(() => model.dispose());
 
-    test('permanent entitlements follow Google Play ownership, not the save', () async {
-      await model.applyVerifiedPurchase(
-        'grant-ads',
-        coins: 0,
-        themes: false,
-        removeAds: true,
-      );
-      expect(model.adFree, isTrue);
+    test(
+      'permanent entitlements follow Google Play ownership, not the save',
+      () async {
+        await model.applyVerifiedPurchase(
+          'grant-ads',
+          coins: 0,
+          themes: false,
+          removeAds: true,
+        );
+        expect(model.adFree, isTrue);
 
-      model.reconcileOwnedProducts({});
-      expect(model.adFree, isFalse, reason: 'a refund removes the entitlement');
+        model.reconcileOwnedProducts({});
+        expect(
+          model.adFree,
+          isFalse,
+          reason: 'a refund removes the entitlement',
+        );
 
-      model.reconcileOwnedProducts({removeAdsProduct});
-      expect(model.adFree, isTrue);
-      expect(model.hasThemePass, isFalse, reason: 'Remove Ads grants no themes');
-    });
+        model.reconcileOwnedProducts({removeAdsProduct});
+        expect(model.adFree, isTrue);
+        expect(
+          model.hasThemePass,
+          isFalse,
+          reason: 'Remove Ads grants no themes',
+        );
+      },
+    );
 
-    test('Premium grants its one-time bonus once, even when restored again', () async {
-      await model.applyVerifiedPurchase('premium-grant', coins: 0, themes: true, bundle: true);
-      final afterFirst = model.coinBalance;
-      await model.applyVerifiedPurchase('premium-grant', coins: 0, themes: true, bundle: true);
-      expect(model.coinBalance, afterFirst);
-      expect(model.coinBalance, 50 + economy.premiumBonus);
-    });
+    test(
+      'Premium grants its one-time bonus once, even when restored again',
+      () async {
+        await model.applyVerifiedPurchase(
+          'premium-grant',
+          coins: 0,
+          themes: true,
+          bundle: true,
+        );
+        final afterFirst = model.coinBalance;
+        await model.applyVerifiedPurchase(
+          'premium-grant',
+          coins: 0,
+          themes: true,
+          bundle: true,
+        );
+        expect(model.coinBalance, afterFirst);
+        expect(model.coinBalance, 50 + economy.premiumBonus);
+      },
+    );
 
     test('a coin pack is credited once per purchase token', () async {
-      await model.applyVerifiedPurchase('token-hash', coins: 500, themes: false);
-      await model.applyVerifiedPurchase('token-hash', coins: 500, themes: false);
+      await model.applyVerifiedPurchase(
+        'token-hash',
+        coins: 500,
+        themes: false,
+      );
+      await model.applyVerifiedPurchase(
+        'token-hash',
+        coins: 500,
+        themes: false,
+      );
       expect(model.coinBalance, 550);
     });
 

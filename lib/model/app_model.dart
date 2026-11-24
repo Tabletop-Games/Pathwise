@@ -270,6 +270,7 @@ class AppModel extends ChangeNotifier
 
   /// Null in unit tests that exercise rules without a network check.
   final ConnectivityService? connectivity;
+
   /// Receives every snapshot written to the device save, for cloud sync.
   final void Function(Map<String, dynamic> snapshot)? onPersisted;
 
@@ -1860,7 +1861,11 @@ class AppModel extends ChangeNotifier
     _saveTimer = null;
     final id = activeId;
     final game = _game;
-    if (id != null && game != null && !complete && _started && _gameplayAllowed) {
+    if (id != null &&
+        game != null &&
+        !complete &&
+        _started &&
+        _gameplayAllowed) {
       _attempts[id.key] = {
         'path': game.path,
         'history': game.history,
@@ -1897,83 +1902,84 @@ class AppModel extends ChangeNotifier
   Map<String, dynamic> snapshotMap() => _snapshotMap();
 
   Map<String, dynamic> _snapshotMap() => {
-      'schemaVersion': GameStateStorage.schemaVersion,
-      'levelOneDemoSeen': _levelOneDemoSeen,
-      'mechanicTutorials': _tutorialStatus,
-      'nativeAchievements': _achievements.toJson(),
-      'priorSolves': _retiredSolved,
-      'priorCleanSolves': _retiredClean,
-      'priorRanks': _retiredRanks,
-      'progression': progression.toJson(),
-      'economyActivity': activity.toJson(),
-      'progressionBoot': _bootTime()?.boot,
-      'playStreak': streak.toJson(),
-      'freezeSerial': _freezeSerial,
-      'classicLevels': _classicLevels.toList(),
-      'legacyMechanicLevels': _legacyMechanicLevels.toList(),
-      'hintBalance': _hintBalance,
-      'hintPurchaseSerial': _hintPurchaseSerial,
-      'hintAdDays': _hintAdDays,
-      'coinAdDays': _coinAdDays,
-      'boostAdDays': _boostAdDays,
-      'hintEvents': _hintEvents.toList(),
-      'attack': attack?.toJson(),
-      'attackMinutes': _attackMinutes,
-      'dailyCheckpoints': {
-        for (final entry in _dailyCheckpoints.entries)
-          entry.key: {
-            'milliseconds': entry.value.milliseconds,
-            'hints': entry.value.hints,
-          },
-      },
-      'fortune': {
-        if (_lastFreeFortune case final stamp?) ...{
-          'boot': stamp.boot,
-          'at': stamp.milliseconds,
+    'schemaVersion': GameStateStorage.schemaVersion,
+    'levelOneDemoSeen': _levelOneDemoSeen,
+    'mechanicTutorials': _tutorialStatus,
+    'nativeAchievements': _achievements.toJson(),
+    'priorSolves': _retiredSolved,
+    'priorCleanSolves': _retiredClean,
+    'priorRanks': _retiredRanks,
+    'progression': progression.toJson(),
+    'economyActivity': activity.toJson(),
+    'progressionBoot': _bootTime()?.boot,
+    'playStreak': streak.toJson(),
+    'freezeSerial': _freezeSerial,
+    'classicLevels': _classicLevels.toList(),
+    'legacyMechanicLevels': _legacyMechanicLevels.toList(),
+    'hintBalance': _hintBalance,
+    'hintPurchaseSerial': _hintPurchaseSerial,
+    'hintAdDays': _hintAdDays,
+    'coinAdDays': _coinAdDays,
+    'boostAdDays': _boostAdDays,
+    'hintEvents': _hintEvents.toList(),
+    'attack': attack?.toJson(),
+    'attackMinutes': _attackMinutes,
+    'dailyCheckpoints': {
+      for (final entry in _dailyCheckpoints.entries)
+        entry.key: {
+          'milliseconds': entry.value.milliseconds,
+          'hints': entry.value.hints,
         },
-        'claims': _wheelClaims,
-        if (_pendingFortune case final pending?)
-          'pending': {
-            'id': pending.id,
-            'prize': pending.prize.id,
-            'coins': pending.prize.coins,
-          },
-        'videos': [
-          for (final stamp in _wheelVideos)
-            {'boot': stamp.boot, 'at': stamp.milliseconds},
-        ],
+    },
+    'fortune': {
+      if (_lastFreeFortune case final stamp?) ...{
+        'boot': stamp.boot,
+        'at': stamp.milliseconds,
       },
-      'archivedCoins': _wallet.archivedCoins,
-      if (_lastAutomaticAd case final stamp?)
-        'lastAutomaticAd': {
-          'boot': stamp.boot,
-          'milliseconds': stamp.milliseconds,
+      'claims': _wheelClaims,
+      if (_pendingFortune case final pending?)
+        'pending': {
+          'id': pending.id,
+          'prize': pending.prize.id,
+          'coins': pending.prize.coins,
         },
-      'attackHistory': [for (final run in attackHistory) run.toJson()],
-      'removeAds': _removeAds,
-      'premium': _premium,
-      'preferences': _prefs.toJson(),
-      'ledger': _wallet.toJson(),
-      'ownedThemes': [for (final theme in _owned) theme.name],
-      'themePass': _themePass,
-      'billingProfile': _billingProfile,
-      'playMilliseconds': _playMilliseconds,
-      'highestUnlocked': _highestUnlocked,
-      'attempts': _attempts,
-      'results': {
-        for (final entry in _results.entries)
-          entry.key: {
-            'milliseconds': entry.value.milliseconds,
-            'hints': entry.value.hints,
-            'unassisted': entry.value.unassisted,
-          },
+      'videos': [
+        for (final stamp in _wheelVideos)
+          {'boot': stamp.boot, 'at': stamp.milliseconds},
+      ],
+    },
+    'archivedCoins': _wallet.archivedCoins,
+    if (_lastAutomaticAd case final stamp?)
+      'lastAutomaticAd': {
+        'boot': stamp.boot,
+        'milliseconds': stamp.milliseconds,
       },
+    'attackHistory': [for (final run in attackHistory) run.toJson()],
+    'removeAds': _removeAds,
+    'premium': _premium,
+    'preferences': _prefs.toJson(),
+    'ledger': _wallet.toJson(),
+    'ownedThemes': [for (final theme in _owned) theme.name],
+    'themePass': _themePass,
+    'billingProfile': _billingProfile,
+    'playMilliseconds': _playMilliseconds,
+    'highestUnlocked': _highestUnlocked,
+    'attempts': _attempts,
+    'results': {
+      for (final entry in _results.entries)
+        entry.key: {
+          'milliseconds': entry.value.milliseconds,
+          'hints': entry.value.hints,
+          'unassisted': entry.value.unassisted,
+        },
+    },
   };
 
   /// Adopts ownership shown by Google Play. Permanent entitlements follow the
   /// store's record rather than the cloud save, so a refund removes them.
   void reconcileOwnedProducts(Set<String> owned) {
-    final changed = _themePass != owned.contains(themePassProduct) ||
+    final changed =
+        _themePass != owned.contains(themePassProduct) ||
         _removeAds != owned.contains(removeAdsProduct) ||
         _premium != owned.contains(premiumProduct);
     _themePass = owned.contains(themePassProduct);
