@@ -8,11 +8,11 @@ On your first launch, follow the highlighted tiles on the actual Level 1 board. 
 
 Press 1 and drag through edge-adjacent tiles. Resume at the route tip, drag backward, or tap an earlier tile to retract. **Undo** restores the last input action, **Clear** returns to checkpoint 1, and **Hint** corrects a wrong turn and reveals progressively longer sections of the certified route. New players start with three hints in a persistent wallet. Buy more for 60 coins or earn up to five a day through optional videos. Results appear over the solved board with a prominent next action.
 
-Play 1,000 Levels, the three-board Daily Challenge, and 1-, 3-, or 5-minute Time Attack offline. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
+Play 1,000 Levels, the three-board Daily Challenge, and 1-, 3-, or 5-minute Time Attack. Pathwise is online-first: an internet connection is required to play, and your coins, purchases and progress are stored on the server. Earn coins, develop permanent Research, activate timed Boosts, and customize your board. Catch flying supply crates during play to unlock an optional video reward. The Fortune Wheel offers a free coin spin every 24 hours. [Game modes](docs/game-modes.md) · [Economy](docs/economy.md)
 
-Share text results for Daily Challenge, Time Attack and progression milestones. Earn 29 Play Games achievements offline and synchronize them when Play Games is available. [Social sharing](docs/social-sharing.md) · [Google Play achievements](docs/google-play-achievements.md)
+Share text results for Daily Challenge, Time Attack and progression milestones. Earn 29 Play Games achievements and synchronize them when Play Games is available. Link Play Games to restore your profile on another device. [Social sharing](docs/social-sharing.md) · [Google Play achievements](docs/google-play-achievements.md)
 
-Google Play Billing, Apple StoreKit, AdMob and Play Games require publisher configuration. Start with the [publisher setup guide](setup.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
+Google Play Billing, AdMob, Play Games and the backend require publisher configuration. Start with the [publisher setup guide](setup.md) and the [backend deployment guide](docs/deployment.md). See [gameplay](docs/gameplay.md), [economy](docs/economy.md), [release verification](docs/release.md) and the [changelog](CHANGELOG.md).
 
 ## Build and verify
 
