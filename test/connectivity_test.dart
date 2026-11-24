@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/connectivity_service.dart';
 import '../lib/model/app_model.dart';
-import '../lib/model/user_preferences.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/progression.dart';
+import '../lib/model/user_preferences.dart';
 import 'app_model_test.dart' show MemoryStorage, fixture;
 
 void main() {

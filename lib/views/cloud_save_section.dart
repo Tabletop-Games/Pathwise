@@ -84,10 +84,10 @@ class CloudSaveSection extends StatelessWidget {
           ),
           ListTile(
             key: const ValueKey('cloud-sign-out'),
-            leading: const Icon(Icons.logout),
-            title: const Text('Sign out of Play Games'),
+            leading: const Icon(Icons.cloud_off_outlined),
+            title: const Text('Stop cloud sync on this device'),
             subtitle: const Text(
-              'This device keeps its progress. Signing in again compares it with that account.',
+              'Your progress stays on this device. Signing in again resumes syncing. Change the Google account in the device’s settings.',
             ),
             enabled: !busy,
             onTap: busy ? null : () => cloud.signOut(),

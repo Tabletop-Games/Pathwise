@@ -113,6 +113,12 @@ class CloudSyncService extends ChangeNotifier {
   String get _baseKey => '$_prefix.base.v1';
   String get _syncedKey => '$_prefix.synced.v1';
   String get _backupKey => '$_prefix.backup.v1';
+  String get _optOutKey => '$_prefix.optout.v1';
+
+  /// Set by "Stop cloud sync on this device". Play Games has no sign-out call,
+  /// so the app keeps its own switch until the player signs in again.
+  bool _optedOut = false;
+  bool get optedOut => _optedOut;
 
   /// Purchases of consumables require a recoverable account and a successful
   /// sync that is not waiting on a player decision.
@@ -126,8 +132,14 @@ class CloudSyncService extends ChangeNotifier {
     _base = await _loadBase();
     _lastSynced = await _loadSynced();
     _hasBackup = (await _store.getString(_backupKey)) != null;
+    _optedOut = (await _store.getString(_optOutKey)) == '1';
     if (!_provider.supported) {
       _set(CloudSyncStatus.unsupported);
+      return;
+    }
+    if (_optedOut) {
+      _signedIn = false;
+      _set(CloudSyncStatus.signedOut);
       return;
     }
     try {
@@ -142,7 +154,7 @@ class CloudSyncService extends ChangeNotifier {
   /// Called after every persisted local change. Economy changes sync quickly;
   /// progress such as an unfinished route waits for the debounce window.
   void localChanged(Map<String, dynamic> payload) {
-    if (_disposed || !_provider.supported || !_signedIn) return;
+    if (_disposed || !_provider.supported || !_signedIn || _optedOut) return;
     final economyChanged =
         _base == null || economyDigest(payload) != _base!.economy;
     scheduleSync(urgent: economyChanged);
@@ -170,6 +182,8 @@ class CloudSyncService extends ChangeNotifier {
 
   Future<void> signIn() async {
     if (!_provider.supported) return;
+    _optedOut = false;
+    await _store.remove(_optOutKey);
     _set(CloudSyncStatus.syncing);
     try {
       final account = await _provider.signIn();
@@ -190,14 +204,16 @@ class CloudSyncService extends ChangeNotifier {
     }
   }
 
+  /// Stops syncing on this device. The device copy stays. The next sign-in
+  /// compares it with that account's cloud save and asks before replacing it.
   Future<void> signOut() async {
     _timer?.cancel();
+    _optedOut = true;
+    await _store.setString(_optOutKey, '1');
     await _provider.signOut();
     _signedIn = false;
     _choice = null;
     _message = null;
-    // The device copy stays. The next sign-in compares it with that account's
-    // cloud save and asks before replacing anything.
     _base = null;
     await _store.remove(_baseKey);
     _set(CloudSyncStatus.signedOut);
@@ -267,6 +283,10 @@ class CloudSyncService extends ChangeNotifier {
 
   Future<bool> _run() async {
     if (_disposed || !_provider.supported) return false;
+    if (_optedOut) {
+      _set(CloudSyncStatus.signedOut);
+      return false;
+    }
     if (!_isOnline()) {
       _set(CloudSyncStatus.waitingForNetwork);
       _scheduleRetry();

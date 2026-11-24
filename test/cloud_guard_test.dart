@@ -118,7 +118,11 @@ void main() {
           bundle: true,
         );
         expect(model.coinBalance, afterFirst);
-        expect(model.coinBalance, 50 + economy.premiumBonus);
+        // The Theme Pass also unlocks the Collector achievement, paid once.
+        expect(
+          model.coinBalance,
+          50 + economy.premiumBonus + Achievement.collector.coins,
+        );
       },
     );
 

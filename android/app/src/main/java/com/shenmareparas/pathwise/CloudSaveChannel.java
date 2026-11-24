@@ -25,7 +25,8 @@ import java.util.UUID;
  * Methods (Dart side: lib/cloud/cloud_save_provider.dart):
  *   status            -> {signedIn, playerId?}
  *   signIn            -> {signedIn, playerId?}; error auth_failed on failure
- *   signOut           -> null
+ *   signOut           -> null. The Play Games v2 SDK has no sign-out call, so the app
+ *                        stops syncing itself; the Google account stays signed in on the device.
  *   fetch {name}      -> {bytes} or {conflictId, conflictRemote, conflictLocal}
  *   commit {name, bytes, description}
  *                     -> {committed: true} or {committed: false, conflictId, conflictRemote}
@@ -64,8 +65,7 @@ final class CloudSaveChannel implements MethodChannel.MethodCallHandler {
                     signIn(result);
                     break;
                 case "signOut":
-                    PlayGames.getGamesSignInClient(activity).signOut()
-                            .addOnCompleteListener(task -> result.success(null));
+                    result.success(null);
                     break;
                 case "fetch":
                     fetch(call.argument("name"), result);

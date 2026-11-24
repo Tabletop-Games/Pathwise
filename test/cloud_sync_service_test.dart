@@ -49,7 +49,8 @@ class Device {
     this.cloud, {
     this.urgentDelay = const Duration(hours: 1),
     bool online = true,
-  }) : store = MemoryKeyValueStore(),
+    MemoryKeyValueStore? sharedStore,
+  }) : store = sharedStore ?? MemoryKeyValueStore(),
        _online = online {
     service = CloudSyncService(
       provider: cloud,
@@ -369,6 +370,32 @@ void main() {
         CloudEnvelope.decode((await cloud.stored(_name))!).revision,
         greaterThan(before),
       );
+    },
+  );
+
+  test(
+    'stopping sync survives a restart until the player signs in again',
+    () async {
+      final a = device(() => Device(cloud));
+      a.local = save(coins: 80, levels: ['levels/1']);
+      await a.service.start();
+      await a.service.syncNow();
+      await a.service.signOut();
+      expect(a.service.optedOut, isTrue);
+      expect(a.service.signedIn, isFalse);
+
+      // The app restarts while the Play Games account is still on the device.
+      final restarted = device(() => Device(cloud, sharedStore: a.store));
+      restarted.local = a.local;
+      await restarted.service.start();
+      expect(restarted.service.status, CloudSyncStatus.signedOut);
+      expect(await restarted.service.syncNow(), isFalse);
+      expect(restarted.service.readyForConsumablePurchase, isFalse);
+
+      await restarted.service.signIn();
+      expect(restarted.service.optedOut, isFalse);
+      expect(restarted.service.signedIn, isTrue);
+      expect(restarted.service.status, CloudSyncStatus.idle);
     },
   );
 
