@@ -17,7 +17,7 @@ Future<void> showInsufficientCoins(
       ? requiredCoins - currentBalance
       : 0;
   final action = await showGameDialog<String>(
-    context: context,
+    context,
     builder: (dialog) {
       final p = dialog.palette;
       return GameDialog(

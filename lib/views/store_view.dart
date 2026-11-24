@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/billing_service.dart';
+import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -653,7 +654,7 @@ class _StoreViewState extends State<StoreView> {
 
   /// Purchase terms stay one tap away. They are not repeated on every card.
   Future<void> _showTerms() => showGameDialog<void>(
-    context: context,
+    context,
     builder: (dialog) => GameDialog(
       title: 'Upgrade details',
       child: Column(
@@ -832,7 +833,7 @@ class _StoreViewState extends State<StoreView> {
     required Widget art,
   }) async {
     final confirm = await showGameDialog<bool>(
-      context: context,
+    context,
       builder: (dialog) => GameDialog(
         art: art,
         title: name,

@@ -542,7 +542,7 @@ void main() {
     await tester.tap(find.byTooltip('Next page'));
     await tester.pumpAndSettle();
     expect(find.text('Levels 49–60'), findsOneWidget);
-    await tester.tap(find.text('Current level'));
+    await tester.tap(find.byTooltip('Current level'));
     await tester.pumpAndSettle();
     expect(find.text('Levels 37–48'), findsOneWidget);
     await tester.tap(find.text('38').hitTestable());

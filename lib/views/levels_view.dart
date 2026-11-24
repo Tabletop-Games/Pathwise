@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'components/ad_banner.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
@@ -64,11 +66,12 @@ class _LevelsViewState extends State<LevelsView> {
       appBar: AppBar(
         title: const Text('Levels'),
         actions: [
-          TextButton(
+          IconButton(
+            tooltip: 'Current level',
             onPressed: () => _go(pageForLevel(model.highestUnlocked)),
-            child: const Text('Current level'),
+            icon: const Icon(Icons.my_location_rounded),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       bottomNavigationBar: const AdBanner(),
@@ -186,58 +189,86 @@ class _LevelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final solved = result != null;
     final background = current
         ? palette.route
-        : (enabled ? palette.surface : palette.tile);
+        : solved
+        ? palette.card
+        : (enabled ? palette.card : palette.quiet);
     final foreground = current
         ? palette.onRoute
-        : (enabled ? palette.ink : palette.muted);
-    final status = result == null
-        ? (current
+        : (enabled ? palette.ink : palette.mutedInk.withValues(alpha: .7));
+    final status = solved
+        ? formatTime(Duration(milliseconds: result!.milliseconds))
+        : (current
               ? 'Current'
               : enabled
               ? 'Available'
-              : 'Locked')
-        : formatTime(Duration(milliseconds: result!.milliseconds));
+              : 'Locked');
     return Semantics(
       button: true,
       enabled: enabled,
       label: 'Level ${id.level}, $status',
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: current ? palette.accent : palette.cardEdge,
+            width: current ? 2 : 1,
+          ),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: enabled ? onTap : null,
           child: ExcludeSemantics(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(
-                  result != null
-                      ? Icons.check_circle_outline
-                      : current
-                      ? Icons.play_arrow_rounded
-                      : enabled
-                      ? Icons.grid_view_rounded
-                      : Icons.lock_outline_rounded,
-                  size: 18,
-                  color: foreground,
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${id.level}',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: foreground,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 24,
+                      ),
+                    ),
+                    if (solved)
+                      Text(
+                        status,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: foreground.withValues(alpha: .75),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
-                Text(
-                  '${id.level}',
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: foreground,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 23,
+                if (solved)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GameArt(ArtKind.check, palette: palette, size: 16),
                   ),
-                ),
-                Text(
-                  status,
-                  maxLines: 1,
-                  style: TextStyle(color: foreground, fontSize: 12),
-                ),
+                if (current)
+                  Positioned(
+                    bottom: 6,
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      size: 18,
+                      color: foreground,
+                    ),
+                  ),
+                if (!enabled)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GameArt(ArtKind.lock, palette: palette, size: 16),
+                  ),
               ],
             ),
           ),

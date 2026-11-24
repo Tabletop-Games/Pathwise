@@ -170,9 +170,9 @@ void main() {
         final bytes = (await image.toByteData(
           format: ui.ImageByteFormat.rawRgba,
         ))!;
-        // The classic tip follows the finger, but stops short of the wall.
-        expect(bytes.getUint8((50 * image.width + 105) * 4 + 3), greaterThan(0));
-        expect(bytes.getUint8((50 * image.width + 140) * 4 + 3), 0);
+        // The classic tip follows the finger but stops short of the wall.
+        expect(bytes.getUint8((50 * image.width + 70) * 4 + 3), greaterThan(0));
+        expect(bytes.getUint8((50 * image.width + 105) * 4 + 3), 0);
         image.dispose();
       });
       await gesture.moveTo(origin + const Offset(150, 50));

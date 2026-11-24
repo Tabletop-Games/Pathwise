@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' show Offset;
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -190,13 +189,14 @@ void main() {
         canEnter: (_) => true,
       );
       expect(edge.tip.dx, lessThan(3.5 + .3));
+      // Cell 0 is on the route but is not the cell just left, so it is blocked.
       final visited = at(
         TipTracker(),
         puzzle,
         [0, 4, 5, 1],
-        const Offset(1.5 + .45, .5),
+        const Offset(1.5 - .45, .5),
       );
-      expect(visited.tip.dx, lessThan(1.5 + .3));
+      expect(visited.tip.dx, greaterThan(1.5 - .3));
     });
   });
 

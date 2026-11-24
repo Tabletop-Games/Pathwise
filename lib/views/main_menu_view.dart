@@ -67,7 +67,7 @@ Future<void> openPuzzle(
         await model.recordCoinOffer() &&
         canPresent()) {
       final watch = await showGameDialog<bool>(
-        context: context,
+    context,
         builder: (dialog) => GameDialog(
           art: GameArt(
             ArtKind.coinStack3,
@@ -434,30 +434,6 @@ class _MainMenuViewState extends State<MainMenuView>
           ),
         ),
       ),
-    );
-  }
-}
-
-class _StreakFlame extends StatelessWidget {
-  const _StreakFlame({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    if (count == 0) return const Icon(Icons.local_fire_department_outlined);
-    final flame = Icon(
-      Icons.local_fire_department_rounded,
-      color: Theme.of(context).colorScheme.tertiary,
-    );
-    if (MediaQuery.disableAnimationsOf(context)) return flame;
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(count),
-      tween: Tween<double>(begin: 0.8, end: 1),
-      curve: Curves.elasticOut,
-      duration: const Duration(milliseconds: 850),
-      child: flame,
-      builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
     );
   }
 }
