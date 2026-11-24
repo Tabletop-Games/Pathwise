@@ -10,7 +10,11 @@ void main() {
     expect(gradle, contains('namespace = "com.shenmareparas.pathwise"'));
     expect(gradle, contains('applicationId = "com.shenmareparas.pathwise"'));
     expect(activity, startsWith('package com.shenmareparas.pathwise;'));
-    expect(manifest, contains('android:name=".MainActivity"'));
+    expect(manifest, contains('android:name="com.shenmareparas.pathwise.MainActivity"'));
+    expect(manifest, contains('android:label="\${pathwiseAppLabel}"'));
+    expect(gradle, contains('applicationIdSuffix = ".debug"'));
+    expect(gradle, contains('manifestPlaceholders["pathwiseAppLabel"] = "Pathwise Debug"'));
+    expect(gradle, contains('manifestPlaceholders["pathwiseAppLabel"] = "Pathwise"'));
     expect(gradle, contains('minifyEnabled = true'));
     expect(gradle, contains('shrinkResources = true'));
     expect(gradle, contains('PATHWISE_ADMOB_APP_ID'));

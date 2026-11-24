@@ -26,8 +26,10 @@ class _ThemesViewState extends State<ThemesView> {
     final model = context.watch<AppModel>();
     final theme = _preview ?? model.theme;
     final palette = BoardPalette.palettes[theme]!;
+    final activePalette = BoardPalette.palettes[model.theme]!;
+    final colors = activePalette.theme.colorScheme;
     return Theme(
-      data: palette.theme,
+      data: activePalette.theme,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Themes'),
@@ -61,30 +63,28 @@ class _ThemesViewState extends State<ThemesView> {
                       label: 'Share Theme Discovery',
                     ),
                   const SizedBox(height: 16),
-                  for (final item in PathwiseTheme.values)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 7),
-                      child: Builder(
-                        builder: (context) {
-                          final itemPalette = BoardPalette.palettes[item]!;
-                          return Theme(
-                            data: itemPalette.theme,
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                              minVerticalPadding: 8,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              tileColor: itemPalette.surface,
-                              onTap: () => setState(() => _preview = item),
-                              leading: _Swatch(palette: itemPalette),
-                              title: Text(item.label, style: TextStyle(color: itemPalette.ink)),
-                              trailing: _themeAction(context, model, item, itemPalette.theme.colorScheme),
-                            ),
-                          );
-                        },
-                      ),
+                  Material(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (final item in PathwiseTheme.values) ...[
+                          if (item != PathwiseTheme.values.first)
+                            Divider(height: 1, indent: 60, color: colors.outlineVariant),
+                          ListTile(
+                            key: ValueKey('theme-row-${item.name}'),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            minVerticalPadding: 4,
+                            leading: _Swatch(palette: BoardPalette.palettes[item]!),
+                            title: Text(item.label, style: TextStyle(color: colors.onSurface)),
+                            onTap: () => setState(() => _preview = item),
+                            trailing: _themeAction(context, model, item, colors),
+                          ),
+                        ],
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),
@@ -104,19 +104,11 @@ class _ThemesViewState extends State<ThemesView> {
       return Semantics(
         label: '${item.label}, equipped',
         child: ExcludeSemantics(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              border: Border.all(color: colors.onSurfaceVariant),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.check_rounded, size: 16, color: colors.onSurface),
-              const SizedBox(width: 4),
-              Text('Equipped', style: TextStyle(color: colors.onSurface)),
-            ]),
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.check_rounded, size: 16, color: colors.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Text('Equipped', style: TextStyle(color: colors.onSurfaceVariant)),
+          ]),
         ),
       );
     }
@@ -194,7 +186,7 @@ class _ThemePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: palette.surface,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(24),
     ),
     child: Padding(
@@ -226,6 +218,7 @@ class _Swatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CircleAvatar(
+    radius: 18,
     backgroundColor: palette.route,
     child: CircleAvatar(radius: 7, backgroundColor: palette.accent),
   );
