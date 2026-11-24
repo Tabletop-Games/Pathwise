@@ -9,9 +9,35 @@ import '../../logic/puzzle.dart';
 import '../../logic/puzzle_generator.dart';
 import '../../model/app_themes.dart';
 import '../../model/game_state.dart';
+import '../../model/path_tips.dart';
+import 'tip_art.dart';
+
+/// Facing direction is derived only from accepted orthogonal moves. Portal
+/// transport is skipped, including when its endpoints happen to be adjacent.
+int tipDirection(Puzzle puzzle, List<int> route) {
+  for (var i = route.length - 1; i > 0; i--) {
+    final from = route[i - 1], to = route[i];
+    if (puzzle.portal?.$1 == from && puzzle.portal?.$2 == to) continue;
+    final dx = to % puzzle.size - from % puzzle.size;
+    final dy = to ~/ puzzle.size - from ~/ puzzle.size;
+    if (dx == 1 && dy == 0) return 0;
+    if (dx == 0 && dy == 1) return 1;
+    if (dx == -1 && dy == 0) return 2;
+    if (dx == 0 && dy == -1) return 3;
+  }
+  return 0;
+}
 
 class LevelOneBoardPreview extends StatelessWidget {
-  const LevelOneBoardPreview({required this.palette, super.key});
+  const LevelOneBoardPreview({
+    required this.palette,
+    this.tip = PathTip.classic,
+    this.directionOverride,
+    super.key,
+  });
+
+  final PathTip tip;
+  final int? directionOverride;
 
   final BoardPalette palette;
   static final _board = generatePuzzle(
@@ -45,6 +71,8 @@ class LevelOneBoardPreview extends StatelessWidget {
         painter: _BoardPainter(
           puzzle: _board.puzzle,
           palette: palette,
+          tipStyle: tip,
+          directionOverride: directionOverride,
           route: previewRoute,
           hint: null,
           next:
@@ -64,9 +92,11 @@ class PuzzleBoard extends StatefulWidget {
     required this.model,
     required this.puzzle,
     required this.palette,
+    this.tipStyle = PathTip.classic,
     super.key,
   });
 
+  final PathTip tipStyle;
   final BoardControls model;
   final Puzzle puzzle;
   final BoardPalette palette;
@@ -261,6 +291,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                     painter: _BoardPainter(
                       puzzle: widget.puzzle,
                       palette: widget.palette,
+                      tipStyle: widget.tipStyle,
                       route: path,
                       hint: model.hintCell,
                       next: model.nextCheckpoint,
@@ -279,6 +310,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                         puzzle: widget.puzzle,
                         color: widget.palette.route,
                         tipColor: widget.palette.accent,
+                        tipStyle: widget.tipStyle,
                         rejection: _rejection,
                         validCells: widget.puzzle.neighbors[path.last]
                             .where(model.canStep)
@@ -299,6 +331,9 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       attemptTarget: () => _attemptTarget,
                       routeColor: widget.palette.route,
                       tipColor: widget.palette.accent,
+                      palette: widget.palette,
+                      tipStyle: widget.tipStyle,
+                      direction: tipDirection(widget.puzzle, path),
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -734,6 +769,8 @@ class _BoardPainter extends CustomPainter {
     required this.hint,
     required this.next,
     required this.complete,
+    this.tipStyle = PathTip.classic,
+    this.directionOverride,
     this.rejection,
     this.rejectedMove,
     this.reducedMotion = false,
@@ -742,6 +779,8 @@ class _BoardPainter extends CustomPainter {
 
   final Puzzle puzzle;
   final BoardPalette palette;
+  final PathTip tipStyle;
+  final int? directionOverride;
   final List<int> route;
   final int? hint;
   final int next;
@@ -760,8 +799,6 @@ class _BoardPainter extends CustomPainter {
     canvas.save();
     canvas.scale(side);
     final fill = Paint();
-    final ink = Paint()..color = palette.route;
-    final accent = Paint()..color = palette.accent;
     final move = rejection?.isAnimating == true ? rejectedMove?.call() : null;
     final progress = rejection?.value ?? 0;
     final pulse = (1 - progress).clamp(0.0, 1.0);
@@ -909,8 +946,31 @@ class _BoardPainter extends CustomPainter {
       text.dispose();
     }
     if (puzzle.numbers[route.last] == 0) {
-      canvas.drawCircle(tip, .16, ink);
-      canvas.drawCircle(tip, .095, accent);
+      paintPathTip(
+        canvas,
+        tip,
+        tipStyle == PathTip.classic ? .1685 : .22,
+        tipStyle,
+        palette,
+        quarterTurns: directionOverride ?? tipDirection(puzzle, route),
+      );
+    } else if (!complete && tipStyle != PathTip.classic) {
+      // A small badge on the checkpoint rim keeps its number readable.
+      final direction = directionOverride ?? tipDirection(puzzle, route);
+      final offset = switch (direction) {
+        1 => const Offset(0, .39),
+        2 => const Offset(-.39, 0),
+        3 => const Offset(0, -.39),
+        _ => const Offset(.39, 0),
+      };
+      paintPathTip(
+        canvas,
+        tip + offset,
+        .10,
+        tipStyle,
+        palette,
+        quarterTurns: direction,
+      );
     }
     canvas.restore();
   }
@@ -919,6 +979,8 @@ class _BoardPainter extends CustomPainter {
   bool shouldRepaint(_BoardPainter oldDelegate) =>
       oldDelegate.puzzle != puzzle ||
       oldDelegate.palette != palette ||
+      oldDelegate.tipStyle != tipStyle ||
+      oldDelegate.directionOverride != directionOverride ||
       oldDelegate.next != next ||
       oldDelegate.hint != hint ||
       oldDelegate.complete != complete ||
@@ -933,6 +995,7 @@ class _PointerPainter extends CustomPainter {
     required this.puzzle,
     required this.color,
     required this.tipColor,
+    required this.tipStyle,
     required this.validCells,
     required this.tip,
     required this.pointer,
@@ -941,6 +1004,7 @@ class _PointerPainter extends CustomPainter {
 
   final Puzzle puzzle;
   final Color color, tipColor;
+  final PathTip tipStyle;
   final Set<int> validCells;
   final int tip;
   final ValueNotifier<Offset?> pointer;
@@ -949,7 +1013,10 @@ class _PointerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final position = pointer.value;
-    if (position == null || rejection.isAnimating) return;
+    if (position == null ||
+        rejection.isAnimating ||
+        tipStyle != PathTip.classic)
+      return;
     final center = Offset(tip % puzzle.size + .5, tip ~/ puzzle.size + .5);
     final delta = position - center;
     if (delta.distance > .85) return;
@@ -990,7 +1057,7 @@ class _PointerPainter extends CustomPainter {
     final side = size.width / puzzle.size;
     final start = center * side;
     final end = (center + extension) * side;
-    if (!checkpoint) {
+    if (!checkpoint && tipStyle == PathTip.classic) {
       // Cover the stationary marker without changing the stored route.
       canvas.drawCircle(start, .16 * side, Paint()..color = color);
     }
@@ -1005,8 +1072,10 @@ class _PointerPainter extends CustomPainter {
         ..strokeWidth = .25 * side
         ..strokeCap = StrokeCap.round,
     );
-    canvas.drawCircle(end, .16 * side, Paint()..color = color);
-    canvas.drawCircle(end, .095 * side, Paint()..color = tipColor);
+    if (tipStyle == PathTip.classic) {
+      canvas.drawCircle(end, .16 * side, Paint()..color = color);
+      canvas.drawCircle(end, .095 * side, Paint()..color = tipColor);
+    }
   }
 
   @override
@@ -1014,6 +1083,7 @@ class _PointerPainter extends CustomPainter {
       oldDelegate.puzzle != puzzle ||
       oldDelegate.color != color ||
       oldDelegate.tipColor != tipColor ||
+      oldDelegate.tipStyle != tipStyle ||
       oldDelegate.rejection != rejection ||
       oldDelegate.tip != tip ||
       !setEquals(oldDelegate.validCells, validCells);
@@ -1030,6 +1100,9 @@ class _RejectionPainter extends CustomPainter {
     required this.attemptTarget,
     required this.routeColor,
     required this.tipColor,
+    required this.palette,
+    required this.tipStyle,
+    required this.direction,
     required this.reducedMotion,
   }) : super(repaint: animation);
   final Puzzle puzzle;
@@ -1037,6 +1110,9 @@ class _RejectionPainter extends CustomPainter {
   final RejectedMove? Function() issue;
   final int? Function() attemptFrom, attemptTarget;
   final Color routeColor, tipColor;
+  final BoardPalette palette;
+  final PathTip tipStyle;
+  final int direction;
   final bool reducedMotion;
 
   @override
@@ -1070,7 +1146,7 @@ class _RejectionPainter extends CustomPainter {
     final checkpoint = puzzle.numbers[origin] != 0;
     final end = segment * distance;
     if (checkpoint && end <= .275) return;
-    if (!checkpoint) {
+    if (!checkpoint && tipStyle == PathTip.classic) {
       canvas.drawCircle(from, side * .16, Paint()..color = routeColor);
     }
     final endPoint = Offset.lerp(from, to, end)!;
@@ -1082,8 +1158,19 @@ class _RejectionPainter extends CustomPainter {
         ..strokeWidth = side * .25
         ..strokeCap = StrokeCap.round,
     );
-    canvas.drawCircle(endPoint, side * .16, Paint()..color = routeColor);
-    canvas.drawCircle(endPoint, side * .095, Paint()..color = tipColor);
+    if (tipStyle == PathTip.classic) {
+      canvas.drawCircle(endPoint, side * .16, Paint()..color = routeColor);
+      canvas.drawCircle(endPoint, side * .095, Paint()..color = tipColor);
+    } else if (!checkpoint) {
+      paintPathTip(
+        canvas,
+        from,
+        side * .22,
+        tipStyle,
+        palette,
+        quarterTurns: direction,
+      );
+    }
   }
 
   @override
@@ -1091,5 +1178,8 @@ class _RejectionPainter extends CustomPainter {
       oldDelegate.puzzle != puzzle ||
       oldDelegate.routeColor != routeColor ||
       oldDelegate.tipColor != tipColor ||
+      oldDelegate.tipStyle != tipStyle ||
+      oldDelegate.direction != direction ||
+      oldDelegate.palette != palette ||
       oldDelegate.reducedMotion != reducedMotion;
 }

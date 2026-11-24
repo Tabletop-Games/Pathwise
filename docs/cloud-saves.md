@@ -12,7 +12,7 @@ The cloud envelope is compact JSON:
 
 | Field | Meaning |
 | --- | --- |
-| `format`, `version` | `pathwise-cloud`, version 1. Other values are rejected. |
+| `format`, `version` | `pathwise-cloud`, version 2. Version 1 is verified and migrated to Classic tip defaults; other values are rejected. |
 | `revision` | Increments on every successful upload. Used to detect remote changes. |
 | `savedAt` | Upload time in milliseconds, for display only. |
 | `economy` | SHA-256 of the economy unit (below). Lets a device compare copies without parsing both. |

@@ -1,6 +1,41 @@
 import 'game_state.dart';
 import 'user_preferences.dart';
 
+/// Stable cosmetic identifiers. Prices are independent to allow future balancing.
+enum PathTip {
+  classic('Classic', 0),
+  arrow('Arrow', 100),
+  crystal('Crystal', 100),
+  star('Star', 100),
+  cat('Cat', 100),
+  dog('Dog', 100),
+  rabbit('Rabbit', 100),
+  fox('Fox', 100),
+  panda('Panda', 100),
+  frog('Frog', 100),
+  penguin('Penguin', 100),
+  turtle('Turtle', 100),
+  bee('Bee', 100),
+  ghost('Ghost', 100),
+  robot('Robot', 100),
+  ufo('UFO', 100),
+  flame('Flame', 100),
+  dragon('Dragon', 100),
+  phoenix('Phoenix', 100),
+  rocket('Rocket', 100);
+
+  const PathTip(this.label, this.price);
+  final String label;
+  final int price;
+
+  static PathTip? fromId(Object? id) {
+    for (final tip in values) {
+      if (tip.name == id) return tip;
+    }
+    return null;
+  }
+}
+
 const economy = EconomyRules();
 
 class EconomyRules {

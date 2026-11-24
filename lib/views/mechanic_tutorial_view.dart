@@ -188,6 +188,7 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                       model: this,
                       puzzle: board,
                       palette: palette,
+                      tipStyle: context.watch<AppModel>().equippedTip,
                     ),
                   ),
                 ),

@@ -183,6 +183,14 @@ class AppModel extends ChangeNotifier
     }
     _hintPurchaseSerial = snapshot['hintPurchaseSerial'] as int? ?? 0;
     _attempts.removeWhere((key, _) => _retiredPuzzle(key));
+    final offer = _map(snapshot['coinOffer']);
+    if (offer['levels'] is int) _coinOfferLevel = offer['levels'] as int;
+    if (offer['boot'] is int && offer['milliseconds'] is int) {
+      _lastCoinOffer = (
+        boot: offer['boot'] as int,
+        milliseconds: offer['milliseconds'] as int,
+      );
+    }
     final adStamp = _map(snapshot['lastAutomaticAd']);
     if (adStamp['boot'] is int && adStamp['milliseconds'] is int) {
       _lastAutomaticAd = (
@@ -233,6 +241,17 @@ class AppModel extends ChangeNotifier
         PathwiseTheme.values.where((theme) => owned.contains(theme.name)),
       );
     }
+    final tips = snapshot['ownedTips'];
+    if (tips is List)
+      _ownedTips.addAll(tips.map(PathTip.fromId).whereType<PathTip>());
+    // A durable debit is also proof of ownership if an older or damaged
+    // snapshot is missing the cosmetic list; never charge the same ID twice.
+    for (final tip in PathTip.values) {
+      if (_wallet.contains('tip/${tip.name}')) _ownedTips.add(tip);
+    }
+    final savedTip = PathTip.fromId(snapshot['equippedTip']);
+    if (savedTip != null && _ownedTips.contains(savedTip))
+      _equippedTip = savedTip;
     _themePass = snapshot['themePass'] == true;
     _removeAds = snapshot['removeAds'] == true;
     _premium = snapshot['premium'] == true;
@@ -252,6 +271,7 @@ class AppModel extends ChangeNotifier
         _levelsSolved++;
       }
     }
+    _coinOfferLevel ??= _levelsSolved;
     final savedUnlocked = snapshot['highestUnlocked'];
     if (savedUnlocked is int)
       _highestUnlocked = max(_highestUnlocked, savedUnlocked);
@@ -411,6 +431,46 @@ class AppModel extends ChangeNotifier
 
   final BootTime? Function() _bootTime;
   BootTime? _lastAutomaticAd;
+  BootTime? _lastCoinOffer;
+  int? _coinOfferLevel;
+
+  bool get canOfferCoinVideo {
+    final now = _bootTime();
+    final baseline = _coinOfferLevel;
+    if (now == null ||
+        baseline == null ||
+        adFree ||
+        storageError ||
+        !_foreground ||
+        !onlineReady ||
+        activeId != null ||
+        attack?.finished == false ||
+        !canEarnAdBonus ||
+        _levelsSolved - baseline < 5)
+      return false;
+    final last = _lastCoinOffer;
+    if (last != null) {
+      final elapsed = last.boot == now.boot
+          ? now.milliseconds - last.milliseconds
+          : now.milliseconds;
+      if (elapsed < const Duration(minutes: 15).inMilliseconds) return false;
+    }
+    final ad = _lastAutomaticAd;
+    if (ad != null) {
+      final elapsed = ad.boot == now.boot
+          ? now.milliseconds - ad.milliseconds
+          : now.milliseconds;
+      if (elapsed < EconomyRules.automaticAdGap.inMilliseconds) return false;
+    }
+    return true;
+  }
+
+  Future<bool> recordCoinOffer() async {
+    if (!canOfferCoinVideo) return false;
+    _lastCoinOffer = _bootTime();
+    _coinOfferLevel = _levelsSolved;
+    return flush();
+  }
 
   Future<bool> reserveAutomaticAd() async {
     if (adFree || storageError || !_foreground) return false;
@@ -907,6 +967,55 @@ class AppModel extends ChangeNotifier
   final UserPreferences _prefs;
   late final Wallet _wallet;
   final _owned = <PathwiseTheme>{};
+  final _ownedTips = <PathTip>{PathTip.classic};
+  PathTip _equippedTip = PathTip.classic;
+  bool _tipMutation = false;
+  PathTip get equippedTip => _equippedTip;
+  bool ownsTip(PathTip tip) => _ownedTips.contains(tip);
+
+  /// Coin debit and ownership are persisted together in the same snapshot.
+  Future<bool> buyTip(PathTip tip) async {
+    if (_tipMutation ||
+        _disposed ||
+        storageError ||
+        !onlineReady ||
+        ownsTip(tip) ||
+        tip.price <= 0)
+      return false;
+    _tipMutation = true;
+    try {
+      if (!_wallet.add(
+        'tip/${tip.name}',
+        'Unlocked ${tip.label}',
+        -tip.price,
+        _today(),
+      ))
+        return false;
+      _ownedTips.add(tip);
+      notifyListeners();
+      return await flush();
+    } finally {
+      _tipMutation = false;
+    }
+  }
+
+  Future<bool> equipTip(PathTip tip) async {
+    if (_tipMutation ||
+        _disposed ||
+        storageError ||
+        !onlineReady ||
+        !ownsTip(tip))
+      return false;
+    _tipMutation = true;
+    try {
+      _equippedTip = tip;
+      notifyListeners();
+      return await flush();
+    } finally {
+      _tipMutation = false;
+    }
+  }
+
   bool _themePass = false;
   bool _removeAds = false;
   bool _premium = false;
@@ -1949,6 +2058,14 @@ class AppModel extends ChangeNotifier
       ],
     },
     'archivedCoins': _wallet.archivedCoins,
+    if (_coinOfferLevel case final levels?)
+      'coinOffer': {
+        'levels': levels,
+        if (_lastCoinOffer case final offer?) ...{
+          'boot': offer.boot,
+          'milliseconds': offer.milliseconds,
+        },
+      },
     if (_lastAutomaticAd case final stamp?)
       'lastAutomaticAd': {
         'boot': stamp.boot,
@@ -1960,6 +2077,8 @@ class AppModel extends ChangeNotifier
     'preferences': _prefs.toJson(),
     'ledger': _wallet.toJson(),
     'ownedThemes': [for (final theme in _owned) theme.name],
+    'ownedTips': [for (final tip in _ownedTips) tip.name],
+    'equippedTip': _equippedTip.name,
     'themePass': _themePass,
     'billingProfile': _billingProfile,
     'playMilliseconds': _playMilliseconds,

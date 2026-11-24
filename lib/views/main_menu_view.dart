@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/billing_service.dart';
+import '../model/economy.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
@@ -17,8 +19,6 @@ import 'puzzle_view.dart';
 import 'settings_view.dart';
 import 'store_view.dart';
 import 'streak_view.dart';
-import 'themes_view.dart';
-import 'wallet_view.dart';
 
 Future<void> openPuzzle(
   BuildContext context,
@@ -58,6 +58,40 @@ Future<void> openPuzzle(
         model.activeId == null &&
         ModalRoute.isCurrentOf(context) == true &&
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    if (canPresent() &&
+        ads.videoReady &&
+        model.canOfferCoinVideo &&
+        !context.read<BillingService>().buying &&
+        await model.recordCoinOffer() &&
+        canPresent()) {
+      final watch = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Want some extra coins?'),
+          content: Text(
+            'Watch a short video to earn ${economy.rewardedAdCoins} coins.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Watch video'),
+            ),
+          ],
+        ),
+      );
+      if (watch == true &&
+          canPresent() &&
+          ads.videoReady &&
+          model.canEarnAdBonus) {
+        await ads.watchVideo(model.grantAdBonus, canPresent: canPresent);
+      }
+      unawaited(ads.afterCompletedExit(canPresent: false));
+      return;
+    }
     unawaited(
       ads.afterCompletedExit(
         canPresent: canPresent(),
@@ -210,7 +244,8 @@ class _MainMenuViewState extends State<MainMenuView>
                           onPressed: () => Navigator.push<void>(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const WalletView(),
+                              builder: (_) =>
+                                  const StoreView(section: StoreSection.coins),
                             ),
                           ),
                           icon: const Icon(Icons.toll_rounded),
@@ -351,7 +386,10 @@ class _MainMenuViewState extends State<MainMenuView>
                       title: 'Themes',
                       detail: 'Preview palettes',
                       onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(builder: (_) => const ThemesView()),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const StoreView(section: StoreSection.themes),
+                        ),
                       ),
                     ),
                   ],

@@ -9,7 +9,7 @@ import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
-import 'wallet_view.dart';
+import 'store_view.dart';
 
 class FortuneView extends StatefulWidget {
   const FortuneView({super.key});
@@ -168,7 +168,10 @@ class _FortuneViewState extends State<FortuneView> {
                         avatar: const Icon(Icons.toll_rounded, size: 19),
                         label: Text('${model.coinBalance} coins'),
                         onPressed: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(builder: (_) => const WalletView()),
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const StoreView(section: StoreSection.coins),
+                          ),
                         ),
                       ),
                     ),

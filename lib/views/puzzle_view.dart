@@ -235,6 +235,7 @@ class PuzzleView extends StatelessWidget {
                                 model: model,
                                 puzzle: board,
                                 palette: palette,
+                                tipStyle: model.equippedTip,
                               ),
                             ),
                             const SizedBox(height: 14),

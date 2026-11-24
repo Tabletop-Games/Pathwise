@@ -51,6 +51,42 @@ void main() {
       expect(decoded.payload, save());
     });
 
+    test('version 1 migrates to Classic after validating its checksum', () {
+      final old = save();
+      final bytes = utf8.encode(
+        jsonEncode({
+          'format': cloudSaveFormat,
+          'version': 1,
+          'revision': 2,
+          'savedAt': 100,
+          'economy': economyDigest(old),
+          'payloadDigest': digestOf(old),
+          'payload': old,
+        }),
+      );
+      final migrated = CloudEnvelope.decode(bytes);
+      expect(migrated.payload['ownedTips'], ['classic']);
+      expect(migrated.payload['equippedTip'], 'classic');
+      expect(migrated.payload['ledger'], old['ledger']);
+      expect(migrated.economy, economyDigest(old));
+      expect(CloudEnvelope.decode(migrated.encode()).payload, migrated.payload);
+    });
+
+    test('cosmetic ownership belongs to the economy conflict unit', () {
+      expect(
+        economyDigest({
+          ...save(),
+          'ownedTips': ['classic', 'arrow'],
+        }),
+        isNot(
+          economyDigest({
+            ...save(),
+            'ownedTips': ['classic'],
+          }),
+        ),
+      );
+    });
+
     test('rejects tampered payloads, wrong formats and empty data', () {
       final bytes = CloudEnvelope.wrap(
         save(),

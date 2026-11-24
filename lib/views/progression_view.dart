@@ -9,7 +9,7 @@ import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
 import 'components/economy_navigation.dart';
-import 'wallet_view.dart';
+import 'store_view.dart';
 
 enum _ResearchBranch {
   income('Coin rewards', Icons.toll_outlined, [
@@ -177,7 +177,8 @@ class _ProgressionViewState extends State<ProgressionView> {
                           label: Text('${model.coinBalance} coins available'),
                           onPressed: () => Navigator.of(context).push<void>(
                             MaterialPageRoute(
-                              builder: (_) => const WalletView(),
+                              builder: (_) =>
+                                  const StoreView(section: StoreSection.coins),
                             ),
                           ),
                         ),

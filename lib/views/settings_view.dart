@@ -17,7 +17,7 @@ import 'level_one_demo.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
 import 'share_view.dart';
-import 'themes_view.dart';
+import 'store_view.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -60,7 +60,10 @@ class SettingsView extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push<void>(
                     context,
-                    MaterialPageRoute(builder: (_) => const ThemesView()),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const StoreView(section: StoreSection.themes),
+                    ),
                   ),
                 ),
                 if (ads.canManagePrivacy) ...[

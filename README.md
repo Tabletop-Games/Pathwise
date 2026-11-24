@@ -36,3 +36,5 @@ For signing, provide `PATHWISE_KEYSTORE`, `PATHWISE_STORE_PASSWORD`, `PATHWISE_K
 Pathwise adapts the Flutter Android project, Provider MVVM structure, settings, persistence, haptics, named palette ideas, and consent/cache advertising pattern from [shenmareparas/Chess at 5df12d7](https://github.com/shenmareparas/Chess/tree/5df12d74f00f8b9574c9424608dbf56635cd39b1). The adaptation started November 22, 2026. Pathwise uses original artwork and generated puzzles. [Gameplay research](docs/gameplay.md)
 
 Pathwise is distributed under [GNU GPL v3](LICENSE). The bundled Bricolage Grotesque font retains its [SIL Open Font License](assets/fonts/OFL.txt).
+
+Store and cosmetic details: [Unified Store and path tips](docs/unified-store.md).

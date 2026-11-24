@@ -120,6 +120,7 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                       model: this,
                       puzzle: _board.puzzle,
                       palette: palette,
+                      tipStyle: context.watch<AppModel>().equippedTip,
                     ),
                   ),
                 ),

@@ -1,9 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
 
-import '../../logic/ad_service.dart';
-import '../../logic/billing_service.dart';
-import '../../model/app_model.dart';
 import '../store_view.dart';
 
 Future<void> showInsufficientCoins(
@@ -13,14 +9,9 @@ Future<void> showInsufficientCoins(
   required int currentBalance,
   VoidCallback? onBeforeStore,
 }) async {
-  final shortfall = (requiredCoins - currentBalance).clamp(0, requiredCoins);
-  final billing = context.read<BillingService>();
-  final ads = context.read<AdService>();
-  final model = context.read<AppModel>();
-  final canGetCoins =
-      billing.enabled &&
-      billing.products.any((product) => consumable(product.id));
-  final canEarnCoins = ads.enabled && model.canEarnAdBonus;
+  final shortfall = requiredCoins > currentBalance
+      ? requiredCoins - currentBalance
+      : 0;
   final action = await showDialog<String>(
     context: context,
     builder: (dialog) => AlertDialog(
@@ -29,16 +20,10 @@ Future<void> showInsufficientCoins(
         '$itemName costs $requiredCoins coins.\n\nYour balance: $currentBalance coins\nYou need $shortfall more coins.',
       ),
       actions: [
-        if (canGetCoins)
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, 'packs'),
-            child: const Text('Get Coins'),
-          ),
-        if (canEarnCoins)
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, 'earn'),
-            child: const Text('Earn Coins'),
-          ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, 'coins'),
+          child: const Text('View Coins'),
+        ),
         TextButton(
           onPressed: () => Navigator.pop(dialog),
           child: const Text('Not Now'),
@@ -48,12 +33,10 @@ Future<void> showInsufficientCoins(
   );
   if (!context.mounted || action == null) return;
   onBeforeStore?.call();
-  final section = action == 'packs'
-      ? StoreSection.coinPacks
-      : StoreSection.earnCoins;
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
-      builder: (_) => StoreView(section: section, coinShortfall: shortfall),
+      builder: (_) =>
+          StoreView(section: StoreSection.coins, coinShortfall: shortfall),
     ),
   );
 }

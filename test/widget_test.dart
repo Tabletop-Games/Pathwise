@@ -21,37 +21,26 @@ void main() {
     expect(recommendedCoinPack(0), isNull);
   });
 
-  testWidgets(
-    'Store and Wallet have separate navigation and responsibilities',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 840));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final model = AppModel(storage: MemoryStorage(), snapshot: {});
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
-      );
-      await tester.tap(find.byTooltip('Store'));
-      await tester.pumpAndSettle();
-      expect(find.text('Store'), findsOneWidget);
-      expect(
-        find.text(
-          'Coin purchases and ad rewards are currently unavailable. You can keep playing offline.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Transaction history'), findsNothing);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('50'));
-      await tester.pumpAndSettle();
-      expect(find.text('Wallet'), findsOneWidget);
-      expect(find.text('Transaction history'), findsOneWidget);
-      expect(find.text('Welcome coins'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await model.flush();
-      model.dispose();
-    },
-  );
+  testWidgets('coin balance opens the unified Coins category', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 840));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final model = AppModel(storage: MemoryStorage(), snapshot: {});
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.tap(find.text('50'));
+    await tester.pumpAndSettle();
+    expect(find.text('Store'), findsOneWidget);
+    expect(find.text('Transaction history'), findsNothing);
+    expect(
+      find.textContaining(
+        'Coin purchases and ad rewards are currently unavailable',
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    model.dispose();
+  });
 
   testWidgets('launch offers an unspent spin once per session', (tester) async {
     await tester.runAsync(
@@ -413,7 +402,14 @@ void main() {
     await tester.scrollUntilVisible(find.text('Themes'), 180);
     await tester.tap(find.text('Themes').last);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('High Pass'), 220);
+    await tester.scrollUntilVisible(
+      find.text('High Pass'),
+      220,
+      scrollable: find.descendant(
+        of: find.byKey(const PageStorageKey('store-themes')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('High Pass'), findsOneWidget);
     check();
     await tester.pumpWidget(const SizedBox.shrink());
@@ -510,15 +506,10 @@ void main() {
     await tester.scrollUntilVisible(find.text('Themes'), 180);
     await tester.tap(find.text('Themes').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Blackwater'));
-    await tester.tap(find.text('Blackwater'));
-    await tester.pumpAndSettle();
-    final blackwaterTile = find.ancestor(
-      of: find.text('Blackwater'),
-      matching: find.byType(ListTile),
-    );
+    final blackwater = find.byKey(const ValueKey('theme-card-blackwater'));
+    await tester.ensureVisible(blackwater);
     await tester.tap(
-      find.descendant(of: blackwaterTile, matching: find.text('Apply')),
+      find.descendant(of: blackwater, matching: find.text('Apply')),
     );
     await tester.pumpAndSettle();
     expect(model.theme.label, 'Blackwater');
@@ -579,66 +570,39 @@ void main() {
     await model.flush();
     model.dispose();
   });
-  testWidgets(
-    'cosmetic previews are free and default monetization controls are hidden',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 870));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final model = AppModel(
-        storage: MemoryStorage(),
-        snapshot: {},
-        loader: (_) async => fixture(),
-      );
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
-      );
-      await tester.scrollUntilVisible(find.text('Themes'), 180);
-      await tester.tap(find.text('Themes').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Themes'), findsWidgets);
-      expect(find.text('Equipped'), findsOneWidget);
-      expect(find.text('Restore purchases'), findsNothing);
-      expect(find.textContaining('Optional video'), findsNothing);
-      final board = find.byType(LevelOneBoardPreview);
-      final themesScroll = tester.state<ScrollableState>(
-        find.byType(Scrollable),
-      );
-      final originalPalette = tester
-          .widget<LevelOneBoardPreview>(board)
-          .palette;
-      final size = tester.getSize(board);
-      expect(size.width, size.height);
-      expect(size.width, lessThanOrEqualTo(160));
-      final forest = find.text('Forest Mint');
-      await tester.ensureVisible(forest);
-      await tester.tap(forest);
-      await tester.pumpAndSettle();
-      final purchase = find.text('90 coins').last;
-      expect(purchase, findsOneWidget);
-      final purchaseButton = tester.widget<FilledButton>(
-        find.ancestor(of: purchase, matching: find.byType(FilledButton)).first,
-      );
-      expect(purchaseButton.style!.shape!.resolve({}), isA<StadiumBorder>());
-      await tester.tap(purchase);
-      await tester.pumpAndSettle();
-      expect(find.text('Not enough coins'), findsOneWidget);
-      expect(find.textContaining('You need 40 more coins'), findsOneWidget);
-      await tester.tap(find.text('Not Now'));
-      await tester.pumpAndSettle();
-      themesScroll.position.jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<LevelOneBoardPreview>(board).palette,
-        isNot(same(originalPalette)),
-      );
-      expect(tester.takeException(), isNull);
-      expect(model.theme.label, 'Field');
-      expect(model.coinBalance, 50);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await model.flush();
-      model.dispose();
-    },
-  );
+  testWidgets('theme preview is isolated and shortfall is exact', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 870));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final model = AppModel(storage: MemoryStorage(), snapshot: {});
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.tap(find.byTooltip('Store'));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const ValueKey('theme-card-forestMint'));
+    await tester.ensureVisible(card);
+    await tester.tap(
+      find.descendant(of: card, matching: find.byType(LevelOneBoardPreview)),
+    );
+    await tester.pumpAndSettle();
+    expect(model.theme.label, 'Field');
+    expect(model.coinBalance, 50);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: card, matching: find.text('90 coins')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('You need 40 more coins'), findsOneWidget);
+    await tester.tap(find.text('View Coins'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const PageStorageKey('store-coins')), findsOneWidget);
+    expect(model.coinBalance, 50);
+    await tester.pumpWidget(const SizedBox.shrink());
+    model.dispose();
+  });
   testWidgets(
     'Daily result shares the finished challenge date and real hints',
     (tester) async {
