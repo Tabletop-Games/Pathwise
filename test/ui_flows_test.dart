@@ -30,7 +30,10 @@ void main() {
     expect(find.byTooltip('Store'), findsNothing);
     expect(find.text('Themes'), findsNothing);
     final cardWidth = tester.getSize(card).width;
-    expect(cardWidth, tester.getSize(find.byKey(const ValueKey('wheel-tile'))).width);
+    expect(
+      cardWidth,
+      tester.getSize(find.byKey(const ValueKey('wheel-tile'))).width,
+    );
     expect(cardWidth, greaterThan(300));
     await tester.tap(card);
     await tester.pumpAndSettle();
@@ -64,7 +67,10 @@ void main() {
     await tester.tap(find.text('Coins'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('free-coins')), findsOneWidget);
-    expect(find.text('Purchases are unavailable on this build.'), findsOneWidget);
+    expect(
+      find.text('Purchases are unavailable on this build.'),
+      findsOneWidget,
+    );
     // Packs are shown with an unavailable price, never an invented one.
     expect(find.text('—'), findsWidgets);
     expect(find.text('500'), findsOneWidget);
@@ -112,7 +118,9 @@ void main() {
   testWidgets('price pills show only a coin and a number', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: Center(child: PricePill(price: 100, onTap: () {}))),
+        home: Scaffold(
+          body: Center(child: PricePill(price: 100, onTap: () {})),
+        ),
       ),
     );
     expect(find.text('100'), findsOneWidget);

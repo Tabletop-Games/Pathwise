@@ -635,7 +635,10 @@ class _DailyCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(GameTokens.pillRadius),
             ),
           ),
-          child: Text(action),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 104),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Text(action)),
+          ),
         ),
       ],
     ),
