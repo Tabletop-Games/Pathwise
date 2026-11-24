@@ -587,13 +587,7 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
             : 'Watch';
         Widget option(Widget art, Widget action) => GameCard(
           padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-          child: Row(
-            children: [
-              art,
-              const Spacer(),
-              action,
-            ],
-          ),
+          child: Row(children: [art, const Spacer(), action]),
         );
         Widget plusOne(ArtKind kind) => Row(
           mainAxisSize: MainAxisSize.min,
@@ -947,11 +941,7 @@ class _AttackResults extends StatelessWidget {
                             '${run.clears.length}',
                             'Puzzles completed',
                           ),
-                          stat(
-                            ArtKind.coin,
-                            '+${run.coins}',
-                            'Coins earned',
-                          ),
+                          stat(ArtKind.coin, '+${run.coins}', 'Coins earned'),
                           stat(
                             ArtKind.timer,
                             formatTime(Duration(milliseconds: run.average)),

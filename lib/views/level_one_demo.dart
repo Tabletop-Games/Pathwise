@@ -145,7 +145,11 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                       mechanic.id,
                     ))
                       ListTile(
-                        leading: GameArt(ArtKind.research, palette: palette, size: 28),
+                        leading: GameArt(
+                          ArtKind.research,
+                          palette: palette,
+                          size: 28,
+                        ),
                         title: Text(switch (mechanic) {
                           MechanicTutorial.walls => 'Walls',
                           MechanicTutorial.ice => 'Ice',

@@ -64,7 +64,8 @@ AppModel _model(PathwiseTheme theme) => AppModel(
 Future<void> _snap(WidgetTester tester, GlobalKey key, String name) async {
   final dir = _captureDir;
   if (dir == null) return;
-  final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final boundary =
+      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   await tester.runAsync(() async {
     final image = await boundary.toImage();
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -232,8 +233,9 @@ void main() {
         '${dir.path}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
       );
       if (icons.existsSync()) {
-        final loader = FontLoader('MaterialIcons')
-          ..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
+        final loader = FontLoader(
+          'MaterialIcons',
+        )..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
         await loader.load();
         break;
       }

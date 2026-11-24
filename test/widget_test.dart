@@ -315,6 +315,12 @@ void main() {
     testWidgets(
       'progression and crate UI stay usable at ${screen.width}dp and ${scale}× text',
       (tester) async {
+        final reportError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          debugPrint('OVERFLOW-FULL: ${details.toStringDeep()}');
+          reportError?.call(details);
+        };
+        addTearDown(() => FlutterError.onError = reportError);
         await tester.binding.setSurfaceSize(screen);
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -486,7 +492,9 @@ void main() {
       final adButton = find.byKey(const ValueKey('hint-watch'));
       expect(tester.widget<ActionPill>(adButton).onTap, isNull);
       expect(find.text('Unavailable'), findsOneWidget);
-      final buy = tester.widget<PricePill>(find.byKey(const ValueKey('hint-buy')));
+      final buy = tester.widget<PricePill>(
+        find.byKey(const ValueKey('hint-buy')),
+      );
       expect(buy.price, 60);
       expect(buy.affordable, isFalse);
       expect(model.hintsRemaining, 0);
