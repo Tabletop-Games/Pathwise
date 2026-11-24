@@ -21,6 +21,9 @@ final class BoardPalette {
   final Color route, onRoute, accent, onAccent;
   final bool dark;
 
+  /// Semantic feedback colour, shared by every board palette.
+  Color get rejection => const Color(0xffd32f2f);
+
   static const palettes = {
     PathwiseTheme.field: BoardPalette(
       canvas: Color(0xfff1efe2),

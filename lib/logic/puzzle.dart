@@ -1,3 +1,17 @@
+/// The first rule that prevents an attempted extension.
+enum MoveRejection {
+  finished,
+  adjacency,
+  wall,
+  arrow,
+  gate,
+  portal,
+  ice,
+  checkpoint,
+  finish,
+  revisit,
+}
+
 /// Cells are indexed in row-major order. Checkpoint numbers are one-based.
 final class Puzzle {
   Puzzle(
@@ -72,18 +86,45 @@ final class Puzzle {
     int? previous,
     bool Function(int)? hasVisited,
   }) {
-    if (cell == finish || !movesFrom(cell).contains(next)) return false;
-    if (walls.contains((cell, next)) || walls.contains((next, cell)))
-      return false;
-    if (arrow?.$1 == cell && arrow!.$2 != next) return false;
-    if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) return false;
-    if (portal?.$2 == next && portal!.$1 != cell) return false;
+    return rejectionFor(
+          cell,
+          next,
+          length,
+          checkpoint,
+          allowEarlyFinish: allowEarlyFinish,
+          previous: previous,
+          hasVisited: hasVisited,
+        ) ==
+        null;
+  }
+
+  MoveRejection? rejectionFor(
+    int cell,
+    int next,
+    int length,
+    int checkpoint, {
+    bool allowEarlyFinish = false,
+    int? previous,
+    bool Function(int)? hasVisited,
+  }) {
+    if (cell == finish) return MoveRejection.finished;
+    if (!movesFrom(cell).contains(next)) return MoveRejection.adjacency;
+    if (walls.contains((cell, next)) || walls.contains((next, cell))) {
+      return MoveRejection.wall;
+    }
+    if (arrow?.$1 == cell && arrow!.$2 != next) return MoveRejection.arrow;
+    if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) {
+      return MoveRejection.gate;
+    }
+    if (portal?.$2 == next && portal!.$1 != cell) return MoveRejection.portal;
     final forced = forcedNext(previous, cell);
-    if (forced != null && forced != next) return false;
+    if (forced != null && forced != next) return MoveRejection.ice;
     final number = numbers[next];
-    if (number != 0 && number != checkpoint) return false;
-    if (allowEarlyFinish && next == finish) return true;
-    return (next == finish) == (length + 1 == area);
+    if (number != 0 && number != checkpoint) return MoveRejection.checkpoint;
+    if (allowEarlyFinish && next == finish) return null;
+    return (next == finish) == (length + 1 == area)
+        ? null
+        : MoveRejection.finish;
   }
 }
 

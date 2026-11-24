@@ -2,6 +2,13 @@ import 'puzzle.dart';
 
 enum RouteEdit { none, advance, retract }
 
+typedef RejectedMove = ({MoveRejection reason, int from, int target});
+
+abstract interface class RejectionControls {
+  RejectedMove? rejectionFor(int cell);
+  void rejectHaptic();
+}
+
 /// Input and render state shared by scored play and guided practice.
 abstract interface class BoardControls {
   List<int> get path;
@@ -70,6 +77,44 @@ final class GameController {
         previous: length > 1 ? _path[length - 2] : null,
         hasVisited: _path.contains,
       );
+
+  /// Predicts a rejected move without changing the path, including the entire
+  /// forced ice/portal chain. The normal validator remains authoritative.
+  RejectedMove? rejectionFor(int cell) {
+    if (complete || cell < 0 || cell >= puzzle.area) return null;
+    if (length > 1 && cell == _path[length - 2]) return null;
+    final trial = List<int>.of(_path);
+    var next = cell;
+    while (true) {
+      final from = trial.last;
+      if (trial.contains(next)) {
+        final forced = trial.length > _path.length;
+        final reason = forced && puzzle.portal?.$1 == from
+            ? MoveRejection.portal
+            : forced && puzzle.iceTiles.contains(from)
+            ? MoveRejection.ice
+            : MoveRejection.revisit;
+        return (reason: reason, from: from, target: next);
+      }
+      if (next < 0 || next >= puzzle.area) {
+        return (reason: MoveRejection.ice, from: from, target: from);
+      }
+      final reason = puzzle.rejectionFor(
+        from,
+        next,
+        trial.length,
+        1 + trial.where((value) => puzzle.numbers[value] != 0).length,
+        allowEarlyFinish: true,
+        previous: trial.length > 1 ? trial[trial.length - 2] : null,
+        hasVisited: trial.contains,
+      );
+      if (reason != null) return (reason: reason, from: from, target: next);
+      trial.add(next);
+      final forced = puzzle.forcedNext(trial[trial.length - 2], trial.last);
+      if (forced == null) return null;
+      next = forced;
+    }
+  }
 
   RouteEdit step(int cell) {
     if (complete || _beforeStroke == null) return RouteEdit.none;

@@ -55,7 +55,54 @@ class PuzzleBoard extends StatefulWidget {
   State<PuzzleBoard> createState() => _PuzzleBoardState();
 }
 
-class _PuzzleBoardState extends State<PuzzleBoard> {
+class _PuzzleBoardState extends State<PuzzleBoard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rejection = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  RejectedMove? _rejectedMove;
+  int? _attemptFrom;
+  int? _attemptTarget;
+  int? _rejectedCell;
+
+  String? _attemptPath;
+
+  void _showRejection(int cell) {
+    final controls = widget.model;
+    if (controls is! RejectionControls || controls.tip == null) return;
+    final rejectionControls = controls as RejectionControls;
+    final issue = rejectionControls.rejectionFor(cell);
+    if (issue == null ||
+        issue.reason == MoveRejection.adjacency ||
+        cell == _rejectedCell)
+      return;
+    _rejectedCell = cell;
+    _rejectedMove = issue;
+    _attemptFrom = controls.tip;
+    _attemptTarget = cell;
+    _attemptPath = controls.path.join(',');
+    rejectionControls.rejectHaptic();
+    _rejection.forward(from: 0);
+  }
+
+  void _attempt(int cell) {
+    final controls = widget.model;
+    final from = controls.tip;
+    _showRejection(cell);
+    controls.step(cell);
+    if (controls.tip != from) _clearRejection();
+  }
+
+  void _clearRejection() {
+    _rejection.stop();
+    _rejection.value = 0;
+    _rejectedMove = null;
+    _rejectedCell = null;
+    _attemptPath = null;
+  }
+
   final _pointerPosition = ValueNotifier<Offset?>(null);
   int? _pointer;
   Offset? _previous;
@@ -76,8 +123,14 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
     if (_pointer != null) return;
     final position = event.localPosition / side;
     final cell = _cell(position);
-    if (cell == null || !widget.model.begin(cell)) return;
+    if (cell == null) return;
+    _rejectedCell = null;
+    if (!widget.model.begin(cell)) {
+      _showRejection(cell);
+      return;
+    }
     _pointer = event.pointer;
+    _rejectedCell = null;
     _previous = position;
     _pointerPosition.value = position;
   }
@@ -115,9 +168,10 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
           ty += yStep;
         }
         if (x < 0 || y < 0 || x >= _size || y >= _size) break;
-        if (prior == widget.model.tip) widget.model.step(y * _size + x);
+        if (prior == widget.model.tip) _attempt(y * _size + x);
       }
     }
+    if (_cell(target) != _rejectedCell) _rejectedCell = null;
     _previous = target;
     _pointerPosition.value = target;
   }
@@ -133,7 +187,19 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
   @override
   void dispose() {
     _pointerPosition.dispose();
+    _rejection.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant PuzzleBoard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.puzzle != widget.puzzle ||
+        widget.model.complete ||
+        (_rejectedMove != null &&
+            widget.model.path.join(',') != _attemptPath)) {
+      _clearRejection();
+    }
   }
 
   @override
@@ -163,6 +229,7 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
               fit: StackFit.expand,
               children: [
                 RepaintBoundary(
+                  key: const ValueKey('board-layer'),
                   child: CustomPaint(
                     painter: _BoardPainter(
                       puzzle: widget.puzzle,
@@ -171,6 +238,9 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
                       hint: model.hintCell,
                       next: model.nextCheckpoint,
                       complete: model.complete,
+                      rejection: _rejection,
+                      rejectedMove: () => _rejectedMove,
+                      reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
                 ),
@@ -188,6 +258,20 @@ class _PuzzleBoardState extends State<PuzzleBoard> {
                       ),
                     ),
                   ),
+                RepaintBoundary(
+                  key: const ValueKey('rejection-layer'),
+                  child: CustomPaint(
+                    painter: _RejectionPainter(
+                      puzzle: widget.puzzle,
+                      animation: _rejection,
+                      issue: () => _rejectedMove,
+                      attemptFrom: () => _attemptFrom,
+                      attemptTarget: () => _attemptTarget,
+                      routeColor: widget.palette.route,
+                      reducedMotion: MediaQuery.disableAnimationsOf(context),
+                    ),
+                  ),
+                ),
                 for (var cell = 0; cell < widget.puzzle.area; cell++)
                   Positioned(
                     left: (cell % _size) * side,
@@ -295,8 +379,13 @@ void _paintTile(
   List<_Mark> marks, {
   bool visited = false,
   bool checkpoint = false,
+  double rejectionTint = 0,
 }) {
-  final base = visited ? palette.covered : palette.tile;
+  final base = Color.lerp(
+    visited ? palette.covered : palette.tile,
+    palette.rejection,
+    rejectionTint * .48,
+  )!;
   final dark = marks.isNotEmpty && base.computeLuminance() < .25;
   Color hue(_TileMark kind) => switch (kind) {
     _TileMark.key || _TileMark.lockedGate || _TileMark.openGate =>
@@ -593,7 +682,11 @@ class _BoardPainter extends CustomPainter {
     required this.hint,
     required this.next,
     required this.complete,
-  }) : visited = route.toSet();
+    this.rejection,
+    this.rejectedMove,
+    this.reducedMotion = false,
+  }) : visited = route.toSet(),
+       super(repaint: rejection);
 
   final Puzzle puzzle;
   final BoardPalette palette;
@@ -602,6 +695,9 @@ class _BoardPainter extends CustomPainter {
   final int next;
   final Set<int> visited;
   final bool complete;
+  final AnimationController? rejection;
+  final RejectedMove? Function()? rejectedMove;
+  final bool reducedMotion;
 
   Offset _center(int cell) =>
       Offset(cell % puzzle.size + .5, cell ~/ puzzle.size + .5);
@@ -614,11 +710,27 @@ class _BoardPainter extends CustomPainter {
     final fill = Paint();
     final ink = Paint()..color = palette.route;
     final accent = Paint()..color = palette.accent;
+    final move = rejection?.isAnimating == true ? rejectedMove?.call() : null;
+    final progress = rejection?.value ?? 0;
+    final pulse = (1 - progress).clamp(0.0, 1.0);
+    final target = move == null || move.reason == MoveRejection.wall
+        ? null
+        : (move.reason == MoveRejection.arrow ||
+                  move.reason == MoveRejection.ice ||
+                  (move.reason == MoveRejection.portal &&
+                      puzzle.portal?.$1 == move.from)
+              ? move.from
+              : move.target);
+    final shake = reducedMotion
+        ? 0.0
+        : math.sin(progress * math.pi * 6) * (1 - progress) * 4 / side;
     for (var cell = 0; cell < puzzle.area; cell++) {
       final tile = RRect.fromRectAndRadius(
         Rect.fromCenter(center: _center(cell), width: .94, height: .94),
         const Radius.circular(.17),
       );
+      canvas.save();
+      if (cell == target) canvas.translate(shake, 0);
       _paintTile(
         canvas,
         _center(cell),
@@ -626,7 +738,18 @@ class _BoardPainter extends CustomPainter {
         _marksAt(puzzle, cell, visited).toList(),
         visited: visited.contains(cell),
         checkpoint: puzzle.numbers[cell] != 0,
+        rejectionTint: cell == target ? pulse : 0,
       );
+      if (cell == target) {
+        canvas.drawRRect(
+          tile.deflate(.025),
+          Paint()
+            ..color = palette.ink.withValues(alpha: pulse)
+            ..strokeWidth = .045
+            ..style = PaintingStyle.stroke,
+        );
+      }
+      canvas.restore();
       if (!complete && route.last == puzzle.finish && !visited.contains(cell)) {
         canvas.drawRRect(
           tile.deflate(.045),
@@ -646,6 +769,22 @@ class _BoardPainter extends CustomPainter {
         palette,
         continuous: puzzle.walls.length > 1,
       );
+      if (move != null &&
+          move.reason == MoveRejection.wall &&
+          ((move.from == from && move.target == to) ||
+              (move.from == to && move.target == from))) {
+        final a = _center(from), b = _center(to);
+        final delta = b - a, midpoint = (a + b) / 2;
+        final ends = Offset(-delta.dy, delta.dx) * .44;
+        canvas.drawLine(
+          midpoint - ends,
+          midpoint + ends,
+          Paint()
+            ..color = palette.rejection.withValues(alpha: pulse)
+            ..strokeWidth = .095
+            ..strokeCap = StrokeCap.round,
+        );
+      }
     }
 
     final first = _center(route.first);
@@ -679,7 +818,7 @@ class _BoardPainter extends CustomPainter {
     for (final (index, cell) in puzzle.checkpoints.indexed) {
       final number = index + 1;
       final isVisited = visited.contains(cell);
-      final position = _center(cell);
+      final position = _center(cell) + Offset(cell == target ? shake : 0, 0);
       final highlighted = cell == hint || (!complete && cell == route.last);
       final pending = number == next && !highlighted;
       fill.color = highlighted
@@ -731,6 +870,8 @@ class _BoardPainter extends CustomPainter {
       oldDelegate.next != next ||
       oldDelegate.hint != hint ||
       oldDelegate.complete != complete ||
+      oldDelegate.reducedMotion != reducedMotion ||
+      oldDelegate.rejection != rejection ||
       !identical(oldDelegate.route, route);
 }
 
@@ -785,4 +926,71 @@ class _PointerPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.tip != tip ||
       !setEquals(oldDelegate.validCells, validCells);
+}
+
+/// Paints transient feedback above the board without changing hit testing or
+/// the authoritative route. The notifier repaints only this overlay.
+class _RejectionPainter extends CustomPainter {
+  _RejectionPainter({
+    required this.puzzle,
+    required this.animation,
+    required this.issue,
+    required this.attemptFrom,
+    required this.attemptTarget,
+    required this.routeColor,
+    required this.reducedMotion,
+  }) : super(repaint: animation);
+  final Puzzle puzzle;
+  final AnimationController animation;
+  final RejectedMove? Function() issue;
+  final int? Function() attemptFrom, attemptTarget;
+  final Color routeColor;
+  final bool reducedMotion;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final move = issue();
+    final origin = attemptFrom(), destination = attemptTarget();
+    if (move == null ||
+        origin == null ||
+        destination == null ||
+        !animation.isAnimating ||
+        reducedMotion)
+      return;
+    final side = size.width / puzzle.size;
+    Offset center(int cell) => Offset(
+      (cell % puzzle.size + .5) * side,
+      (cell ~/ puzzle.size + .5) * side,
+    );
+    final from = center(origin), to = center(destination);
+    final t = animation.value;
+    final segment = t < .16
+        ? Curves.easeOut.transform(t / .16)
+        : t < .42
+        ? 1 - Curves.easeIn.transform((t - .16) / .26)
+        : 0.0;
+    // Stop the round cap at a wall; leave checkpoint numbers unobscured.
+    final distance = move.reason == MoveRejection.wall && move.from == origin
+        ? .375
+        : puzzle.numbers[destination] != 0
+        ? .72
+        : 1.0;
+    final start = puzzle.numbers[origin] == 0 ? .16 : .275;
+    final end = segment * distance;
+    if (end <= start) return;
+    canvas.drawLine(
+      Offset.lerp(from, to, start)!,
+      Offset.lerp(from, to, end)!,
+      Paint()
+        ..color = routeColor
+        ..strokeWidth = side * .25
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RejectionPainter oldDelegate) =>
+      oldDelegate.puzzle != puzzle ||
+      oldDelegate.routeColor != routeColor ||
+      oldDelegate.reducedMotion != reducedMotion;
 }

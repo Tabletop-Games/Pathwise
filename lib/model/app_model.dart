@@ -23,7 +23,8 @@ typedef PuzzleLoader = Future<VerifiedPuzzle> Function(
   ({int size, int seed, int clues}) request,
 );
 
-class AppModel extends ChangeNotifier implements BoardControls {
+class AppModel extends ChangeNotifier
+    implements BoardControls, RejectionControls {
   AppModel({
     required this.storage,
     required Map<String, dynamic> snapshot,
@@ -1462,6 +1463,13 @@ class AppModel extends ChangeNotifier implements BoardControls {
   }
 
   bool canStep(int cell) => _game?.canStep(cell) ?? false;
+
+  @override
+  RejectedMove? rejectionFor(int cell) =>
+      _inPlay && _foreground && _canPlay ? _game?.rejectionFor(cell) : null;
+
+  @override
+  void rejectHaptic() => haptic.error();
 
   bool begin(int cell) {
     final game = _game;
