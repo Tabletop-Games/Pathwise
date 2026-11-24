@@ -27,7 +27,8 @@ class _LevelsViewState extends State<LevelsView> {
   }
 
   void _go(int page) {
-    if (page < 0 || !_controller.hasClients) return;
+    if (page < 0 || page > pageForLevel(levelCount) || !_controller.hasClients)
+      return;
     if (MediaQuery.disableAnimationsOf(context) || (page - _page).abs() > 3) {
       _controller.jumpToPage(page);
     } else {
@@ -90,7 +91,7 @@ class _LevelsViewState extends State<LevelsView> {
                         child: Semantics(
                           liveRegion: true,
                           child: Text(
-                            'Levels $first–${first + levelsPerPage - 1}',
+                            'Levels $first–${(first + levelsPerPage - 1).clamp(1, levelCount)}',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
@@ -98,7 +99,9 @@ class _LevelsViewState extends State<LevelsView> {
                       ),
                       IconButton(
                         tooltip: 'Next page',
-                        onPressed: () => _go(_page + 1),
+                        onPressed: _page >= pageForLevel(levelCount)
+                            ? null
+                            : () => _go(_page + 1),
                         icon: const Icon(Icons.chevron_right),
                       ),
                     ],
@@ -107,13 +110,15 @@ class _LevelsViewState extends State<LevelsView> {
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
+                    itemCount: pageForLevel(levelCount) + 1,
                     allowImplicitScrolling: true,
                     onPageChanged: (page) => setState(() => _page = page),
                     itemBuilder: (context, page) => Padding(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                       child: LayoutBuilder(
                         builder: (context, constraints) => GridView.builder(
-                          itemCount: levelsPerPage,
+                          itemCount: (levelCount - firstLevelOnPage(page) + 1)
+                              .clamp(0, levelsPerPage),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,

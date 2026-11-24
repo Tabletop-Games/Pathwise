@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
 import '../logic/haptic_service.dart';
+import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
 import 'economy.dart';
@@ -39,6 +40,10 @@ class AppModel extends ChangeNotifier
     _levelOneDemoSeen = snapshot['levelOneDemoSeen'] is bool
         ? snapshot['levelOneDemoSeen'] as bool
         : snapshot.isNotEmpty;
+    _tutorialStatus.addAll(
+      _map(snapshot['mechanicTutorials'])
+          .map((key, value) => MapEntry(key, value.toString())),
+    );
     _freezeSerial = snapshot['freezeSerial'] as int? ?? 0;
     streak = PlayStreak(_map(snapshot['playStreak']));
     _achievements = AchievementLedger(_map(snapshot['nativeAchievements']));
@@ -787,7 +792,35 @@ class AppModel extends ChangeNotifier
     return flush();
   }
 
+  final Map<String, String> _tutorialStatus = {};
+  final List<MechanicTutorial> _pendingTutorials = [];
+  List<MechanicTutorial> get pendingMechanicTutorials =>
+      List.unmodifiable(_pendingTutorials);
+  Set<String> get acknowledgedMechanics => _tutorialStatus.keys.toSet();
+
+  Future<bool> acknowledgeMechanic(
+    MechanicTutorial mechanic, {
+    required bool skipped,
+  }) async {
+    if (!_pendingTutorials.contains(mechanic)) return false;
+    final previous = _tutorialStatus[mechanic.id];
+    _tutorialStatus[mechanic.id] = skipped ? 'skipped' : 'completed';
+    if (!await flush()) {
+      if (previous == null) {
+        _tutorialStatus.remove(mechanic.id);
+      } else {
+        _tutorialStatus[mechanic.id] = previous;
+      }
+      return false;
+    }
+    _pendingTutorials.remove(mechanic);
+    _syncClock();
+    notifyListeners();
+    return true;
+  }
+
   bool get _canPlay {
+    if (_pendingTutorials.isNotEmpty) return false;
     if (activeId?.mode != PlayMode.attack) return true;
     final now = _bootTime();
     return now != null && (attack?.remaining(now) ?? 0) > 0;
@@ -966,9 +999,11 @@ class AppModel extends ChangeNotifier
   int get unassisted =>
       _results.values.where((value) => value.unassisted).length + _retiredClean;
   int get levelsSolved => _levelsSolved;
-  int get highestUnlocked => _highestUnlocked;
+  int get highestUnlocked => _highestUnlocked.clamp(1, levelCount);
   bool canPlayLevel(int level) =>
-      level > 0 && (developerMode || level <= highestUnlocked);
+      level > 0 &&
+      level <= levelCount &&
+      (developerMode || level <= highestUnlocked);
   int get coinBalance => _wallet.balance;
   int get coinsEarned => _wallet.earned;
   int get coinsSpent => _wallet.spent;
@@ -1387,6 +1422,7 @@ class AppModel extends ChangeNotifier
     if (id.mode == PlayMode.levels && !canPlayLevel(id.level)) return;
     if (_inPlay) _leave();
     final request = ++_request;
+    _pendingTutorials.clear();
     activeId = id;
     _inPlay = true;
     _started = false;
@@ -1412,14 +1448,17 @@ class AppModel extends ChangeNotifier
           await (_loader?.call(generation) ??
               _generate(
                 generation,
-                id.mode == PlayMode.levels && !_classicLevels.contains(id.key)
-                    ? id.level
-                    : 0,
-                _legacyMechanicLevels.contains(id.key),
+                id.mode == PlayMode.levels ? id.level : 0,
+                false,
               ));
       if (_disposed || request != _request) return;
       final game = GameController(board);
       _game = game;
+      if (id.mode != PlayMode.attack) {
+        _pendingTutorials.addAll(
+          unseenMechanics(board.puzzle, acknowledgedMechanics),
+        );
+      }
       final stored = _map(replay ? null : _attempts[id.key]);
       final recorded = replay
           ? null
@@ -1601,7 +1640,10 @@ class AppModel extends ChangeNotifier
           _achievements.precision++;
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
-          _highestUnlocked = max(_highestUnlocked, id.level + 1);
+          _highestUnlocked = max(
+            _highestUnlocked,
+            (id.level + 1).clamp(1, levelCount),
+          );
         }
         _wallet.add(
           'clear/${id.key}',
@@ -1790,6 +1832,7 @@ class AppModel extends ChangeNotifier
     final payload = jsonEncode({
       'schemaVersion': GameStateStorage.schemaVersion,
       'levelOneDemoSeen': _levelOneDemoSeen,
+      'mechanicTutorials': _tutorialStatus,
       'nativeAchievements': _achievements.toJson(),
       'priorSolves': _retiredSolved,
       'priorCleanSolves': _retiredClean,

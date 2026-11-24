@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/game_controller.dart';
+import '../lib/logic/mechanic_tutorials.dart';
 import '../lib/logic/puzzle.dart';
 import '../lib/logic/puzzle_generator.dart';
 import '../lib/logic/puzzle_solver.dart';
@@ -39,22 +40,29 @@ void main() {
   });
 
   test('advancement bands generate and play certified routes', () {
-    for (final level in [
-      20,
-      21,
-      40,
-      41,
-      70,
-      71,
-      100,
-      101,
-      150,
-      151,
-      200,
-      201,
-      500,
-      1000,
-    ]) {
+    final examples = <int, Set<MechanicTutorial>>{
+      30: {},
+      31: {MechanicTutorial.walls},
+      70: {MechanicTutorial.walls},
+      71: {MechanicTutorial.ice},
+      100: {MechanicTutorial.ice},
+      101: {MechanicTutorial.walls, MechanicTutorial.ice},
+      121: {MechanicTutorial.gate},
+      151: {MechanicTutorial.walls, MechanicTutorial.gate},
+      181: {MechanicTutorial.ice, MechanicTutorial.gate},
+      201: {MechanicTutorial.portal},
+      231: {MechanicTutorial.walls, MechanicTutorial.portal},
+      261: {MechanicTutorial.ice, MechanicTutorial.portal},
+      301: {MechanicTutorial.walls, MechanicTutorial.gate},
+      302: {MechanicTutorial.ice, MechanicTutorial.portal},
+      306: {
+        MechanicTutorial.walls,
+        MechanicTutorial.ice,
+        MechanicTutorial.gate,
+        MechanicTutorial.portal,
+      },
+    };
+    for (final level in examples.keys) {
       final id = PuzzleId.level(level);
       for (var variant = 0; variant < 8; variant++) {
         final source = id.generation;
@@ -64,11 +72,12 @@ void main() {
           clues: source.clues,
         ), level: level);
         final puzzle = board.puzzle;
-        expect(
-          puzzle.walls.length >= 2,
-          level >= 21 && level <= 40 || level >= 201,
-        );
+        expect(mechanicsOnBoard(puzzle).toSet(), examples[level]);
         expect(puzzle.arrow, isNull);
+        if (puzzle.walls.isNotEmpty)
+          expect(puzzle.walls.length, greaterThanOrEqualTo(2));
+        if (puzzle.iceTiles.isNotEmpty)
+          expect(puzzle.iceTiles.length, greaterThanOrEqualTo(2));
         final specialTiles = [
           if (puzzle.gate case (final key, final gate)) ...[key, gate],
           if (puzzle.portal case (final entry, final exit)) ...[entry, exit],
@@ -76,18 +85,6 @@ void main() {
         ];
         expect(specialTiles.toSet(), hasLength(specialTiles.length));
         expect(specialTiles.any(puzzle.checkpoints.contains), isFalse);
-        expect(
-          puzzle.gate != null,
-          level >= 71 && level <= 100 || level >= 201,
-        );
-        expect(
-          puzzle.portal != null,
-          level >= 101 && level <= 150 || level >= 201,
-        );
-        expect(
-          puzzle.iceTiles.length >= 2,
-          level >= 151 || level >= 41 && level <= 70,
-        );
         expect(
           solve(puzzle).unique,
           isTrue,

@@ -2,7 +2,7 @@
 
 | Mode | Goal |
 | --- | --- |
-| Levels | Solve progressively harder unlimited boards. Revisit cleared levels for a better time. |
+| Levels | Solve progressively harder 1,000 boards. Revisit cleared levels for a better time. |
 | Daily Challenge | Solve three deterministic boards for the local calendar day. Existing single-board saves remain valid. |
 | Time Attack | Solve as many boards as possible in one, three, or five minutes. The timer uses boot-relative elapsed time through backgrounding. Stop and Restart discard the active run; records are separate for each duration. |
 
