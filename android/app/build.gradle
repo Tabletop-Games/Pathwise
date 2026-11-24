@@ -67,6 +67,7 @@ android {
         versionName = flutter.versionName
         resValue "string", "pathwise_games_project", gamesProject
         manifestPlaceholders["pathwiseAdmobAppId"] = testAdmobAppId
+        manifestPlaceholders["pathwiseAppLabel"] = "Pathwise"
     }
 
     if (signingInputs.values().every { it }) {
@@ -87,6 +88,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            manifestPlaceholders["pathwiseAppLabel"] = "Pathwise Debug"
+        }
         release {
             manifestPlaceholders["pathwiseAdmobAppId"] = admobAppId ?: testAdmobAppId
             minifyEnabled = true

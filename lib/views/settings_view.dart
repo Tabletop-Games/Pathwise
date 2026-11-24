@@ -9,11 +9,9 @@ import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
-import '../model/fortune.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import 'components/brand_mark.dart';
-import 'fortune_view.dart';
 import 'level_one_demo.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
@@ -91,43 +89,6 @@ class SettingsView extends StatelessWidget {
                     context,
                     MaterialPageRoute(builder: (_) => const PlayGamesView()),
                   ),
-                ),
-                ListTile(
-                  title: const Text('Reward information'),
-                  onTap: () {
-                    final catalog = loadFortuneCatalog();
-                    showDialog<void>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Reward information'),
-                        content: FutureBuilder<FortuneCatalog>(
-                          future: catalog,
-                          builder: (_, snapshot) {
-                            if (snapshot.hasError) {
-                              return const Text(
-                                'Reward information could not be loaded.',
-                              );
-                            }
-                            final prizes = snapshot.data?.prizes;
-                            if (prizes == null)
-                              return const CircularProgressIndicator();
-                            return SingleChildScrollView(
-                              child: Text(
-                                'Each wheel spin selects a coin reward independently. Chances per spin:\n\n'
-                                '${prizes.map((prize) => '${prize.label} · ${prize.weight}%').join('\n')}',
-                              ),
-                            );
-                          },
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Close'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
                 ),
                 if (defaultTargetPlatform == TargetPlatform.android)
                   const _CheckForUpdates(),

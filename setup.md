@@ -130,4 +130,20 @@ Create the new Play Console app, recreate all eight existing product IDs, config
 
 Review AdMob's current app and ad-unit associations for the new Play app. Create a new AdMob app and corresponding units if required by AdMob's current setup, then use its actual IDs through the existing build flags. The historical IDs are not verified for the new package. Complete UMP consent setup before setting `PATHWISE_ADS_CONSENT_CONFIGURED=true`; validate test ads before enabling production. The new Play Store link may not resolve until the listing is available.
 
-For test ads, run `flutter run -d emulator-5554 --dart-define=PATHWISE_ADS_TEST=true`. Launch with `adb -s emulator-5554 shell am start -n com.shenmareparas.pathwise/.MainActivity` and stop with `adb -s emulator-5554 shell am force-stop com.shenmareparas.pathwise`.
+For release builds, launch with `adb -s emulator-5554 shell am start -n com.shenmareparas.pathwise/.MainActivity` and stop with `adb -s emulator-5554 shell am force-stop com.shenmareparas.pathwise`.
+
+### Side-by-side debug installation
+
+Debug builds use `com.shenmareparas.pathwise.debug` and display **Pathwise Debug**. Release builds retain `com.shenmareparas.pathwise` and **Pathwise**. They have separate application data; neither installation replaces the other. The activity class remains `com.shenmareparas.pathwise.MainActivity`. Debug builds are not the Play production application and should not be used to verify production purchases.
+
+```bash
+cd ~/dev/Pathwise
+export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
+flutter pub get && \
+flutter build apk --debug --dart-define=PATHWISE_ADS_TEST=true && \
+adb -s emulator-5554 install -r build/app/outputs/flutter-apk/app-debug.apk && \
+adb -s emulator-5554 shell am force-stop com.shenmareparas.pathwise.debug && \
+adb -s emulator-5554 shell am start -n com.shenmareparas.pathwise.debug/com.shenmareparas.pathwise.MainActivity
+```
+
+For hot reload: `flutter run -d emulator-5554 --debug --dart-define=PATHWISE_ADS_TEST=true`. Debug ads use test units; production ads and billing retain their existing release configuration.
