@@ -273,10 +273,13 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                 ),
                 if (!model.complete)
                   RepaintBoundary(
+                    key: const ValueKey('pointer-layer'),
                     child: CustomPaint(
                       painter: _PointerPainter(
                         puzzle: widget.puzzle,
                         color: widget.palette.route,
+                        tipColor: widget.palette.accent,
+                        rejection: _rejection,
                         validCells: widget.puzzle.neighbors[path.last]
                             .where(model.canStep)
                             .toSet(),
@@ -295,6 +298,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       attemptFrom: () => _attemptFrom,
                       attemptTarget: () => _attemptTarget,
                       routeColor: widget.palette.route,
+                      tipColor: widget.palette.accent,
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -928,50 +932,89 @@ class _PointerPainter extends CustomPainter {
   _PointerPainter({
     required this.puzzle,
     required this.color,
+    required this.tipColor,
     required this.validCells,
     required this.tip,
     required this.pointer,
-  }) : super(repaint: pointer);
+    required this.rejection,
+  }) : super(repaint: Listenable.merge([pointer, rejection]));
 
   final Puzzle puzzle;
-  final Color color;
+  final Color color, tipColor;
   final Set<int> validCells;
   final int tip;
   final ValueNotifier<Offset?> pointer;
+  final AnimationController rejection;
 
   @override
   void paint(Canvas canvas, Size size) {
     final position = pointer.value;
-    if (position == null) return;
+    if (position == null || rejection.isAnimating) return;
     final center = Offset(tip % puzzle.size + .5, tip ~/ puzzle.size + .5);
     final delta = position - center;
     if (delta.distance > .85) return;
-    final extension = delta.dx.abs() > delta.dy.abs()
-        ? Offset(delta.dx.clamp(-.49, .49), 0)
-        : Offset(0, delta.dy.clamp(-.49, .49));
-    final neighbor =
-        tip +
-        (extension.dx != 0
-            ? extension.dx.sign.toInt()
-            : extension.dy.sign.toInt() * puzzle.size);
-    final radius = puzzle.numbers[tip] == 0 ? .16 : .275;
-    if (!validCells.contains(neighbor) || extension.distance <= radius) return;
-    final start = center + extension * (radius / extension.distance);
+    final sameCell =
+        position.dx.floor() == tip % puzzle.size &&
+        position.dy.floor() == tip ~/ puzzle.size;
+    Offset extension;
+    if (sameCell) {
+      extension = Offset(delta.dx.clamp(-.49, .49), delta.dy.clamp(-.49, .49));
+      bool wallBetween(int neighbor) =>
+          puzzle.neighbors[tip].contains(neighbor) &&
+          (puzzle.walls.contains((tip, neighbor)) ||
+              puzzle.walls.contains((neighbor, tip)));
+      // The marker can approach a wall, but its radius must not cross it.
+      if (extension.dx > 0 && wallBetween(tip + 1)) {
+        extension = Offset(extension.dx.clamp(0.0, .34), extension.dy);
+      } else if (extension.dx < 0 && wallBetween(tip - 1)) {
+        extension = Offset(extension.dx.clamp(-.34, 0.0), extension.dy);
+      }
+      if (extension.dy > 0 && wallBetween(tip + puzzle.size)) {
+        extension = Offset(extension.dx, extension.dy.clamp(0.0, .34));
+      } else if (extension.dy < 0 && wallBetween(tip - puzzle.size)) {
+        extension = Offset(extension.dx, extension.dy.clamp(-.34, 0.0));
+      }
+    } else {
+      extension = delta.dx.abs() > delta.dy.abs()
+          ? Offset(delta.dx.clamp(-.49, .49), 0)
+          : Offset(0, delta.dy.clamp(-.49, .49));
+      final neighbor =
+          tip +
+          (extension.dx != 0
+              ? extension.dx.sign.toInt()
+              : extension.dy.sign.toInt() * puzzle.size);
+      if (!validCells.contains(neighbor)) return;
+    }
+    final checkpoint = puzzle.numbers[tip] != 0;
+    if (checkpoint && extension.distance <= .275) return;
     final side = size.width / puzzle.size;
+    final start = center * side;
+    final end = (center + extension) * side;
+    if (!checkpoint) {
+      // Cover the stationary marker without changing the stored route.
+      canvas.drawCircle(start, .16 * side, Paint()..color = color);
+    }
+    final lineStart = checkpoint
+        ? (center + extension * (.275 / extension.distance)) * side
+        : start;
     canvas.drawLine(
-      start * side,
-      (center + extension) * side,
+      lineStart,
+      end,
       Paint()
-        ..color = color.withValues(alpha: .65)
-        ..strokeWidth = .17 * side
-        ..strokeCap = StrokeCap.butt,
+        ..color = color
+        ..strokeWidth = .25 * side
+        ..strokeCap = StrokeCap.round,
     );
+    canvas.drawCircle(end, .16 * side, Paint()..color = color);
+    canvas.drawCircle(end, .095 * side, Paint()..color = tipColor);
   }
 
   @override
   bool shouldRepaint(_PointerPainter oldDelegate) =>
       oldDelegate.puzzle != puzzle ||
       oldDelegate.color != color ||
+      oldDelegate.tipColor != tipColor ||
+      oldDelegate.rejection != rejection ||
       oldDelegate.tip != tip ||
       !setEquals(oldDelegate.validCells, validCells);
 }
@@ -986,13 +1029,14 @@ class _RejectionPainter extends CustomPainter {
     required this.attemptFrom,
     required this.attemptTarget,
     required this.routeColor,
+    required this.tipColor,
     required this.reducedMotion,
   }) : super(repaint: animation);
   final Puzzle puzzle;
   final AnimationController animation;
   final RejectedMove? Function() issue;
   final int? Function() attemptFrom, attemptTarget;
-  final Color routeColor;
+  final Color routeColor, tipColor;
   final bool reducedMotion;
 
   @override
@@ -1019,26 +1063,33 @@ class _RejectionPainter extends CustomPainter {
         : 0.0;
     // Stop the round cap at a wall; leave checkpoint numbers unobscured.
     final distance = move.reason == MoveRejection.wall && move.from == origin
-        ? .375
+        ? .34
         : puzzle.numbers[destination] != 0
         ? .72
         : 1.0;
-    final start = puzzle.numbers[origin] == 0 ? .16 : .275;
+    final checkpoint = puzzle.numbers[origin] != 0;
     final end = segment * distance;
-    if (end <= start) return;
+    if (checkpoint && end <= .275) return;
+    if (!checkpoint) {
+      canvas.drawCircle(from, side * .16, Paint()..color = routeColor);
+    }
+    final endPoint = Offset.lerp(from, to, end)!;
     canvas.drawLine(
-      Offset.lerp(from, to, start)!,
-      Offset.lerp(from, to, end)!,
+      checkpoint ? Offset.lerp(from, to, .275)! : from,
+      endPoint,
       Paint()
         ..color = routeColor
         ..strokeWidth = side * .25
         ..strokeCap = StrokeCap.round,
     );
+    canvas.drawCircle(endPoint, side * .16, Paint()..color = routeColor);
+    canvas.drawCircle(endPoint, side * .095, Paint()..color = tipColor);
   }
 
   @override
   bool shouldRepaint(_RejectionPainter oldDelegate) =>
       oldDelegate.puzzle != puzzle ||
       oldDelegate.routeColor != routeColor ||
+      oldDelegate.tipColor != tipColor ||
       oldDelegate.reducedMotion != reducedMotion;
 }

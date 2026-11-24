@@ -160,6 +160,19 @@ void main() {
         find.byKey(const ValueKey('puzzle-grid')),
       );
       final gesture = await tester.startGesture(origin + const Offset(50, 50));
+      await gesture.moveTo(origin + const Offset(90, 50));
+      await tester.pump();
+      final pointerLayer = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('pointer-layer')),
+      );
+      await tester.runAsync(() async {
+        final image = await pointerLayer.toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        expect(bytes.getUint8((50 * image.width + 105) * 4 + 3), 0);
+        image.dispose();
+      });
       await gesture.moveTo(origin + const Offset(150, 50));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 75));
@@ -254,5 +267,131 @@ void main() {
     await gesture.up();
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'the tip follows a valid drag within a tile and returns on release',
+    (tester) async {
+      final puzzle = Puzzle(3, [0, 2, 4, 8]);
+      final controls = _Controls(
+        GameController(VerifiedPuzzle(puzzle, [0, 3, 6, 7, 4, 1, 2, 5, 8])),
+      );
+      final palette = BoardPalette.palettes[PathwiseTheme.field]!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox.square(
+                dimension: 300,
+                child: StatefulBuilder(
+                  builder: (context, update) {
+                    controls.changed = () => update(() {});
+                    return PuzzleBoard(
+                      model: controls,
+                      puzzle: puzzle,
+                      palette: palette,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final origin = tester.getTopLeft(
+        find.byKey(const ValueKey('puzzle-grid')),
+      );
+      final drag = await tester.startGesture(origin + const Offset(50, 50));
+      await drag.moveTo(origin + const Offset(50, 150));
+      await tester.pump();
+      expect(controls.path, [0, 3]);
+      await drag.moveTo(origin + const Offset(80, 150));
+      await tester.pump();
+      final layer = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('pointer-layer')),
+      );
+      await tester.runAsync(() async {
+        final image = await layer.toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        int pixel(int x, int y, int channel) =>
+            bytes.getUint8((y * image.width + x) * 4 + channel);
+        expect(pixel(80, 150, 0), closeTo((palette.accent.r * 255).round(), 1));
+        expect(pixel(50, 150, 0), closeTo((palette.route.r * 255).round(), 1));
+        image.dispose();
+      });
+      expect(controls.path, [0, 3]);
+      await drag.up();
+      await tester.pump();
+      await tester.runAsync(() async {
+        final image = await layer.toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        expect(bytes.getUint8((150 * image.width + 80) * 4 + 3), 0);
+        image.dispose();
+      });
+      expect(controls.path, [0, 3]);
+    },
+  );
+
+  testWidgets('rejection moves the tip along the temporary segment', (
+    tester,
+  ) async {
+    final puzzle = Puzzle(3, [0, 2, 4, 8]);
+    final game = GameController(
+      VerifiedPuzzle(puzzle, [0, 3, 6, 7, 4, 1, 2, 5, 8]),
+    );
+    game.begin(0);
+    game.step(3);
+    game.end();
+    final controls = _Controls(game);
+    final palette = BoardPalette.palettes[PathwiseTheme.field]!;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox.square(
+              dimension: 300,
+              child: StatefulBuilder(
+                builder: (context, update) {
+                  controls.changed = () => update(() {});
+                  return PuzzleBoard(
+                    model: controls,
+                    puzzle: puzzle,
+                    palette: palette,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final origin = tester.getTopLeft(find.byKey(const ValueKey('puzzle-grid')));
+    final drag = await tester.startGesture(origin + const Offset(50, 150));
+    await drag.moveTo(origin + const Offset(150, 150));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 75));
+    final layer = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(const ValueKey('rejection-layer')),
+    );
+    await tester.runAsync(() async {
+      final image = await layer.toImage();
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      final tip = (150 * image.width + 122) * 4;
+      final original = (150 * image.width + 50) * 4;
+      expect(bytes.getUint8(tip), closeTo((palette.accent.r * 255).round(), 1));
+      expect(
+        bytes.getUint8(original),
+        closeTo((palette.route.r * 255).round(), 1),
+      );
+      image.dispose();
+    });
+    expect(controls.path, [0, 3]);
+    expect(controls.nextCheckpoint, 2);
+    await drag.up();
   });
 }
