@@ -1,37 +1,34 @@
 # Security
 
-Pathwise is online-first. The backend is the trust boundary for identity, balances, prices, rewards, limits, progression and purchases. The client is treated as untrusted. See [online architecture](online-architecture.md), [backend](backend.md) and [deployment](deployment.md).
+Pathwise has no server. Everything runs on the device, with Google Play Games Services (saved games), Google Play Billing and AdMob as the only remote parties. Read this with [cloud saves](cloud-saves.md), which describes the sync rules, and [connectivity](connectivity.md).
 
-## Identity and sessions
+## What is protected
 
-- The server creates player IDs. The client holds a device refresh token, which is a server-issued random secret stored only as a hash. The token rotates on every use. Reusing a rotated-out token after a 2-minute grace window revokes that device.
-- Sessions are HMAC-signed, expire after 15 minutes, and are bound to the environment and app package. Signing keys live in Secret Manager and can be rotated.
-- The player ID always comes from the verified session. No request parameter or body field can select another player.
-- Account recovery uses a one-time Play Games server code that the server exchanges with Google for the verified player ID. Each Play Games account maps to one player.
-- Sign-out everywhere increments a session epoch, which every transaction checks.
-- Android backup is disabled so refresh tokens are not cloned to other devices.
+- **Secrets never ship in the app.** The repository holds no service-account keys, signing material, OAuth client secrets or receipt tokens. The Play Games project number and the Play licensing public key are public configuration and are read at build time. CI scans tracked files for private-key and token patterns.
+- **Play Billing verification** happens on the device: the purchase signature is checked against the licensing public key, the package name, product and token must match the purchase record, and pending or cancelled purchases are never granted.
+- **Purchase grants are durable and deduplicated.** A grant is keyed by a hash of the purchase token and is recorded before a consumable is consumed. Premium's bonus has a fixed ledger ID.
+- **Permanent entitlements follow Google Play.** On each start the app queries the owned permanent products and sets the entitlements to match, so a refund removes them.
+- **Saved games are private to the player.** Saved Games are scoped to the player's own Google account and the Pathwise game project.
+- **Credentials stay out of backups.** Android backup is disabled (`allowBackup="false"`). The device save is a cache, and Saved Games is the recovery mechanism, so a backup cannot resurrect a stale copy.
+- **Debug and production are isolated.** Debug builds use `.debug` preference keys and a local fake save unless Play Games is explicitly enabled for the debug package. No debug grant or test purchase can reach a production save.
+- **Cloud saves are validated on read.** A save must parse, carry the expected format and version, and match its payload and economy digests. Anything else is treated as damaged and is not written over.
+- **Rewards and purchases are limited on the device.** Daily ad limits, one reward per ad instance, and one grant per purchase token stop accidental over-claiming and repeated grants.
 
-## Economy
+## Accepted limitations
 
-- Commands run in Firestore transactions that read and write the wallet, progress and idempotency ledger together. Concurrent spends cannot overdraw, and a replayed operation ID returns the stored result.
-- Prices, rewards, odds and limits come from `backend/economy-config.mjs`. Client-supplied amounts are ignored.
-- Cooldowns and daily limits use server time. The stored time-zone offset can change once a day, so the device clock and time-zone tricks gain nothing.
-- Completion submissions are replayed against the regenerated board and must be legal, unlocked, started and plausibly timed. The solver ships in the client, so this proves a valid solution, not that a person solved it. Leaderboards should be treated with that in mind.
+These are intentional trade-offs of avoiding a hosted backend. They are not bugs to fix in the client.
 
-## Purchases and ads
+1. **A modified app can change local state**: coins, hints, route, and the save itself. Checksums and digests detect corruption and careless editing. They do not stop someone who recomputes a valid digest. Coins are not tamper-proof, and Pathwise does not claim otherwise.
+2. **The cloud save is not an authoritative ledger.** Two offline devices can each spend the same coins. The conflict prompt makes the player choose one copy when both changed economy, so no coins are created silently, but a determined player can still exploit the window.
+3. **Client-side advertisement rewards are verified on the device.** A modified app can claim a reward. Google's rewarded-ad callbacks reach only the device, so there is no server-side check.
+4. **Consumed coin packs can be lost** if every copy of the save is lost before the cloud accepts the write. Google Play does not keep consumed purchases, so they cannot be rebuilt from Billing.
+5. **Refund reconciliation is limited.** Coin packs cannot be reconciled after consumption. Permanent products are reconciled against Google Play's owned list at each start.
+6. **Device time is not trusted.** Daily limits and cooldowns use the device clock, so changing it can reset a day. Time Attack deadlines use the elapsed-time clock, which does not reset when the wall clock changes.
+7. **Play Integrity is not used.** It requires a backend to decrypt verdicts, and this architecture has none. Adding Google's client-side attestation without server verification would not be meaningful, so it is not included.
+8. **Internet checks are not a security boundary.** The connectivity probe prevents offline play for convenience and ad-avoidance reasons. A modified app can skip it.
 
-- Play purchases are checked with the Play Developer API for state, quantity, product and the obfuscated account ID, which ties each purchase to one player. Grants are keyed by the hashed purchase token, so a token credits once. The purchase is consumed or acknowledged only after the grant commits.
-- Refunds arrive by RTDN, with hourly Voided Purchases polling as a backstop. Each reversal is applied once and can leave a negative balance.
-- An AdMob reward needs a server-issued session ID in SSV custom data, a valid Google signature over the exact callback bytes, the matching ad unit, a fresh timestamp and an unused transaction ID. It is then claimed by its owner inside the same daily limits.
+Pathwise does not detect or circumvent VPNs, DNS filters or privacy tools.
 
-## Infrastructure
+## Reporting
 
-- Firestore rules deny all client access. Only the Cloud Run service account, with `roles/datastore.user`, reads or writes.
-- No service-account key is created. Cloud Run supplies credentials. Secrets are kept in Secret Manager.
-- Push endpoints accept only Google-signed OIDC tokens for the configured audience and account.
-- Request bodies are capped at 1–16 KB. Rate limits apply per address and per player, with durable limits on registration, linking and recovery.
-- Logs omit bearer values, refresh tokens, purchase tokens, OAuth codes and callback query strings.
-
-## Limits
-
-These measures make cheating harder; they do not make Pathwise impossible to hack. A modified client can still solve puzzles automatically within the timing bounds. Play Integrity verification is implemented on the server but not yet wired into the client (see [deployment](deployment.md#10-play-integrity-evaluation)). Pathwise does not detect or block VPNs, DNS filters or privacy tools.
+Report suspected vulnerabilities privately to the maintainers rather than in a public issue.

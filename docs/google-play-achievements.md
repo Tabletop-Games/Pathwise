@@ -2,7 +2,7 @@
 
 ## Baseline audit
 
-Build 7 used the Android Play Games Services v2 SDK, optional sign-in, native achievement and leaderboard intents, and optional server account linking. It mapped 16 local coin achievements to standard unlock calls on explicit request. Build 7 had no native incremental progress, hidden catalog, persisted offline synchronization, account-specific confirmation, or readback of Google's achievement state. Native leaderboards were available for viewing when configured. There was no verified score submission or ranking.
+Build 7 used the Android Play Games Services v2 SDK, optional sign-in, native achievement and leaderboard intents, and Saved Games cloud progress. It mapped 16 local coin achievements to standard unlock calls on explicit request. Build 7 had no native incremental progress, hidden catalog, persisted offline synchronization, account-specific confirmation, or readback of Google's achievement state. Native leaderboards were available for viewing when configured. There was no verified score submission or ranking.
 
 ## Publisher configuration
 

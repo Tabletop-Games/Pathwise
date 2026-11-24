@@ -29,6 +29,7 @@ public class MainActivity extends FlutterActivity {
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         super.configureFlutterEngine(engine);
+        CloudSaveChannel.register(engine, this);
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
                 "games.tabletop.pathwise/commerce").setMethodCallHandler((call, result) -> {
             if (!call.method.equals("verifyPlayPurchase")) {
@@ -69,17 +70,6 @@ public class MainActivity extends FlutterActivity {
                     case "signIn":
                         auth.signIn().addOnCompleteListener(task -> result.success(
                                 task.isSuccessful() && task.getResult().isAuthenticated()));
-                        break;
-                    case "serverAuthCode":
-                        // One-time code the backend exchanges for the verified player id.
-                        String webClient = call.argument("clientId");
-                        if (webClient == null || webClient.isEmpty()) {
-                            result.success(null);
-                            break;
-                        }
-                        auth.requestServerSideAccess(webClient, false)
-                                .addOnCompleteListener(task -> result.success(
-                                        task.isSuccessful() ? task.getResult() : null));
                         break;
                     case "achievements":
                         PlayGames.getAchievementsClient(this).getAchievementsIntent()

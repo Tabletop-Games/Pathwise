@@ -52,4 +52,3 @@ app.*.map.json
 .widget_preview/
 
 # Verification service dependencies
-/backend/node_modules/

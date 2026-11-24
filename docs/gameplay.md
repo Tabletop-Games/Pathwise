@@ -17,9 +17,9 @@
 - Start or resume a stroke at the route tip. Drag along the route in reverse to retract one step at a time. Press an earlier route cell to truncate there. A tap on a legal neighbor also works.
 - A finished drag or tap is one Undo action. Undo restores the route as it stood before that action, including any retracted section. Clear empties the route back to checkpoint 1 and keeps the attempt clock running. Clear itself can be undone.
 - Hint uses the unique verified solution. It preserves the correct prefix, retracts any divergent tail, and highlights a progressively longer segment. Repeated presses while the same highlight is visible reuse the hint. The [hint tank](hints.md) controls authorization. Undo can recover an automatically retracted tail. The highlight is a Pathwise design choice based on the documented reveal behavior.
-- Completion requires coverage and correct final checkpoint in the same accepted move. The timer counts active play from the first move or hint, pauses off the board or in the background, and freezes at completion. Pathwise shows a distinct completion animation and submits the route, time and hint usage to the server, which validates them against the regenerated board.
+- Completion requires coverage and correct final checkpoint in the same accepted move. The timer counts active play from the first move or hint, pauses off the board or in the background, and freezes at completion. Pathwise shows a distinct completion animation and saves time and hint usage to the device and the cloud save.
 - Puzzles are original. The generator finds a full route, derives checkpoints and passes them to an independent bounded exhaustive solver. Only a completed uniqueness proof is accepted. A search timeout does not establish uniqueness.
-- Daily puzzles use a deterministic seed for the device's local calendar day. All modes need an online session. Gameplay itself runs on the device, and connectivity loss pauses the board without losing the route. See [game modes](game-modes.md) and [online architecture](online-architecture.md).
+- Daily puzzles use a deterministic seed for the device's local calendar day. All modes need an internet connection. Connection loss pauses the board without losing the route. See [game modes](game-modes.md) and [connectivity](connectivity.md).
 
 
 ## Advanced Levels

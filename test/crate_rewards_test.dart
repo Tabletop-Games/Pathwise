@@ -23,7 +23,6 @@ class CrateAds extends AdService {
     bool Function()? canPresent,
     RewardPlacement placement = RewardPlacement.coins,
     bool waitForReward = false,
-    String? sessionKind,
   }) async {
     expect(placement, RewardPlacement.crate);
     expect(waitForReward, true);

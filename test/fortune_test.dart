@@ -34,7 +34,7 @@ FortuneStatus status(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final catalog = FortuneCatalog(
-    File('backend/fortune-prizes.json').readAsStringSync(),
+    File('assets/data/fortune-prizes.json').readAsStringSync(),
   );
 
   test('published weights describe every deterministic roll exactly', () {

@@ -96,7 +96,7 @@ final coinThemes =
       ..sort((a, b) => economy.themePrice(a).compareTo(economy.themePrice(b)));
 final startingOwned = PathwiseTheme.values.length - coinThemes.length;
 final catalog = FortuneCatalog(
-  File('backend/fortune-prizes.json').readAsStringSync(),
+  File('assets/data/fortune-prizes.json').readAsStringSync(),
 );
 
 typedef Snapshot = ({

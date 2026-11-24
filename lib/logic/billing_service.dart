@@ -9,7 +9,6 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../model/product_catalog.dart';
-import '../online/online_service.dart';
 export '../model/product_catalog.dart';
 
 typedef VerifiedGrant = ({String id, String product});
@@ -45,14 +44,30 @@ Future<BillingOutcome> processPurchase({
 }
 
 class BillingService extends ChangeNotifier {
-  BillingService({required this.persist, this.gateway});
+  BillingService({
+    required this.persist,
+    this.canPurchase,
+    this.readyForConsumable,
+    this.beforeConsume,
+    this.onOwnedProducts,
+  });
 
   final Future<bool> Function(VerifiedGrant) persist;
 
-  /// When present, Google Play purchases are verified and credited by the
-  /// server, which also acknowledges or consumes them. Without it (unit tests)
-  /// the legacy on-device signature check applies.
-  final OnlineGateway? gateway;
+  /// Every purchase needs an internet connection.
+  final bool Function()? canPurchase;
+
+  /// Real-money coin packs need a recoverable account and a successful cloud
+  /// save. Returns false to block the purchase before the store opens.
+  final Future<bool> Function()? readyForConsumable;
+
+  /// Called after the grant is saved and before a coin pack is consumed. It
+  /// attempts a cloud sync. Failure must not block consumption, because the
+  /// grant is already durable on the device and the sync retries later.
+  final Future<void> Function()? beforeConsume;
+
+  /// Receives the permanent products Google Play reports as owned.
+  final void Function(Set<String> owned)? onOwnedProducts;
   static const _commerce = MethodChannel('games.tabletop.pathwise/commerce');
   static const _playKey = String.fromEnvironment(
     'PATHWISE_PLAY_BILLING_PUBLIC_KEY',
@@ -69,16 +84,13 @@ class BillingService extends ChangeNotifier {
 
   bool get enabled =>
       const bool.fromEnvironment('PATHWISE_BILLING_ENABLED') &&
-      (gateway != null
-          // Server verification covers Google Play. App Store receipts have no
-          // server verifier yet, so iOS purchases stay off.
-          ? _android
-          : ((_android && _playKey.isNotEmpty) ||
-                defaultTargetPlatform == TargetPlatform.iOS));
+      ((_android && _playKey.isNotEmpty) ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   bool get buying => _buying;
 
   Future<void> start() async {
     if (!enabled || _subscription != null || _disposed) return;
+    unawaited(reconcileEntitlements());
     final store = InAppPurchase.instance;
     _subscription = store.purchaseStream.listen(
       _receive,
@@ -96,6 +108,29 @@ class BillingService extends ChangeNotifier {
           'Purchase recovery is temporarily unavailable. You can retry from the store.',
         );
       }
+    }
+  }
+
+  /// Reconciles permanent entitlements against Google Play ownership. A refund
+  /// removes an entitlement here even when the cloud save still shows it.
+  Future<void> reconcileEntitlements() async {
+    final report = onOwnedProducts;
+    if (!enabled || !_android || _disposed || report == null) return;
+    try {
+      final addition = InAppPurchase.instance
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final response = await addition.queryPastPurchases();
+      if (response.error != null) return;
+      final owned = <String>{
+        for (final purchase in response.pastPurchases)
+          if ((purchase.status == PurchaseStatus.purchased ||
+                  purchase.status == PurchaseStatus.restored) &&
+              !consumable(purchase.productID))
+            purchase.productID,
+      };
+      report(owned);
+    } catch (_) {
+      // Keep the current entitlements when Play cannot answer.
     }
   }
 
@@ -125,20 +160,23 @@ class BillingService extends ChangeNotifier {
 
   Future<void> buy(ProductDetails product) async {
     if (!enabled || buying || !products.contains(product)) return;
-    final account = gateway?.billingAccount;
-    if (gateway != null && (account == null || !gateway!.canPlay)) {
+    if (canPurchase != null && !canPurchase!()) {
       _report('Connect to the internet to buy.');
       return;
+    }
+    if (consumable(product.id) && readyForConsumable != null) {
+      final ready = await readyForConsumable!();
+      if (!ready) {
+        _report(
+          'Sign in to Google Play Games and sync your progress before buying coins. Your purchases are then protected.',
+        );
+        return;
+      }
     }
     _buying = true;
     _report('Opening $_storeName…');
     try {
-      // The obfuscated account id binds the purchase to this player. The
-      // server refuses a purchase made for anyone else.
-      final param = PurchaseParam(
-        productDetails: product,
-        applicationUserName: account,
-      );
+      final param = PurchaseParam(productDetails: product);
       final store = InAppPurchase.instance;
       final sent = !consumable(product.id)
           ? await store.buyNonConsumable(purchaseParam: param)
@@ -187,6 +225,11 @@ class BillingService extends ChangeNotifier {
       finalize: () async {
         final store = InAppPurchase.instance;
         if (_android && consumable(purchase.productID)) {
+          try {
+            await beforeConsume?.call();
+          } catch (_) {
+            // Sync is retried later. The local grant is already saved.
+          }
           final result = await store
               .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
               .consumePurchase(purchase);
@@ -217,8 +260,6 @@ class BillingService extends ChangeNotifier {
   Future<VerifiedGrant?> _verify(PurchaseDetails purchase, String token) async {
     if (_disposed || token.isEmpty) return null;
     final product = purchase.productID;
-    final server = gateway;
-    if (server != null) return _verifyOnServer(server, purchase, token);
     const package = 'com.shenmareparas.pathwise';
     final bool? valid;
     if (_android && purchase is GooglePlayPurchaseDetails) {
@@ -256,34 +297,6 @@ class BillingService extends ChangeNotifier {
       id: sha256.convert(utf8.encode(identity)).toString(),
       product: product,
     );
-  }
-
-  Future<VerifiedGrant?> _verifyOnServer(
-    OnlineGateway server,
-    PurchaseDetails purchase,
-    String token,
-  ) async {
-    final product = purchase.productID;
-    if (!_android || purchase is! GooglePlayPurchaseDetails) return null;
-    final data = purchase.billingClientPurchase;
-    if (data.purchaseState != PurchaseStateWrapper.purchased ||
-        data.purchaseToken != token ||
-        data.products.length != 1 ||
-        data.products.single != product) {
-      return null;
-    }
-    final response = await server.verifyPurchase(product, token);
-    if (response.ok && response.body['id'] is String) {
-      return (id: response.body['id'] as String, product: product);
-    }
-    // Network trouble, rate limits and "still pending" are retried later; a
-    // definite refusal is final.
-    if (response.retryable ||
-        response.error == 'payment_pending' ||
-        response.status == 401) {
-      throw StateError('Purchase verification will be retried');
-    }
-    return null;
   }
 
   void _report(String? value) {
