@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../ui/game_ui.dart';
 import 'components/brand_mark.dart';
 
 /// Player-facing wording. No technical detail.
@@ -129,7 +130,7 @@ class ConnectionPane extends StatelessWidget {
                   Text(
                     copy.message,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: palette.muted, fontSize: 16),
+                    style: TextStyle(color: palette.mutedInk, fontSize: 16),
                   ),
                   const SizedBox(height: 28),
                   if (checking)
@@ -141,9 +142,10 @@ class ConnectionPane extends StatelessWidget {
                       ),
                     ),
                   if (copy.retry)
-                    FilledButton(
-                      onPressed: () => onRetry(),
-                      child: const Text('Retry'),
+                    ActionPill(
+                      label: 'Retry',
+                      tone: ActionTone.primary,
+                      onTap: () => onRetry(),
                     ),
                 ],
               ),

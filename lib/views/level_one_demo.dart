@@ -9,6 +9,8 @@ import '../logic/puzzle_generator.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'components/puzzle_board.dart';
 import 'mechanic_tutorial_view.dart';
 
@@ -109,7 +111,7 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                 Text(
                   complete
                       ? 'You covered every tile and reached the last checkpoint.'
-                      : 'Visit the numbers in order and cover every tile. You can drag back to undo a move.',
+                      : 'Visit the numbers in order and cover every tile. Drag back to undo.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -129,17 +131,21 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                     .watch<AppModel>()
                     .acknowledgedMechanics
                     .isNotEmpty) ...[
-                  const Divider(),
                   Text(
                     'Practice mechanics',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
                   ),
+                  const SizedBox(height: 6),
                   for (final mechanic in MechanicTutorial.values)
                     if (context.read<AppModel>().acknowledgedMechanics.contains(
                       mechanic.id,
                     ))
                       ListTile(
-                        leading: const Icon(Icons.extension_outlined),
+                        leading: GameArt(ArtKind.research, palette: palette, size: 28),
                         title: Text(switch (mechanic) {
                           MechanicTutorial.walls => 'Walls',
                           MechanicTutorial.ice => 'Ice',
@@ -160,13 +166,14 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                           ),
                         ),
                       ),
-                  const Divider(),
+                  const SizedBox(height: 12),
                 ],
                 if (complete)
                   Center(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Done'),
+                    child: ActionPill(
+                      label: 'Done',
+                      tone: ActionTone.primary,
+                      onTap: () => Navigator.of(context).pop(),
                     ),
                   )
                 else ...[
@@ -180,12 +187,12 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                     ),
                   ),
                   Center(
-                    child: TextButton.icon(
-                      onPressed: started
+                    child: ActionPill(
+                      label: 'Restart demo',
+                      icon: Icons.restart_alt_rounded,
+                      onTap: started
                           ? () => setState(() => _game = GameController(_board))
                           : null,
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      label: const Text('Restart demo'),
                     ),
                   ),
                 ],

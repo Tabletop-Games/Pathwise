@@ -11,6 +11,7 @@ import '../../logic/tip_tracker.dart';
 import '../../model/app_themes.dart';
 import '../../model/game_state.dart';
 import '../../model/path_tips.dart';
+import '../../ui/game_ui.dart';
 import 'tip_art.dart';
 
 /// Facing direction is derived only from accepted orthogonal moves. Portal
@@ -728,40 +729,61 @@ class BoardRulesButton extends StatelessWidget {
     ];
     if (rules.isEmpty) return const SizedBox.shrink();
     return TextButton.icon(
-      onPressed: () => showDialog<void>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: const Text('Board rules'),
-          scrollable: true,
-          content: Column(
+      onPressed: () => showGameDialog<void>(
+        context,
+        builder: (dialog) => GameDialog(
+          title: 'Board rules',
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (title, description, marks) in rules)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: (marks.isEmpty ? 2 : marks.length) * 36,
-                        height: 36,
-                        child: CustomPaint(
-                          key: ValueKey('rule-sample-$title'),
-                          painter: _RuleSample(palette, marks),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GameCard(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: (marks.isEmpty ? 2 : marks.length) * 36,
+                          height: 36,
+                          child: CustomPaint(
+                            key: ValueKey('rule-sample-$title'),
+                            painter: _RuleSample(palette, marks),
+                          ),
                         ),
-                      ),
-                      Text(title, style: Theme.of(dialog).textTheme.titleSmall),
-                      Text(description),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                description,
+                                style: TextStyle(
+                                  color: palette.mutedInk,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog),
-              child: const Text('Done'),
+            ActionPill(
+              label: 'Done',
+              tone: ActionTone.primary,
+              onTap: () => Navigator.pop(dialog),
             ),
           ],
         ),

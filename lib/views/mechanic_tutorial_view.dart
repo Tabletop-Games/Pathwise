@@ -8,6 +8,7 @@ import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../ui/game_ui.dart';
 import 'components/puzzle_board.dart';
 
 /// An isolated practice session: its controller never writes a player attempt.
@@ -157,10 +158,11 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
       appBar: AppBar(
         title: const Text('New mechanic'),
         actions: [
-          TextButton(
-            onPressed: busy ? null : () => done(true),
-            child: const Text('Skip tutorial'),
+          ActionPill(
+            label: 'Skip tutorial',
+            onTap: busy ? null : () => done(true),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -173,13 +175,27 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  'NEW MECHANIC',
-                  style: Theme.of(context).textTheme.labelMedium,
+                GameCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        explanation,
+                        style: TextStyle(color: palette.mutedInk),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 8),
-                Text(explanation),
                 const SizedBox(height: 16),
                 Center(
                   child: SizedBox.square(
@@ -198,17 +214,29 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                   child: Text(
                     success ? 'Well done!' : instruction,
                     textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: success ? palette.route : palette.ink,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-                Center(
-                  child: TextButton(
-                    onPressed: () => setState(reset),
-                    child: const Text('Restart demo'),
-                  ),
-                ),
-                FilledButton(
-                  onPressed: success && !busy ? () => done(false) : null,
-                  child: const Text('Continue'),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ActionPill(
+                      label: 'Restart demo',
+                      icon: Icons.restart_alt_rounded,
+                      onTap: () => setState(reset),
+                    ),
+                    const SizedBox(width: 8),
+                    ActionPill(
+                      label: 'Continue',
+                      tone: ActionTone.primary,
+                      onTap: success && !busy ? () => done(false) : null,
+                    ),
+                  ],
                 ),
               ],
             );

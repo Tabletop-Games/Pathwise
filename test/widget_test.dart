@@ -481,12 +481,12 @@ void main() {
       await tester.tap(find.text('Hint · 0 left'));
       await tester.pumpAndSettle();
       expect(find.text('Get a hint'), findsOneWidget);
-      final adButton = find.widgetWithText(
-        FilledButton,
-        'Watch ad · unavailable',
-      );
-      expect(tester.widget<FilledButton>(adButton).onPressed, isNull);
-      expect(find.text('Get coins · 60 short'), findsOneWidget);
+      final adButton = find.byKey(const ValueKey('hint-watch'));
+      expect(tester.widget<ActionPill>(adButton).onTap, isNull);
+      expect(find.text('Unavailable'), findsOneWidget);
+      final buy = tester.widget<PricePill>(find.byKey(const ValueKey('hint-buy')));
+      expect(buy.price, 60);
+      expect(buy.affordable, isFalse);
       expect(model.hintsRemaining, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();

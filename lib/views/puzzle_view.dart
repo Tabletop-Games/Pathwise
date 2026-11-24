@@ -358,21 +358,21 @@ class _CompletionBurst extends CustomPainter {
 Future<void> _confirmPuzzleRestart(BuildContext context, AppModel model) async {
   final id = model.activeId;
   if (id == null) return;
-  final accepted = await showDialog<bool>(
-    context: context,
-    builder: (dialog) => AlertDialog(
-      title: const Text('Restart puzzle?'),
-      content: const Text(
-        'This clears your route. Your hint balance stays the same.',
-      ),
+  final accepted = await showGameDialog<bool>(
+    context,
+    builder: (dialog) => GameDialog(
+      art: GameArt(ArtKind.levels, palette: dialog.palette, size: 56),
+      title: 'Restart puzzle?',
+      body: 'This clears your route. Your hint balance stays the same.',
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialog, false),
-          child: const Text('Keep playing'),
+        ActionPill(
+          label: 'Keep playing',
+          onTap: () => Navigator.pop(dialog, false),
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialog, true),
-          child: const Text('Restart'),
+        ActionPill(
+          label: 'Restart',
+          tone: ActionTone.primary,
+          onTap: () => Navigator.pop(dialog, true),
         ),
       ],
     ),
@@ -387,19 +387,21 @@ Future<void> _confirmAttackAction(
   AppModel model,
   bool restart,
 ) async {
-  final accepted = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(restart ? 'Restart Time Attack?' : 'Stop Time Attack?'),
-      content: const Text('This run’s score and rewards will be discarded.'),
+  final accepted = await showGameDialog<bool>(
+    context,
+    builder: (dialog) => GameDialog(
+      art: GameArt(ArtKind.timer, palette: dialog.palette, size: 56),
+      title: restart ? 'Restart Time Attack?' : 'Stop Time Attack?',
+      body: 'This run’s score and rewards will be discarded.',
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Keep playing'),
+        ActionPill(
+          label: 'Keep playing',
+          onTap: () => Navigator.pop(dialog, false),
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: Text(restart ? 'Restart' : 'Stop'),
+        ActionPill(
+          label: restart ? 'Restart' : 'Stop',
+          tone: ActionTone.primary,
+          onTap: () => Navigator.pop(dialog, true),
         ),
       ],
     ),
@@ -566,86 +568,130 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
   final shortfall = economy.hintPrice - model.coinBalance;
   var busy = false;
   var unavailable = false;
-  final action = await showDialog<String>(
-    context: context,
+  final action = await showGameDialog<String>(
+    context,
     builder: (dialog) => StatefulBuilder(
       builder: (dialog, refresh) {
         bool current() =>
             dialog.mounted && ModalRoute.isCurrentOf(dialog) == true;
         final canEarn = model.canEarnHintAd;
-        return AlertDialog(
-          title: const Text('Get a hint'),
-          scrollable: true,
-          content: Column(
+        final p = dialog.palette;
+        final watchLabel = !ads.enabled
+            ? 'Unavailable'
+            : !canEarn
+            ? 'Daily limit'
+            : busy
+            ? 'Preparing…'
+            : unavailable
+            ? 'Retry'
+            : 'Watch';
+        Widget option(Widget art, Widget action) => GameCard(
+          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+          child: Row(
+            children: [
+              art,
+              const Spacer(),
+              action,
+            ],
+          ),
+        );
+        Widget plusOne(ArtKind kind) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GameArt(kind, palette: p, size: 36),
+            const SizedBox(width: 8),
+            Semantics(
+              label: 'One hint',
+              excludeSemantics: true,
+              child: Text(
+                '+1',
+                style: TextStyle(
+                  color: p.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            GameArt(ArtKind.hint, palette: p, size: 26),
+          ],
+        );
+        return GameDialog(
+          art: GameArt(ArtKind.hint, palette: p, size: 64),
+          title: 'Get a hint',
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              FilledButton.icon(
-                onPressed: !ads.enabled || !canEarn || busy
-                    ? null
-                    : () async {
-                        refresh(() {
-                          busy = true;
-                          unavailable = false;
-                        });
-                        if (!ads.readyFor(RewardPlacement.hint) &&
-                            await ads.isOnline() &&
-                            current()) {
-                          await ads.prepare(canPresent: current);
-                        }
-                        if (!current()) return;
-                        final shown = await ads.watchVideo(
-                          model.grantHintAd,
-                          placement: RewardPlacement.hint,
-                          canPresent: () => current() && model.canEarnHintAd,
-                          waitForReward: true,
-                        );
-                        if (!current()) return;
-                        if (shown) {
-                          Navigator.pop(dialog);
-                        } else {
+              option(
+                plusOne(ArtKind.video),
+                ActionPill(
+                  key: const ValueKey('hint-watch'),
+                  label: watchLabel,
+                  tone: ActionTone.primary,
+                  semanticLabel: 'Watch a video for one hint. $watchLabel',
+                  onTap: !ads.enabled || !canEarn || busy
+                      ? null
+                      : () async {
                           refresh(() {
-                            busy = false;
-                            unavailable = true;
+                            busy = true;
+                            unavailable = false;
                           });
-                        }
-                      },
-                icon: const Icon(Icons.play_circle_outline),
-                label: Text(
-                  !ads.enabled
-                      ? 'Watch ad · unavailable'
-                      : !canEarn
-                      ? 'Watch ad · daily limit'
-                      : busy
-                      ? 'Preparing ad…'
-                      : unavailable
-                      ? 'Retry ad · +1 hint'
-                      : 'Watch ad · +1 hint',
+                          if (!ads.readyFor(RewardPlacement.hint) &&
+                              await ads.isOnline() &&
+                              current()) {
+                            await ads.prepare(canPresent: current);
+                          }
+                          if (!current()) return;
+                          final shown = await ads.watchVideo(
+                            model.grantHintAd,
+                            placement: RewardPlacement.hint,
+                            canPresent: () => current() && model.canEarnHintAd,
+                            waitForReward: true,
+                          );
+                          if (!current()) return;
+                          if (shown) {
+                            Navigator.pop(dialog);
+                          } else {
+                            refresh(() {
+                              busy = false;
+                              unavailable = true;
+                            });
+                          }
+                        },
                 ),
               ),
-              if (unavailable) const Text('Ad unavailable. Try again shortly.'),
+              if (unavailable)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Ad unavailable. Try again shortly.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: p.mutedInk, fontSize: 13),
+                  ),
+                ),
               const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: busy
-                    ? null
-                    : () => Navigator.pop(
-                        dialog,
-                        shortfall > 0 ? 'insufficient' : 'coins',
-                      ),
-                icon: const Icon(Icons.toll_rounded),
-                label: Text(
-                  shortfall > 0
-                      ? 'Get coins · $shortfall short'
-                      : '${economy.hintPrice} coins · +1 hint',
+              option(
+                plusOne(ArtKind.coin),
+                PricePill(
+                  key: const ValueKey('hint-buy'),
+                  price: economy.hintPrice,
+                  affordable: shortfall <= 0,
+                  semanticLabel: shortfall > 0
+                      ? 'Buy a hint for ${economy.hintPrice} coins. $shortfall more coins needed'
+                      : 'Buy a hint for ${economy.hintPrice} coins',
+                  onTap: busy
+                      ? null
+                      : () => Navigator.pop(
+                          dialog,
+                          shortfall > 0 ? 'insufficient' : 'coins',
+                        ),
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog),
-              child: const Text('Close'),
-            ),
+            ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
           ],
         );
       },
@@ -804,94 +850,163 @@ class _AttackResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final run = model.attack!;
+    final p = BoardPalette.palettes[model.theme]!;
+    Widget stat(ArtKind art, String value, String label) => Semantics(
+      label: '$label, $value',
+      excludeSemantics: true,
+      child: GameCard(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            GameArt(art, palette: p, size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: p.ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
-          child: Material(
-            borderRadius: BorderRadius.circular(22),
-            clipBehavior: Clip.antiAlias,
+          child: GameCard(
+            padding: EdgeInsets.zero,
             child: ListView(
               padding: const EdgeInsets.all(16),
               shrinkWrap: true,
               children: [
-                Icon(
-                  Icons.timer_off_outlined,
-                  size: 58,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                Center(child: GameArt(ArtKind.timer, palette: p, size: 64)),
+                const SizedBox(height: 6),
                 Text(
                   'Time’s up',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineLarge,
+                  style: TextStyle(
+                    color: p.ink,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                if (run.record)
-                  const Center(child: Chip(label: Text('New personal best'))),
-                if (model.recentStreakDay case final day?)
-                  Center(
-                    child: Chip(
-                      avatar: const Icon(Icons.local_fire_department_rounded),
-                      label: Text('$day-day streak'),
+                const SizedBox(height: 10),
+                Semantics(
+                  label: 'Score ${run.score}',
+                  excludeSemantics: true,
+                  child: Text(
+                    '${run.score}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: p.ink,
+                      fontSize: 52,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
                     ),
                   ),
-                ListTile(
-                  title: const Text('Puzzles completed'),
-                  trailing: Text('${run.clears.length}'),
                 ),
-                ListTile(
-                  title: const Text('Score'),
-                  trailing: Text('${run.score}'),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    if (run.record)
+                      InfoChip(
+                        icon: GameArt(ArtKind.trophy, palette: p, size: 16),
+                        label: 'New personal best',
+                      ),
+                    if (model.recentStreakDay case final day?)
+                      InfoChip(
+                        icon: GameArt(ArtKind.flame, palette: p, size: 16),
+                        label: '$day-day streak',
+                      ),
+                  ],
                 ),
-                ListTile(
-                  title: const Text('Average puzzle'),
-                  trailing: Text(
-                    formatTime(Duration(milliseconds: run.average)),
-                  ),
-                ),
-                ListTile(
-                  title: const Text('Fastest puzzle'),
-                  trailing: Text(
-                    formatTime(Duration(milliseconds: run.fastest)),
-                  ),
-                ),
-                ListTile(
-                  title: const Text('Previous best'),
-                  trailing: Text('${run.previousBest}'),
-                ),
-                ListTile(
-                  title: const Text('Coins earned'),
-                  trailing: Text('${run.coins}'),
+                const SizedBox(height: 14),
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final width = (box.maxWidth - 8) / 2;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tile in [
+                          stat(
+                            ArtKind.check,
+                            '${run.clears.length}',
+                            'Puzzles completed',
+                          ),
+                          stat(
+                            ArtKind.coin,
+                            '+${run.coins}',
+                            'Coins earned',
+                          ),
+                          stat(
+                            ArtKind.timer,
+                            formatTime(Duration(milliseconds: run.average)),
+                            'Average puzzle',
+                          ),
+                          stat(
+                            ArtKind.bolt,
+                            formatTime(Duration(milliseconds: run.fastest)),
+                            'Fastest puzzle',
+                          ),
+                          stat(
+                            ArtKind.trophy,
+                            '${run.previousBest}',
+                            'Previous best',
+                          ),
+                        ])
+                          SizedBox(width: width, child: tile),
+                      ],
+                    );
+                  },
                 ),
                 AchievementCelebration(model),
                 if (run.canRank && PlayGames.enabled)
                   if (PlayGames.timeAttackBoard(run.minutes) case final board?)
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final signedIn =
-                            await PlayGames.call<bool>('status') == true ||
-                            await PlayGames.call<bool>('signIn') == true;
-                        final posted =
-                            signedIn &&
-                            await PlayGames.call<bool>('submitScore', {
-                                  'id': board,
-                                  'score': '${run.score}',
-                                }) ==
-                                true;
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                posted
-                                    ? 'Score submitted.'
-                                    : 'Score submission unavailable.',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.leaderboard_outlined),
-                      label: const Text('Submit to Play Games'),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Center(
+                        child: ActionPill(
+                          label: 'Submit to Play Games',
+                          icon: Icons.leaderboard_outlined,
+                          onTap: () async {
+                            final signedIn =
+                                await PlayGames.call<bool>('status') == true ||
+                                await PlayGames.call<bool>('signIn') == true;
+                            final posted =
+                                signedIn &&
+                                await PlayGames.call<bool>('submitScore', {
+                                      'id': board,
+                                      'score': '${run.score}',
+                                    }) ==
+                                    true;
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    posted
+                                        ? 'Score submitted.'
+                                        : 'Score submission unavailable.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
                     ),
                 ShareResultButton(
                   result: ShareResult.attack(
@@ -902,13 +1017,19 @@ class _AttackResults extends StatelessWidget {
                   label: 'Share Your Score',
                   prominent: run.record,
                 ),
-                FilledButton(
-                  onPressed: model.openAttack,
-                  child: const Text('Replay'),
+                const SizedBox(height: 8),
+                Center(
+                  child: ActionPill(
+                    label: 'Replay',
+                    tone: ActionTone.primary,
+                    onTap: model.openAttack,
+                  ),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Return to home'),
+                Center(
+                  child: ActionPill(
+                    label: 'Return to home',
+                    onTap: () => Navigator.pop(context),
+                  ),
                 ),
               ],
             ),
