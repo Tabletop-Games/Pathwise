@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 abstract final class ShareLinks {
   static const playStore =
-      'https://play.google.com/store/apps/details?id=games.tabletop.pathwise';
+      'https://play.google.com/store/apps/details?id=com.shenmareparas.pathwise';
 }
 
 enum ShareDestination {
