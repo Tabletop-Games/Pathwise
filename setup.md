@@ -5,7 +5,7 @@ Application ID `com.shenmareparas.pathwise`. Public version `1.0.0`, repository 
 ## 1. Before building
 
 - [ ] Install Flutter 3.50.1 / Dart 3.14, Node.js 22+, JDK 21, Android SDK platform 36 and build tools 36, and NDK 28.2.13676358. Gradle wrapper 9.5 and AGP 9.3.1 are pinned. Accept SDK licenses using `flutter doctor --android-licenses`. Download `bundletool-all-1.18.3.jar` from the [official release](https://github.com/google/bundletool/releases/tag/1.18.3) and save it as `/secure/bundletool.jar` for the commands below.
-- [ ] Copy `config/production.example.json` to a private external directory. Keep flags false for the first offline build. Android project IDs are public configuration, while the upload keystore and passwords belong outside the repository.
+- [ ] Copy `config/production.example.json` to a private external directory. Keep flags false for the first build. Every build needs `PATHWISE_API_BASE` pointing at a deployed backend of the matching environment ([deployment](docs/deployment.md)); without it the app shows its connection screen. Android project IDs are public configuration, while the upload keystore and passwords belong outside the repository.
 - [ ] In Play Console → All apps → Create app, choose Pathwise, the default language, Game, and the intended access model. Uploading the first matching bundle associates `com.shenmareparas.pathwise`. Enable Play App Signing from Test and release → Setup → App integrity. Preserve the production app ID and the upload key.
 - [ ] Generate an independent upload key. Back it up with its password in separate protected storage.
 
@@ -36,7 +36,7 @@ Expected package is `com.shenmareparas.pathwise`. Compare the APK certificate us
 
 - [ ] Test and release → Testing → Internal testing → Create new release. Accept the signing prompt, upload the signed AAB, add notes, review, and roll out the **internal** release.
 - [ ] Internal testing → Testers → create an email list or add a Google Group. Open the opt-in URL while signed in with the tester account, then install from Play. Settings → License testing → add accounts that will exercise billing; installation-track and license-test access are separate.
-- [ ] Verify fresh install, local save restart, airplane-mode gameplay, Time Attack process restart, level replays, and route and milestone recovery after force-stop, crate collection, hint spending and acquisition, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
+- [ ] Verify fresh install, the connection screen in airplane mode, connection loss and resumption mid-puzzle, restore on a second device after linking Play Games, Time Attack process restart, level replays, and route and milestone recovery after force-stop, crate collection, hint spending and acquisition, Premium UI, edge-to-edge, large fonts, and theme contrast on a minified build. Review the merged-manifest permissions. If the account is subject to a closed-testing production-access requirement, complete the Play Console checklist shown for that account.
 
 ## 3. Before enabling purchases
 

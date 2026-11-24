@@ -6,6 +6,7 @@
 - Persist a completion, its rewards, and any advancement in a single versioned snapshot. Use stable event identities for rewards, spends, and payment fulfillment. Keep save versioning and atomic reward mutations explicit. Internal prerelease paid-hint credits are intentionally discarded.
 - Keep theme and reward prices in `lib/model/economy.dart`. Validate new palette text contrast and test both locked and owned states.
 - Run `dart format .`, `flutter analyze`, `flutter test`, and `npm --prefix backend test`. Run the Android release checks from [the release guide](../docs/release.md). Verify merged manifests, bundle validity, R8 mapping output, and resource shrinker output.
+- Route every economy mutation through a backend command with an idempotent operation ID. Server state replaces the client cache; do not add local-only grants.
 - Keep monetization flags off by default. Use the Play internal track and AdMob test units before enabling live services. Never put a Play service account key, signing key, or receipt token in this repository.
 - Preserve R8 optimization. Add a keep rule only for a diagnosed reflection problem, scope it to the required class/member, then test the minified artifact.
 
