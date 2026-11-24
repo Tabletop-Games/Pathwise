@@ -38,33 +38,39 @@ void main() async {
   final theme = prefs is Map<String, dynamic>
       ? UserPreferences.fromJson(prefs).theme
       : PathwiseTheme.field;
-  runApp(
-    PathwiseStartup(
-      theme: theme,
-      clock: clock,
-      initialize: () async {
-        await clock.sync();
-        try {
-          if (snapshot == null) throw StateError('Save could not be loaded');
-          final model = AppModel(
-            storage: storage,
-            snapshot: snapshot,
-            bootTime: clock.read,
-            debugTools: kDebugMode,
-          );
-          if (snapshot.isNotEmpty &&
-              snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
-            await model.flush();
-          }
-          return model;
-        } catch (_) {
-          storage.protect();
-          return AppModel(storage: storage, snapshot: {}, bootTime: clock.read)
-            ..storageError = true;
-        }
-      },
-    ),
-  );
+  Future<AppModel> initialize() async {
+    await clock.sync();
+    try {
+      if (snapshot == null) throw StateError('Save could not be loaded');
+      final model = AppModel(
+        storage: storage,
+        snapshot: snapshot,
+        bootTime: clock.read,
+        debugTools: kDebugMode,
+      );
+      if (snapshot.isNotEmpty &&
+          snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
+        await model.flush();
+      }
+      return model;
+    } catch (_) {
+      storage.protect();
+      return AppModel(storage: storage, snapshot: {}, bootTime: clock.read)
+        ..storageError = true;
+    }
+  }
+
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final model = await initialize();
+    runApp(
+      ChangeNotifierProvider(
+        create: (_) => model,
+        child: PathwiseApp(clock: clock, offerLevelOneDemo: true),
+      ),
+    );
+  } else {
+    runApp(PathwiseStartup(theme: theme, clock: clock, initialize: initialize));
+  }
 }
 
 class PathwiseStartup extends StatefulWidget {

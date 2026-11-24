@@ -11,5 +11,5 @@
 
 - Keep Time Attack deadlines tied to Android elapsed time and boot identity. Persist the hint wallet separately from per-attempt usage, and never deliver an ad-funded reward from a dismissal, error, or load callback.
 
-- Startup uses an Android native launch icon followed by the saved-theme Flutter splash. Verify both stages and the fade when changing startup resources.
+- Android startup holds the native launch screen until the saved-theme home screen can render. Verify the native launch and transition when changing startup resources.
 - Android updates are checked on demand from Settings using in_app_update_flutter and Google Play. Keep update prompts out of active gameplay and handle unavailable Play services.

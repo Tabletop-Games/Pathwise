@@ -1,0 +1,11 @@
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/pathwise_splash</item>
+        <item name="android:windowSplashScreenBackground">@color/pathwise_splash</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/pathwise_route_launcher</item>
+        <item name="android:statusBarColor">@color/pathwise_splash</item>
+        <item name="android:navigationBarColor">@color/pathwise_splash</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
