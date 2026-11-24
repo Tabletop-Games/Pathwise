@@ -7,6 +7,7 @@ import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
 import '../lib/views/components/brand_mark.dart';
+import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/fortune_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
@@ -545,10 +546,26 @@ void main() {
       expect(find.text('Equipped'), findsOneWidget);
       expect(find.text('Restore purchases'), findsNothing);
       expect(find.textContaining('Optional video'), findsNothing);
+      final board = find.byType(LevelOneBoardPreview);
+      final vaultScroll = tester.state<ScrollableState>(
+        find.byType(Scrollable),
+      );
+      final originalPalette = tester
+          .widget<LevelOneBoardPreview>(board)
+          .palette;
+      final size = tester.getSize(board);
+      expect(size.width, size.height);
+      expect(size.width, lessThanOrEqualTo(160));
       final forest = find.text('Forest Mint');
       await tester.ensureVisible(forest);
       await tester.tap(forest);
       await tester.pumpAndSettle();
+      vaultScroll.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<LevelOneBoardPreview>(board).palette,
+        isNot(same(originalPalette)),
+      );
       expect(tester.takeException(), isNull);
       expect(model.theme.label, 'Field');
       expect(model.coinBalance, 50);

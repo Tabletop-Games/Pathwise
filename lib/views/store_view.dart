@@ -8,6 +8,7 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/user_preferences.dart';
+import 'components/puzzle_board.dart';
 import 'share_view.dart';
 
 class StoreView extends StatefulWidget {
@@ -283,7 +284,6 @@ class _ThemePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const route = [0, 1, 5, 6, 10, 11];
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.surface,
@@ -300,36 +300,12 @@ class _ThemePreview extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
-            for (var row = 0; row < 3; row++)
-              Row(
-                children: [
-                  for (var col = 0; col < 4; col++)
-                    Expanded(
-                      child: Container(
-                        height: 30,
-                        alignment: Alignment.center,
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(7),
-                          color: route.contains(row * 4 + col)
-                              ? palette.route
-                              : palette.tile,
-                        ),
-                        child: switch (row * 4 + col) {
-                          0 => Text(
-                            '1',
-                            style: TextStyle(color: palette.onRoute),
-                          ),
-                          11 => Text(
-                            '2',
-                            style: TextStyle(color: palette.onRoute),
-                          ),
-                          _ => null,
-                        },
-                      ),
-                    ),
-                ],
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 160),
+                child: LevelOneBoardPreview(palette: palette),
               ),
+            ),
           ],
         ),
       ),
