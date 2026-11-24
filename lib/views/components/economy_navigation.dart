@@ -11,6 +11,7 @@ Future<void> showInsufficientCoins(
   required String itemName,
   required int requiredCoins,
   required int currentBalance,
+  VoidCallback? onBeforeStore,
 }) async {
   final shortfall = (requiredCoins - currentBalance).clamp(0, requiredCoins);
   final billing = context.read<BillingService>();
@@ -46,6 +47,7 @@ Future<void> showInsufficientCoins(
     ),
   );
   if (!context.mounted || action == null) return;
+  onBeforeStore?.call();
   final section = action == 'packs'
       ? StoreSection.coinPacks
       : StoreSection.earnCoins;

@@ -19,20 +19,40 @@ class LevelOneBoardPreview extends StatelessWidget {
     level: 1,
   );
 
+  /// One stable prefix of the actual Level 1 solution, shared by all themes.
+  static VerifiedPuzzle get board => _board;
+  static final List<int> previewRoute = () {
+    final solution = _board.solution;
+    final middle = (solution.length / 2).round();
+    final candidates = [middle, middle - 1, middle + 1];
+    final count = candidates.firstWhere(
+      (length) =>
+          length > 1 &&
+          length < solution.length &&
+          _board.puzzle.numbers[solution[length - 1]] == 0,
+      orElse: () => middle,
+    );
+    return List<int>.unmodifiable(solution.take(count));
+  }();
+
   @override
   Widget build(BuildContext context) => Semantics(
     image: true,
-    label: 'Solved Level 1 board',
+    label: 'Partially solved Level 1 board',
     child: AspectRatio(
       aspectRatio: 1,
       child: CustomPaint(
         painter: _BoardPainter(
           puzzle: _board.puzzle,
           palette: palette,
-          route: _board.solution,
+          route: previewRoute,
           hint: null,
-          next: _board.puzzle.checkpoints.length + 1,
-          complete: true,
+          next:
+              1 +
+              previewRoute
+                  .where((cell) => _board.puzzle.numbers[cell] != 0)
+                  .length,
+          complete: false,
         ),
       ),
     ),
