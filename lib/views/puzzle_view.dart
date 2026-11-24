@@ -191,26 +191,29 @@ class PuzzleView extends StatelessWidget {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _ControlButton(
-                                  icon: Icons.undo_rounded,
-                                  label: 'Undo',
-                                  onPressed: model.canUndo ? model.undo : null,
-                                ),
-                                const SizedBox(width: 8),
-                                _ControlButton(
-                                  icon: Icons.restart_alt_rounded,
-                                  label: 'Clear',
-                                  onPressed: model.canClear
-                                      ? model.clear
-                                      : null,
-                                ),
-                                const SizedBox(width: 8),
-                                _HintAction(model: model),
-                              ],
-                            )),
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _ControlButton(
+                                    icon: Icons.undo_rounded,
+                                    label: 'Undo',
+                                    onPressed: model.canUndo
+                                        ? model.undo
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _ControlButton(
+                                    icon: Icons.restart_alt_rounded,
+                                    label: 'Clear',
+                                    onPressed: model.canClear
+                                        ? model.clear
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _HintAction(model: model),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: side,

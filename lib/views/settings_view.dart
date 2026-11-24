@@ -8,6 +8,7 @@ import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import '../ui/game_art.dart';
@@ -147,12 +148,8 @@ class StatisticsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
-    Widget tile(ArtKind art, String label, String value) => _StatTile(
-      art: art,
-      label: label,
-      value: value,
-      palette: palette,
-    );
+    Widget tile(ArtKind art, String label, String value) =>
+        _StatTile(art: art, label: label, value: value, palette: palette);
     Widget grid(List<Widget> tiles) => LayoutBuilder(
       builder: (context, box) {
         final width = (box.maxWidth - 8) / 2;
@@ -202,7 +199,11 @@ class StatisticsView extends StatelessWidget {
                     'Total gameplay time',
                     formatTime(model.playTime),
                   ),
-                  tile(ArtKind.coinStack2, 'Coins earned', '${model.coinsEarned}'),
+                  tile(
+                    ArtKind.coinStack2,
+                    'Coins earned',
+                    '${model.coinsEarned}',
+                  ),
                   tile(ArtKind.coin, 'Coins spent', '${model.coinsSpent}'),
                   tile(
                     ArtKind.brush,
@@ -244,7 +245,11 @@ class StatisticsView extends StatelessWidget {
                   ),
                 const SizedBox(height: 10),
                 grid([
-                  tile(ArtKind.timer, 'Time Attack best score', '${model.attackBest}'),
+                  tile(
+                    ArtKind.timer,
+                    'Time Attack best score',
+                    '${model.attackBest}',
+                  ),
                   tile(
                     ArtKind.levels,
                     'Most puzzles in one run',

@@ -200,8 +200,7 @@ class _FortuneViewState extends State<FortuneView> {
                           child: AspectRatio(
                             aspectRatio: 1,
                             child: Semantics(
-                              label:
-                                  'Coin wheel. Rewards 8, 15, 25, 40, 70, and 100 coins.',
+                              label: 'Coin wheel. Rewards 8, 15, 25, 40, 70, and 100 coins.',
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [

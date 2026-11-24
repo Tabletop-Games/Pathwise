@@ -280,8 +280,7 @@ class _ConflictDialog extends StatelessWidget {
     final saved = DateTime.fromMillisecondsSinceEpoch(choice.cloud.savedAt);
     return GameDialog(
       title: 'Choose your progress',
-      body:
-          'Coins and purchases from two devices can’t be combined safely. The other copy is kept as a backup on this device.',
+      body: 'Coins and purchases from two devices can’t be combined safely. The other copy is kept as a backup on this device.',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

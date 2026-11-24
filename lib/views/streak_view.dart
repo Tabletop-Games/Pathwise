@@ -97,9 +97,10 @@ class StreakView extends StatelessWidget {
                               for (var index = 6; index >= 0; index--)
                                 _Day(
                                   day: today.subtract(Duration(days: index)),
-                                  status: streak.days[dayKey(
-                                    today.subtract(Duration(days: index)),
-                                  )],
+                                  status:
+                                      streak.days[dayKey(
+                                        today.subtract(Duration(days: index)),
+                                      )],
                                   palette: palette,
                                   today: index == 0,
                                 ),
@@ -287,7 +288,11 @@ class _Day extends StatelessWidget {
             const SizedBox(height: 6),
             switch (status) {
               'played' => GameArt(ArtKind.check, palette: palette, size: 26),
-              'protected' => GameArt(ArtKind.freeze, palette: palette, size: 26),
+              'protected' => GameArt(
+                ArtKind.freeze,
+                palette: palette,
+                size: 26,
+              ),
               _ => Container(
                 width: 26,
                 height: 26,

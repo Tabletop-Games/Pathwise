@@ -162,7 +162,11 @@ class _ProgressionViewState extends State<ProgressionView> {
                             padding: const EdgeInsets.symmetric(vertical: 48),
                             child: Column(
                               children: [
-                                GameArt(ArtKind.bolt, palette: palette, size: 72),
+                                GameArt(
+                                  ArtKind.bolt,
+                                  palette: palette,
+                                  size: 72,
+                                ),
                                 const SizedBox(height: 12),
                                 Text(
                                   'No boosts yet',
