@@ -14,6 +14,10 @@ class HapticService {
     if (enabled) HapticFeedback.lightImpact();
   }
 
+  void error() {
+    if (enabled) HapticFeedback.heavyImpact();
+  }
+
   void complete() {
     if (enabled) HapticFeedback.mediumImpact();
   }
