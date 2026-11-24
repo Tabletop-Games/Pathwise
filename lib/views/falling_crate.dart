@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/progression.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 
 class FallingCrate extends StatefulWidget {
   const FallingCrate({required this.crate, super.key});
@@ -48,8 +50,8 @@ class _FallingCrateState extends State<FallingCrate>
     _flight.stop();
     setState(() => _caught = true);
     try {
-      await showDialog<void>(
-        context: context,
+      await showGameDialog<void>(
+        context,
         builder: (_) => _CrateReward(crate: crate),
       );
     } finally {
@@ -66,7 +68,6 @@ class _FallingCrateState extends State<FallingCrate>
   @override
   Widget build(BuildContext context) {
     if (_caught) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
     final reduce = MediaQuery.disableAnimationsOf(context);
     return LayoutBuilder(
       builder: (_, constraints) => ClipRect(
@@ -94,22 +95,14 @@ class _FallingCrateState extends State<FallingCrate>
               ],
             );
           },
-          child: Material(
-            color: colors.tertiaryContainer,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-              side: BorderSide(color: colors.outline),
-            ),
-            child: IconButton(
-              tooltip: 'Catch supply crate',
-              onPressed: _catchCrate,
-              icon: const Icon(Icons.inventory_2_rounded),
-              color: colors.onTertiaryContainer,
-              iconSize: 27,
-              constraints: const BoxConstraints.tightFor(
-                width: _size,
-                height: _size,
-              ),
+          child: IconButton(
+            tooltip: 'Catch supply crate',
+            onPressed: _catchCrate,
+            padding: EdgeInsets.zero,
+            icon: GameArt(ArtKind.crate, palette: context.palette, size: _size),
+            constraints: const BoxConstraints.tightFor(
+              width: _size,
+              height: _size,
             ),
           ),
         ),
@@ -173,34 +166,39 @@ class _CrateRewardState extends State<_CrateReward> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: AlertDialog(
-      scrollable: true,
-      icon: const Icon(Icons.inventory_2_rounded),
-      title: const Text('Supply crate'),
-      content: Column(
+    child: GameDialog(
+      art: GameArt(ArtKind.crate, palette: context.palette, size: 84),
+      title: 'Supply crate',
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '+${widget.crate.coins} coins',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 8),
-          const Text('Watch a short ad to claim your reward.'),
+          Center(child: RewardAmount(widget.crate.coins, size: 40)),
           if (_error case final message?)
-            Semantics(liveRegion: true, child: Text(message)),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.palette.mutedInk),
+                ),
+              ),
+            ),
         ],
       ),
       actions: [
         if (kDebugMode && widget.crate.id.startsWith('crate/debug/')) ...[
-          TextButton(
-            onPressed: _busy
+          ActionPill(
+            label: 'Simulate failure',
+            onTap: _busy
                 ? null
                 : () =>
                       setState(() => _error = 'Video unavailable. Try again.'),
-            child: const Text('Simulate failure'),
           ),
-          TextButton(
-            onPressed: _busy
+          ActionPill(
+            label: 'Simulate reward',
+            onTap: _busy
                 ? null
                 : () async {
                     final model = context.read<AppModel>();
@@ -212,16 +210,17 @@ class _CrateRewardState extends State<_CrateReward> {
                       Navigator.of(this.context).pop();
                     }
                   },
-            child: const Text('Simulate reward'),
           ),
         ],
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('No Thanks'),
+        ActionPill(
+          label: 'Not now',
+          onTap: _busy ? null : () => Navigator.of(context).pop(),
         ),
-        FilledButton(
-          onPressed: _busy ? null : _claim,
-          child: Text(_busy ? 'Checking video…' : 'Watch Ad & Claim'),
+        ActionPill(
+          label: _busy ? 'Working…' : 'Watch',
+          icon: _busy ? null : Icons.play_arrow_rounded,
+          tone: ActionTone.primary,
+          onTap: _busy ? null : _claim,
         ),
       ],
     ),

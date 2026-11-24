@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../cloud/cloud_save_format.dart';
 import '../cloud/cloud_sync_service.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 
 String _when(DateTime? time) {
   if (time == null) return 'Not synced yet';
@@ -40,71 +42,83 @@ class CloudSaveSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cloud = context.watch<CloudSyncService?>();
     if (cloud == null) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
     final busy = cloud.status == CloudSyncStatus.syncing;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Divider(),
-        ListTile(
-          key: const ValueKey('cloud-save-status'),
-          leading: const Icon(Icons.cloud_outlined),
-          title: const Text('Cloud save'),
-          subtitle: Text(
-            '${_statusLine(cloud)}\n${_when(cloud.lastSynced)}',
-            style: TextStyle(color: scheme.onSurfaceVariant),
-          ),
-          isThreeLine: true,
+    final p = context.palette;
+    final tiles = <Widget>[
+      ListTile(
+        key: const ValueKey('cloud-save-status'),
+        leading: Icon(Icons.cloud_outlined, color: p.route),
+        title: const Text('Cloud save'),
+        subtitle: Text(
+          '${_statusLine(cloud)}\n${_when(cloud.lastSynced)}',
+          style: TextStyle(color: p.mutedInk),
         ),
-        if (cloud.status != CloudSyncStatus.unsupported && !cloud.signedIn)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FilledButton(
-              onPressed: busy ? null : cloud.signIn,
-              child: const Text('Sign in to save progress'),
+        isThreeLine: true,
+      ),
+      if (cloud.status != CloudSyncStatus.unsupported && !cloud.signedIn)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ActionPill(
+              label: 'Sign in to save progress',
+              tone: ActionTone.primary,
+              onTap: busy ? null : cloud.signIn,
             ),
           ),
-        if (cloud.signedIn) ...[
-          ListTile(
-            key: const ValueKey('cloud-sync-now'),
-            leading: const Icon(Icons.sync),
-            title: const Text('Sync now'),
-            enabled: !busy,
-            onTap: busy ? null : () => cloud.syncNow(),
+        ),
+      if (cloud.signedIn) ...[
+        ListTile(
+          key: const ValueKey('cloud-sync-now'),
+          leading: const Icon(Icons.sync),
+          title: const Text('Sync now'),
+          enabled: !busy,
+          onTap: busy ? null : () => cloud.syncNow(),
+        ),
+        ListTile(
+          key: const ValueKey('cloud-restore'),
+          leading: const Icon(Icons.cloud_download_outlined),
+          title: const Text('Restore progress from cloud'),
+          subtitle: const Text(
+            'Replaces this device’s progress. A backup is kept on this device.',
           ),
-          ListTile(
-            key: const ValueKey('cloud-restore'),
-            leading: const Icon(Icons.cloud_download_outlined),
-            title: const Text('Restore progress from cloud'),
-            subtitle: const Text(
-              'Replaces this device’s progress. A backup is kept on this device.',
-            ),
-            enabled: !busy,
-            onTap: busy ? null : () => _confirmRestore(context, cloud),
+          enabled: !busy,
+          onTap: busy ? null : () => _confirmRestore(context, cloud),
+        ),
+        ListTile(
+          key: const ValueKey('cloud-sign-out'),
+          leading: const Icon(Icons.cloud_off_outlined),
+          title: const Text('Stop cloud sync on this device'),
+          subtitle: const Text(
+            'Your progress stays on this device. Signing in again resumes syncing. Change the Google account in the device’s settings.',
           ),
-          ListTile(
-            key: const ValueKey('cloud-sign-out'),
-            leading: const Icon(Icons.cloud_off_outlined),
-            title: const Text('Stop cloud sync on this device'),
-            subtitle: const Text(
-              'Your progress stays on this device. Signing in again resumes syncing. Change the Google account in the device’s settings.',
-            ),
-            enabled: !busy,
-            onTap: busy ? null : () => cloud.signOut(),
-          ),
-        ],
-        if (cloud.hasBackup)
-          ListTile(
-            key: const ValueKey('cloud-restore-backup'),
-            leading: const Icon(Icons.history),
-            title: const Text('Restore the previous device save'),
-            subtitle: const Text(
-              'Use the copy this device kept before its last replacement.',
-            ),
-            onTap: busy ? null : () => _confirmBackup(context, cloud),
-          ),
-        const Divider(),
+          enabled: !busy,
+          onTap: busy ? null : () => cloud.signOut(),
+        ),
       ],
+      if (cloud.hasBackup)
+        ListTile(
+          key: const ValueKey('cloud-restore-backup'),
+          leading: const Icon(Icons.history),
+          title: const Text('Restore the previous device save'),
+          subtitle: const Text(
+            'Use the copy this device kept before its last replacement.',
+          ),
+          onTap: busy ? null : () => _confirmBackup(context, cloud),
+        ),
+    ];
+    return GameCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0 && tiles[i] is ListTile)
+              Divider(height: 1, color: p.cardEdge),
+            tiles[i],
+          ],
+        ],
+      ),
     );
   }
 
@@ -141,19 +155,17 @@ Future<bool> _ask(
   required String body,
   required String action,
 }) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (dialog) => AlertDialog(
-      title: Text(title),
-      content: Text(body),
+  final result = await showGameDialog<bool>(
+    context,
+    builder: (dialog) => GameDialog(
+      title: title,
+      body: body,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialog, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialog, true),
-          child: Text(action),
+        ActionPill(label: 'Cancel', onTap: () => Navigator.pop(dialog, false)),
+        ActionPill(
+          label: action,
+          tone: ActionTone.primary,
+          onTap: () => Navigator.pop(dialog, true),
         ),
       ],
     ),
@@ -225,56 +237,78 @@ class _ConflictDialog extends StatelessWidget {
 
   final CloudSyncService cloud;
 
-  String _line(SaveSummary summary) =>
-      '${summary.coins} coins · ${summary.hints} hints · '
-      '${summary.levelsSolved} levels solved · '
-      'up to level ${summary.highestLevel}';
+  Widget _summary(BuildContext context, String title, SaveSummary summary) {
+    final p = context.palette;
+    return GameCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              InfoChip(
+                icon: GameArt(ArtKind.coin, palette: p, size: 16),
+                label: '${summary.coins}',
+              ),
+              InfoChip(
+                icon: GameArt(ArtKind.hint, palette: p, size: 16),
+                label: '${summary.hints}',
+              ),
+              InfoChip(
+                icon: GameArt(ArtKind.levels, palette: p, size: 16),
+                label: '${summary.levelsSolved} solved',
+              ),
+              InfoChip(
+                icon: GameArt(ArtKind.trophy, palette: p, size: 16),
+                label: 'Level ${summary.highestLevel}',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final choice = cloud.choice;
     if (choice == null) return const SizedBox.shrink();
     final saved = DateTime.fromMillisecondsSinceEpoch(choice.cloud.savedAt);
-    return AlertDialog(
-      title: const Text('Choose your progress'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Coins and purchases from two devices can’t be combined safely, so please choose one copy. The other is kept as a backup on this device.',
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'This device',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            Text(_line(choice.device)),
-            const SizedBox(height: 12),
-            Text(
-              'Cloud save (${saved.day}/${saved.month}/${saved.year})',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            Text(_line(choice.cloud)),
-            const Divider(),
-          ],
-        ),
+    return GameDialog(
+      title: 'Choose your progress',
+      body:
+          'Coins and purchases from two devices can’t be combined safely. The other copy is kept as a backup on this device.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _summary(context, 'This device', choice.device),
+          const SizedBox(height: 8),
+          _summary(
+            context,
+            'Cloud save (${saved.day}/${saved.month}/${saved.year})',
+            choice.cloud,
+          ),
+        ],
       ),
       actions: [
-        TextButton(
-          onPressed: () {
+        ActionPill(
+          label: 'Use cloud save',
+          onTap: () {
             Navigator.pop(context);
             cloud.resolveChoice(keepDevice: false);
           },
-          child: const Text('Use cloud save'),
         ),
-        FilledButton(
-          onPressed: () {
+        ActionPill(
+          label: 'Keep this device',
+          tone: ActionTone.primary,
+          onTap: () {
             Navigator.pop(context);
             cloud.resolveChoice(keepDevice: true);
           },
-          child: const Text('Keep this device'),
         ),
       ],
     );

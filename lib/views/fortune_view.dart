@@ -7,8 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../model/app_model.dart';
+import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'store_view.dart';
 
 class FortuneView extends StatefulWidget {
@@ -132,7 +135,7 @@ class _FortuneViewState extends State<FortuneView> {
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final ads = context.watch<AdService>();
-    final theme = Theme.of(context);
+    final palette = BoardPalette.palettes[model.theme]!;
     final wait = model.fortuneWait;
     final remaining = model.fortuneVideosRemaining;
     final showVideo =
@@ -141,138 +144,168 @@ class _FortuneViewState extends State<FortuneView> {
         remaining > 0;
     final busy = _working || _pending != null;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Fortune Wheel')),
-      body: SafeArea(
-        child: FutureBuilder<FortuneCatalog>(
-          future: _catalog,
-          builder: (context, snapshot) {
-            final catalog = snapshot.data;
-            if (snapshot.hasError) {
-              return const Center(
-                child: Text('The wheel could not be loaded.'),
-              );
-            }
-            if (catalog == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  children: [
-                    Center(
-                      child: ActionChip(
-                        avatar: const Icon(Icons.toll_rounded, size: 19),
-                        label: Text('${model.coinBalance} coins'),
-                        onPressed: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const StoreView(section: StoreSection.coins),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Semantics(
-                            label: 'Coin wheel. Rewards 8, 15, 25, 40, 70, and 100 coins.',
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: _rotation),
-                                  duration: reduced
-                                      ? Duration.zero
-                                      : const Duration(milliseconds: 3200),
-                                  curve: Curves.easeInOutCubic,
-                                  onEnd: _finish,
-                                  builder: (_, turns, _) => RepaintBoundary(
-                                    child: CustomPaint(
-                                      painter: _WheelPainter(catalog, turns),
+    final canSpin = !busy && wait == 0 && !model.storageError;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayFor(palette),
+      child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 56,
+          titleSpacing: 0,
+          title: const Text(
+            'Fortune Wheel',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+          ),
+          actions: [
+            BalanceChip(
+              coins: model.coinBalance,
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const StoreView(section: StoreSection.coins),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: SafeArea(
+          child: FutureBuilder<FortuneCatalog>(
+            future: _catalog,
+            builder: (context, snapshot) {
+              final catalog = snapshot.data;
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GameArt(ArtKind.wheel, palette: palette, size: 72),
+                      const SizedBox(height: 12),
+                      const Text('The wheel could not be loaded.'),
+                    ],
+                  ),
+                );
+              }
+              if (catalog == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 340),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: Semantics(
+                              label:
+                                  'Coin wheel. Rewards 8, 15, 25, 40, 70, and 100 coins.',
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: _rotation),
+                                    duration: reduced
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 3200),
+                                    curve: Curves.easeInOutCubic,
+                                    onEnd: _finish,
+                                    builder: (_, turns, _) => RepaintBoundary(
+                                      child: CustomPaint(
+                                        painter: _WheelPainter(
+                                          catalog,
+                                          turns,
+                                          palette,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const Align(
-                                  alignment: Alignment.topCenter,
-                                  child: SizedBox(
-                                    width: 30,
-                                    height: 27,
-                                    child: CustomPaint(
-                                      painter: _PointerPainter(),
+                                  Align(
+                                    alignment: Alignment.topCenter,
+                                    child: SizedBox(
+                                      width: 30,
+                                      height: 27,
+                                      child: CustomPaint(
+                                        painter: _PointerPainter(palette),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Semantics(
-                      liveRegion: true,
-                      child: AnimatedSwitcher(
-                        duration: reduced
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        child: Text(
-                          _pending != null
-                              ? 'Spinning…'
-                              : _reveal != null
-                              ? '+${_reveal!.coins} coins'
-                              : 'One free spin every 24 hours',
-                          key: ValueKey((_pending?.id, _reveal?.id)),
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 48,
+                        child: Semantics(
+                          liveRegion: true,
+                          child: AnimatedSwitcher(
+                            duration: reduced
+                                ? Duration.zero
+                                : const Duration(milliseconds: 220),
+                            child: Center(
+                              key: ValueKey((_pending?.id, _reveal?.id)),
+                              child: _reveal != null && _pending == null
+                                  ? RewardAmount(_reveal!.coins, size: 40)
+                                  : const SizedBox.shrink(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                      ),
-                      onPressed: !busy && wait == 0 && !model.storageError
-                          ? () => _spin(catalog)
-                          : null,
-                      icon: const Icon(Icons.rotate_right_rounded),
-                      label: Text(
-                        wait > 0
-                            ? 'Next free spin in ${fortuneCountdown(wait)}'
-                            : 'Free spin',
-                      ),
-                    ),
-                    if (wait < 0)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'The device clock is temporarily unavailable.',
-                          textAlign: TextAlign.center,
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        key: const ValueKey('wheel-spin'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(56),
+                          shape: const StadiumBorder(),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                          ),
+                        ),
+                        onPressed: canSpin ? () => _spin(catalog) : null,
+                        icon: GameArt(
+                          wait > 0 ? ArtKind.timer : ArtKind.wheel,
+                          palette: palette,
+                          size: 24,
+                        ),
+                        label: Text(
+                          wait > 0 ? fortuneCountdown(wait) : 'Free spin',
                         ),
                       ),
-                    if (showVideo) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: busy
-                            ? null
-                            : () => _spin(catalog, video: true),
-                        child: Text('Watch for a spin · $remaining left'),
-                      ),
+                      if (wait < 0)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'The device clock is temporarily unavailable.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      if (showVideo) ...[
+                        const SizedBox(height: 10),
+                        FilledButton.tonalIcon(
+                          key: const ValueKey('wheel-video'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            shape: const StadiumBorder(),
+                          ),
+                          onPressed: busy
+                              ? null
+                              : () => _spin(catalog, video: true),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: Text('Spin · $remaining left'),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -284,20 +317,19 @@ Future<FortuneCatalog> loadFortuneCatalog() => rootBundle
     .then(FortuneCatalog.new);
 
 class _WheelPainter extends CustomPainter {
-  _WheelPainter(this.catalog, this.turns);
+  _WheelPainter(this.catalog, this.turns, this.palette);
   final FortuneCatalog catalog;
   final double turns;
+  final BoardPalette palette;
 
-  static const _segments = [
-    Color(0xFF133044),
-    Color(0xFF13545A),
-    Color(0xFF253B57),
-    Color(0xFF176D66),
-    Color(0xFF423B37),
-    Color(0xFFEAC278),
+  /// Segment fills come from the equipped theme. The top prize uses the accent.
+  List<Color> get _segments => [
+    for (var i = 0; i < 5; i++)
+      Color.lerp(palette.route, palette.ink, i.isEven ? .12 : .34)!,
+    palette.accent,
   ];
-  static const _navy = Color(0xFF0D2335);
-  static const _gold = Color(0xFFFFD789);
+  Color get _navy => palette.ink;
+  Color get _gold => palette.accent;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -321,7 +353,7 @@ class _WheelPainter extends CustomPainter {
       final angle = start + sweep / 2;
       final spot =
           center + Offset(math.cos(angle), math.sin(angle)) * (radius * .68);
-      final ink = index == 5 ? _navy : const Color(0xFFFFF2D6);
+      final ink = palette.onColor(_segments[index]);
       final coin = spot.translate(0, -radius * .085);
       final iconSize = radius * .065;
       canvas.drawCircle(coin, iconSize, paint..color = ink);
@@ -362,11 +394,13 @@ class _WheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WheelPainter oldDelegate) => oldDelegate.turns != turns;
+  bool shouldRepaint(_WheelPainter oldDelegate) =>
+      oldDelegate.turns != turns || oldDelegate.palette != palette;
 }
 
 class _PointerPainter extends CustomPainter {
-  const _PointerPainter();
+  const _PointerPainter(this.palette);
+  final BoardPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -375,11 +409,11 @@ class _PointerPainter extends CustomPainter {
       ..lineTo(size.width - 3, 3)
       ..lineTo(size.width / 2, size.height - 2)
       ..close();
-    canvas.drawPath(pointer, Paint()..color = const Color(0xFFFFD789));
+    canvas.drawPath(pointer, Paint()..color = palette.accent);
     canvas.drawPath(
       pointer,
       Paint()
-        ..color = const Color(0xFF0D2335)
+        ..color = palette.ink
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round
         ..strokeWidth = 2.5,
@@ -387,7 +421,8 @@ class _PointerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PointerPainter oldDelegate) => false;
+  bool shouldRepaint(_PointerPainter oldDelegate) =>
+      oldDelegate.palette != palette;
 }
 
 String fortuneCountdown(int wait) {

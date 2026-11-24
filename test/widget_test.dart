@@ -273,7 +273,7 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('Watch for a spin'), findsNothing);
+      expect(find.byKey(const ValueKey('wheel-video')), findsNothing);
       expect(find.text('Prize odds'), findsNothing);
       await tester.tap(find.text('Free spin'));
       await tester.pump();
@@ -283,9 +283,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(model.fortuneWait, greaterThan(0));
       expect(model.hintsRemaining, 3);
-      expect(find.text('+${model.coinBalance - 50} coins'), findsOneWidget);
-      expect(find.text('${model.coinBalance} coins'), findsOneWidget);
-      expect(find.textContaining('Next free spin in'), findsOneWidget);
+      expect(find.text('+${model.coinBalance - 50}'), findsOneWidget);
+      expect(find.text('${model.coinBalance}'), findsOneWidget);
+      expect(find.text('Free spin'), findsNothing);
+      expect(find.textContaining(RegExp(r'^\d+h \d+m$')), findsOneWidget);
       final balance = model.coinBalance;
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -297,7 +298,8 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('Next free spin in'), findsOneWidget);
+      expect(find.text('Free spin'), findsNothing);
+      expect(find.textContaining(RegExp(r'^\d+h \d+m$')), findsOneWidget);
       expect(model.coinBalance, balance);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

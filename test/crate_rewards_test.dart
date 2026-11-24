@@ -147,7 +147,7 @@ void main() {
         await tester.pump(const Duration(seconds: 2));
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('No Thanks'));
+        await tester.tap(find.text('Not now'));
         await tester.pumpAndSettle();
         expect(model.coinBalance, 50);
         await drop(150);
@@ -163,20 +163,20 @@ void main() {
         final beforeClaim = model.coinBalance;
         await tester.tap(catchCrate);
         await tester.pumpAndSettle();
-        expect(find.text('+$amount coins'), findsOneWidget);
+        expect(find.text('+$amount'), findsOneWidget);
         expect(catchCrate, findsNothing);
         for (final feedback in [
           'Video unavailable. Try again.',
           'Video ended without a reward. Try again.',
         ]) {
-          await tester.tap(find.text('Watch Ad & Claim'));
+          await tester.tap(find.text('Watch'));
           await tester.pumpAndSettle();
           expect(find.text(feedback), findsOneWidget);
           expect(model.coinBalance, beforeClaim);
         }
-        await tester.tap(find.text('Watch Ad & Claim'));
+        await tester.tap(find.text('Watch'));
         await tester.pumpAndSettle();
-        expect(find.text('Watch Ad & Claim'), findsNothing);
+        expect(find.text('Watch'), findsNothing);
         expect(
           model.transactions
               .singleWhere((entry) => entry.id == 'crate-ad/verified-crate')
