@@ -13,13 +13,14 @@ import '../lib/views/themes_view.dart';
 import 'app_model_test.dart' show MemoryStorage;
 
 void main() {
-  testWidgets('preview keeps the catalogue equipped theme until Apply', (
+  testWidgets('preview recolors the screen without equipping until Apply', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 850));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final storage = MemoryStorage();
     final model = AppModel(
-      storage: MemoryStorage(),
+      storage: storage,
       snapshot: {
         'ownedThemes': ['blackwater'],
       },
@@ -30,8 +31,11 @@ void main() {
         child: const MaterialApp(home: ThemesView()),
       ),
     );
+    final board = find.byType(LevelOneBoardPreview);
+    final initialPosition = tester.getTopLeft(board);
     final row = find.byKey(const ValueKey('theme-row-blackwater'));
     await tester.ensureVisible(row);
+    expect(tester.getTopLeft(board), initialPosition);
     final field = BoardPalette.palettes[PathwiseTheme.field]!.theme.colorScheme;
     Text title() => tester.widget<Text>(
       find.descendant(of: row, matching: find.text('Blackwater')),
@@ -40,17 +44,19 @@ void main() {
     await tester.tap(find.text('Blackwater').last);
     await tester.pumpAndSettle();
     expect(model.theme, PathwiseTheme.field);
-    expect(title().style!.color, field.onSurface);
+    final blackwater =
+        BoardPalette.palettes[PathwiseTheme.blackwater]!.theme.colorScheme;
+    expect(title().style!.color, blackwater.onSurface);
+    expect(tester.getTopLeft(board), initialPosition);
+    expect(tester.widget<ListTile>(row).selected, isTrue);
     final apply = find.descendant(of: row, matching: find.text('Apply'));
     final ink = tester.widget<Ink>(
       find.ancestor(of: apply, matching: find.byType(Ink)).first,
     );
-    expect((ink.decoration as ShapeDecoration).color, field.secondary);
+    expect((ink.decoration as ShapeDecoration).color, blackwater.secondary);
     await tester.tap(apply);
     await tester.pumpAndSettle();
     expect(model.theme, PathwiseTheme.blackwater);
-    final blackwater =
-        BoardPalette.palettes[PathwiseTheme.blackwater]!.theme.colorScheme;
     expect(title().style!.color, blackwater.onSurface);
     expect(
       find.descendant(of: row, matching: find.text('Equipped')),
@@ -68,6 +74,9 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();
+    final restored = AppModel(storage: storage, snapshot: await storage.load());
+    expect(restored.theme, PathwiseTheme.blackwater);
+    restored.dispose();
   });
 
   testWidgets(

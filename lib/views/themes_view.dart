@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -26,66 +29,168 @@ class _ThemesViewState extends State<ThemesView> {
     final model = context.watch<AppModel>();
     final theme = _preview ?? model.theme;
     final palette = BoardPalette.palettes[theme]!;
-    final activePalette = BoardPalette.palettes[model.theme]!;
-    final colors = activePalette.theme.colorScheme;
+    final colors = palette.theme.colorScheme;
+    final brightness = palette.canvas.computeLuminance() < 0.179
+        ? Brightness.light
+        : Brightness.dark;
+    final systemUi = SystemUiOverlayStyle(
+      statusBarColor: palette.canvas,
+      statusBarIconBrightness: brightness,
+      statusBarBrightness: brightness == Brightness.light
+          ? Brightness.dark
+          : Brightness.light,
+      systemNavigationBarColor: palette.canvas,
+      systemNavigationBarIconBrightness: brightness,
+      systemNavigationBarContrastEnforced: false,
+    );
     return Theme(
-      data: activePalette.theme,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Themes'),
-          actions: [
-            Tooltip(
-              message: 'Open Wallet',
-              child: TextButton.icon(
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(builder: (_) => const WalletView()),
+      data: palette.theme,
+      child: Builder(
+        builder: (screenContext) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: systemUi,
+          child: Scaffold(
+            appBar: AppBar(
+              systemOverlayStyle: systemUi,
+              title: const Text('Themes'),
+              actions: [
+                Tooltip(
+                  message: 'Open Wallet',
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() => _preview = null);
+                      Navigator.of(screenContext).push<void>(
+                        MaterialPageRoute(builder: (_) => const WalletView()),
+                      );
+                    },
+                    icon: const Icon(Icons.toll_rounded),
+                    label: Text('${model.coinBalance}'),
+                  ),
                 ),
-                icon: const Icon(Icons.toll_rounded),
-                label: Text('${model.coinBalance}'),
-              ),
+                const SizedBox(width: 8),
+              ],
             ),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _ThemePreview(theme: theme, palette: palette),
-                  if (model.earnedTheme(theme) &&
-                      economy.themePrice(theme) >= 4500)
-                    ShareResultButton(
-                      result: ShareResult.cosmetic(theme.label),
-                      label: 'Share Theme Discovery',
-                    ),
-                  const SizedBox(height: 16),
-                  Material(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        for (final item in PathwiseTheme.values) ...[
-                          if (item != PathwiseTheme.values.first)
-                            Divider(height: 1, indent: 60, color: colors.outlineVariant),
-                          ListTile(
-                            key: ValueKey('theme-row-${item.name}'),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                            minVerticalPadding: 4,
-                            leading: _Swatch(palette: BoardPalette.palettes[item]!),
-                            title: Text(item.label, style: TextStyle(color: colors.onSurface)),
-                            onTap: () => setState(() => _preview = item),
-                            trailing: _themeAction(context, model, item, colors),
+            body: SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final boardSize = math.min(
+                        140.0,
+                        math.max(48.0, (constraints.maxHeight - 150) / 2),
+                      );
+                      final largeText =
+                          MediaQuery.textScalerOf(context).scale(14) > 21;
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                            child: _ThemePreview(
+                              theme: theme,
+                              palette: palette,
+                              boardSize: boardSize,
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              key: const ValueKey('theme-catalogue'),
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              children: [
+                                Material(
+                                  color: colors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Column(
+                                    children: [
+                                      for (final item
+                                          in PathwiseTheme.values) ...[
+                                        if (item != PathwiseTheme.values.first)
+                                          Divider(
+                                            height: 1,
+                                            indent: 60,
+                                            color: colors.outlineVariant,
+                                          ),
+                                        Semantics(
+                                          selected: theme == item,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              ListTile(
+                                                key: ValueKey(
+                                                  'theme-row-${item.name}',
+                                                ),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                minVerticalPadding: 4,
+                                                selected: theme == item,
+                                                selectedColor: colors.onSurface,
+                                                selectedTileColor: colors
+                                                    .surfaceContainerHighest,
+                                                leading: _Swatch(
+                                                  palette: BoardPalette
+                                                      .palettes[item]!,
+                                                ),
+                                                title: Text(
+                                                  item.label,
+                                                  style: TextStyle(
+                                                    color: colors.onSurface,
+                                                  ),
+                                                ),
+                                                onTap: () => setState(
+                                                  () => _preview = item,
+                                                ),
+                                                trailing: largeText
+                                                    ? null
+                                                    : _themeAction(
+                                                        screenContext,
+                                                        model,
+                                                        item,
+                                                        colors,
+                                                      ),
+                                              ),
+                                              if (largeText)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 12,
+                                                        bottom: 4,
+                                                      ),
+                                                  child: Align(
+                                                    alignment:
+                                                        Alignment.centerRight,
+                                                    child: _themeAction(
+                                                      screenContext,
+                                                      model,
+                                                      item,
+                                                      colors,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (model.earnedTheme(theme) &&
+                                    economy.themePrice(theme) >= 4500)
+                                  ShareResultButton(
+                                    result: ShareResult.cosmetic(theme.label),
+                                    label: 'Share Theme Discovery',
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -104,11 +209,21 @@ class _ThemesViewState extends State<ThemesView> {
       return Semantics(
         label: '${item.label}, equipped',
         child: ExcludeSemantics(
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.check_rounded, size: 16, color: colors.onSurfaceVariant),
-            const SizedBox(width: 4),
-            Text('Equipped', style: TextStyle(color: colors.onSurfaceVariant)),
-          ]),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_rounded,
+                size: 16,
+                color: colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Equipped',
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -127,10 +242,16 @@ class _ThemesViewState extends State<ThemesView> {
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
       onPressed: owned
-          ? () => model.setTheme(item)
+          ? () {
+              model.setTheme(item);
+              setState(() => _preview = item);
+            }
           : () => _buy(context, model, item, price),
       child: Ink(
-        decoration: ShapeDecoration(color: background, shape: const StadiumBorder()),
+        decoration: ShapeDecoration(
+          color: background,
+          shape: const StadiumBorder(),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(owned ? 'Apply' : '$price coins'),
@@ -152,6 +273,9 @@ class _ThemesViewState extends State<ThemesView> {
         itemName: theme.label,
         requiredCoins: price,
         currentBalance: model.coinBalance,
+        onBeforeStore: () {
+          if (mounted) setState(() => _preview = null);
+        },
       );
       return;
     }
@@ -179,30 +303,37 @@ class _ThemesViewState extends State<ThemesView> {
 }
 
 class _ThemePreview extends StatelessWidget {
-  const _ThemePreview({required this.theme, required this.palette});
+  const _ThemePreview({
+    required this.theme,
+    required this.palette,
+    required this.boardSize,
+  });
   final PathwiseTheme theme;
   final BoardPalette palette;
+  final double boardSize;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             theme.label,
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w800),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
+            child: SizedBox.square(
+              dimension: boardSize,
               child: LevelOneBoardPreview(palette: palette),
             ),
           ),
