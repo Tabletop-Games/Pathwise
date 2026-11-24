@@ -11,6 +11,8 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'components/ad_banner.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
@@ -176,53 +178,31 @@ class PuzzleView extends StatelessWidget {
                                   style: TextStyle(color: palette.muted),
                                 ),
                               ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    model.complete
-                                        ? 'Full route'
-                                        : 'Checkpoint ${model.nextCheckpoint} of ${board.checkpoints.length}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  '${model.path.length} / ${board.area} tiles',
-                                  style: TextStyle(color: palette.muted),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 9),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: LinearProgressIndicator(
-                                value: model.path.length / board.area,
-                                minHeight: 5,
-                                color: palette.route,
-                                backgroundColor: palette.tile,
-                              ),
+                            _BoardProgress(
+                              checkpoint: model.complete
+                                  ? board.checkpoints.length
+                                  : model.nextCheckpoint,
+                              checkpoints: board.checkpoints.length,
+                              tiles: model.path.length,
+                              area: board.area,
+                              palette: palette,
                             ),
                             const SizedBox(height: 14),
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 8,
-                              runSpacing: 3,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                OutlinedButton.icon(
+                                _ControlButton(
+                                  icon: Icons.undo_rounded,
+                                  label: 'Undo',
                                   onPressed: model.canUndo ? model.undo : null,
-                                  icon: const Icon(Icons.undo_rounded),
-                                  label: const Text('Undo'),
                                 ),
-                                OutlinedButton.icon(
-                                  onPressed: model.canClear
-                                      ? model.clear
-                                      : null,
-                                  icon: const Icon(Icons.restart_alt_rounded),
-                                  label: const Text('Clear'),
+                                const SizedBox(width: 8),
+                                _ControlButton(
+                                  icon: Icons.restart_alt_rounded,
+                                  label: 'Clear',
+                                  onPressed: model.canClear ? model.clear : null,
                                 ),
+                                const SizedBox(width: 8),
                                 _HintAction(model: model),
                               ],
                             ),
@@ -238,42 +218,24 @@ class PuzzleView extends StatelessWidget {
                                 tipStyle: model.equippedTip,
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            AnimatedSwitcher(
-                              duration: MediaQuery.disableAnimationsOf(context)
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 360),
-                              switchInCurve: Curves.easeOutCubic,
-                              transitionBuilder: (child, animation) =>
-                                  FadeTransition(
-                                    opacity: animation,
-                                    child: ScaleTransition(
-                                      scale: Tween(
-                                        begin: .96,
-                                        end: 1.0,
-                                      ).animate(animation),
-                                      child: child,
+                            if (model.hintCell != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    model.correctedByHint
+                                        ? 'Route corrected'
+                                        : 'Follow the highlight',
+                                    style: TextStyle(
+                                      color: palette.mutedInk,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                              child: Padding(
-                                key: const ValueKey('instruction'),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                  horizontal: 8,
                                 ),
-                                child: Text(
-                                  model.hintCell != null
-                                      ? model.correctedByHint
-                                            ? 'Route corrected. Follow the highlighted tile.'
-                                            : 'Trace to the highlighted tile.'
-                                      : model.path.length == 1
-                                      ? 'Start at 1. Visit the numbers in order and fill every tile.'
-                                      : 'Drag from the tip to extend. Tap the trail to backtrack.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: palette.muted),
-                                ),
-                              ),
-                            ),
+                              )
+                            else
+                              const SizedBox(height: 8),
                             BoardRulesButton(puzzle: board, palette: palette),
                             if (model.endedEarly)
                               Wrap(
@@ -476,71 +438,65 @@ class _Completion extends StatelessWidget {
       liveRegion: true,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
         decoration: BoxDecoration(
           color: palette.surface,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: palette.cardEdge),
         ),
         child: Column(
           children: [
-            Row(
+            GameArt(ArtKind.check, palette: palette, size: 56),
+            const SizedBox(height: 10),
+            Text(
+              id.checkpoint != null
+                  ? 'Checkpoint complete'
+                  : id.mode == PlayMode.levels
+                  ? 'Level complete!'
+                  : 'Daily complete!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Icon(
-                  Icons.check_circle_rounded,
-                  color: palette.accent,
-                  size: 44,
+                InfoChip(
+                  icon: GameArt(ArtKind.timer, palette: palette, size: 16),
+                  label: formatTime(duration),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        id.checkpoint != null
-                            ? 'Checkpoint complete'
-                            : id.mode == PlayMode.levels
-                            ? 'Level complete!'
-                            : 'Daily complete!',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      Text(
-                        '${formatTime(duration)} · $hints ${hints == 1 ? 'hint' : 'hints'}',
-                        style: TextStyle(color: palette.muted),
-                      ),
-                    ],
+                InfoChip(
+                  icon: GameArt(ArtKind.hint, palette: palette, size: 16),
+                  label: '$hints',
+                ),
+                if (model.recentStreakDay case final day?)
+                  InfoChip(
+                    icon: GameArt(ArtKind.flame, palette: palette, size: 16),
+                    label: '$day',
                   ),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (model.recentStreakDay case final day?)
-              Chip(
-                avatar: const Icon(Icons.local_fire_department_rounded),
-                label: Text('$day-day streak'),
-              ),
             if (model.lastReward > 0)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.toll_rounded),
-                    const SizedBox(width: 8),
-                    Text(
-                      '+${model.lastReward} coins',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.only(top: 14, bottom: 4),
+                child: RewardAmount(model.lastReward, size: 34),
               ),
+            const SizedBox(height: 14),
             if (next != null)
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(54),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        GameTokens.cardRadius,
+                      ),
+                    ),
                   ),
                   onPressed: () => model.open(next),
                   icon: const Icon(Icons.arrow_forward_rounded),
@@ -705,14 +661,130 @@ class _HintAction extends StatelessWidget {
   final AppModel model;
 
   @override
-  Widget build(BuildContext context) => FilledButton.tonalIcon(
-    onPressed: model.canHint
+  Widget build(BuildContext context) {
+    final onTap = model.canHint
         ? model.hint
         : model.hintsRemaining == 0 && !model.complete && !model.storageError
         ? () => showHintShop(context, model)
-        : null,
-    icon: const Icon(Icons.lightbulb_outline_rounded),
-    label: Text('Hint · ${model.hintsRemaining} left'),
+        : null;
+    return _ControlButton(
+      icon: Icons.lightbulb_outline_rounded,
+      label: 'Hint · ${model.hintsRemaining} left',
+      onPressed: onTap,
+      primary: true,
+    );
+  }
+}
+
+/// A compact board control. Hint is the one tinted action.
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final enabled = onPressed != null;
+    final fill = primary && enabled ? p.route : p.quiet;
+    final ink = !enabled
+        ? p.mutedInk.withValues(alpha: .6)
+        : primary
+        ? p.onRoute
+        : p.ink;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      onTap: onPressed,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 32,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: GameTokens.minTouch),
+          child: Center(
+            widthFactor: 1,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+                border: primary && enabled ? null : Border.all(color: p.cardEdge),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 18, color: ink),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: ink,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Checkpoint pips and a single tile bar replace the two text lines.
+class _BoardProgress extends StatelessWidget {
+  const _BoardProgress({
+    required this.checkpoint,
+    required this.checkpoints,
+    required this.tiles,
+    required this.area,
+    required this.palette,
+  });
+
+  final int checkpoint, checkpoints, tiles, area;
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Checkpoint $checkpoint of $checkpoints, $tiles of $area tiles',
+    excludeSemantics: true,
+    child: Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '$checkpoint/$checkpoints',
+              style: TextStyle(
+                color: palette.ink,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            Text(
+              '$tiles/$area',
+              style: TextStyle(color: palette.mutedInk, fontSize: 13),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        GameBar(value: tiles / area, height: 6),
+      ],
+    ),
   );
 }
 
