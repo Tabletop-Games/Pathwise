@@ -341,6 +341,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                       final shown = await ads.watchVideo(
                         (event) => model.grantBoostAd(boost, event),
                         placement: RewardPlacement.boost,
+                        sessionKind: boost.name,
                         canPresent: () =>
                             current() && model.canEarnBoostAd(boost),
                       );

@@ -6,7 +6,7 @@
         android:label="${pathwiseAppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/pathwise_route_launcher"
-        android:allowBackup="true">
+        android:allowBackup="false">
         <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${pathwiseAdmobAppId}" />
         <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"

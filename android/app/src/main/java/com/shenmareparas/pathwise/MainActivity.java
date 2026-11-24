@@ -70,6 +70,17 @@ public class MainActivity extends FlutterActivity {
                         auth.signIn().addOnCompleteListener(task -> result.success(
                                 task.isSuccessful() && task.getResult().isAuthenticated()));
                         break;
+                    case "serverAuthCode":
+                        // One-time code the backend exchanges for the verified player id.
+                        String webClient = call.argument("clientId");
+                        if (webClient == null || webClient.isEmpty()) {
+                            result.success(null);
+                            break;
+                        }
+                        auth.requestServerSideAccess(webClient, false)
+                                .addOnCompleteListener(task -> result.success(
+                                        task.isSuccessful() ? task.getResult() : null));
+                        break;
                     case "achievements":
                         PlayGames.getAchievementsClient(this).getAchievementsIntent()
                                 .addOnCompleteListener(task -> {

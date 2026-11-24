@@ -9,6 +9,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../model/product_catalog.dart';
+import '../online/online_service.dart';
 export '../model/product_catalog.dart';
 
 typedef VerifiedGrant = ({String id, String product});
@@ -44,9 +45,14 @@ Future<BillingOutcome> processPurchase({
 }
 
 class BillingService extends ChangeNotifier {
-  BillingService({required this.persist});
+  BillingService({required this.persist, this.gateway});
 
   final Future<bool> Function(VerifiedGrant) persist;
+
+  /// When present, Google Play purchases are verified and credited by the
+  /// server, which also acknowledges or consumes them. Without it (unit tests)
+  /// the legacy on-device signature check applies.
+  final OnlineGateway? gateway;
   static const _commerce = MethodChannel('games.tabletop.pathwise/commerce');
   static const _playKey = String.fromEnvironment(
     'PATHWISE_PLAY_BILLING_PUBLIC_KEY',
@@ -63,8 +69,12 @@ class BillingService extends ChangeNotifier {
 
   bool get enabled =>
       const bool.fromEnvironment('PATHWISE_BILLING_ENABLED') &&
-      ((_android && _playKey.isNotEmpty) ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      (gateway != null
+          // Server verification covers Google Play. App Store receipts have no
+          // server verifier yet, so iOS purchases stay off.
+          ? _android
+          : ((_android && _playKey.isNotEmpty) ||
+                defaultTargetPlatform == TargetPlatform.iOS));
   bool get buying => _buying;
 
   Future<void> start() async {
@@ -115,10 +125,20 @@ class BillingService extends ChangeNotifier {
 
   Future<void> buy(ProductDetails product) async {
     if (!enabled || buying || !products.contains(product)) return;
+    final account = gateway?.billingAccount;
+    if (gateway != null && (account == null || !gateway!.canPlay)) {
+      _report('Connect to the internet to buy.');
+      return;
+    }
     _buying = true;
     _report('Opening $_storeName…');
     try {
-      final param = PurchaseParam(productDetails: product);
+      // The obfuscated account id binds the purchase to this player. The
+      // server refuses a purchase made for anyone else.
+      final param = PurchaseParam(
+        productDetails: product,
+        applicationUserName: account,
+      );
       final store = InAppPurchase.instance;
       final sent = !consumable(product.id)
           ? await store.buyNonConsumable(purchaseParam: param)
@@ -197,6 +217,8 @@ class BillingService extends ChangeNotifier {
   Future<VerifiedGrant?> _verify(PurchaseDetails purchase, String token) async {
     if (_disposed || token.isEmpty) return null;
     final product = purchase.productID;
+    final server = gateway;
+    if (server != null) return _verifyOnServer(server, purchase, token);
     const package = 'com.shenmareparas.pathwise';
     final bool? valid;
     if (_android && purchase is GooglePlayPurchaseDetails) {
@@ -234,6 +256,34 @@ class BillingService extends ChangeNotifier {
       id: sha256.convert(utf8.encode(identity)).toString(),
       product: product,
     );
+  }
+
+  Future<VerifiedGrant?> _verifyOnServer(
+    OnlineGateway server,
+    PurchaseDetails purchase,
+    String token,
+  ) async {
+    final product = purchase.productID;
+    if (!_android || purchase is! GooglePlayPurchaseDetails) return null;
+    final data = purchase.billingClientPurchase;
+    if (data.purchaseState != PurchaseStateWrapper.purchased ||
+        data.purchaseToken != token ||
+        data.products.length != 1 ||
+        data.products.single != product) {
+      return null;
+    }
+    final response = await server.verifyPurchase(product, token);
+    if (response.ok && response.body['id'] is String) {
+      return (id: response.body['id'] as String, product: product);
+    }
+    // Network trouble, rate limits and "still pending" are retried later; a
+    // definite refusal is final.
+    if (response.retryable ||
+        response.error == 'payment_pending' ||
+        response.status == 401) {
+      throw StateError('Purchase verification will be retried');
+    }
+    return null;
   }
 
   void _report(String? value) {
