@@ -17,6 +17,8 @@ import 'puzzle_view.dart';
 import 'settings_view.dart';
 import 'store_view.dart';
 import 'streak_view.dart';
+import 'themes_view.dart';
+import 'wallet_view.dart';
 
 Future<void> openPuzzle(
   BuildContext context,
@@ -208,7 +210,7 @@ class _MainMenuViewState extends State<MainMenuView>
                           onPressed: () => Navigator.push<void>(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const StoreView(),
+                              builder: (_) => const WalletView(),
                             ),
                           ),
                           icon: const Icon(Icons.toll_rounded),
@@ -216,6 +218,16 @@ class _MainMenuViewState extends State<MainMenuView>
                           style: TextButton.styleFrom(
                             minimumSize: const Size(50, 48),
                           ),
+                        ),
+                        IconButton(
+                          tooltip: 'Store',
+                          onPressed: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const StoreView(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.shopping_bag_outlined),
                         ),
                         IconButton(
                           tooltip: 'Statistics',
@@ -339,9 +351,7 @@ class _MainMenuViewState extends State<MainMenuView>
                       title: 'Themes',
                       detail: 'Preview palettes',
                       onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const StoreView(themesOnly: true),
-                        ),
+                        MaterialPageRoute(builder: (_) => const ThemesView()),
                       ),
                     ),
                   ],

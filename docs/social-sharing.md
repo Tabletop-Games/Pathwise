@@ -8,7 +8,7 @@ Pathwise prepares text using the result shown in the game. Players preview it, c
 | Time Attack results | Score, puzzles solved, and a personal-best flag. Ranked positions are unavailable |
 | Completed levels and Statistics | Levels 10, 25, 50, 100, 250, 500, 1,000, and every 500 thereafter |
 | Statistics and Google Play Achievements | Earned Pathwise achievements and locally earned or Google-confirmed achievements |
-| Research and Vault | Maximum Research ranks and individually earned prestige themes |
+| Research and Themes | Maximum Research ranks and individually earned prestige themes |
 
 ## Destinations
 

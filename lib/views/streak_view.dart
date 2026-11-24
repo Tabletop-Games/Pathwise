@@ -5,6 +5,7 @@ import '../model/app_model.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/play_streak.dart';
+import 'components/economy_navigation.dart';
 
 class StreakView extends StatelessWidget {
   const StreakView({super.key});
@@ -82,11 +83,20 @@ class StreakView extends StatelessWidget {
             ),
             FilledButton.icon(
               onPressed:
-                  !model.storageError &&
-                      streak.freezes < economy.maxFreezes &&
-                      model.coinBalance >= economy.freezePrice
-                  ? model.buyFreeze
-                  : null,
+                  model.storageError || streak.freezes >= economy.maxFreezes
+                  ? null
+                  : () {
+                      if (model.coinBalance < economy.freezePrice) {
+                        showInsufficientCoins(
+                          context,
+                          itemName: 'Streak Freeze',
+                          requiredCoins: economy.freezePrice,
+                          currentBalance: model.coinBalance,
+                        );
+                      } else {
+                        model.buyFreeze();
+                      }
+                    },
               icon: const Icon(Icons.toll_rounded),
               label: Text('Buy Freeze · ${economy.freezePrice} coins'),
             ),

@@ -12,9 +12,9 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import 'components/ad_banner.dart';
+import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
-import 'fortune_view.dart';
 import 'share_view.dart';
 
 String formatTime(Duration value) {
@@ -655,7 +655,7 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
                     ? null
                     : () => Navigator.pop(
                         dialog,
-                        shortfall > 0 ? 'vault' : 'coins',
+                        shortfall > 0 ? 'insufficient' : 'coins',
                       ),
                 icon: const Icon(Icons.toll_rounded),
                 label: Text(
@@ -678,9 +678,13 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
   );
   if (!context.mounted) return;
   if (action == 'coins') await model.buyHint();
-  if (action == 'vault') {
-    await Navigator.of(context)
-        .push<void>(MaterialPageRoute(builder: (_) => const FortuneView()));
+  if (action == 'insufficient') {
+    await showInsufficientCoins(
+      context,
+      itemName: 'A hint',
+      requiredCoins: economy.hintPrice,
+      currentBalance: model.coinBalance,
+    );
   }
 }
 

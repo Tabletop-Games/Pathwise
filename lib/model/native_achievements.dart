@@ -238,7 +238,7 @@ const nativeAchievements = [
   NativeAchievement(
     'themeCollector',
     'Theme Collector',
-    'Individually unlock 5 themes through the Vault.',
+    'Individually unlock 5 themes through Themes.',
     AchievementMetric.themes,
     5,
     incremental: true,
@@ -246,7 +246,7 @@ const nativeAchievements = [
   NativeAchievement(
     'styleMaster',
     'Style Master',
-    'Individually unlock 15 themes through the Vault.',
+    'Individually unlock 15 themes through Themes.',
     AchievementMetric.themes,
     15,
     incremental: true,

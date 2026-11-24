@@ -18,7 +18,7 @@ import 'level_one_demo.dart';
 import 'play_games_view.dart';
 import 'puzzle_view.dart';
 import 'share_view.dart';
-import 'store_view.dart';
+import 'themes_view.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -56,43 +56,17 @@ class SettingsView extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => openLevelOneDemo(context),
                 ),
-                const ListTile(title: Text('Theme')),
-                RadioGroup<PathwiseTheme>(
-                  groupValue: model.theme,
-                  onChanged: (theme) {
-                    if (theme != null) model.setTheme(theme);
-                  },
-                  child: Column(
-                    children: [
-                      for (final theme in PathwiseTheme.values.where(
-                        model.ownsTheme,
-                      ))
-                        RadioListTile<PathwiseTheme>(
-                          title: Text(theme.label),
-                          value: theme,
-                          secondary: CircleAvatar(
-                            radius: 14,
-                            backgroundColor:
-                                BoardPalette.palettes[theme]!.route,
-                            child: CircleAvatar(
-                              radius: 5,
-                              backgroundColor:
-                                  BoardPalette.palettes[theme]!.accent,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
                 ListTile(
-                  title: const Text('Cosmetics'),
+                  title: const Text('Themes'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push<void>(
                     context,
-                    MaterialPageRoute(builder: (_) => const StoreView()),
+                    MaterialPageRoute(builder: (_) => const ThemesView()),
                   ),
                 ),
-                if (ads.canManagePrivacy)
+                if (ads.canManagePrivacy) ...[
+                  const Divider(),
+                  const ListTile(title: Text('Privacy')),
                   ListTile(
                     title: const Text('Ad privacy'),
                     onTap: () async {
@@ -108,6 +82,7 @@ class SettingsView extends StatelessWidget {
                         await ads.privacyOptions();
                     },
                   ),
+                ],
                 const Divider(),
                 ListTile(
                   title: const Text('Google Play Achievements'),

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Separate Themes, Store, Wallet and Settings into dedicated destinations. Centralize insufficient-coin dialogs and contextual Store navigation.
 - Add a global hint wallet, optional ad rewards and daily milestones, streak freezes, revised prizes, and ad-unlocked Boosts.
 - Allow reaching the last checkpoint early and highlight uncovered cells. Keep Time Attack results above the board.
 - Add a debug dashboard with isolated persistence and CI coverage for Android debug builds.

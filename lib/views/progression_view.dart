@@ -8,6 +8,8 @@ import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
+import 'components/economy_navigation.dart';
+import 'wallet_view.dart';
 
 enum _ResearchBranch {
   income('Coin rewards', Icons.toll_outlined, [
@@ -170,9 +172,14 @@ class _ProgressionViewState extends State<ProgressionView> {
                             child: _Meter(ranks / rankLimit),
                           ),
                         const SizedBox(height: 12),
-                        _Detail(
-                          '${model.coinBalance} coins available',
-                          color: Theme.of(context).colorScheme.tertiary,
+                        ActionChip(
+                          avatar: const Icon(Icons.toll_rounded, size: 18),
+                          label: Text('${model.coinBalance} coins available'),
+                          onPressed: () => Navigator.of(context).push<void>(
+                            MaterialPageRoute(
+                              builder: (_) => const WalletView(),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -265,12 +272,20 @@ class _ProgressionViewState extends State<ProgressionView> {
           : unlocked
           ? _PrimaryAction(
               label: 'Upgrade · $price coins',
-              onPressed: !model.storageError && shortfall <= 0
-                  ? () {
-                      if (model.research(item))
+              onPressed: model.storageError
+                  ? null
+                  : () {
+                      if (shortfall > 0) {
+                        showInsufficientCoins(
+                          context,
+                          itemName: item.title,
+                          requiredCoins: price,
+                          currentBalance: model.coinBalance,
+                        );
+                      } else if (model.research(item)) {
                         _feedback('${item.title} reached rank ${rank + 1}');
-                    }
-                  : null,
+                      }
+                    },
             )
           : null,
       availability: !unlocked
@@ -336,12 +351,20 @@ class _ProgressionViewState extends State<ProgressionView> {
           if (boost.availableToBuy)
             _SecondaryAction(
               label: 'Buy · $price coins',
-              onPressed: !model.storageError && model.coinBalance >= price
-                  ? () {
-                      if (model.buyBoost(boost))
+              onPressed: model.storageError
+                  ? null
+                  : () {
+                      if (model.coinBalance < price) {
+                        showInsufficientCoins(
+                          context,
+                          itemName: boost.title,
+                          requiredCoins: price,
+                          currentBalance: model.coinBalance,
+                        );
+                      } else if (model.buyBoost(boost)) {
                         _feedback('Added to your boost reserve');
-                    }
-                  : null,
+                      }
+                    },
             ),
           _PrimaryAction(
             label: 'Activate',
