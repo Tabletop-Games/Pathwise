@@ -145,6 +145,22 @@ final class Wallet {
   Iterable<CoinTransaction> get history => _history.values;
   bool contains(String id) => _history.containsKey(id);
 
+  /// Replaces the cached ledger with the server's authoritative totals. The
+  /// balance can be negative after a refund reversal.
+  void replaceFromServer({
+    required int earned,
+    required int spent,
+    required Iterable<CoinTransaction> history,
+  }) {
+    _history
+      ..clear()
+      ..addEntries(history.map((tx) => MapEntry(tx.id, tx)));
+    _recentRewardIds.clear();
+    _archivedCoins = 0;
+    _earned = earned;
+    _spent = spent;
+  }
+
   bool add(String id, String label, int amount, DateTime date) {
     if (contains(id) || balance + amount < 0 || amount == 0) return false;
     _history[id] = CoinTransaction(id, label, amount, date);

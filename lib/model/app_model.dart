@@ -10,6 +10,7 @@ import '../logic/haptic_service.dart';
 import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
+import '../online/online_service.dart';
 import 'economy.dart';
 import 'economy_activity.dart';
 import 'fortune.dart';
@@ -33,6 +34,7 @@ class AppModel extends ChangeNotifier
     PuzzleLoader? loader,
     BootTime? Function()? bootTime,
     this.debugTools = false,
+    this.online,
   }) : _wallClock = today ?? DateTime.now,
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
@@ -261,6 +263,7 @@ class AppModel extends ChangeNotifier
     }
     _updateLongestStreak();
     haptic = HapticService(enabled: _prefs.haptics);
+    online?.addListener(_onlineChanged);
   }
 
   int _retiredSolved = 0, _retiredClean = 0, _retiredRanks = 0;
@@ -372,6 +375,478 @@ class AppModel extends ChangeNotifier
     );
   }
 
+  // ---- online-first authority ----------------------------------------------
+  //
+  // The server owns balances, prices, rewards, limits and progression. Local
+  // state is a cache: spends are predicted so the UI stays instant, rewards
+  // wait for the server, and every response replaces this cache.
+
+  /// Null only in unit tests that exercise the local rules directly.
+  final OnlineGateway? online;
+  int _serverOffsetMs = 0;
+  final Stopwatch _appClock = Stopwatch()..start();
+  Map<String, dynamic> _limits = const {};
+  final _serverAchievements = <String>{};
+  final _attemptRevisions = <String, int>{};
+  bool _serverBacked = false;
+  int _wheelFreeAt = 0;
+  int _wheelVideosLeft = 0;
+  int _cratePollAt = 0;
+  bool _cratePolling = false;
+  Timer? _attemptTimer;
+
+  bool get onlineReady => online == null || online!.canPlay;
+  bool get serverBacked => _serverBacked;
+
+  static int _int(Object? value) => value is int ? value : 0;
+  static Map<String, int> _ints(Object? value) => {
+    if (value is Map)
+      for (final entry in value.entries)
+        if (entry.key is String && entry.value is int)
+          entry.key as String: entry.value as int,
+  };
+  static List<String> _strings(Object? value) =>
+      value is List ? value.whereType<String>().toList() : <String>[];
+
+  void _onlineChanged() {
+    if (_disposed) return;
+    if (!onlineReady) {
+      // Finish any stroke and keep the route; nothing is lost while offline.
+      end();
+      unawaited(flush());
+    } else if (_inPlay && _started) {
+      // Back online: share the route saved meanwhile with other devices.
+      _scheduleAttemptPush();
+    }
+    _syncClock();
+    _processCrates();
+    notifyListeners();
+  }
+
+  /// Fire-and-forget server command. The service retries until delivered and
+  /// its response (or a rejection-triggered resync) replaces the local cache.
+  void _remote(String type, Map<String, Object?> args) {
+    final gateway = online;
+    if (gateway == null) return;
+    unawaited(gateway.command(type, args));
+  }
+
+  Future<void> resync() async {
+    await online?.refreshState();
+  }
+
+  void applyServerState(Map<String, dynamic> state) {
+    final wallet = state['wallet'];
+    final progress = state['progress'];
+    if (wallet is Map<String, dynamic>) applyWallet(wallet);
+    if (progress is Map<String, dynamic>) _applyProgress(progress);
+    notifyListeners();
+  }
+
+  void applyWallet(Map<String, dynamic> w) {
+    final serverNow = w['serverNow'];
+    if (serverNow is int) {
+      _serverOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
+    }
+    _serverBacked = true;
+    final recent = w['recent'];
+    _wallet.replaceFromServer(
+      earned: _int(w['earned']),
+      spent: _int(w['spent']),
+      history: [
+        for (final row in (recent is List ? recent : const []))
+          if (row is Map &&
+              row['id'] is String &&
+              row['label'] is String &&
+              row['amount'] is int &&
+              row['at'] is int)
+            CoinTransaction(
+              row['id'] as String,
+              row['label'] as String,
+              row['amount'] as int,
+              DateTime.fromMillisecondsSinceEpoch(row['at'] as int),
+            ),
+      ],
+    );
+    _hintBalance = _int(w['hints']);
+    final themes = _strings(w['themes']).toSet();
+    _owned
+      ..clear()
+      ..addAll(PathwiseTheme.values.where((theme) => themes.contains(theme.name)));
+    final entitlements = _map(w['entitlements']);
+    _themePass = entitlements['themePass'] == true;
+    _removeAds = entitlements['removeAds'] == true;
+    _premium = entitlements['premium'] == true;
+    for (final theme in PathwiseTheme.values) {
+      if (theme.name == w['equipped'] && ownsTheme(theme)) _prefs.theme = theme;
+    }
+    progression.ranks
+      ..clear()
+      ..addAll(_ints(w['research']));
+    progression.inventory
+      ..clear()
+      ..addAll(_ints(w['inventory']));
+    progression.active
+      ..clear()
+      ..addAll({
+        for (final entry in _ints(w['active']).entries)
+          entry.key: progressionTime + entry.value,
+      });
+    final saved = _map(w['streak']);
+    streak
+      ..count = _int(saved['count'])
+      ..longest = _int(saved['longest'])
+      ..freezes = _int(saved['freezes'])
+      ..first = saved['first'] as String?
+      ..lastEarned = saved['lastEarned'] as String?
+      ..checkedThrough = saved['checkedThrough'] as String?;
+    streak.days
+      ..clear()
+      ..addAll({
+        for (final entry in _map(saved['days']).entries)
+          if (entry.value is String) entry.key: entry.value as String,
+      });
+    _longestStreak = max(_longestStreak, streak.longest);
+    _serverAchievements
+      ..clear()
+      ..addAll(_strings(w['achievements']));
+    final counters = _map(w['counters']);
+    _levelsSolved = _int(counters['levelsSolved']);
+    _achievements.precision = _int(counters['precision']);
+    _achievements.eligibleDailies = _int(counters['eligibleDailies']);
+    final crates = _map(w['crates']);
+    progression.legendary = _int(crates['legendary']);
+    _cratePollAt = _appClock.elapsedMilliseconds + _int(crates['nextInMs']);
+    _limits = _map(w['limits']);
+    final wheel = _map(w['wheel']);
+    _wheelFreeAt = _appClock.elapsedMilliseconds + _int(wheel['freeInMs']);
+    _wheelVideosLeft = _int(wheel['videosRemaining']);
+    final pending = _map(wheel['pending']);
+    if (pending['id'] is String && pending['prize'] is String) {
+      final id = pending['id'] as String;
+      if (_pendingFortune?.id != id) {
+        final prizes = wheel['prizes'];
+        for (final row in (prizes is List ? prizes : const [])) {
+          if (row is Map && row['id'] == pending['prize']) {
+            _pendingFortune = (
+              id: id,
+              prize: FortunePrize(
+                row['id'] as String,
+                row['label'] as String? ?? '',
+                0,
+                _int(row['coins']),
+              ),
+            );
+          }
+        }
+      }
+    } else {
+      _pendingFortune = null;
+    }
+    haptic.enabled = _prefs.haptics;
+    notifyListeners();
+  }
+
+  void _applyProgress(Map<String, dynamic> p) {
+    _results.clear();
+    for (final entry in _map(p['results']).entries) {
+      final data = _map(entry.value);
+      final time = data['ms'];
+      final hints = data['hints'];
+      if (time is int && hints is int) {
+        _results[entry.key] = (
+          milliseconds: time,
+          hints: hints,
+          unassisted: data['unassisted'] == true,
+        );
+      }
+    }
+    _dailyCheckpoints.clear();
+    for (final entry in _map(p['stages']).entries) {
+      final data = _map(entry.value);
+      final time = data['ms'];
+      final hints = data['hints'];
+      if (time is int && hints is int) {
+        _dailyCheckpoints[entry.key] = (
+          milliseconds: time,
+          hints: hints,
+          unassisted: hints == 0,
+        );
+      }
+    }
+    _highestUnlocked = max(1, _int(p['highestUnlocked']));
+    _tutorialStatus
+      ..clear()
+      ..addAll({
+        for (final entry in _map(p['tutorials']).entries)
+          if (entry.value is String) entry.key: entry.value as String,
+      });
+    _levelOneDemoSeen =
+        _tutorialStatus.containsKey('levelOneDemo') || _results.isNotEmpty;
+    final prefs = _map(p['prefs']);
+    if (prefs['haptics'] is bool) _prefs.haptics = prefs['haptics'] as bool;
+    if (prefs['suggestSharing'] is bool) {
+      _prefs.suggestSharing = prefs['suggestSharing'] as bool;
+    }
+    haptic.enabled = _prefs.haptics;
+    // Unsynced local routes are kept; finished puzzles drop their attempt.
+    final serverAttempts = _map(p['attempts']);
+    _attempts.removeWhere(
+      (key, _) =>
+          key != activeId?.key &&
+          !serverAttempts.containsKey(key) &&
+          _results.containsKey(key),
+    );
+    for (final entry in serverAttempts.entries) {
+      if (entry.key == activeId?.key && _started) continue;
+      final data = _map(entry.value);
+      _attempts[entry.key] = {
+        'path': data['path'] ?? const <int>[],
+        'history': data['history'] ?? const <Object>[],
+        'hints': _int(data['hints']),
+        'hintCell': data['hintCell'],
+        'started': data['started'] == true,
+        'usedClear': data['usedClear'] != false,
+        'milliseconds': _int(data['ms']),
+      };
+      final revision = data['v'];
+      if (revision is int) _attemptRevisions[entry.key] = revision;
+    }
+    attackHistory.clear();
+    final history = p['attackHistory'];
+    for (final row in (history is List ? history : const [])) {
+      if (row is! Map || row['id'] is! String) continue;
+      final score = _int(row['score']);
+      attackHistory.add(
+        AttackRun(
+          row['id'] as String,
+          0,
+          0,
+          0,
+          row['record'] == true ? max(0, score - 1) : score,
+          minutes: [1, 3, 5].contains(row['minutes']) ? row['minutes'] as int : 3,
+          clears: List<int>.filled(score ~/ 100, 0),
+          finished: true,
+          coins: _int(row['coins']),
+        ),
+      );
+    }
+    final run = _map(p['attack']);
+    if (run.isNotEmpty) {
+      _adoptAttackRun(run);
+    } else if (attack != null && !attack!.finished) {
+      attack = null;
+      _attackTicker?.cancel();
+      _attackTicker = null;
+    }
+  }
+
+  void _adoptAttackRun(Map<String, dynamic> data) {
+    final now = _bootTime();
+    final id = data['id'];
+    if (now == null || id is! String) return;
+    final minutes = _int(data['minutes']);
+    final clears = [
+      for (final value in (data['clears'] is List ? data['clears'] as List : const []))
+        if (value is int) value,
+    ];
+    final existing = attack;
+    if (existing != null && existing.id == id) {
+      existing.clears
+        ..clear()
+        ..addAll(clears);
+      existing.unassisted = data['unassisted'] == true;
+      if (data['finished'] == true) existing.finished = true;
+      return;
+    }
+    attack = AttackRun(
+      id,
+      now.boot,
+      now.milliseconds + _int(data['remainingMs']),
+      now.milliseconds,
+      _int(data['previousBest']),
+      minutes: [1, 3, 5].contains(minutes) ? minutes : 3,
+      unassisted: data['unassisted'] != false,
+      clears: clears,
+      finished: data['finished'] == true,
+      coins: _int(data['coins']),
+    );
+    if (!attack!.finished) refreshAttackClock();
+  }
+
+  /// Waits for the signed AdMob callback, then asks the server to pay out.
+  Future<bool> _claimReward(String token) async {
+    final gateway = online;
+    if (gateway == null || _disposed || token.length < 24) return false;
+    if (!await gateway.awaitReward(token)) return false;
+    final result = await gateway.command(
+      'reward.claim',
+      {'token': token},
+      op: 'claim-${token.substring(0, 24)}',
+    );
+    return result.ok;
+  }
+
+  void _pollCrate() {
+    if (_cratePolling || _appClock.elapsedMilliseconds < _cratePollAt) return;
+    _cratePolling = true;
+    unawaited(_pollCrateAsync());
+  }
+
+  Future<void> _pollCrateAsync() async {
+    try {
+      // A poll is only meaningful now, so it is never queued for later.
+      final result = await online!.command(
+        'crate.poll',
+        const {},
+        durable: false,
+      );
+      if (_disposed) return;
+      final crate = _map(result.body['crate']);
+      if (!result.ok || crate['id'] is! String || crate['coins'] is! int) {
+        final retry = result.body['retryInMs'];
+        _cratePollAt =
+            _appClock.elapsedMilliseconds + (retry is int ? retry : 15000);
+        return;
+      }
+      final id = crate['id'] as String;
+      if (_fallingCrate == null && _inPlay && !complete && !_crateRevealed) {
+        _fallingCrate = (id: id, coins: crate['coins'] as int);
+        haptic.selection();
+        notifyListeners();
+      } else {
+        // The player left the board before the crate could appear.
+        _remote('crate.forfeit', {'id': id});
+      }
+    } finally {
+      _cratePolling = false;
+    }
+  }
+
+  Future<void> _finishAttackOnServer(String run) async {
+    final gateway = online;
+    if (gateway == null) return;
+    for (var attempt = 0; attempt < 5 && !_disposed; attempt++) {
+      final result = await gateway.command(
+        'attack.finish',
+        {'run': run},
+        op: 'finish-$run',
+      );
+      if (result.ok) {
+        // The server's run history is the record; refresh the local copy.
+        await resync();
+        return;
+      }
+      if (result.queued || result.error != 'run_active') return;
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+  }
+
+  void _submitCompletion(PuzzleId id) {
+    final gateway = online;
+    final game = _game;
+    if (gateway == null || game == null) return;
+    unawaited(
+      _completeOnServer(
+        gateway,
+        id,
+        List<int>.of(game.path),
+        max(0, elapsed.value.inMilliseconds),
+        _usedClear,
+      ),
+    );
+  }
+
+  Future<void> _completeOnServer(
+    OnlineGateway gateway,
+    PuzzleId id,
+    List<int> route,
+    int milliseconds,
+    bool usedClear,
+  ) async {
+    final result = await gateway.command(
+      'play.complete',
+      {
+        'key': id.key,
+        'route': route,
+        'ms': milliseconds,
+        'usedClear': usedClear,
+      },
+      op: 'cmp-${DateTime.now().microsecondsSinceEpoch}-${id.key.hashCode.abs()}',
+    );
+    // A rejected completion means the local prediction was wrong.
+    if (!_disposed && !result.ok && !result.queued) await resync();
+  }
+
+  Future<void> _submitDemoCompletion() async {
+    final gateway = online;
+    if (gateway == null) return;
+    const id = PuzzleId.level(1);
+    final board = await (_loader?.call(id.generation) ??
+        _generate(id.generation, 1, false));
+    await gateway.command('play.start', {'key': id.key});
+    final result = await gateway.command(
+      'play.complete',
+      {
+        'key': id.key,
+        'route': board.solution,
+        'ms': 4500,
+        'usedClear': false,
+      },
+      op: 'cmp-demo-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    if (!_disposed && !result.ok && !result.queued) await resync();
+  }
+
+  void _scheduleAttemptPush() {
+    if (online == null) return;
+    _attemptTimer?.cancel();
+    _attemptTimer = Timer(
+      const Duration(seconds: 5),
+      () => unawaited(_pushAttempt()),
+    );
+  }
+
+  /// Debounced snapshot so another device can resume. Never per pointer move.
+  Future<void> _pushAttempt() async {
+    final gateway = online;
+    final id = activeId;
+    final game = _game;
+    if (gateway == null ||
+        id == null ||
+        game == null ||
+        id.mode == PlayMode.attack ||
+        complete ||
+        !_started ||
+        !gateway.canPlay) {
+      return;
+    }
+    _attemptTimer?.cancel();
+    final key = id.key;
+    final result = await gateway.command(
+      'attempt.save',
+      {
+        'key': key,
+        'path': game.path,
+        'history': game.history,
+        'hintCell': game.hintCell,
+        'ms': (_baseTime + _watch.elapsed).inMilliseconds,
+        'started': true,
+        'usedClear': _usedClear,
+        'base': _attemptRevisions[key] ?? 0,
+      },
+      durable: false,
+    );
+    final revision = result.body['v'];
+    if (result.ok && revision is int) {
+      _attemptRevisions[key] = revision;
+    } else if (result.error == 'stale_attempt') {
+      final current = _map(result.body['attempt']);
+      final latest = current['v'];
+      if (latest is int) _attemptRevisions[key] = latest;
+    }
+  }
+
   static Future<VerifiedPuzzle> _generate(
     ({int size, int seed, int clues}) request,
     int level,
@@ -442,6 +917,7 @@ class AppModel extends ChangeNotifier
     attack = null;
     _attackTicker?.cancel();
     _attackTicker = null;
+    _remote('attack.stop', {'run': run.id});
     final prefix = 'attack/${run.id}/';
     _attempts.removeWhere((key, _) => key.startsWith(prefix));
     attackRemaining.value = Duration.zero;
@@ -468,7 +944,14 @@ class AppModel extends ChangeNotifier
     final now = _bootTime();
     if (now == null || storageError) return false;
     refreshAttackClock();
-    if (attack == null || attack!.finished) {
+    if (online != null) {
+      final started = await online!.command('attack.start', {
+        'minutes': _attackMinutes,
+      });
+      if (_disposed || !started.ok) return false;
+      _adoptAttackRun(_map(started.body['run']));
+      if (attack == null) return false;
+    } else if (attack == null || attack!.finished) {
       final next = AttackRun(
         'v2-${now.boot}-${now.milliseconds}-${Random.secure().nextInt(1 << 32)}',
         now.boot,
@@ -499,6 +982,7 @@ class AppModel extends ChangeNotifier
     if (remaining == 0) {
       final previous = achievementCounters;
       run.finished = true;
+      unawaited(_finishAttackOnServer(run.id));
       _attackTicker?.cancel();
       _attackTicker = null;
       if (_wallet.add(
@@ -545,6 +1029,7 @@ class AppModel extends ChangeNotifier
   bool research(Research item) {
     final rank = progression.rank(item);
     if (storageError ||
+        !onlineReady ||
         rank >= item.limit ||
         !progression.unlocked(item) ||
         !_wallet.add(
@@ -555,6 +1040,7 @@ class AppModel extends ChangeNotifier
         ))
       return false;
     progression.ranks[item.name] = rank + 1;
+    _remote('research.buy', {'item': item.name});
     achievementRevision++;
     activity.event(EconomyEvent.researchBought, coinBalance);
     _awardAchievements();
@@ -571,7 +1057,15 @@ class AppModel extends ChangeNotifier
       )
       .length;
 
-  bool canEarnBoostAd(Boost item) =>
+  bool canEarnBoostAd(Boost item) {
+    if (online == null) return _localCanEarnBoostAd(item);
+    return !_disposed &&
+        !storageError &&
+        (item == Boost.doubleTen && _int(_limits['boostAds']) > 0 ||
+            item == Boost.tripleFifteen && _limits['tripleAvailable'] == true);
+  }
+
+  bool _localCanEarnBoostAd(Boost item) =>
       !_disposed &&
       !storageError &&
       _rewardDayAvailable &&
@@ -582,7 +1076,9 @@ class AppModel extends ChangeNotifier
               boostAdsToday(item) == 0);
 
   Future<bool> grantBoostAd(Boost item, String event) async {
-    if (!canEarnBoostAd(item) || !_hintEvents.add(event)) return false;
+    if (!canEarnBoostAd(item)) return false;
+    if (online != null) return _claimReward(event);
+    if (!_hintEvents.add(event)) return false;
     _boostAdDays['${item.name}/$event'] = todayKey;
     _markRewardDay(todayKey);
     progression.inventory.update(
@@ -596,6 +1092,7 @@ class AppModel extends ChangeNotifier
 
   bool buyBoost(Boost item) {
     if (storageError ||
+        !onlineReady ||
         !item.availableToBuy ||
         !_wallet.add(
           'boost/${progression.serial}',
@@ -605,6 +1102,7 @@ class AppModel extends ChangeNotifier
         ))
       return false;
     progression.serial++;
+    _remote('boost.buy', {'boost': item.name});
     activity.event(EconomyEvent.boostBought, coinBalance);
     progression.inventory.update(
       item.name,
@@ -617,8 +1115,11 @@ class AppModel extends ChangeNotifier
 
   bool activateBoost(Boost item) {
     final now = progressionTime;
-    if (storageError || !progression.canActivate(item, now)) return false;
+    if (storageError || !onlineReady || !progression.canActivate(item, now)) {
+      return false;
+    }
     progression.activate(item, now);
+    _remote('boost.activate', {'boost': item.name});
     _progressionChanged();
     return true;
   }
@@ -663,6 +1164,7 @@ class AppModel extends ChangeNotifier
 
   void dismissCrate(Crate crate) {
     if (_fallingCrate != crate) return;
+    _remote('crate.forfeit', {'id': crate.id});
     _fallingCrate = null;
     _crateRevealed = false;
     if (!_disposed) {
@@ -672,6 +1174,22 @@ class AppModel extends ChangeNotifier
   }
 
   Future<bool> claimVerifiedCrate(Crate crate, String receipt) async {
+    if (online != null) {
+      if (_disposed ||
+          !_crateRevealed ||
+          _fallingCrate != crate ||
+          receipt.isEmpty) {
+        return false;
+      }
+      if (!await _claimReward(receipt)) return false;
+      _fallingCrate = null;
+      _crateRevealed = false;
+      activity.event(EconomyEvent.crateCollected, coinBalance);
+      _processCrates();
+      haptic.complete();
+      if (!_disposed) notifyListeners();
+      return true;
+    }
     if (_disposed ||
         !_crateRevealed ||
         _fallingCrate != crate ||
@@ -741,9 +1259,17 @@ class AppModel extends ChangeNotifier
       _fallingCrate = null;
       _crateRevealed = false;
     }
-    final crate = eligible && _fallingCrate == null && !isDrawing
+    final crate =
+        online == null && eligible && _fallingCrate == null && !isDrawing
         ? progression.considerCrate(now, () => Random.secure().nextInt(100))
         : null;
+    if (online != null &&
+        onlineReady &&
+        eligible &&
+        _fallingCrate == null &&
+        !isDrawing) {
+      _pollCrate();
+    }
     if (crate != null) {
       _fallingCrate = crate;
       haptic.selection();
@@ -764,12 +1290,14 @@ class AppModel extends ChangeNotifier
   bool get canEarnHintAd =>
       !_disposed &&
       !storageError &&
-      _rewardDayAvailable &&
-      hintAdsToday < economy.hintAdsPerDay;
+      (online != null
+          ? _int(_limits['hintAds']) > 0
+          : _rewardDayAvailable && hintAdsToday < economy.hintAdsPerDay);
 
   Future<bool> buyHint() async {
     if (_disposed ||
         storageError ||
+        !onlineReady ||
         !_wallet.add(
           'hint/purchase/$_hintPurchaseSerial',
           'Hint',
@@ -779,12 +1307,15 @@ class AppModel extends ChangeNotifier
       return false;
     _hintPurchaseSerial++;
     _hintBalance++;
+    _remote('hint.buy', const {});
     notifyListeners();
     return flush();
   }
 
   Future<bool> grantHintAd(String event) async {
-    if (!canEarnHintAd || !_hintEvents.add(event)) return false;
+    if (!canEarnHintAd) return false;
+    if (online != null) return _claimReward(event);
+    if (!_hintEvents.add(event)) return false;
     _hintAdDays[event] = todayKey;
     _markRewardDay(todayKey);
     _hintBalance++;
@@ -814,12 +1345,15 @@ class AppModel extends ChangeNotifier
       return false;
     }
     _pendingTutorials.remove(mechanic);
+    _remote('tutorial.ack', {'id': mechanic.id, 'skipped': skipped});
     _syncClock();
     notifyListeners();
     return true;
   }
 
-  bool get _canPlay {
+  bool get _canPlay => _gameplayAllowed && onlineReady;
+
+  bool get _gameplayAllowed {
     if (_pendingTutorials.isNotEmpty) return false;
     if (activeId?.mode != PlayMode.attack) return true;
     final now = _bootTime();
@@ -832,7 +1366,7 @@ class AppModel extends ChangeNotifier
   final DateTime Function() _wallClock;
   int _debugDays = 0;
   DateTime _today() {
-    final now = _wallClock();
+    final now = _wallClock().add(Duration(milliseconds: _serverOffsetMs));
     if (!developerMode || _debugDays == 0) return now;
     return DateTime(
       now.year,
@@ -1028,6 +1562,7 @@ class AppModel extends ChangeNotifier
       hasThemePass ? PathwiseTheme.values.length : _owned.length;
   bool get hasThemePass => _themePass || _premium;
   bool hasAchievement(Achievement achievement) =>
+      _serverAchievements.contains(achievement.name) ||
       _wallet.contains('achievement/${achievement.name}');
   int get longestStreak => _longestStreak;
   Duration get playTime => Duration(
@@ -1040,7 +1575,7 @@ class AppModel extends ChangeNotifier
       id.startsWith('levels/') ? int.tryParse(id.substring(7)) : null;
 
   bool unlockTheme(PathwiseTheme theme) {
-    if (ownsTheme(theme) || storageError) return false;
+    if (ownsTheme(theme) || storageError || !onlineReady) return false;
     if (!_wallet.add(
       'theme/${theme.name}',
       'Unlocked ${theme.label}',
@@ -1049,6 +1584,7 @@ class AppModel extends ChangeNotifier
     ))
       return false;
     _owned.add(theme);
+    _remote('theme.buy', {'theme': theme.name});
     achievementRevision++;
     activity.event(EconomyEvent.themeBought, coinBalance);
     _prefs.theme = theme;
@@ -1066,7 +1602,11 @@ class AppModel extends ChangeNotifier
 
   BootTime? _lastFreeFortune;
   final _wheelClaims = <String, int>{};
-  int get fortuneWait => freeFortuneWait(_lastFreeFortune, _bootTime());
+  int get fortuneWait => online != null
+      ? (_serverBacked
+            ? max(0, _wheelFreeAt - _appClock.elapsedMilliseconds)
+            : -1)
+      : freeFortuneWait(_lastFreeFortune, _bootTime());
   final _wheelVideos = <BootTime>[];
 
   ({String id, FortunePrize prize})? _pendingFortune;
@@ -1076,6 +1616,20 @@ class AppModel extends ChangeNotifier
     final pending = _pendingFortune;
     if (_disposed || pending == null || !identical(pending.prize, prize))
       return false;
+    if (online != null) {
+      final settled = await online!.command(
+        'wheel.settle',
+        {'id': pending.id},
+        op: 'settle-${pending.id.replaceAll('/', '-')}',
+      );
+      if (settled.ok) {
+        activity.prize(prize.label, 1);
+      } else if (!settled.queued) {
+        await resync();
+      }
+      if (!_disposed) notifyListeners();
+      return settled.ok;
+    }
     if (_wallet.add(
       pending.id,
       'Fortune Wheel · ${prize.label}',
@@ -1100,6 +1654,9 @@ class AppModel extends ChangeNotifier
       freeFortuneWait(stamp, now) > 0;
 
   int get fortuneVideosRemaining {
+    if (online != null) {
+      return _disposed || storageError ? 0 : _wheelVideosLeft;
+    }
     final now = _bootTime();
     if (_disposed || storageError || now == null) return 0;
     return max(
@@ -1114,6 +1671,11 @@ class AppModel extends ChangeNotifier
     String event, {
     Random? random,
   }) async {
+    if (online != null) {
+      if (_disposed || _pendingFortune != null) return null;
+      if (!await _claimReward(event)) return null;
+      return _pendingFortune?.prize;
+    }
     final now = _bootTime();
     final id = 'wheel/video/$event';
     if (_pendingFortune != null ||
@@ -1136,6 +1698,11 @@ class AppModel extends ChangeNotifier
     FortuneCatalog catalog, {
     Random? random,
   }) async {
+    if (online != null) {
+      if (_disposed || storageError || _pendingFortune != null) return null;
+      final spun = await online!.command('wheel.free', const {});
+      return spun.ok ? _pendingFortune?.prize : null;
+    }
     final clock = _bootTime();
     if (_disposed ||
         storageError ||
@@ -1211,14 +1778,18 @@ class AppModel extends ChangeNotifier
     }
   }
 
-  int get adsToday => _coinAdDays.values.where((day) => day == todayKey).length;
+  int get adsToday => online != null
+      ? economy.rewardedAdsPerDay - _int(_limits['coinAds'])
+      : _coinAdDays.values.where((day) => day == todayKey).length;
   bool get canEarnAdBonus =>
       !storageError &&
-      _rewardDayAvailable &&
-      adsToday < economy.rewardedAdsPerDay;
+      (online != null
+          ? _int(_limits['coinAds']) > 0
+          : _rewardDayAvailable && adsToday < economy.rewardedAdsPerDay);
 
   Future<bool> grantAdBonus(String id) async {
     if (_disposed || !canEarnAdBonus) return false;
+    if (online != null) return _claimReward(id);
     final now = _today();
     final milestone = 'ad-milestone/${dayKey(now)}';
     final earnsMilestone =
@@ -1264,6 +1835,11 @@ class AppModel extends ChangeNotifier
   }) async {
     if (_disposed || (coins <= 0 && !themes && !removeAds && !bundle))
       return false;
+    if (online != null) {
+      // The server verified and credited this purchase before this call.
+      notifyListeners();
+      return true;
+    }
     if (themes) _themePass = true;
     if (removeAds) _removeAds = true;
     if (bundle) {
@@ -1361,7 +1937,7 @@ class AppModel extends ChangeNotifier
   }
 
   Future<bool> buyFreeze() async {
-    if (_disposed || storageError) return false;
+    if (_disposed || storageError || !onlineReady) return false;
     final before = streak.checkedThrough;
     streak.reconcile(todayKey);
     if (streak.freezes >= economy.maxFreezes ||
@@ -1379,6 +1955,7 @@ class AppModel extends ChangeNotifier
     }
     _freezeSerial++;
     streak.freezes++;
+    _remote('freeze.buy', const {});
     notifyListeners();
     return flush();
   }
@@ -1419,6 +1996,7 @@ class AppModel extends ChangeNotifier
   }
 
   Future<void> open(PuzzleId id, {bool replay = false}) async {
+    if (!onlineReady) return;
     if (id.mode == PlayMode.levels && !canPlayLevel(id.level)) return;
     if (_inPlay) _leave();
     final request = ++_request;
@@ -1443,6 +2021,22 @@ class AppModel extends ChangeNotifier
     notifyListeners();
 
     try {
+      final gateway = online;
+      if (gateway != null && id.mode != PlayMode.attack) {
+        final saved = replay ? const <String, dynamic>{} : _map(_attempts[id.key]);
+        final started = await gateway.command('play.start', {
+          'key': id.key,
+          if (replay) 'replay': true,
+          'ms': _int(saved['milliseconds']),
+        });
+        if (_disposed || request != _request) return;
+        if (!started.ok) {
+          loadError = started.queued
+              ? 'Reconnect to start this puzzle.'
+              : 'This puzzle isn’t available right now.';
+          return;
+        }
+      }
       final generation = id.generation;
       final board =
           await (_loader?.call(generation) ??
@@ -1564,6 +2158,7 @@ class AppModel extends ChangeNotifier
     correctedByHint = conflict;
     if (activeId?.mode == PlayMode.attack) attack?.unassisted = false;
     _hintBalance--;
+    _remote('hint.use', {'attempt': activeId!.key});
     _edited();
     unawaited(flush());
   }
@@ -1588,8 +2183,10 @@ class AppModel extends ChangeNotifier
       if (id.mode == PlayMode.attack) {
         final run = attack!;
         final now = _bootTime();
+        final route = List<int>.of(_game?.path ?? const <int>[]);
         _attempts.remove(id.key);
         if (now != null && run.clear(now)) {
+          _remote('attack.clear', {'run': run.id, 'route': route});
           haptic.complete();
           unawaited(flush());
           unawaited(open(PuzzleId.attack('${run.id}/${run.clears.length}')));
@@ -1607,6 +2204,7 @@ class AppModel extends ChangeNotifier
             unassisted: hintsUsed == 0,
           ),
         );
+        _submitCompletion(id);
         _attempts.remove(id.key);
         haptic.complete();
         unawaited(flush());
@@ -1671,6 +2269,7 @@ class AppModel extends ChangeNotifier
       _awardAchievements();
       lastReward = coinBalance - coinsBefore;
       _celebrateAchievements(previousAchievements);
+      _submitCompletion(id);
       _attempts.remove(id.key);
       haptic.complete();
       unawaited(flush());
@@ -1688,6 +2287,7 @@ class AppModel extends ChangeNotifier
   Future<void> completeLevelOneFromDemo() async {
     final id = const PuzzleId.level(1);
     if (result(id) != null) return;
+    unawaited(_submitDemoCompletion());
     final previousAchievements = achievementCounters;
     final coinsBefore = coinBalance;
     _results[id.key] = (milliseconds: 15000, hints: 0, unassisted: true);
@@ -1725,6 +2325,7 @@ class AppModel extends ChangeNotifier
     _request++;
     _processCrates(ending: true);
     _game?.end();
+    unawaited(_pushAttempt());
     _inPlay = false;
     _syncClock();
     unawaited(flush());
@@ -1735,6 +2336,7 @@ class AppModel extends ChangeNotifier
     _foreground = foreground;
     if (!foreground) {
       _game?.end();
+      unawaited(_pushAttempt());
       if (!_crateRevealed) _fallingCrate = null;
     }
     _processCrates();
@@ -1752,6 +2354,7 @@ class AppModel extends ChangeNotifier
 
   void setTheme(PathwiseTheme theme) {
     if (!ownsTheme(theme)) return;
+    _remote('theme.equip', {'theme': theme.name});
     _prefs.theme = theme;
     notifyListeners();
     unawaited(flush());
@@ -1759,6 +2362,7 @@ class AppModel extends ChangeNotifier
 
   void setHaptics(bool enabled) {
     _prefs.haptics = enabled;
+    _remote('prefs.set', {'haptics': enabled});
     haptic.enabled = enabled;
     haptic.light();
     notifyListeners();
@@ -1767,6 +2371,7 @@ class AppModel extends ChangeNotifier
 
   void setSharingSuggestions(bool enabled) {
     _prefs.suggestSharing = enabled;
+    _remote('prefs.set', {'suggestSharing': enabled});
     notifyListeners();
     unawaited(flush());
   }
@@ -1791,6 +2396,7 @@ class AppModel extends ChangeNotifier
   void _clock() => elapsed.value = _baseTime + _watch.elapsed;
 
   void _saveSoon() {
+    _scheduleAttemptPush();
     _saveTimer?.cancel();
     _saveTimer = Timer(
       const Duration(milliseconds: 400),
@@ -1804,6 +2410,7 @@ class AppModel extends ChangeNotifier
   Future<bool> markLevelOneDemoSeen() async {
     if (!shouldOfferLevelOneDemo) return false;
     _levelOneDemoSeen = true;
+    _remote('tutorial.ack', {'id': 'levelOneDemo'});
     return flush();
   }
 
@@ -1818,7 +2425,11 @@ class AppModel extends ChangeNotifier
     _saveTimer = null;
     final id = activeId;
     final game = _game;
-    if (id != null && game != null && !complete && _started && _canPlay) {
+    if (id != null &&
+        game != null &&
+        !complete &&
+        _started &&
+        _gameplayAllowed) {
       _attempts[id.key] = {
         'path': game.path,
         'history': game.history,
@@ -1927,6 +2538,8 @@ class AppModel extends ChangeNotifier
     _tick?.cancel();
     _saveTimer?.cancel();
     _attackTicker?.cancel();
+    _attemptTimer?.cancel();
+    online?.removeListener(_onlineChanged);
     attackRemaining.dispose();
     _crateTimer?.cancel();
     elapsed.dispose();
