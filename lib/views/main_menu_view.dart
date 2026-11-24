@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/billing_service.dart';
-import '../model/economy.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/progression.dart';
 import 'developer_view.dart';
