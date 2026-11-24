@@ -34,8 +34,7 @@ import 'components/brand_mark.dart';
     ),
     ConnectionPhase.authFailed => (
       title: 'Couldn’t verify this device',
-      message:
-          'Pathwise couldn’t confirm that this device can sign in. Please try again later.',
+      message: 'Pathwise couldn’t confirm that this device can sign in. Please try again later.',
       retry: true,
     ),
     ConnectionPhase.sessionExpired => (
@@ -45,8 +44,7 @@ import 'components/brand_mark.dart';
     ),
     ConnectionPhase.updateRequired => (
       title: 'Update required',
-      message:
-          'A newer version of Pathwise is required. Update from Google Play, then come back.',
+      message: 'A newer version of Pathwise is required. Update from Google Play, then come back.',
       retry: true,
     ),
     ConnectionPhase.notConfigured => (

@@ -16,8 +16,9 @@ void main() {
       expect(styles, contains('@mipmap/pathwise_route_launcher'));
     }
     for (final variant in ['drawable', 'drawable-v21']) {
-      final launch = File('android/app/src/main/res/$variant/launch_background.xml')
-          .readAsStringSync();
+      final launch = File(
+        'android/app/src/main/res/$variant/launch_background.xml',
+      ).readAsStringSync();
       expect(launch, contains('@mipmap/pathwise_route_launcher'));
       expect(launch, contains('android:gravity="center"'));
     }

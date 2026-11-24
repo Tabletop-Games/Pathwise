@@ -111,7 +111,12 @@ Map<String, dynamic> serverWallet({
   'research': <String, int>{},
   'inventory': <String, int>{},
   'active': <String, int>{},
-  'streak': {'count': 0, 'longest': 0, 'freezes': 0, 'days': <String, String>{}},
+  'streak': {
+    'count': 0,
+    'longest': 0,
+    'freezes': 0,
+    'days': <String, String>{},
+  },
   'achievements': <String>[],
   'counters': {'levelsSolved': 0, 'precision': 0, 'eligibleDailies': 0},
   'wheel': {

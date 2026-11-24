@@ -169,7 +169,9 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
       return;
     }
     _identity ??= await store.read();
-    final problem = _identity == null ? await _register() : await _ensureSession();
+    final problem = _identity == null
+        ? await _register()
+        : await _ensureSession();
     if (problem != null) {
       await _fail(problem);
       return;
@@ -178,7 +180,9 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
     // already includes it.
     await _serialize(() => _flushOutbox(force: true));
     if (!await refreshState()) {
-      await _fail(const ApiResponse(0, {}, failure: ApiFailure.backendUnavailable));
+      await _fail(
+        const ApiResponse(0, {}, failure: ApiFailure.backendUnavailable),
+      );
       return;
     }
     _failures = 0;
@@ -194,7 +198,9 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
     if (!challenge.ok) return challenge;
     if (challenge.body['required'] == true) {
       // Play Integrity is enforced by the server; this build cannot attest.
-      return const ApiResponse(403, {'error': 'attestation_failed'}, failure: ApiFailure.rejected);
+      return const ApiResponse(403, {
+        'error': 'attestation_failed',
+      }, failure: ApiFailure.rejected);
     }
     final created = await api.request(
       'POST',
@@ -214,7 +220,10 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
     }
     _identity = Identity(player, refresh);
     await store.write(_identity!);
-    _acceptSession(Map<String, dynamic>.from(session), response.body['serverNow']);
+    _acceptSession(
+      Map<String, dynamic>.from(session),
+      response.body['serverNow'],
+    );
     return null;
   }
 
@@ -253,7 +262,10 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
       if (refresh is String && session is Map) {
         _identity = Identity(identity.playerId, refresh);
         await store.write(_identity!);
-        _acceptSession(Map<String, dynamic>.from(session), response.body['serverNow']);
+        _acceptSession(
+          Map<String, dynamic>.from(session),
+          response.body['serverNow'],
+        );
         return null;
       }
       return const ApiResponse(0, {}, failure: ApiFailure.backendUnavailable);
@@ -276,7 +288,9 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
         return;
       case ApiFailure.rejected:
         _setPhase(
-          response.status == 403 ? ConnectionPhase.authFailed : ConnectionPhase.backendUnavailable,
+          response.status == 403
+              ? ConnectionPhase.authFailed
+              : ConnectionPhase.backendUnavailable,
         );
         _scheduleRecovery();
         return;
@@ -291,7 +305,8 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
   Future<ConnectionPhase> _classify() async {
     // Wi-Fi or mobile data alone proves nothing, so we look for any internet
     // reachability only to tell "no internet" from "our backend is down".
-    final reachable = await (_internetProbe?.call() ?? Future<bool>.value(false));
+    final reachable =
+        await (_internetProbe?.call() ?? Future<bool>.value(false));
     return reachable
         ? ConnectionPhase.backendUnavailable
         : ConnectionPhase.noInternet;
@@ -355,7 +370,11 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
   Future<bool> linkGames() async {
     final code = await _gamesCode?.call();
     if (code == null) return false;
-    final response = await _authed('POST', '/v1/auth/link', body: {'code': code});
+    final response = await _authed(
+      'POST',
+      '/v1/auth/link',
+      body: {'code': code},
+    );
     return response.ok;
   }
 
@@ -417,7 +436,11 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
 
   // ---- authenticated requests ---------------------------------------------------
 
-  Future<ApiResponse> _authed(String method, String path, {Object? body}) async {
+  Future<ApiResponse> _authed(
+    String method,
+    String path, {
+    Object? body,
+  }) async {
     final problem = await _ensureSession();
     if (problem != null) {
       if (_observe(problem)) unawaited(_interrupt());
@@ -496,7 +519,11 @@ class OnlineService extends ChangeNotifier implements OnlineGateway {
     final response = await _post(command);
     if (response.ok) {
       _applyWallet(response.body['wallet']);
-      return CommandResult(ok: true, status: response.status, body: response.body);
+      return CommandResult(
+        ok: true,
+        status: response.status,
+        body: response.body,
+      );
     }
     if (response.retryable || response.failure == ApiFailure.unauthorized) {
       if (!durable) return CommandResult.pending;

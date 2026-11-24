@@ -67,7 +67,12 @@ class FakeBackend implements HttpTransport {
       'tripleAvailable': false,
     },
     'recent': [
-      {'id': 'starter', 'label': 'Welcome coins', 'amount': 50, 'at': serverNow},
+      {
+        'id': 'starter',
+        'label': 'Welcome coins',
+        'amount': 50,
+        'at': serverNow,
+      },
     ],
     'billingAccount': 'a' * 64,
   };
@@ -85,17 +90,12 @@ class FakeBackend implements HttpTransport {
   };
 
   /// Round-trips through JSON so tests see exactly what the app would decode.
-  ApiResponse _json(int status, Map<String, dynamic> body) => ApiResponse(
-    status,
-    jsonDecode(jsonEncode(body)) as Map<String, dynamic>,
-  );
+  ApiResponse _json(int status, Map<String, dynamic> body) =>
+      ApiResponse(status, jsonDecode(jsonEncode(body)) as Map<String, dynamic>);
 
   Map<String, dynamic> _session() {
     sessions++;
-    return {
-      'token': 'token-$sessions',
-      'expiresAt': serverNow + tokenTtlMs,
-    };
+    return {'token': 'token-$sessions', 'expiresAt': serverNow + tokenTtlMs};
   }
 
   @override
@@ -117,11 +117,7 @@ class FakeBackend implements HttpTransport {
     final path = url.path;
     requests.add('$method $path');
     if (down) {
-      return const ApiResponse(
-        0,
-        {},
-        failure: ApiFailure.backendUnavailable,
-      );
+      return const ApiResponse(0, {}, failure: ApiFailure.backendUnavailable);
     }
     final token = headers['authorization']?.replaceFirst('Bearer ', '');
     final data = body == null

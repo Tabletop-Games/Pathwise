@@ -117,7 +117,11 @@ void main() {
     await online.start();
     final before = backend.sessions;
     await online.command('tutorial.ack', {'id': 'walls'});
-    expect(backend.sessions, greaterThan(before), reason: 'refreshed before use');
+    expect(
+      backend.sessions,
+      greaterThan(before),
+      reason: 'refreshed before use',
+    );
 
     backend
       ..revokedTokens.add('token-${backend.sessions}')
@@ -181,7 +185,11 @@ void main() {
     final online = service(backend);
     await online.start();
     await online.command('hint.buy', const {}, op: 'op-buy-0001');
-    final replay = await online.command('hint.buy', const {}, op: 'op-buy-0001');
+    final replay = await online.command(
+      'hint.buy',
+      const {},
+      op: 'op-buy-0001',
+    );
     expect(replay.ok, isTrue);
     expect(replay.body['replayed'], isTrue);
     expect(backend.executed.where((c) => c['type'] == 'hint.buy').length, 1);
@@ -208,7 +216,9 @@ void main() {
     final online = service(backend);
     await online.start();
     backend.failNextCommands = 1;
-    final save = await online.command('attempt.save', {'key': 'levels/1'}, durable: false);
+    final save = await online.command('attempt.save', {
+      'key': 'levels/1',
+    }, durable: false);
     expect(save.queued, isTrue);
     expect(online.pendingCommands, 0);
     online.dispose();
