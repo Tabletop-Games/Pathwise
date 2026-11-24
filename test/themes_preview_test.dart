@@ -45,8 +45,11 @@ void main() {
         greaterThanOrEqualTo(4.5),
         reason: theme.label,
       );
-      expect(contrast(scheme.onSurfaceVariant, scheme.surfaceContainerHighest),
-          greaterThanOrEqualTo(4.5), reason: '${theme.label} equipped');
+      expect(
+        contrast(scheme.onSurfaceVariant, scheme.surfaceContainerHighest),
+        greaterThanOrEqualTo(4.5),
+        reason: '${theme.label} equipped',
+      );
     }
   });
 
@@ -133,13 +136,28 @@ void main() {
       expect(tester.getRect(preview), previewRect);
       expect(tester.widget<ListTile>(row).selected, isTrue);
       final forest = find.byKey(const ValueKey('theme-row-forestMint'));
-      final forestTitle = tester.widget<Text>(find.descendant(of: forest, matching: find.text('Forest Mint')));
+      final forestTitle = tester.widget<Text>(
+        find.descendant(of: forest, matching: find.text('Forest Mint')),
+      );
       expect(forestTitle.style!.color, midnight.ink);
-      final swatch = tester.widget<CircleAvatar>(find.descendant(of: forest, matching: find.byType(CircleAvatar)).first);
-      expect(swatch.backgroundColor, BoardPalette.palettes[PathwiseTheme.forestMint]!.route);
-      final price = find.descendant(of: forest, matching: find.text('90 coins'));
-      final ink = tester.widget<Ink>(find.ancestor(of: price, matching: find.byType(Ink)).first);
-      expect((ink.decoration as ShapeDecoration).color, midnight.theme.colorScheme.primary);
+      final swatch = tester.widget<CircleAvatar>(
+        find.descendant(of: forest, matching: find.byType(CircleAvatar)).first,
+      );
+      expect(
+        swatch.backgroundColor,
+        BoardPalette.palettes[PathwiseTheme.forestMint]!.route,
+      );
+      final price = find.descendant(
+        of: forest,
+        matching: find.text('90 coins'),
+      );
+      final ink = tester.widget<Ink>(
+        find.ancestor(of: price, matching: find.byType(Ink)).first,
+      );
+      expect(
+        (ink.decoration as ShapeDecoration).color,
+        midnight.theme.colorScheme.primary,
+      );
       expect(model.theme, PathwiseTheme.field);
       expect(model.ownsTheme(PathwiseTheme.midnightSlate), isFalse);
       expect(model.coinBalance, 50);
