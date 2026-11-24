@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Game-first UI/UX overhaul. New shared design system (`lib/ui`): flat themed cards, price pills (coin and number only), original vector illustrations, and themed dialogs. Every screen uses palette tokens and was checked on light, dark, warm, cool, AMOLED and High Contrast themes.
+- Main menu: a prominent full-width Store card replaces the header bag and the Themes tile; the Wheel is a compact full-width card; the coin balance opens Coins.
+- Store: Themes, Tips, Coins and Upgrades under a full-width selector. Themes use board-only thumbnails; Tips show upright art; Coins show a free-coins card with a milestone indicator and coin packs with an unavailable state; Upgrades are illustrated cards.
+- All 19 paid tips redrawn as layered vector art with theme-adaptive colours. Prices, IDs and ownership are unchanged.
+- Continuous pointer tracking: the tip follows the finger along one cardinal axis, never jumps when a cell is accepted, clamps at walls, gates and wrong checkpoints, and settles on release. Transient state is never persisted.
+- Checkpoint tips keep a consistent size, ride the leading rim of the checkpoint disc and keep the number readable.
+- Redesigned Levels, gameplay chrome, completion, Time Attack results, Research, Boosts, Wheel, crates, Streak, Statistics, Achievements, Settings, cloud save, hint shop, tutorials and connection screens. Economy, odds, prices, limits, puzzle rules and saves are unchanged.
+- Add a screen capture suite (`PATHWISE_CAPTURE_DIR`) and a tip contact sheet.
+
 - Declare Pathwise Android-only. Remove the iOS CI job and iOS verification requirements. The `ios/` directory is kept as dormant scaffolding.
 - Replace the custom backend with client-managed cloud saves. Progress syncs through Play Games Services Saved Games, with versioned, digest-checked saves, conservative conflict handling and a backup before every replacement. No server, Firestore or Cloud Run is required.
 - Require an internet connection to play. A connectivity service checks a Google connectivity endpoint, pauses the board on connection loss without losing the route, and offers Retry.

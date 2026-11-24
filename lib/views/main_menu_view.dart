@@ -605,11 +605,13 @@ class _DailyCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 4,
                 children: [
                   _OnRoutePips(done: done, palette: palette),
                   if (time != null) ...[
-                    const SizedBox(width: 10),
                     Text(
                       time!,
                       style: TextStyle(
