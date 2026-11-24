@@ -1,6 +1,6 @@
 # Social sharing
 
-Pathwise prepares text using the result shown in the game. Players preview it, choose where it goes, and control whether they send or publish it. Every destination includes the same [Pathwise listing](https://play.google.com/store/apps/details?id=games.tabletop.pathwise). The URL may be inaccessible to the public before launch. The game and clipboard work independently of the listing.
+Pathwise prepares text using the result shown in the game. Players preview it, choose where it goes, and control whether they send or publish it. Every destination includes the same [Pathwise listing](https://play.google.com/store/apps/details?id=com.shenmareparas.pathwise). The URL may be inaccessible to the public before launch. The game and clipboard work independently of the listing.
 
 | Where | Shareable information |
 | --- | --- |

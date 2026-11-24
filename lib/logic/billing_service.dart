@@ -197,7 +197,7 @@ class BillingService extends ChangeNotifier {
   Future<VerifiedGrant?> _verify(PurchaseDetails purchase, String token) async {
     if (_disposed || token.isEmpty) return null;
     final product = purchase.productID;
-    const package = 'games.tabletop.pathwise';
+    const package = 'com.shenmareparas.pathwise';
     final bool? valid;
     if (_android && purchase is GooglePlayPurchaseDetails) {
       final data = purchase.billingClientPurchase;

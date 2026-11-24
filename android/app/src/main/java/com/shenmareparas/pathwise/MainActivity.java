@@ -1,4 +1,4 @@
-package games.tabletop.pathwise;
+package com.shenmareparas.pathwise;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;

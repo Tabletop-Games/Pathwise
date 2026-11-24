@@ -47,7 +47,7 @@ void main() {
           expect(message, isNot(contains(RegExp('seed|coordinates|playerId'))));
         }
       }
-      expect(ShareLinks.playStore, endsWith('id=games.tabletop.pathwise'));
+      expect(ShareLinks.playStore, endsWith('id=com.shenmareparas.pathwise'));
       expect(SharePromptPolicy.levelMilestone(11), false);
       expect(SharePromptPolicy.levelMilestone(10500), true);
     },

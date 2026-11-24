@@ -45,7 +45,7 @@ if ((productionAds || verifyAdConsent || admobAppId) && !validAdmobAppId) {
 
 android {
     buildFeatures { resValues = true }
-    namespace = "games.tabletop.pathwise"
+    namespace = "com.shenmareparas.pathwise"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -60,7 +60,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "games.tabletop.pathwise"
+        applicationId = "com.shenmareparas.pathwise"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

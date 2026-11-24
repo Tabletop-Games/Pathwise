@@ -26,7 +26,6 @@ class _ThemesViewState extends State<ThemesView> {
     final model = context.watch<AppModel>();
     final theme = _preview ?? model.theme;
     final palette = BoardPalette.palettes[theme]!;
-    final activeColors = BoardPalette.palettes[model.theme]!.theme.colorScheme;
     return Theme(
       data: palette.theme,
       child: Scaffold(
@@ -65,26 +64,25 @@ class _ThemesViewState extends State<ThemesView> {
                   for (final item in PathwiseTheme.values)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 7),
-                      child: ListTile(
-                        minVerticalPadding: 8,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: BoardPalette.palettes[item]!.surface,
-                        selectedTileColor: BoardPalette.palettes[item]!.covered,
-                        selected: theme == item,
-                        onTap: () => setState(() => _preview = item),
-                        leading: _Swatch(palette: BoardPalette.palettes[item]!),
-                        title: Text(item.label),
-                        subtitle: model.ownsTheme(item)
-                            ? null
-                            : Text('Preview this palette'),
-                        trailing: _themeAction(
-                          context,
-                          model,
-                          item,
-                          activeColors,
-                        ),
+                      child: Builder(
+                        builder: (context) {
+                          final itemPalette = BoardPalette.palettes[item]!;
+                          return Theme(
+                            data: itemPalette.theme,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                              minVerticalPadding: 8,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              tileColor: itemPalette.surface,
+                              onTap: () => setState(() => _preview = item),
+                              leading: _Swatch(palette: itemPalette),
+                              title: Text(item.label, style: TextStyle(color: itemPalette.ink)),
+                              trailing: _themeAction(context, model, item, itemPalette.theme.colorScheme),
+                            ),
+                          );
+                        },
                       ),
                     ),
                 ],
@@ -100,33 +98,52 @@ class _ThemesViewState extends State<ThemesView> {
     BuildContext context,
     AppModel model,
     PathwiseTheme item,
-    ColorScheme active,
+    ColorScheme colors,
   ) {
     if (model.theme == item) {
       return Semantics(
         label: '${item.label}, equipped',
-        child: const Chip(
-          avatar: Icon(Icons.check_rounded, size: 18),
-          label: Text('Equipped'),
-          visualDensity: VisualDensity.compact,
+        child: ExcludeSemantics(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border.all(color: colors.onSurfaceVariant),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.check_rounded, size: 16, color: colors.onSurface),
+              const SizedBox(width: 4),
+              Text('Equipped', style: TextStyle(color: colors.onSurface)),
+            ]),
+          ),
         ),
       );
     }
     final owned = model.ownsTheme(item);
     final price = economy.themePrice(item);
+    final background = owned ? colors.secondary : colors.primary;
+    final foreground = owned ? colors.onSecondary : colors.onPrimary;
     return FilledButton(
       style: FilledButton.styleFrom(
-        backgroundColor: owned ? active.secondary : active.primary,
-        foregroundColor: owned ? active.onSecondary : active.onPrimary,
-        minimumSize: const Size(72, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        backgroundColor: Colors.transparent,
+        foregroundColor: foreground,
+        shadowColor: Colors.transparent,
+        minimumSize: const Size(48, 48),
+        padding: EdgeInsets.zero,
         shape: const StadiumBorder(),
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
       onPressed: owned
           ? () => model.setTheme(item)
           : () => _buy(context, model, item, price),
-      child: Text(owned ? 'Apply' : '$price coins'),
+      child: Ink(
+        decoration: ShapeDecoration(color: background, shape: const StadiumBorder()),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(owned ? 'Apply' : '$price coins'),
+        ),
+      ),
     );
   }
 

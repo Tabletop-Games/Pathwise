@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-export const appPackage = 'games.tabletop.pathwise';
+export const appPackage = 'com.shenmareparas.pathwise';
 const products = Object.freeze({
   pathwise_coins_500: 500, pathwise_coins_1250: 1250, pathwise_coins_3000: 3000,
   pathwise_coins_7500: 7500, pathwise_coins_18000: 18000,
