@@ -1,18 +1,22 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
+import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
 enum _ResearchBranch {
-  income('Coin rewards', Icons.toll_outlined, [
+  income('Coins', ArtKind.coinStack2, [
     Research.magnet,
     Research.golden,
     Research.fortune,
@@ -20,21 +24,21 @@ enum _ResearchBranch {
     Research.momentum,
     Research.specialist,
   ]),
-  supplies('Supply crates', Icons.inventory_2_outlined, [
+  supplies('Crates', ArtKind.crate, [
     Research.hunter,
     Research.collector,
     Research.scout,
   ]),
-  efficiency('Efficiency', Icons.tune_rounded, [
+  efficiency('Efficiency', ArtKind.research, [
     Research.efficiency,
     Research.savings,
     Research.tuning,
     Research.procurement,
   ]);
 
-  const _ResearchBranch(this.title, this.icon, this.items);
+  const _ResearchBranch(this.title, this.art, this.items);
   final String title;
-  final IconData icon;
+  final ArtKind art;
   final List<Research> items;
 }
 
@@ -104,141 +108,100 @@ class _ProgressionViewState extends State<ProgressionView> {
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
+    final palette = BoardPalette.palettes[model.theme]!;
     final progression = model.progression;
     final now = model.progressionTime;
-    final ranks = Research.values.fold(
-      0,
-      (total, item) => total + progression.rank(item),
+    final multipliers = Boost.values.where(
+      (item) =>
+          item.multiplier > 1 &&
+          (item.availableToBuy ||
+              (progression.inventory[item.name] ?? 0) > 0 ||
+              progression.remaining(item, now) > 0),
     );
-    final rankLimit = Research.values.fold(
-      0,
-      (total, item) => total + item.limit,
+    final supplies = Boost.values.where(
+      (item) =>
+          item.multiplier == 1 &&
+          ((progression.inventory[item.name] ?? 0) > 0 ||
+              progression.remaining(item, now) > 0),
     );
-    final owned = Boost.values.fold(
-      0,
-      (total, item) => total + (progression.inventory[item.name] ?? 0),
-    );
-    final active = Boost.values
-        .where((boost) => progression.remaining(boost, now) > 0)
-        .length;
-    final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        title: Text(widget.boosts ? 'Boosts' : 'Research'),
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-              children: [
-                _Panel(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayFor(palette),
+      child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 56,
+          titleSpacing: 0,
+          title: Text(
+            widget.boosts ? 'Boosts' : 'Research',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+          ),
+          actions: [
+            BalanceChip(
+              coins: model.coinBalance,
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const StoreView(section: StoreSection.coins),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620),
+              child: widget.boosts
+                  ? ListView(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       children: [
-                        Icon(
-                          widget.boosts
-                              ? Icons.bolt_rounded
-                              : Icons.hub_outlined,
-                          color: widget.boosts
-                              ? Theme.of(context).colorScheme.tertiary
-                              : Theme.of(context).colorScheme.primary,
-                          size: 35,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.boosts ? 'Boost reserve' : 'Research lab',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _Detail(
-                          widget.boosts
-                              ? '$owned ready to activate · $active active'
-                              : '$ranks of $rankLimit ranks developed',
-                        ),
-                        if (!widget.boosts)
+                        for (final boost in [...multipliers, ...supplies])
+                          _boost(model, boost, now),
+                        if (multipliers.isEmpty && supplies.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: _Meter(ranks / rankLimit),
-                          ),
-                        const SizedBox(height: 12),
-                        ActionChip(
-                          avatar: const Icon(Icons.toll_rounded, size: 18),
-                          label: Text('${model.coinBalance} coins available'),
-                          onPressed: () => Navigator.of(context).push<void>(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const StoreView(section: StoreSection.coins),
+                            padding: const EdgeInsets.symmetric(vertical: 48),
+                            child: Column(
+                              children: [
+                                GameArt(ArtKind.bolt, palette: palette, size: 72),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No boosts yet',
+                                  style: TextStyle(
+                                    color: palette.mutedInk,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                          child: GameSegmented<_ResearchBranch>(
+                            selected: _branch,
+                            onChanged: (value) =>
+                                setState(() => _branch = value),
+                            segments: [
+                              for (final branch in _ResearchBranch.values)
+                                (value: branch, label: branch.title),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView(
+                            key: PageStorageKey('research-${_branch.name}'),
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                            children: [
+                              for (final item in _branch.items)
+                                _research(model, item),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (widget.boosts) ...[
-                  const _Heading('Coin multipliers'),
-                  for (final boost in Boost.values.where(
-                    (item) =>
-                        item.multiplier > 1 &&
-                        (item.availableToBuy ||
-                            (model.progression.inventory[item.name] ?? 0) > 0 ||
-                            model.progression.remaining(item, now) > 0),
-                  ))
-                    _boost(model, boost, now),
-                  const _Heading('Supply boosts'),
-                  for (final boost in Boost.values.where(
-                    (item) =>
-                        item.multiplier == 1 &&
-                        ((model.progression.inventory[item.name] ?? 0) > 0 ||
-                            model.progression.remaining(item, now) > 0),
-                  ))
-                    _boost(model, boost, now),
-                ] else ...[
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final branch in _ResearchBranch.values)
-                        ChoiceChip(
-                          label: Text(branch.title),
-                          avatar: Icon(
-                            branch.icon,
-                            size: 17,
-                            color: _branch == branch
-                                ? Theme.of(context).colorScheme.surface
-                                : Theme.of(context).colorScheme.primary,
-                          ),
-                          labelStyle: TextStyle(
-                            color: _branch == branch
-                                ? Theme.of(context).colorScheme.surface
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                          showCheckmark: false,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHigh,
-                          selectedColor: Theme.of(context).colorScheme.primary,
-                          selected: _branch == branch,
-                          onSelected: (_) => setState(() => _branch = branch),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  for (final item in _branch.items) _research(model, item),
-                ],
-              ],
             ),
           ),
         ),
@@ -253,297 +216,285 @@ class _ProgressionViewState extends State<ProgressionView> {
     final unlocked = progress.unlocked(item);
     final price = mastered ? 0 : item.price(rank);
     final shortfall = price - model.coinBalance;
-    return _Upgrade(
-      title: item.title,
-      icon: _branch.icon,
-      state: mastered ? 'Mastered' : 'Rank $rank / ${item.limit}',
-      progress: rank / item.limit,
-      effect: item.benefit,
-      description: mastered
-          ? 'Current benefit +${item.effectAt(rank)}'
-          : 'Current +${item.effectAt(rank)} · Next +${item.effectAt(rank + 1)}',
-      action: mastered
-          ? _SecondaryAction(
-              label: 'Share milestone',
-              onPressed: () => const ShareDestinationService().open(
-                ShareResult.research(item.title, item.limit),
-                ShareDestination.android,
+    final palette = BoardPalette.palettes[model.theme]!;
+    final Widget action;
+    if (mastered) {
+      action = ActionPill(
+        label: 'Share',
+        semanticLabel: 'Share ${item.title} milestone',
+        onTap: () => const ShareDestinationService().open(
+          ShareResult.research(item.title, item.limit),
+          ShareDestination.android,
+        ),
+      );
+    } else if (!unlocked) {
+      action = InfoChip(
+        icon: GameArt(ArtKind.lock, palette: palette, size: 16),
+        label: '${item.prerequisite!.title} 3',
+      );
+    } else {
+      action = PricePill(
+        price: price,
+        affordable: shortfall <= 0,
+        semanticLabel: 'Upgrade ${item.title} for $price coins',
+        onTap: model.storageError
+            ? null
+            : () {
+                if (shortfall > 0) {
+                  showInsufficientCoins(
+                    context,
+                    itemName: item.title,
+                    requiredCoins: price,
+                    currentBalance: model.coinBalance,
+                  );
+                } else if (model.research(item)) {
+                  _feedback('${item.title} reached rank ${rank + 1}');
+                }
+              },
+      );
+    }
+    final effect = mastered
+        ? '+${item.effectAt(rank)}'
+        : '+${item.effectAt(rank)} → +${item.effectAt(rank + 1)}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GameCard(
+        key: ValueKey('research-${item.name}'),
+        padding: const EdgeInsets.all(14),
+        child: Opacity(
+          opacity: unlocked ? 1 : .62,
+          child: Row(
+            children: [
+              GameArt(
+                unlocked ? _branch.art : ArtKind.lock,
+                palette: palette,
+                size: 44,
               ),
-            )
-          : unlocked
-          ? _PrimaryAction(
-              label: 'Upgrade · $price coins',
-              onPressed: model.storageError
-                  ? null
-                  : () {
-                      if (shortfall > 0) {
-                        showInsufficientCoins(
-                          context,
-                          itemName: item.title,
-                          requiredCoins: price,
-                          currentBalance: model.coinBalance,
-                        );
-                      } else if (model.research(item)) {
-                        _feedback('${item.title} reached rank ${rank + 1}');
-                      }
-                    },
-            )
-          : null,
-      availability: !unlocked
-          ? 'Requires ${item.prerequisite!.title} rank 3'
-          : shortfall > 0
-          ? '$shortfall more coins needed'
-          : null,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.benefit,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.mutedInk, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      effect,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.ink,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: GameBar(value: rank / item.limit)),
+                        const SizedBox(width: 8),
+                        Semantics(
+                          label: mastered
+                              ? 'Mastered'
+                              : 'Rank $rank of ${item.limit}',
+                          excludeSemantics: true,
+                          child: Text(
+                            '$rank/${item.limit}',
+                            style: TextStyle(
+                              color: palette.mutedInk,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              action,
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _boost(AppModel model, Boost boost, int now) {
     final progress = model.progression;
+    final palette = BoardPalette.palettes[model.theme]!;
     final inventory = progress.inventory[boost.name] ?? 0;
     final remaining = progress.remaining(boost, now);
     final duration = boost.minutes * 600 * (100 + progress.durationBonus);
     final price = progress.discount(boost.price);
     final canActivate = !model.storageError && progress.canActivate(boost, now);
-    return _Upgrade(
-      title: switch (boost) {
-        Boost.crateFrequency => 'Supply relay',
-        _ => '${boost.multiplier}× coin boost',
-      },
-      icon: boost.multiplier > 1
-          ? Icons.bolt_rounded
-          : Icons.inventory_2_outlined,
-      state: '${_duration(duration)} · $inventory owned',
-      progress: remaining > 0 ? remaining / duration : null,
-      effect: boost.title,
-      description: remaining > 0
-          ? '${_duration(remaining)} remaining'
-          : boost.multiplier > 1
-          ? 'Applies to eligible puzzle clear rewards'
-          : 'Applies to new supply crate drops',
-      availability: !canActivate && inventory > 0 && remaining == 0
-          ? 'Another coin boost is active'
-          : null,
-      action: Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        children: [
-          if ((boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
-              context.watch<AdService>().enabled)
-            _SecondaryAction(
-              label: 'Watch ad · +1 boost',
-              onPressed: model.canEarnBoostAd(boost)
-                  ? () async {
-                      final ads = context.read<AdService>();
-                      bool current() =>
-                          mounted && ModalRoute.isCurrentOf(context) == true;
-                      if (!ads.readyFor(RewardPlacement.boost))
-                        await ads.prepare(canPresent: current);
-                      if (!current()) return;
-                      final shown = await ads.watchVideo(
-                        (event) => model.grantBoostAd(boost, event),
-                        placement: RewardPlacement.boost,
-                        canPresent: () =>
-                            current() && model.canEarnBoostAd(boost),
-                      );
-                      if (!shown && current()) _feedback('Video unavailable');
-                    }
-                  : null,
-            ),
-          if (boost.availableToBuy)
-            _SecondaryAction(
-              label: 'Buy · $price coins',
-              onPressed: model.storageError
-                  ? null
-                  : () {
-                      if (model.coinBalance < price) {
-                        showInsufficientCoins(
-                          context,
-                          itemName: boost.title,
-                          requiredCoins: price,
-                          currentBalance: model.coinBalance,
-                        );
-                      } else if (model.buyBoost(boost)) {
-                        _feedback('Added to your boost reserve');
-                      }
-                    },
-            ),
-          _PrimaryAction(
-            label: 'Activate',
-            onPressed: canActivate
-                ? () {
-                    if (model.activateBoost(boost))
-                      _feedback('Boost active for ${_duration(duration)}');
-                  }
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Panel extends StatelessWidget {
-  const _Panel({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.surfaceContainerHigh,
-    borderRadius: BorderRadius.circular(20),
-    child: child,
-  );
-}
-
-class _Upgrade extends StatelessWidget {
-  const _Upgrade({
-    required this.title,
-    required this.icon,
-    required this.state,
-    required this.effect,
-    required this.description,
-    this.progress,
-    this.availability,
-    this.action,
-  });
-  final String title, state, effect, description;
-  final String? availability;
-  final IconData icon;
-  final double? progress;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: _Panel(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    final multiplier = boost.multiplier > 1;
+    final watch =
+        (boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
+        context.watch<AdService>().enabled;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GameCard(
+        key: ValueKey('boost-${boost.name}'),
+        padding: const EdgeInsets.all(14),
+        color: remaining > 0
+            ? Color.lerp(palette.card, palette.accent, palette.dark ? .12 : .16)
+            : null,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 10),
+                GameArt(
+                  multiplier ? ArtKind.bolt : ArtKind.crate,
+                  palette: palette,
+                  size: 48,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        multiplier ? '${boost.multiplier}×' : 'Supply relay',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: multiplier ? 26 : 18,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          InfoChip(
+                            icon: GameArt(
+                              ArtKind.timer,
+                              palette: palette,
+                              size: 16,
+                            ),
+                            label: _duration(duration),
+                          ),
+                          InfoChip(
+                            icon: GameArt(
+                              ArtKind.check,
+                              palette: palette,
+                              size: 16,
+                            ),
+                            label: '×$inventory',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            _Detail(state, color: Theme.of(context).colorScheme.primary),
-            if (progress case final value?)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: _Meter(value),
+            if (remaining > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: GameBar(value: remaining / duration)),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_duration(remaining)} left',
+                    style: TextStyle(
+                      color: palette.mutedInk,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-            _Detail(effect, color: Theme.of(context).colorScheme.onSurface),
-            _Detail(description),
-            if (availability case final detail?)
-              Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: _Detail(
-                  detail,
-                  color: Theme.of(context).colorScheme.tertiary,
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (watch)
+                  ActionPill(
+                    label: 'Watch',
+                    icon: Icons.play_arrow_rounded,
+                    semanticLabel: 'Watch a video for one boost',
+                    onTap: model.canEarnBoostAd(boost)
+                        ? () async {
+                            final ads = context.read<AdService>();
+                            bool current() =>
+                                mounted &&
+                                ModalRoute.isCurrentOf(context) == true;
+                            if (!ads.readyFor(RewardPlacement.boost)) {
+                              await ads.prepare(canPresent: current);
+                            }
+                            if (!current()) return;
+                            final shown = await ads.watchVideo(
+                              (event) => model.grantBoostAd(boost, event),
+                              placement: RewardPlacement.boost,
+                              canPresent: () =>
+                                  current() && model.canEarnBoostAd(boost),
+                            );
+                            if (!shown && current()) {
+                              _feedback('Video unavailable');
+                            }
+                          }
+                        : null,
+                  ),
+                if (boost.availableToBuy)
+                  PricePill(
+                    price: price,
+                    affordable: model.coinBalance >= price,
+                    semanticLabel: 'Buy ${boost.title} for $price coins',
+                    onTap: model.storageError
+                        ? null
+                        : () {
+                            if (model.coinBalance < price) {
+                              showInsufficientCoins(
+                                context,
+                                itemName: boost.title,
+                                requiredCoins: price,
+                                currentBalance: model.coinBalance,
+                              );
+                            } else if (model.buyBoost(boost)) {
+                              _feedback('Added to your boost reserve');
+                            }
+                          },
+                  ),
+                ActionPill(
+                  label: 'Activate',
+                  tone: ActionTone.primary,
+                  onTap: canActivate
+                      ? () {
+                          if (model.activateBoost(boost)) {
+                            _feedback(
+                              'Boost active for ${_duration(duration)}',
+                            );
+                          }
+                        }
+                      : null,
                 ),
-              ),
-            if (action != null)
-              Padding(padding: const EdgeInsets.only(top: 10), child: action!),
+              ],
+            ),
           ],
         ),
       ),
-    ),
-  );
-}
-
-class _Detail extends StatelessWidget {
-  const _Detail(this.text, {this.color});
-  final String text;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: TextStyle(
-      color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
-  );
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, top: 4),
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.titleLarge
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurface),
-    ),
-  );
-}
-
-class _Meter extends StatelessWidget {
-  const _Meter(this.value);
-  final double value;
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(end: value.clamp(0.0, 1.0)),
-    duration: MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 260),
-    builder: (_, amount, _) => LinearProgressIndicator(
-      value: amount,
-      minHeight: 5,
-      color: Theme.of(context).colorScheme.primary,
-      backgroundColor: Theme.of(context).colorScheme.outlineVariant,
-      borderRadius: BorderRadius.circular(5),
-    ),
-  );
-}
-
-class _PrimaryAction extends StatelessWidget {
-  const _PrimaryAction({required this.label, required this.onPressed});
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => FilledButton(
-    style: FilledButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.surface,
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      disabledBackgroundColor: Theme.of(context)
-          .colorScheme
-          .surfaceContainerHighest,
-    ),
-    onPressed: onPressed,
-    child: Text(label),
-  );
-}
-
-class _SecondaryAction extends StatelessWidget {
-  const _SecondaryAction({required this.label, required this.onPressed});
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton(
-    style: OutlinedButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.primary,
-      disabledForegroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      side: BorderSide(color: Theme.of(context).colorScheme.outline),
-    ),
-    onPressed: onPressed,
-    child: Text(label),
-  );
+    );
+  }
 }

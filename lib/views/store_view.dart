@@ -200,7 +200,9 @@ class _StoreViewState extends State<StoreView> {
     ),
     child: Padding(
       padding: const EdgeInsets.all(6),
-      child: Center(child: LevelOneBoardPreview(palette: candidate, tip: tip)),
+      child: Center(
+        child: LevelOneBoardPreview(palette: candidate, tip: tip),
+      ),
     ),
   );
 
@@ -365,7 +367,8 @@ class _StoreViewState extends State<StoreView> {
     final milestone = economy.coinAdMilestone;
     final watched = model.adsToday;
     final bonus = model.nextCoinVideoEarnsMilestone;
-    final reward = economy.rewardedAdCoins + (bonus ? economy.coinAdMilestoneBonus : 0);
+    final reward =
+        economy.rewardedAdCoins + (bonus ? economy.coinAdMilestoneBonus : 0);
     final claimed = model.coinMilestoneClaimed;
     final String label;
     final VoidCallback? action;
@@ -489,8 +492,7 @@ class _StoreViewState extends State<StoreView> {
     setState(() => _watching = true);
     try {
       await ads.prepare(
-        canPresent: () =>
-            mounted && ModalRoute.isCurrentOf(context) == true,
+        canPresent: () => mounted && ModalRoute.isCurrentOf(context) == true,
       );
     } finally {
       if (mounted) setState(() => _watching = false);
@@ -529,7 +531,11 @@ class _StoreViewState extends State<StoreView> {
     }
   }
 
-  Widget _packGrid(AppModel model, BillingService billing, String? recommended) {
+  Widget _packGrid(
+    AppModel model,
+    BillingService billing,
+    String? recommended,
+  ) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -626,15 +632,15 @@ class _StoreViewState extends State<StoreView> {
                 onPressed: billing.buying ? null : billing.refreshCatalog,
                 child: const Text('Refresh prices'),
               ),
-              TextButton(
-                onPressed: _showTerms,
-                child: const Text('Details'),
-              ),
+              TextButton(onPressed: _showTerms, child: const Text('Details')),
             ],
           )
         else
           Center(
-            child: TextButton(onPressed: _showTerms, child: const Text('Details')),
+            child: TextButton(
+              onPressed: _showTerms,
+              child: const Text('Details'),
+            ),
           ),
         if (billing.message case final message?)
           Padding(
@@ -676,12 +682,7 @@ class _StoreViewState extends State<StoreView> {
             ),
         ],
       ),
-      actions: [
-        ActionPill(
-          label: 'Close',
-          onTap: () => Navigator.pop(dialog),
-        ),
-      ],
+      actions: [ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog))],
     ),
   );
 
@@ -724,10 +725,7 @@ class _StoreViewState extends State<StoreView> {
                 ],
               ),
               actions: [
-                ActionPill(
-                  label: 'Close',
-                  onTap: () => Navigator.pop(dialog),
-                ),
+                ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
                 if (model.theme != theme)
                   if (owned)
                     ActionPill(
@@ -792,7 +790,9 @@ class _StoreViewState extends State<StoreView> {
                       child: IconButton(
                         onPressed: () => update(() => direction = turns),
                         isSelected: direction == turns,
-                        color: direction == turns ? palette.route : palette.mutedInk,
+                        color: direction == turns
+                            ? palette.route
+                            : palette.mutedInk,
                         icon: Icon(icon),
                         tooltip: label,
                       ),
@@ -833,7 +833,7 @@ class _StoreViewState extends State<StoreView> {
     required Widget art,
   }) async {
     final confirm = await showGameDialog<bool>(
-    context,
+      context,
       builder: (dialog) => GameDialog(
         art: art,
         title: name,
@@ -868,10 +868,7 @@ class _StoreViewState extends State<StoreView> {
     final yes = await _confirmUnlock(
       name: theme.label,
       price: price,
-      art: SizedBox(
-        width: 96,
-        child: _thumb(candidate, model.equippedTip),
-      ),
+      art: SizedBox(width: 96, child: _thumb(candidate, model.equippedTip)),
     );
     if (yes) model.unlockTheme(theme);
   }
@@ -902,7 +899,9 @@ class _StoreViewState extends State<StoreView> {
     setState(() => _busy = false);
     if (!result) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t save this purchase. Try again.')),
+        const SnackBar(
+          content: Text('Couldn’t save this purchase. Try again.'),
+        ),
       );
     }
   }
@@ -1070,9 +1069,7 @@ class _UpgradeCard extends StatelessWidget {
     return GameCard(
       padding: const EdgeInsets.all(14),
       selected: featured,
-      color: featured
-          ? Color.lerp(p.card, p.accent, p.dark ? .12 : .16)
-          : null,
+      color: featured ? Color.lerp(p.card, p.accent, p.dark ? .12 : .16) : null,
       child: Row(
         children: [
           DecoratedBox(

@@ -85,15 +85,26 @@ void main() {
       expect(turned.facing, 1);
     });
 
-    test('the facing never flickers on small jitter, and flips on a real retreat', () {
-      final puzzle = open4();
-      at(tracker, puzzle, [0, 1], const Offset(1.5, .5));
-      expect(at(tracker, puzzle, [0, 1], const Offset(1.8, .5)).facing, 0);
-      expect(at(tracker, puzzle, [0, 1], const Offset(1.74, .5)).facing, 0);
-      final back = at(tracker, puzzle, [0, 1], const Offset(1.62, .5));
-      expect(back.facing, 2, reason: 'the finger retreated by more than 0.10');
-      expect(back.tip.dx, closeTo(1.62, 1e-9), reason: 'the tip does not jump');
-    });
+    test(
+      'the facing never flickers on small jitter, and flips on a real retreat',
+      () {
+        final puzzle = open4();
+        at(tracker, puzzle, [0, 1], const Offset(1.5, .5));
+        expect(at(tracker, puzzle, [0, 1], const Offset(1.8, .5)).facing, 0);
+        expect(at(tracker, puzzle, [0, 1], const Offset(1.74, .5)).facing, 0);
+        final back = at(tracker, puzzle, [0, 1], const Offset(1.62, .5));
+        expect(
+          back.facing,
+          2,
+          reason: 'the finger retreated by more than 0.10',
+        );
+        expect(
+          back.tip.dx,
+          closeTo(1.62, 1e-9),
+          reason: 'the tip does not jump',
+        );
+      },
+    );
 
     test('rendered facing and tip are always cardinal under random input', () {
       final puzzle = open4();
@@ -134,20 +145,23 @@ void main() {
       expect(v.tip.dx, closeTo(2.7, 1e-9));
     });
 
-    test('a fast multi-cell drag still ends at the finger on the last cell', () {
-      final puzzle = open4();
-      at(tracker, puzzle, [0], const Offset(.6, .5));
-      final v = at(
-        tracker,
-        puzzle,
-        [0, 1, 2, 3],
-        const Offset(3.4, .5),
-        canEnter: (_) => true,
-      );
-      expect(v.cell, 3);
-      expect(v.tip.dx, lessThanOrEqualTo(3.5 + 1e-9));
-      expect(v.tip.dy, v.center.dy);
-    });
+    test(
+      'a fast multi-cell drag still ends at the finger on the last cell',
+      () {
+        final puzzle = open4();
+        at(tracker, puzzle, [0], const Offset(.6, .5));
+        final v = at(
+          tracker,
+          puzzle,
+          [0, 1, 2, 3],
+          const Offset(3.4, .5),
+          canEnter: (_) => true,
+        );
+        expect(v.cell, 3);
+        expect(v.tip.dx, lessThanOrEqualTo(3.5 + 1e-9));
+        expect(v.tip.dy, v.center.dy);
+      },
+    );
   });
 
   group('obstacles', () {
@@ -190,12 +204,12 @@ void main() {
       );
       expect(edge.tip.dx, lessThan(3.5 + .3));
       // Cell 0 is on the route but is not the cell just left, so it is blocked.
-      final visited = at(
-        TipTracker(),
-        puzzle,
-        [0, 4, 5, 1],
-        const Offset(1.5 - .45, .5),
-      );
+      final visited = at(TipTracker(), puzzle, [
+        0,
+        4,
+        5,
+        1,
+      ], const Offset(1.5 - .45, .5));
       expect(visited.tip.dx, greaterThan(1.5 - .3));
     });
   });
@@ -283,7 +297,13 @@ void main() {
     test('the lead is continuous as the finger moves', () {
       final puzzle = Puzzle(4, [0, 5, 15]);
       final route = [0, 1, 5];
-      var previous = at(tracker, puzzle, route, const Offset(1.5, 1.2), facing: 1);
+      var previous = at(
+        tracker,
+        puzzle,
+        route,
+        const Offset(1.5, 1.2),
+        facing: 1,
+      );
       for (var y = 1.2; y <= 1.99; y += .01) {
         final v = at(tracker, puzzle, route, Offset(1.5, y), facing: 1);
         expect(
@@ -295,19 +315,22 @@ void main() {
       }
     });
 
-    test('the tip size does not depend on whether the cell is a checkpoint', () {
-      final puzzle = Puzzle(4, [0, 5, 15]);
-      final ordinary = at(tracker, puzzle, [0, 1], const Offset(1.9, .5));
-      final onCheckpoint = at(
-        TipTracker(),
-        puzzle,
-        [0, 1, 5],
-        const Offset(1.5, 1.95),
-        facing: 1,
-      );
-      expect(ordinary.extension, greaterThan(0));
-      expect(onCheckpoint.extension, greaterThan(0));
-    });
+    test(
+      'the tip size does not depend on whether the cell is a checkpoint',
+      () {
+        final puzzle = Puzzle(4, [0, 5, 15]);
+        final ordinary = at(tracker, puzzle, [0, 1], const Offset(1.9, .5));
+        final onCheckpoint = at(
+          TipTracker(),
+          puzzle,
+          [0, 1, 5],
+          const Offset(1.5, 1.95),
+          facing: 1,
+        );
+        expect(ordinary.extension, greaterThan(0));
+        expect(onCheckpoint.extension, greaterThan(0));
+      },
+    );
   });
 
   group('lifecycle', () {

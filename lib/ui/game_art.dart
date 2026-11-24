@@ -202,7 +202,11 @@ void _stack(Canvas c, BoardPalette p, int level) {
   void disc(Offset at, double r) {
     final shadow = Paint()..color = p.metalDark;
     c.drawOval(
-      Rect.fromCenter(center: at.translate(0, r * .22), width: r * 2, height: r * 1.05),
+      Rect.fromCenter(
+        center: at.translate(0, r * .22),
+        width: r * 2,
+        height: r * 1.05,
+      ),
       shadow,
     );
     c.drawOval(
@@ -265,7 +269,12 @@ void _gift(Canvas c, BoardPalette p, Paint line) {
     ..cubicTo(-.5, -.95, -.78, -.35, 0, -.48)
     ..cubicTo(.5, -.95, .78, -.35, 0, -.48);
   c.drawPath(bow, Paint()..color = p.accent);
-  c.drawPath(bow, line..color = p.outlineFor(p.accent)..strokeWidth = .06);
+  c.drawPath(
+    bow,
+    line
+      ..color = p.outlineFor(p.accent)
+      ..strokeWidth = .06,
+  );
 }
 
 void _crate(Canvas c, BoardPalette p, Paint line) {
@@ -353,9 +362,13 @@ void _shield(Canvas c, BoardPalette p, Paint line) {
       ..style = PaintingStyle.stroke
       ..strokeWidth = .09,
   );
-  c.drawLine(const Offset(-.5, .42), const Offset(.5, -.4), line
-    ..color = p.accent
-    ..strokeWidth = .13);
+  c.drawLine(
+    const Offset(-.5, .42),
+    const Offset(.5, -.4),
+    line
+      ..color = p.accent
+      ..strokeWidth = .13,
+  );
 }
 
 void _brush(Canvas c, BoardPalette p, Paint line) {
@@ -468,7 +481,11 @@ void _freeze(Canvas c, BoardPalette p, Paint line) {
     c.save();
     c.rotate(i * math.pi / 3);
     c.drawLine(const Offset(0, -.82), const Offset(0, .82), ink);
-    c.drawLine(const Offset(0, -.55), const Offset(-.2, -.75), ink..strokeWidth = .09);
+    c.drawLine(
+      const Offset(0, -.55),
+      const Offset(-.2, -.75),
+      ink..strokeWidth = .09,
+    );
     c.drawLine(const Offset(0, -.55), const Offset(.2, -.75), ink);
     c.drawLine(const Offset(0, .55), const Offset(-.2, .75), ink);
     c.drawLine(const Offset(0, .55), const Offset(.2, .75), ink);
@@ -495,7 +512,10 @@ void _trophy(Canvas c, BoardPalette p, Paint line) {
         ..strokeWidth = .09,
     );
   }
-  c.drawRect(const Rect.fromLTRB(-.1, .38, .1, .62), Paint()..color = p.metalDark);
+  c.drawRect(
+    const Rect.fromLTRB(-.1, .38, .1, .62),
+    Paint()..color = p.metalDark,
+  );
   c.drawRRect(
     RRect.fromRectAndRadius(
       const Rect.fromLTRB(-.42, .62, .42, .84),
@@ -575,9 +595,13 @@ void _wheel(Canvas c, BoardPalette p, Paint line) {
       Paint()..color = i.isEven ? p.route : Color.lerp(p.route, p.accent, .55)!,
     );
   }
-  c.drawCircle(Offset.zero, .85, line
-    ..color = p.outlineFor(p.route)
-    ..strokeWidth = .06);
+  c.drawCircle(
+    Offset.zero,
+    .85,
+    line
+      ..color = p.outlineFor(p.route)
+      ..strokeWidth = .06,
+  );
   c.drawCircle(Offset.zero, .2, Paint()..color = p.accent);
   c.drawPath(
     Path()
@@ -590,12 +614,28 @@ void _wheel(Canvas c, BoardPalette p, Paint line) {
 }
 
 void _timer(Canvas c, BoardPalette p, Paint line) {
-  c.drawCircle(const Offset(0, .1), .72, line
-    ..color = p.route
-    ..strokeWidth = .12);
-  c.drawLine(const Offset(0, .1), const Offset(0, -.3), line..strokeWidth = .12);
-  c.drawLine(const Offset(0, .1), const Offset(.26, .2), line..strokeWidth = .1);
-  c.drawLine(const Offset(-.15, -.82), const Offset(.15, -.82), line..strokeWidth = .12);
+  c.drawCircle(
+    const Offset(0, .1),
+    .72,
+    line
+      ..color = p.route
+      ..strokeWidth = .12,
+  );
+  c.drawLine(
+    const Offset(0, .1),
+    const Offset(0, -.3),
+    line..strokeWidth = .12,
+  );
+  c.drawLine(
+    const Offset(0, .1),
+    const Offset(.26, .2),
+    line..strokeWidth = .1,
+  );
+  c.drawLine(
+    const Offset(-.15, -.82),
+    const Offset(.15, -.82),
+    line..strokeWidth = .12,
+  );
 }
 
 void _levels(Canvas c, BoardPalette p, Paint line) {
@@ -620,10 +660,7 @@ void _calendar(Canvas c, BoardPalette p, Paint line) {
     ),
     Paint()..color = p.route,
   );
-  c.drawRect(
-    const Rect.fromLTRB(-.8, -.3, .8, .8),
-    Paint()..color = p.surface,
-  );
+  c.drawRect(const Rect.fromLTRB(-.8, -.3, .8, .8), Paint()..color = p.surface);
   c.drawRRect(
     RRect.fromRectAndRadius(
       const Rect.fromLTRB(-.8, -.65, .8, .8),

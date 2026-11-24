@@ -213,7 +213,8 @@ class TipTracker {
     final direction = position >= 0 ? positiveDir : negativeDir;
     final distance = position.abs();
     final tip = center + _unit[direction] * distance;
-    final towardBefore = before != null &&
+    final towardBefore =
+        before != null &&
         distance > 0 &&
         _directionBetween(puzzle, cell, before) == direction &&
         !_portalHop(puzzle, cell, before);

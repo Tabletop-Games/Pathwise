@@ -188,7 +188,10 @@ class PuzzleView extends StatelessWidget {
                               palette: palette,
                             ),
                             const SizedBox(height: 14),
-                            Row(
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 _ControlButton(
@@ -200,12 +203,14 @@ class PuzzleView extends StatelessWidget {
                                 _ControlButton(
                                   icon: Icons.restart_alt_rounded,
                                   label: 'Clear',
-                                  onPressed: model.canClear ? model.clear : null,
+                                  onPressed: model.canClear
+                                      ? model.clear
+                                      : null,
                                 ),
                                 const SizedBox(width: 8),
                                 _HintAction(model: model),
                               ],
-                            ),
+                            )),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: side,
@@ -455,9 +460,8 @@ class _Completion extends StatelessWidget {
                   ? 'Level complete!'
                   : 'Daily complete!',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -719,7 +723,9 @@ class _ControlButton extends StatelessWidget {
               decoration: BoxDecoration(
                 color: fill,
                 borderRadius: BorderRadius.circular(GameTokens.pillRadius),
-                border: primary && enabled ? null : Border.all(color: p.cardEdge),
+                border: primary && enabled
+                    ? null
+                    : Border.all(color: p.cardEdge),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

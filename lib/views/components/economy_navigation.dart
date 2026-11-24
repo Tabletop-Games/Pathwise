@@ -30,7 +30,10 @@ Future<void> showInsufficientCoins(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: p.quiet,
                   borderRadius: BorderRadius.circular(GameTokens.pillRadius),

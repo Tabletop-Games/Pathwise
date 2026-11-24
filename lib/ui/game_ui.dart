@@ -42,8 +42,9 @@ extension GameColors on BoardPalette {
   Color get mutedInk => Color.lerp(muted, ink, .2)!;
 
   /// Foreground that is readable on [background].
-  Color onColor(Color background) =>
-      background.computeLuminance() > .42 ? const Color(0xff161616) : const Color(0xfffafafa);
+  Color onColor(Color background) => background.computeLuminance() > .42
+      ? const Color(0xff161616)
+      : const Color(0xfffafafa);
 }
 
 /// Flat card with a hairline edge in place of Material elevation.
@@ -192,17 +193,14 @@ class ActionPill extends StatelessWidget {
             Icon(icon, size: 16, color: disabled ? p.mutedInk : ink),
             const SizedBox(width: 4),
           ],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: disabled ? p.mutedInk : ink,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                height: 1,
-              ),
+          Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              color: disabled ? p.mutedInk : ink,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              height: 1,
             ),
           ),
         ],
@@ -232,15 +230,15 @@ class _PillFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final pill = Container(
       height: 36,
-      constraints: const BoxConstraints(minWidth: 64),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      constraints: const BoxConstraints(minWidth: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(GameTokens.pillRadius),
         border: border == null ? null : Border.all(color: border!),
       ),
-      child: child,
+      child: FittedBox(fit: BoxFit.scaleDown, child: child),
     );
     return Semantics(
       button: true,
@@ -367,11 +365,7 @@ class ProgressPips extends StatelessWidget {
           for (var i = 0; i < total; i++) ...[
             if (i > 0) const SizedBox(width: 6),
             if (finalReward && i == total - 1)
-              GameArt(
-                ArtKind.gift,
-                palette: p,
-                size: 26,
-              )
+              GameArt(ArtKind.gift, palette: p, size: 26)
             else
               AnimatedContainer(
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -421,7 +415,12 @@ class GameBar extends StatelessWidget {
 
 /// A reward amount with coin art, e.g. `+60`.
 class RewardAmount extends StatelessWidget {
-  const RewardAmount(this.amount, {this.size = 34, this.plus = true, super.key});
+  const RewardAmount(
+    this.amount, {
+    this.size = 34,
+    this.plus = true,
+    super.key,
+  });
   final int amount;
   final double size;
   final bool plus;
@@ -513,7 +512,9 @@ SystemUiOverlayStyle overlayFor(BoardPalette p) => SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
   statusBarIconBrightness: p.dark ? Brightness.light : Brightness.dark,
   systemNavigationBarColor: p.canvas,
-  systemNavigationBarIconBrightness: p.dark ? Brightness.light : Brightness.dark,
+  systemNavigationBarIconBrightness: p.dark
+      ? Brightness.light
+      : Brightness.dark,
   systemNavigationBarContrastEnforced: false,
 );
 

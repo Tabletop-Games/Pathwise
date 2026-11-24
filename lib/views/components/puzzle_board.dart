@@ -932,7 +932,8 @@ class _BoardPainter extends CustomPainter {
     final trimmed = trim?.value;
     final stroke = Path()..moveTo(first.dx, first.dy);
     for (final cell in route.skip(1)) {
-      final point = trimmed != null && cell == route.last && trimmed.cell == cell
+      final point =
+          trimmed != null && cell == route.last && trimmed.cell == cell
           ? trimmed.tip
           : _center(cell);
       if (puzzle.portal?.$2 == cell) {

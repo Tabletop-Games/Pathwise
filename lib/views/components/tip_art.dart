@@ -20,7 +20,14 @@ final class TipColors {
     required this.eye,
   });
 
-  final Color primary, secondary, accent, highlight, detail, depth, outline, eye;
+  final Color primary,
+      secondary,
+      accent,
+      highlight,
+      detail,
+      depth,
+      outline,
+      eye;
 
   /// [identity] is the character's natural colour. It is pulled toward the
   /// theme accent by [adopt] so it matches the theme, then clamped so it keeps
@@ -33,15 +40,27 @@ final class TipColors {
     double minContrast = 1.9,
   }) {
     var primary = Color.lerp(identity, palette.accent, adopt)!;
-    primary = _ensureContrast(primary, palette.surface, palette.route, minContrast);
+    primary = _ensureContrast(
+      primary,
+      palette.surface,
+      palette.route,
+      minContrast,
+    );
     final secondary = _shift(
-      second == null ? primary : Color.lerp(second, palette.accent, adopt * .6)!,
+      second == null
+          ? primary
+          : Color.lerp(second, palette.accent, adopt * .6)!,
       second == null ? (palette.dark ? .16 : -.16) : 0,
     );
     final outline = _shift(primary, palette.dark ? -.50 : -.46, saturate: .1);
     return TipColors(
       primary: primary,
-      secondary: _ensureContrast(secondary, palette.surface, palette.route, 1.5),
+      secondary: _ensureContrast(
+        secondary,
+        palette.surface,
+        palette.route,
+        1.5,
+      ),
       accent: Color.lerp(palette.accent, primary, .25)!,
       highlight: _shift(primary, palette.dark ? .26 : .30),
       detail: _shift(primary, palette.dark ? .12 : -.22, saturate: .1),
@@ -157,21 +176,33 @@ class _Artist {
     if (outline) c.drawPath(path, stroke);
   }
 
-  void oval(double x, double y, double w, double h, Color color,
-      {bool outline = true}) {
+  void oval(
+    double x,
+    double y,
+    double w,
+    double h,
+    Color color, {
+    bool outline = true,
+  }) {
     final rect = Rect.fromCenter(center: Offset(x, y), width: w, height: h);
     c.drawOval(rect, fill(color));
     if (outline) c.drawOval(rect, stroke);
   }
 
-  void line(double x1, double y1, double x2, double y2, {double w = _w, Color? color}) =>
-      c.drawLine(
-        Offset(x1, y1),
-        Offset(x2, y2),
-        stroke
-          ..strokeWidth = w
-          ..color = color ?? k.outline,
-      );
+  void line(
+    double x1,
+    double y1,
+    double x2,
+    double y2, {
+    double w = _w,
+    Color? color,
+  }) => c.drawLine(
+    Offset(x1, y1),
+    Offset(x2, y2),
+    stroke
+      ..strokeWidth = w
+      ..color = color ?? k.outline,
+  );
 
   void curve(Path path, {double w = _w, Color? color}) => c.drawPath(
     path,
@@ -185,7 +216,11 @@ class _Artist {
     oval(x, y, r * 2.15, r * 2.35, const Color(0xfffdfdfd));
     c.drawCircle(Offset(x, y + r * .08), r * .78, fill(k.eye));
     if (shine) {
-      c.drawCircle(Offset(x - r * .28, y - r * .34), r * .3, fill(const Color(0xfffdfdfd)));
+      c.drawCircle(
+        Offset(x - r * .28, y - r * .34),
+        r * .3,
+        fill(const Color(0xfffdfdfd)),
+      );
     }
   }
 
@@ -379,11 +414,14 @@ class _Artist {
         ..close(),
       fill(k.accent),
     );
-    curve(Path()
-      ..moveTo(0, .32)
-      ..quadraticBezierTo(-.08, .46, -.2, .44)
-      ..moveTo(0, .32)
-      ..quadraticBezierTo(.08, .46, .2, .44), w: .05);
+    curve(
+      Path()
+        ..moveTo(0, .32)
+        ..quadraticBezierTo(-.08, .46, -.2, .44)
+        ..moveTo(0, .32)
+        ..quadraticBezierTo(.08, .46, .2, .44),
+      w: .05,
+    );
     for (final s in [-1.0, 1.0]) {
       line(s * .5, .3, s * .94, .22, w: .035, color: k.highlight);
       line(s * .5, .38, s * .94, .42, w: .035, color: k.highlight);
@@ -431,13 +469,16 @@ class _Artist {
         ..close(),
       fill(k.eye),
     );
-    curve(Path()
-      ..moveTo(0, .4)
-      ..lineTo(0, .5)
-      ..moveTo(0, .5)
-      ..quadraticBezierTo(-.1, .64, -.24, .58)
-      ..moveTo(0, .5)
-      ..quadraticBezierTo(.1, .64, .24, .58), w: .05);
+    curve(
+      Path()
+        ..moveTo(0, .4)
+        ..lineTo(0, .5)
+        ..moveTo(0, .5)
+        ..quadraticBezierTo(-.1, .64, -.24, .58)
+        ..moveTo(0, .5)
+        ..quadraticBezierTo(.1, .64, .24, .58),
+      w: .05,
+    );
     c.drawPath(
       Path()
         ..moveTo(-.1, .6)
@@ -488,13 +529,16 @@ class _Artist {
         ..close(),
       fill(k.secondary),
     );
-    curve(Path()
-      ..moveTo(0, .4)
-      ..lineTo(0, .5)
-      ..moveTo(0, .5)
-      ..quadraticBezierTo(-.1, .62, -.2, .56)
-      ..moveTo(0, .5)
-      ..quadraticBezierTo(.1, .62, .2, .56), w: .05);
+    curve(
+      Path()
+        ..moveTo(0, .4)
+        ..lineTo(0, .5)
+        ..moveTo(0, .5)
+        ..quadraticBezierTo(-.1, .62, -.2, .56)
+        ..moveTo(0, .5)
+        ..quadraticBezierTo(.1, .62, .2, .56),
+      w: .05,
+    );
     c.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTRB(-.09, .58, .09, .74),
@@ -553,9 +597,12 @@ class _Artist {
     eye(-.36, -.04, r: .09);
     eye(.36, -.04, r: .09);
     c.drawCircle(const Offset(0, .86), .1, fill(k.eye));
-    curve(Path()
-      ..moveTo(0, .88)
-      ..lineTo(0, .94), w: .04);
+    curve(
+      Path()
+        ..moveTo(0, .88)
+        ..lineTo(0, .94),
+      w: .04,
+    );
   }
 
   void _panda() {
@@ -575,7 +622,10 @@ class _Artist {
       c.save();
       c.translate(s * .38, -.02);
       c.rotate(s * .5);
-      c.drawOval(Rect.fromCenter(center: Offset.zero, width: .36, height: .52), fill(k.secondary));
+      c.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: .36, height: .52),
+        fill(k.secondary),
+      );
       c.restore();
       eye(s * .38, -.04, r: .075);
     }
@@ -589,11 +639,14 @@ class _Artist {
         ..close(),
       fill(k.secondary),
     );
-    curve(Path()
-      ..moveTo(0, .4)
-      ..quadraticBezierTo(-.06, .52, -.17, .5)
-      ..moveTo(0, .4)
-      ..quadraticBezierTo(.06, .52, .17, .5), w: .05);
+    curve(
+      Path()
+        ..moveTo(0, .4)
+        ..quadraticBezierTo(-.06, .52, -.17, .5)
+        ..moveTo(0, .4)
+        ..quadraticBezierTo(.06, .52, .17, .5),
+      w: .05,
+    );
     blush(-.62, .36);
     blush(.62, .36);
   }
@@ -617,9 +670,12 @@ class _Artist {
       c.drawCircle(Offset(s * .26, .1), .045, fill(k.detail));
       blush(s * .66, .3);
     }
-    curve(Path()
-      ..moveTo(-.46, .34)
-      ..quadraticBezierTo(0, .72, .46, .34), w: .06);
+    curve(
+      Path()
+        ..moveTo(-.46, .34)
+        ..quadraticBezierTo(0, .72, .46, .34),
+      w: .06,
+    );
     c.drawCircle(const Offset(-.14, -.4), .0, fill(k.eye));
   }
 
@@ -684,9 +740,12 @@ class _Artist {
     shape(head, k.secondary);
     eye(-.14, -.78, r: .06);
     eye(.14, -.78, r: .06);
-    curve(Path()
-      ..moveTo(-.1, -.62)
-      ..quadraticBezierTo(0, -.55, .1, -.62), w: .04);
+    curve(
+      Path()
+        ..moveTo(-.1, -.62)
+        ..quadraticBezierTo(0, -.55, .1, -.62),
+      w: .04,
+    );
     final shell = Path()
       ..moveTo(0, -.58)
       ..cubicTo(.7, -.58, .94, -.1, .9, .3)
@@ -741,7 +800,11 @@ class _Artist {
         Rect.fromCenter(center: Offset.zero, width: .62, height: .98),
         stroke..strokeWidth = .05,
       );
-      c.drawLine(const Offset(0, -.3), const Offset(0, .24), stroke..strokeWidth = .035);
+      c.drawLine(
+        const Offset(0, -.3),
+        const Offset(0, .24),
+        stroke..strokeWidth = .035,
+      );
       c.restore();
     }
     final body = Path()
@@ -772,9 +835,12 @@ class _Artist {
       c.drawCircle(Offset(s * .3, -1.12), .06, fill(k.secondary));
       eye(s * .26, -.52, r: .1);
     }
-    curve(Path()
-      ..moveTo(-.12, -.32)
-      ..quadraticBezierTo(0, -.22, .12, -.32), w: .045);
+    curve(
+      Path()
+        ..moveTo(-.12, -.32)
+        ..quadraticBezierTo(0, -.22, .12, -.32),
+      w: .045,
+    );
   }
 
   void _ghost() {
@@ -821,7 +887,11 @@ class _Artist {
   // ---- machines and mythical ------------------------------------------------
 
   void _robot() {
-    c.drawLine(const Offset(0, -.74), const Offset(0, -.96), stroke..strokeWidth = .07);
+    c.drawLine(
+      const Offset(0, -.74),
+      const Offset(0, -.96),
+      stroke..strokeWidth = .07,
+    );
     c.drawCircle(const Offset(0, -.98), .1, fill(k.secondary));
     c.drawCircle(const Offset(0, -.98), .1, stroke);
     for (final s in [-1.0, 1.0]) {
@@ -855,12 +925,20 @@ class _Artist {
     );
     for (final s in [-1.0, 1.0]) {
       c.drawCircle(Offset(s * .28, -.14), .15, fill(k.secondary));
-      c.drawCircle(Offset(s * .28, -.14), .15, fill(k.secondary.withValues(alpha: 1)));
+      c.drawCircle(
+        Offset(s * .28, -.14),
+        .15,
+        fill(k.secondary.withValues(alpha: 1)),
+      );
       c.drawCircle(Offset(s * .22, -.2), .045, fill(const Color(0xfffdfdfd)));
     }
-    curve(Path()
-      ..moveTo(-.22, .1)
-      ..quadraticBezierTo(0, .2, .22, .1), w: .05, color: k.secondary);
+    curve(
+      Path()
+        ..moveTo(-.22, .1)
+        ..quadraticBezierTo(0, .2, .22, .1),
+      w: .05,
+      color: k.secondary,
+    );
     for (var i = -2; i <= 2; i++) {
       line(i * .15, .54, i * .15, .72, w: .05, color: k.detail);
     }
@@ -1003,9 +1081,18 @@ class _Artist {
       c.save();
       c.translate(s * .38, -.14);
       c.rotate(s * -.35);
-      c.drawOval(Rect.fromCenter(center: Offset.zero, width: .34, height: .24), fill(const Color(0xfffdfdfd)));
-      c.drawOval(Rect.fromCenter(center: Offset.zero, width: .34, height: .24), stroke..strokeWidth = .05);
-      c.drawOval(Rect.fromCenter(center: const Offset(0, .01), width: .1, height: .2), fill(k.eye));
+      c.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: .34, height: .24),
+        fill(const Color(0xfffdfdfd)),
+      );
+      c.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: .34, height: .24),
+        stroke..strokeWidth = .05,
+      );
+      c.drawOval(
+        Rect.fromCenter(center: const Offset(0, .01), width: .1, height: .2),
+        fill(k.eye),
+      );
       c.restore();
       line(s * .26, -.42, s * .52, -.32, w: .06);
     }
@@ -1025,8 +1112,22 @@ class _Artist {
         final t = i / 2;
         final feather = Path()
           ..moveTo(s * .3, .1 - t * .14)
-          ..cubicTo(s * (.68 + t * .1), -.12 - t * .3, s * (.98 - t * .1), -.2 - t * .3, s * (1.04 - t * .06), .06 + t * .3 - .5)
-          ..cubicTo(s * (.96 - t * .1), .26 - t * .1, s * (.62 - t * .1), .34, s * .3, .24)
+          ..cubicTo(
+            s * (.68 + t * .1),
+            -.12 - t * .3,
+            s * (.98 - t * .1),
+            -.2 - t * .3,
+            s * (1.04 - t * .06),
+            .06 + t * .3 - .5,
+          )
+          ..cubicTo(
+            s * (.96 - t * .1),
+            .26 - t * .1,
+            s * (.62 - t * .1),
+            .34,
+            s * .3,
+            .24,
+          )
           ..close();
         shape(feather, i == 0 ? k.secondary : (i == 1 ? k.primary : k.accent));
       }

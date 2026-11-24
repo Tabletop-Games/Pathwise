@@ -67,13 +67,9 @@ Future<void> openPuzzle(
         await model.recordCoinOffer() &&
         canPresent()) {
       final watch = await showGameDialog<bool>(
-    context,
+        context,
         builder: (dialog) => GameDialog(
-          art: GameArt(
-            ArtKind.coinStack3,
-            palette: dialog.palette,
-            size: 72,
-          ),
+          art: GameArt(ArtKind.coinStack3, palette: dialog.palette, size: 72),
           child: Center(child: RewardAmount(economy.rewardedAdCoins)),
           actions: [
             ActionPill(

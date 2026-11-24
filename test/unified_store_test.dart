@@ -9,6 +9,7 @@ import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
 import '../lib/model/path_tips.dart';
 import '../lib/model/user_preferences.dart';
+import '../lib/ui/game_ui.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/components/tip_art.dart';
 import '../lib/views/store_view.dart';
@@ -247,13 +248,13 @@ void main() {
         find.descendant(of: card, matching: find.byType(TipArtwork)),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Up'), findsOneWidget);
-      await tester.tap(find.text('Up'));
+      expect(find.byTooltip('Up'), findsOneWidget);
+      await tester.tap(find.byTooltip('Up'));
       await tester.pump();
       expect(model.equippedTip, PathTip.classic);
       final preview = tester.widget<LevelOneBoardPreview>(
         find.descendant(
-          of: find.byType(AlertDialog),
+          of: find.byType(GameDialog),
           matching: find.byType(LevelOneBoardPreview),
         ),
       );

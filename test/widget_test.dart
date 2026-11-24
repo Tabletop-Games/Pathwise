@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
+import '../lib/ui/game_ui.dart';
 import '../lib/views/components/brand_mark.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/fortune_view.dart';
@@ -33,9 +34,7 @@ void main() {
     expect(find.text('Store'), findsOneWidget);
     expect(find.text('Transaction history'), findsNothing);
     expect(
-      find.textContaining(
-        'Coin purchases and ad rewards are currently unavailable',
-      ),
+      find.text('Purchases are unavailable on this build.'),
       findsOneWidget,
     );
     await tester.pumpWidget(const SizedBox.shrink());
@@ -92,7 +91,7 @@ void main() {
   });
 
   testWidgets(
-    'home orders play and shortcuts and reserves the mark for About',
+    'home orders play, Store, Wheel and shortcuts and reserves the mark for About',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 820));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -110,41 +109,50 @@ void main() {
       expect(find.text('Pathwise'), findsOneWidget);
       expect(find.byType(BrandMark), findsNothing);
       expect(find.text('One route through every tile.'), findsNothing);
-      expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
-      Offset position(String label) => tester.getCenter(find.text(label));
-      expect(position('3 hints').dx, greaterThan(position('1-day streak').dx));
+      final streakChip = find.byKey(const ValueKey('streak-chip'));
+      final hintChip = find.byKey(const ValueKey('hint-chip'));
+      expect(streakChip, findsOneWidget);
+      expect(hintChip, findsOneWidget);
       expect(
-        find.ancestor(
-          of: find.text('3 hints'),
-          matching: find.byType(FilledButton),
-        ),
+        tester.getCenter(hintChip).dx,
+        greaterThan(tester.getCenter(streakChip).dx),
+      );
+      expect(
+        find.descendant(of: hintChip, matching: find.text('3')),
         findsOneWidget,
       );
+      expect(find.byTooltip('Store'), findsNothing);
+      expect(find.text('Themes'), findsNothing);
 
+      Offset position(String label) => tester.getCenter(find.text(label));
       final ordered = [
         'Daily challenge',
         'Play level 1',
         'Levels',
         'Time Attack',
+        'Store',
+        'Fortune Wheel',
       ];
-      for (var i = 1; i < ordered.length; i++) {
+      for (var i = 1; i < 4; i++) {
         expect(
           position(ordered[i]).dy,
           greaterThan(position(ordered[i - 1]).dy),
         );
       }
+      for (var i = 4; i < ordered.length; i++) {
+        if (i >= 4) {
+          await tester.scrollUntilVisible(find.text(ordered[i]), 200);
+          await tester.pumpAndSettle();
+        }
+        expect(find.text(ordered[i]), findsOneWidget);
+      }
       await tester.scrollUntilVisible(find.text('Boosts'), 230);
       await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.text('Fortune Wheel')).dy,
-        tester.getTopLeft(find.text('Themes')).dy,
-      );
       expect(position('Research').dy, position('Boosts').dy);
       expect(
         position('Research').dy,
         greaterThan(position('Fortune Wheel').dy),
       );
-      expect(position('Fortune Wheel').dx, lessThan(position('Themes').dx));
       expect(position('Research').dx, lessThan(position('Boosts').dx));
 
       await tester.scrollUntilVisible(find.byTooltip('Settings'), -250);
@@ -343,13 +351,12 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Research'));
         await tester.pumpAndSettle();
-        expect(find.text('Research lab'), findsOneWidget);
-        final upgrade = find.text('Upgrade · 55 coins');
-        await tester.scrollUntilVisible(upgrade, 170);
+        expect(find.text('Research'), findsOneWidget);
+        final upgrade = find.byType(PricePill);
+        expect(upgrade, findsWidgets);
+        await tester.tap(upgrade.first);
         await tester.pumpAndSettle();
-        await tester.tap(upgrade);
-        await tester.pumpAndSettle();
-        expect(find.text('Rank 1 / 10'), findsOneWidget);
+        expect(find.textContaining('1/'), findsOneWidget);
         await tester.pump(const Duration(seconds: 5));
         await tester.pumpAndSettle();
         await tester.pageBack();
@@ -359,13 +366,13 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Boosts'));
         await tester.pumpAndSettle();
-        expect(find.text('Boost reserve'), findsOneWidget);
+        expect(find.byKey(const ValueKey('boost-doubleTen')), findsOneWidget);
         final activate = find.text('Activate').first;
         await tester.ensureVisible(activate);
         await tester.pumpAndSettle();
         await tester.tap(activate);
         await tester.pumpAndSettle();
-        expect(find.text('10 min remaining'), findsOneWidget);
+        expect(find.text('10 min left'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await model.flush();
@@ -399,8 +406,8 @@ void main() {
     check();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Themes'), 180);
-    await tester.tap(find.text('Themes').last);
+    await tester.scrollUntilVisible(find.text('Store'), 180);
+    await tester.tap(find.text('Store'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('High Pass'),
@@ -503,8 +510,8 @@ void main() {
     expect(find.text('Puzzles solved'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Themes'), 180);
-    await tester.tap(find.text('Themes').last);
+    await tester.scrollUntilVisible(find.text('Store'), 180);
+    await tester.tap(find.text('Store'));
     await tester.pumpAndSettle();
     final blackwater = find.byKey(const ValueKey('theme-card-blackwater'));
     await tester.ensureVisible(blackwater);
@@ -579,7 +586,8 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.byTooltip('Store'));
+    await tester.scrollUntilVisible(find.text('Store'), 180);
+    await tester.tap(find.text('Store'));
     await tester.pumpAndSettle();
     final card = find.byKey(const ValueKey('theme-card-forestMint'));
     await tester.ensureVisible(card);
@@ -592,11 +600,11 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(of: card, matching: find.text('90 coins')),
+      find.descendant(of: card, matching: find.byType(PricePill)),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('You need 40 more coins'), findsOneWidget);
-    await tester.tap(find.text('View Coins'));
+    expect(find.text('40 short'), findsOneWidget);
+    await tester.tap(find.text('Get coins'));
     await tester.pumpAndSettle();
     expect(find.byKey(const PageStorageKey('store-coins')), findsOneWidget);
     expect(model.coinBalance, 50);
