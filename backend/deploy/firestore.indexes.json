@@ -1,0 +1,11 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "pathwise-ledger", "fieldPath": "entries", "indexes": [] },
+    { "collectionGroup": "pathwise-progress", "fieldPath": "results", "indexes": [] },
+    { "collectionGroup": "pathwise-progress", "fieldPath": "attempts", "indexes": [] },
+    { "collectionGroup": "pathwise-progress", "fieldPath": "stages", "indexes": [] },
+    { "collectionGroup": "pathwise-progress", "fieldPath": "attack", "indexes": [] },
+    { "collectionGroup": "pathwise-players", "fieldPath": "recent", "indexes": [] }
+  ]
+}

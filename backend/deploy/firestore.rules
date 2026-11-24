@@ -1,0 +1,12 @@
+rules_version = '2';
+// Pathwise clients never talk to Firestore. Only the Cloud Run service account
+// reads and writes, through IAM, which bypasses these rules. Deny everything to
+// every client SDK so authoritative economy data cannot be read or written
+// directly, even if a Firebase config is ever added to the app.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
