@@ -1,6 +1,6 @@
 {
-  "name": "pathwise-play-verifier",
-  "version": "1.2.0",
+  "name": "pathwise-api",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,5 +13,6 @@
   "dependencies": {
     "@google-cloud/firestore": "^9.4.1",
     "google-auth-library": "^10.5.0"
-  }
+  },
+  "description": "Pathwise online-first game service: identity, authoritative economy, progression, Play Billing and AdMob SSV."
 }

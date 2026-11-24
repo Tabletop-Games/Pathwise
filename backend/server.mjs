@@ -1,160 +1,77 @@
-import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 
-import { Firestore, FieldValue } from '@google-cloud/firestore';
-import { GoogleAuth } from 'google-auth-library';
+import { Firestore } from '@google-cloud/firestore';
+import { GoogleAuth, OAuth2Client } from 'google-auth-library';
 
-import { linkGameAccount } from './games.mjs';
-import { rewardRequest } from './rewards.mjs';
-import { appPackage, verifyReceipt } from './verify.mjs';
+import { createApp } from './app.mjs';
+import { createAuth } from './auth.mjs';
+import { appPackages } from './economy-config.mjs';
+import { verifiedGamePlayer } from './games.mjs';
+import { HttpError } from './http.mjs';
+import { createIntegrity, googleDecoder } from './integrity.mjs';
+import { createPlayApi, createPurchases } from './purchases.mjs';
+import { createRewards } from './rewards.mjs';
+import { createSigner, parseKeyRing } from './tokens.mjs';
 
-const db = new Firestore();
-const google = new GoogleAuth({
-  scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+const env = process.env.PATHWISE_ENV;
+if (!Object.hasOwn(appPackages, env ?? '')) {
+  console.error(JSON.stringify({ severity: 'CRITICAL', event: 'config', error: 'PATHWISE_ENV must be production or development' }));
+  process.exit(1);
+}
+const onlineEnabled = process.env.PATHWISE_ONLINE_ENABLED === 'true';
+if (onlineEnabled && !process.env.PATHWISE_SESSION_KEYS) {
+  console.error(JSON.stringify({ severity: 'CRITICAL', event: 'config', error: 'PATHWISE_SESSION_KEYS is required' }));
+  process.exit(1);
+}
+
+const db = new Firestore({ ignoreUndefinedProperties: true });
+const google = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/androidpublisher',
+  'https://www.googleapis.com/auth/playintegrity'] });
+const packageName = appPackages[env];
+const signer = createSigner(onlineEnabled ? parseKeyRing(process.env.PATHWISE_SESSION_KEYS) : new Map([['x', 'x'.repeat(32)]]));
+const integrity = createIntegrity({
+  required: process.env.PATHWISE_INTEGRITY_REQUIRED === 'true', packageName,
+  certDigests: (process.env.PATHWISE_APP_CERT_SHA256 ?? '').split(',').map((v) => v.trim()).filter(Boolean),
+  decode: googleDecoder(google),
 });
-const collection = db.collection('pathwise-play-purchase-grants');
-const active = process.env.PATHWISE_PLAY_VERIFIER_ENABLED === 'true';
-let readyUntil = 0;
+const oauth = { clientId: process.env.PATHWISE_PGS_WEB_CLIENT_ID, secret: process.env.PATHWISE_PGS_WEB_CLIENT_SECRET };
+const verifyGamesCode = async (code) => (oauth.clientId && oauth.secret ? verifiedGamePlayer(code, oauth) : null);
+const auth = createAuth({ db, signer, env, integrity, verifyGamesCode });
+const purchases = createPurchases({ db, play: createPlayApi(google, packageName), env });
+const rewards = createRewards({ db });
 
-async function checkReadiness() {
-  if (!active) return false;
-  if (Date.now() < readyUntil) return true;
-  const [[probe], accessToken] = await Promise.all([
-    db.getAll(collection.doc('readiness')),
-    google.getAccessToken(),
-  ]);
-  const ready = probe.get('enabled') === true && Boolean(accessToken);
-  if (ready) readyUntil = Date.now() + 15000;
-  return ready;
-}
-
-async function getPurchase(token) {
-  const client = await google.getClient();
-  const app = encodeURIComponent(appPackage);
-  const endpoint = 'https://androidpublisher.googleapis.com/androidpublisher/v3';
-  const url = `${endpoint}/applications/${app}/purchases/productsv2/tokens/${encodeURIComponent(token)}`;
+// Pub/Sub push and Cloud Scheduler authenticate with Google-signed OIDC tokens.
+const oidc = new OAuth2Client();
+const pushIdentities = {
+  rtdn: [process.env.PATHWISE_RTDN_AUDIENCE, process.env.PATHWISE_RTDN_SERVICE_ACCOUNT],
+  reconcile: [process.env.PATHWISE_RECONCILE_AUDIENCE, process.env.PATHWISE_RECONCILE_SERVICE_ACCOUNT],
+};
+async function verifyPush(request, kind) {
+  const [audience, account] = pushIdentities[kind];
+  const header = request.headers.authorization ?? '';
+  if (!audience || !account || !header.startsWith('Bearer ')) throw new HttpError(403, 'forbidden');
   try {
-    return (await client.request({ url, timeout: 8000, retry: false })).data;
-  } catch (error) {
-    if ([400, 404, 410].includes(error.response?.status)) return null;
-    throw error;
-  }
+    const ticket = await oidc.verifyIdToken({ idToken: header.slice(7), audience });
+    const payload = ticket.getPayload();
+    if (payload?.email !== account || payload.email_verified !== true) throw new Error('identity');
+  } catch { throw new HttpError(403, 'forbidden'); }
 }
 
-function claim(id, grant, { consumed }) {
-  const ref = collection.doc(id);
-  return db.runTransaction(async (tx) => {
-    const record = await tx.get(ref);
-    if (record.exists) {
-      return record.get('product') === grant.product && record.get('profile') === grant.profile;
-    }
-    if (consumed) return false;
-    tx.create(ref, { ...grant, at: FieldValue.serverTimestamp() });
-    return true;
-  });
+let healthUntil = 0;
+async function health() {
+  if (Date.now() < healthUntil) return true;
+  await db.collection('pathwise-system').doc('health').get();
+  healthUntil = Date.now() + 15000;
+  return true;
 }
 
-async function permitPurchaseCheck(authorization) {
-  const profile = createHash('sha256').update(authorization.slice(7)).digest('hex');
-  const ref = db.collection('pathwise-play-rate').doc(profile);
-  const now = Date.now();
-  return db.runTransaction(async (tx) => {
-    const prior = await tx.get(ref);
-    const start = prior.get('start') ?? 0;
-    const inWindow = now - start < 60000;
-    const count = inWindow ? prior.get('count') : 0;
-    if (count >= 30) return false;
-    tx.set(ref, { start: inWindow ? start : now, count: count + 1,
-      expiresAt: new Date(now + 86400000) });
-    return true;
-  });
-}
-
-function send(response, status, body) {
-  response.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff',
-  });
-  response.end(JSON.stringify(body));
-}
-
-const server = createServer(async (request, response) => {
-  const started = Date.now();
-  const route = request.url.split('?')[0];
-  const operation = route === '/healthz' ? 'health' :
-    route === '/v1/play/verify' ? 'purchase' :
-    route === '/v1/games/link' ? 'account' :
-    route === '/v1/rewards/callback' ? 'ad-callback' :
-    route.startsWith('/v1/rewards/') ? 'ad-session' : 'unknown';
-  response.on('finish', () => {
-    if (operation !== 'health' || response.statusCode >= 500) {
-      console.log(JSON.stringify({
-        severity: response.statusCode >= 500 ? 'WARNING' : 'INFO',
-        operation, status: response.statusCode, durationMs: Date.now() - started,
-      }));
-    }
-  });
-  if (request.method === 'POST' && request.url === '/v1/games/link') {
-    try { send(response, ...await linkGameAccount(request, db)); }
-    catch (_) { send(response, 503, { error: 'account_service_unavailable' }); }
-    return;
-  }
-  if (request.url.startsWith('/v1/rewards/')) {
-    try {
-      const result = await rewardRequest(request, db);
-      send(response, ...result);
-    } catch (_) {
-      send(response, 503, { error: 'reward_verifier_unavailable' });
-    }
-    return;
-  }
-  if (request.method === 'GET' && request.url === '/healthz') {
-    const ready = await checkReadiness().catch(() => false);
-    send(response, ready ? 200 : 503, { status: ready ? 'ready' : 'disabled', package: appPackage, catalog: 2 });
-    return;
-  }
-  if (request.method !== 'POST' || request.url !== '/v1/play/verify') {
-    send(response, 404, { error: 'not_found' });
-    return;
-  }
-  if (!/^Bearer [a-f0-9]{64}$/.test(request.headers.authorization ?? '') ||
-      request.headers['content-type']?.split(';')[0] !== 'application/json') {
-    send(response, 403, { error: 'purchase_not_verifiable' });
-    return;
-  }
-  try {
-    if (!await checkReadiness()) {
-      send(response, 503, { error: 'verification_unavailable' });
-      return;
-    }
-    const chunks = [];
-    let size = 0;
-    for await (const chunk of request.iterator({ destroyOnReturn: false })) {
-      size += chunk.length;
-      if (size > 4096) {
-        send(response, 413, { error: 'payload_too_large' });
-        request.resume();
-        return;
-      }
-      chunks.push(chunk);
-    }
-    const body = JSON.parse(Buffer.concat(chunks).toString());
-    if (!await permitPurchaseCheck(request.headers.authorization)) {
-      send(response, 429, { error: 'rate_limit' });
-      return;
-    }
-    const result = await verifyReceipt(request.headers.authorization, body, { getPurchase, claim });
-    send(response, result.status, result.body);
-  } catch (error) {
-    const malformed = error instanceof SyntaxError;
-    send(response, malformed ? 422 : 503, {
-      error: malformed ? 'invalid_purchase' : 'verification_unavailable',
-    });
-  }
+const handle = createApp({
+  db, env, auth, purchases, rewards, verifyPush, health, onlineEnabled,
+  minBuild: Number(process.env.PATHWISE_MIN_BUILD ?? 0),
 });
+const server = createServer((request, response) => { void handle(request, response); });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
 server.listen(Number(process.env.PORT ?? 8080), () => {
-  console.log(JSON.stringify({ severity: 'INFO', event: 'listening', port: server.address().port }));
+  console.log(JSON.stringify({ severity: 'INFO', event: 'listening', port: server.address().port, env }));
 });
