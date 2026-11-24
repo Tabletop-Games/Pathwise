@@ -6,7 +6,7 @@ The Flutter app uses Provider over an application state model. `Puzzle` defines 
 
 The app saves schema 12 in the existing `pathwise.save.v1` SharedPreferences DataStore entry. A queued snapshot writer persists route, results, ledger, unlocks, timer state, boosts, crate eligibility, hint state and native achievement progress together. Ledger IDs deduplicate repeat fulfillment. Legacy experiments can retain ordinary progress but pre-release extra-hint credits are excluded. The app uses local snapshots for offline play and has no cross-device progression merge. Measure write amplification on long saves before introducing a database.
 
-`BoardPalette` supplies app and board roles. The Vault lets players preview a palette without buying or equipping it. The 23 themes share system controls, gameplay feedback and progress layouts.
+`BoardPalette` supplies app and board roles. Themes lets players preview a palette without buying or equipping it. The Store owns localized purchases and rewarded coin offers; Wallet owns the balance and transaction history; Settings owns privacy and consent controls. The 23 themes share system controls, gameplay feedback and progress layouts.
 
 The schema 9 migration keeps wallet balances, purchased themes, completed levels, Daily and Time Attack history, the historical hint tank, and lifetime counters from removed modes. Retired Research and unused boost purchases are refunded once from recorded ledger prices. Historical reward credits remain part of the balance. Obsolete run data is ignored.
 

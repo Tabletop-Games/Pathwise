@@ -6,7 +6,7 @@
 | Advanced Levels | Critical | Level number previously changed board size and checkpoint density without introducing new rules. Board generation now attaches validated movement constraints and the route controller, solver and renderer use them. |
 | Hints | High | Disabled acquisition controls obscured the next action. The compact dialog shows availability, price or shortfall, a direct Wheel route, and an explicit Close action. |
 | Time Attack | Medium | Plain duration rows sat in a centered scrolling block. Selected cards are positioned at the top and show the local best for each duration. |
-| Themes | Medium | Theme browsing was tucked into Vault and Settings. Home now links straight to Themes with explicit Apply and Buy actions. |
+| Themes | Medium | Theme browsing and equipment now live only on the dedicated Themes screen. Store, Wallet and Settings each own their respective purchase, accounting and privacy functions. |
 | Android icon | Medium | The adaptive mark had a separate white emblem that consumed its foreground area. The revised vector gives the green route mark more area with a cream line and gold endpoints. |
 
 ## Gameplay verification

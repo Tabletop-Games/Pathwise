@@ -9,6 +9,7 @@ import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
+import 'wallet_view.dart';
 
 class FortuneView extends StatefulWidget {
   const FortuneView({super.key});
@@ -163,9 +164,12 @@ class _FortuneViewState extends State<FortuneView> {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   children: [
                     Center(
-                      child: Chip(
+                      child: ActionChip(
                         avatar: const Icon(Icons.toll_rounded, size: 19),
                         label: Text('${model.coinBalance} coins'),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(builder: (_) => const WalletView()),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),

@@ -74,6 +74,6 @@ Each row supplies the Console display name, description, type, initial state, st
 | `firstInvestment` | First Investment | Purchase your first Research rank. | Standard | Revealed | — | research.png | Publisher ID pending |
 | `researcher` | Researcher | Purchase 25 Research ranks. | Incremental | Revealed | 25 | research.png | Publisher ID pending |
 | `masterResearcher` | Master Researcher | Purchase 100 Research ranks. | Incremental | Revealed | 100 | research.png | Publisher ID pending |
-| `themeCollector` | Theme Collector | Individually unlock 5 themes through the Vault. | Incremental | Revealed | 5 | themes.png | Publisher ID pending |
-| `styleMaster` | Style Master | Individually unlock 15 themes through the Vault. | Incremental | Revealed | 15 | themes.png | Publisher ID pending |
+| `themeCollector` | Theme Collector | Individually unlock 5 themes through Themes. | Incremental | Revealed | 5 | themes.png | Publisher ID pending |
+| `styleMaster` | Style Master | Individually unlock 15 themes through Themes. | Incremental | Revealed | 15 | themes.png | Publisher ID pending |
 | `luckyFind` | Lucky Find | Collect a Legendary supply crate. | Standard | Hidden | — | crates.png | Publisher ID pending |
