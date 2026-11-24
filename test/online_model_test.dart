@@ -50,7 +50,12 @@ void main() {
       snapshot: {
         'schemaVersion': 13,
         'ledger': [
-          {'id': 'hacked', 'label': 'x', 'amount': 999999, 'at': '2026-11-01T00:00:00Z'},
+          {
+            'id': 'hacked',
+            'label': 'x',
+            'amount': 999999,
+            'at': '2026-11-01T00:00:00Z',
+          },
         ],
         'hintBalance': 500,
         'removeAds': true,
@@ -58,7 +63,10 @@ void main() {
         'ownedThemes': ['gilded', 'neon'],
       },
     );
-    model.applyServerState({'wallet': serverWallet(), 'progress': <String, dynamic>{}});
+    model.applyServerState({
+      'wallet': serverWallet(),
+      'progress': <String, dynamic>{},
+    });
     expect(model.coinBalance, 50);
     expect(model.hintsRemaining, 3);
     expect(model.adFree, isFalse);
@@ -142,7 +150,9 @@ void main() {
     expect(gateway.types.where((t) => t == 'hint.use').length, 1);
     solve(model);
     expect(model.complete, isTrue);
-    final completions = gateway.commands.where((c) => c.type == 'play.complete').toList();
+    final completions = gateway.commands
+        .where((c) => c.type == 'play.complete')
+        .toList();
     expect(completions.length, 1);
     expect(completions.single.args['key'], 'levels/1');
     expect(completions.single.args['route'], board().solution);
@@ -172,7 +182,10 @@ void main() {
     expect(gateway.commands.last.args, {'item': 'magnet'});
     expect(model.buyBoost(Boost.doubleTen), isTrue);
     expect(await model.buyHint(), isTrue);
-    expect(gateway.types.sublist(gateway.types.length - 2), ['boost.buy', 'hint.buy']);
+    expect(gateway.types.sublist(gateway.types.length - 2), [
+      'boost.buy',
+      'hint.buy',
+    ]);
 
     gateway.setConnected(false);
     final before = gateway.commands.length;
@@ -196,14 +209,20 @@ void main() {
     gateway.rewardVerified = false;
     gateway.commands.clear();
     expect(await model.grantHintAd('d' * 64), isFalse);
-    expect(gateway.commands, isEmpty, reason: 'nothing is claimed without a signed callback');
+    expect(
+      gateway.commands,
+      isEmpty,
+      reason: 'nothing is claimed without a signed callback',
+    );
     expect(await model.grantAdBonus('short'), isFalse);
     model.dispose();
   });
 
   test('daily ad limits come from the server, not the device clock', () {
     final model = launch();
-    model.applyWallet(serverWallet(limits: const {'coinAds': 0, 'hintAds': 0, 'boostAds': 0}));
+    model.applyWallet(
+      serverWallet(limits: const {'coinAds': 0, 'hintAds': 0, 'boostAds': 0}),
+    );
     expect(model.canEarnAdBonus, isFalse);
     expect(model.canEarnHintAd, isFalse);
     expect(model.canEarnBoostAd(Boost.doubleTen), isFalse);
@@ -221,7 +240,9 @@ void main() {
       '{"id":"ridge","label":"70 coins","weight":8,"coins":70},'
       '{"id":"summit","label":"100 coins","weight":2,"coins":100}]',
     );
-    gateway.wallet = serverWallet(pendingWheel: {'id': 'wheel/free/1', 'prize': 'summit'});
+    gateway.wallet = serverWallet(
+      pendingWheel: {'id': 'wheel/free/1', 'prize': 'summit'},
+    );
     final prize = await model.spinFreeFortune(catalog);
     expect(prize?.id, 'summit');
     expect(model.coinBalance, 50, reason: 'not credited before the animation');
@@ -229,7 +250,9 @@ void main() {
 
     // Killed mid-spin: a fresh model restores the pending prize from the server.
     final restarted = launch();
-    restarted.applyWallet(serverWallet(pendingWheel: {'id': 'wheel/free/1', 'prize': 'summit'}));
+    restarted.applyWallet(
+      serverWallet(pendingWheel: {'id': 'wheel/free/1', 'prize': 'summit'}),
+    );
     expect(restarted.pendingFortune?.id, 'summit');
 
     gateway.wallet = serverWallet(coins: 150);
@@ -248,7 +271,9 @@ void main() {
     expect(model.attack?.id, 'v2-serverrun01');
     expect(model.activeId?.key, 'attack/v2-serverrun01/0');
     solve(model);
-    final clears = gateway.commands.where((c) => c.type == 'attack.clear').toList();
+    final clears = gateway.commands
+        .where((c) => c.type == 'attack.clear')
+        .toList();
     expect(clears.single.args['run'], 'v2-serverrun01');
     expect(clears.single.args['route'], board().solution);
     model.stopAttack();

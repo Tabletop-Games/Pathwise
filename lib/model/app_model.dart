@@ -472,7 +472,9 @@ class AppModel extends ChangeNotifier
     final themes = _strings(w['themes']).toSet();
     _owned
       ..clear()
-      ..addAll(PathwiseTheme.values.where((theme) => themes.contains(theme.name)));
+      ..addAll(
+        PathwiseTheme.values.where((theme) => themes.contains(theme.name)),
+      );
     final entitlements = _map(w['entitlements']);
     _themePass = entitlements['themePass'] == true;
     _removeAds = entitlements['removeAds'] == true;
@@ -624,7 +626,9 @@ class AppModel extends ChangeNotifier
           0,
           0,
           row['record'] == true ? max(0, score - 1) : score,
-          minutes: [1, 3, 5].contains(row['minutes']) ? row['minutes'] as int : 3,
+          minutes: [1, 3, 5].contains(row['minutes'])
+              ? row['minutes'] as int
+              : 3,
           clears: List<int>.filled(score ~/ 100, 0),
           finished: true,
           coins: _int(row['coins']),
@@ -647,7 +651,8 @@ class AppModel extends ChangeNotifier
     if (now == null || id is! String) return;
     final minutes = _int(data['minutes']);
     final clears = [
-      for (final value in (data['clears'] is List ? data['clears'] as List : const []))
+      for (final value
+          in (data['clears'] is List ? data['clears'] as List : const []))
         if (value is int) value,
     ];
     final existing = attack;
@@ -679,11 +684,9 @@ class AppModel extends ChangeNotifier
     final gateway = online;
     if (gateway == null || _disposed || token.length < 24) return false;
     if (!await gateway.awaitReward(token)) return false;
-    final result = await gateway.command(
-      'reward.claim',
-      {'token': token},
-      op: 'claim-${token.substring(0, 24)}',
-    );
+    final result = await gateway.command('reward.claim', {
+      'token': token,
+    }, op: 'claim-${token.substring(0, 24)}');
     return result.ok;
   }
 
@@ -727,11 +730,9 @@ class AppModel extends ChangeNotifier
     final gateway = online;
     if (gateway == null) return;
     for (var attempt = 0; attempt < 5 && !_disposed; attempt++) {
-      final result = await gateway.command(
-        'attack.finish',
-        {'run': run},
-        op: 'finish-$run',
-      );
+      final result = await gateway.command('attack.finish', {
+        'run': run,
+      }, op: 'finish-$run');
       if (result.ok) {
         // The server's run history is the record; refresh the local copy.
         await resync();
@@ -782,19 +783,16 @@ class AppModel extends ChangeNotifier
     final gateway = online;
     if (gateway == null) return;
     const id = PuzzleId.level(1);
-    final board = await (_loader?.call(id.generation) ??
-        _generate(id.generation, 1, false));
+    final board =
+        await (_loader?.call(id.generation) ??
+            _generate(id.generation, 1, false));
     await gateway.command('play.start', {'key': id.key});
-    final result = await gateway.command(
-      'play.complete',
-      {
-        'key': id.key,
-        'route': board.solution,
-        'ms': 4500,
-        'usedClear': false,
-      },
-      op: 'cmp-demo-${DateTime.now().microsecondsSinceEpoch}',
-    );
+    final result = await gateway.command('play.complete', {
+      'key': id.key,
+      'route': board.solution,
+      'ms': 4500,
+      'usedClear': false,
+    }, op: 'cmp-demo-${DateTime.now().microsecondsSinceEpoch}');
     if (!_disposed && !result.ok && !result.queued) await resync();
   }
 
@@ -823,20 +821,16 @@ class AppModel extends ChangeNotifier
     }
     _attemptTimer?.cancel();
     final key = id.key;
-    final result = await gateway.command(
-      'attempt.save',
-      {
-        'key': key,
-        'path': game.path,
-        'history': game.history,
-        'hintCell': game.hintCell,
-        'ms': (_baseTime + _watch.elapsed).inMilliseconds,
-        'started': true,
-        'usedClear': _usedClear,
-        'base': _attemptRevisions[key] ?? 0,
-      },
-      durable: false,
-    );
+    final result = await gateway.command('attempt.save', {
+      'key': key,
+      'path': game.path,
+      'history': game.history,
+      'hintCell': game.hintCell,
+      'ms': (_baseTime + _watch.elapsed).inMilliseconds,
+      'started': true,
+      'usedClear': _usedClear,
+      'base': _attemptRevisions[key] ?? 0,
+    }, durable: false);
     final revision = result.body['v'];
     if (result.ok && revision is int) {
       _attemptRevisions[key] = revision;
@@ -1617,11 +1611,9 @@ class AppModel extends ChangeNotifier
     if (_disposed || pending == null || !identical(pending.prize, prize))
       return false;
     if (online != null) {
-      final settled = await online!.command(
-        'wheel.settle',
-        {'id': pending.id},
-        op: 'settle-${pending.id.replaceAll('/', '-')}',
-      );
+      final settled = await online!.command('wheel.settle', {
+        'id': pending.id,
+      }, op: 'settle-${pending.id.replaceAll('/', '-')}');
       if (settled.ok) {
         activity.prize(prize.label, 1);
       } else if (!settled.queued) {
@@ -2023,7 +2015,9 @@ class AppModel extends ChangeNotifier
     try {
       final gateway = online;
       if (gateway != null && id.mode != PlayMode.attack) {
-        final saved = replay ? const <String, dynamic>{} : _map(_attempts[id.key]);
+        final saved = replay
+            ? const <String, dynamic>{}
+            : _map(_attempts[id.key]);
         final started = await gateway.command('play.start', {
           'key': id.key,
           if (replay) 'replay': true,
