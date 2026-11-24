@@ -222,6 +222,14 @@ class AdService extends ChangeNotifier {
     _report(null);
   }
 
+  final _retryRewardAfter = <RewardPlacement, Duration>{};
+
+  void _rewardLoadFailed(RewardPlacement placement) {
+    _loadingRewarded.remove(placement);
+    _retryRewardAfter[placement] = _watch.elapsed + const Duration(seconds: 30);
+    _report('No videos available. Try again later.');
+  }
+
   void _preload() {
     if (!_canRequest || _disposed) return;
     final generation = _consentGeneration;
@@ -258,7 +266,9 @@ class AdService extends ChangeNotifier {
     for (final placement in RewardPlacement.values) {
       if (placement == RewardPlacement.wheel && !wheelConfigured) continue;
       if (!_test && !validAdUnit(_unit(placement))) continue;
-      if (ready(_rewarded[placement]) || !_loadingRewarded.add(placement))
+      if (_watch.elapsed < (_retryRewardAfter[placement] ?? Duration.zero) ||
+          ready(_rewarded[placement]) ||
+          !_loadingRewarded.add(placement))
         continue;
       _rewarded.remove(placement)?.$1.dispose();
       unawaited(
@@ -272,6 +282,7 @@ class AdService extends ChangeNotifier {
           rewardedAdLoadCallback: RewardedAdLoadCallback(
             onAdLoaded: (ad) {
               _loadingRewarded.remove(placement);
+              _retryRewardAfter.remove(placement);
               if (_disposed ||
                   !_canRequest ||
                   generation != _consentGeneration) {
@@ -281,15 +292,9 @@ class AdService extends ChangeNotifier {
                 _report(null);
               }
             },
-            onAdFailedToLoad: (_) {
-              _loadingRewarded.remove(placement);
-              _report('No videos available. Try again later.');
-            },
+            onAdFailedToLoad: (_) => _rewardLoadFailed(placement),
           ),
-        ).catchError((Object _) {
-          _loadingRewarded.remove(placement);
-          _report('No videos available. Try again later.');
-        }),
+        ).catchError((Object _) => _rewardLoadFailed(placement)),
       );
     }
   }

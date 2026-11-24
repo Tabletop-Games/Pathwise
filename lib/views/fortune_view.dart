@@ -12,6 +12,7 @@ import '../model/economy_activity.dart';
 import '../model/fortune.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'store_view.dart';
 
 class FortuneView extends StatefulWidget {
@@ -194,6 +195,7 @@ class _FortuneViewState extends State<FortuneView> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                     children: [
+                      JourneyArt(palette, chapter: 6, height: 52),
                       Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 340),

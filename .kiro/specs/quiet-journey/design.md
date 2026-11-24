@@ -1,0 +1,7 @@
+# Quiet Journey design
+
+Use open editorial layouts with a single atmospheric drawing and generous space around the main action. Use Bricolage display text at regular or medium weight and native readable body text. Build on a 4 dp spacing grid with 16–24 dp page gutters. Use fine strokes for landscape contours, 24 dp control icons, and 48 dp minimum action targets. Reserve rounded, filled surfaces for the strongest action. Keep the gameplay board clear of decoration. Use the equipped palette for every drawing, with decoration omitted in High Contrast and AMOLED. The composition board shows the relationship between artwork, progress and actions.
+
+The ledger records one bonus per level. A discovery advances for each first campaign clear after installation of the update. Ten clears reveal one reward. Prefer low-priced unowned and unreserved cosmetics. When a reserved item becomes owned, award the fallback. Chapters group 25 existing levels. Chapter completion is a visual milestone with no new coin issuance.
+
+Wordscapes and similar word games provide a useful cadence reference: short sessions, an obvious next puzzle, rewards separated from the solving surface. Two Dots provides a reference for recognising a journey by illustration and tone. Mini Metro and I Love Hue show how route and colour can carry the visual identity with little chrome. The Pathwise composition uses its own stage sequence, graphics and palette roles.

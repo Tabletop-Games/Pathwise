@@ -155,8 +155,38 @@ class _ProgressionViewState extends State<ProgressionView> {
                   ? ListView(
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       children: [
-                        for (final boost in [...multipliers, ...supplies])
-                          _boost(model, boost, now),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            'Temporary coin multipliers',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final wide =
+                                constraints.maxWidth >= 350 &&
+                                MediaQuery.textScalerOf(context).scale(16) <=
+                                    19;
+                            final width = wide
+                                ? (constraints.maxWidth - 12) / 2
+                                : constraints.maxWidth;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 8,
+                              children: [
+                                for (final boost in [
+                                  ...multipliers,
+                                  ...supplies,
+                                ])
+                                  SizedBox(
+                                    width: width,
+                                    child: _boost(model, boost, now),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
                         if (multipliers.isEmpty && supplies.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 48),
@@ -269,7 +299,7 @@ class _ProgressionViewState extends State<ProgressionView> {
         : '+${item.effectAt(rank)} → +${item.effectAt(rank + 1)}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GameCard(
+      child: Padding(
         key: ValueKey('research-${item.name}'),
         padding: const EdgeInsets.all(14),
         child: Opacity(
@@ -360,19 +390,22 @@ class _ProgressionViewState extends State<ProgressionView> {
         context.watch<AdService>().enabled;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GameCard(
+      child: Padding(
         key: ValueKey('boost-${boost.name}'),
         padding: const EdgeInsets.all(14),
-        color: remaining > 0
-            ? Color.lerp(palette.card, palette.accent, palette.dark ? .12 : .16)
-            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 GameArt(
-                  multiplier ? ArtKind.bolt : ArtKind.crate,
+                  switch (boost.multiplier) {
+                    2 =>
+                      boost == Boost.doubleTen ? ArtKind.bolt : ArtKind.timer,
+                    3 => ArtKind.flame,
+                    4 => ArtKind.crown,
+                    _ => ArtKind.crate,
+                  },
                   palette: palette,
                   size: 48,
                 ),
@@ -394,22 +427,8 @@ class _ProgressionViewState extends State<ProgressionView> {
                         spacing: 6,
                         runSpacing: 6,
                         children: [
-                          InfoChip(
-                            icon: GameArt(
-                              ArtKind.timer,
-                              palette: palette,
-                              size: 16,
-                            ),
-                            label: _duration(duration),
-                          ),
-                          InfoChip(
-                            icon: GameArt(
-                              ArtKind.check,
-                              palette: palette,
-                              size: 16,
-                            ),
-                            label: '×$inventory',
-                          ),
+                          Text(_duration(duration)),
+                          if (inventory > 0) Text('$inventory ready'),
                         ],
                       ),
                     ],
@@ -419,20 +438,13 @@ class _ProgressionViewState extends State<ProgressionView> {
             ),
             if (remaining > 0) ...[
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: GameBar(value: remaining / duration)),
-                  const SizedBox(width: 10),
-                  Text(
-                    '${_duration(remaining)} left',
-                    style: TextStyle(
-                      color: palette.mutedInk,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+              Text('${boost.multiplier}× active'),
+              Text(
+                '${_duration(remaining)} left',
+                style: TextStyle(color: palette.mutedInk, fontSize: 13),
               ),
+              const SizedBox(height: 6),
+              GameBar(value: remaining / duration),
             ],
             const SizedBox(height: 10),
             Wrap(
@@ -488,19 +500,20 @@ class _ProgressionViewState extends State<ProgressionView> {
                             }
                           },
                   ),
-                ActionPill(
-                  label: 'Activate',
-                  tone: ActionTone.primary,
-                  onTap: canActivate
-                      ? () {
-                          if (model.activateBoost(boost)) {
-                            _feedback(
-                              'Boost active for ${_duration(duration)}',
-                            );
+                if (inventory > 0 && remaining <= 0)
+                  ActionPill(
+                    label: 'Activate',
+                    tone: ActionTone.primary,
+                    onTap: canActivate
+                        ? () {
+                            if (model.activateBoost(boost)) {
+                              _feedback(
+                                'Boost active for ${_duration(duration)}',
+                              );
+                            }
                           }
-                        }
-                      : null,
-                ),
+                        : null,
+                  ),
               ],
             ),
           ],

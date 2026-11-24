@@ -126,14 +126,16 @@ void main() {
 
       Offset position(String label) => tester.getCenter(find.text(label));
       final ordered = [
-        'Daily challenge',
         'Play level 1',
+        'Daily challenge',
         'Levels',
         'Time Attack',
         'Store',
         'Fortune Wheel',
       ];
       for (var i = 1; i < 4; i++) {
+        await tester.scrollUntilVisible(find.text(ordered[i]), 100);
+
         expect(
           position(ordered[i]).dy,
           greaterThan(position(ordered[i - 1]).dy),
@@ -148,7 +150,7 @@ void main() {
       }
       await tester.scrollUntilVisible(find.text('Boosts'), 230);
       await tester.pumpAndSettle();
-      expect(position('Research').dy, position('Boosts').dy);
+      expect(position('Research').dy, closeTo(position('Boosts').dy, 8));
       expect(
         position('Research').dy,
         greaterThan(position('Fortune Wheel').dy),
@@ -524,8 +526,9 @@ void main() {
     expect(find.text('Puzzles solved'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Store'), 180);
-    await tester.tap(find.text('Store'));
+    final store = find.byKey(const ValueKey('store-card'));
+    await tester.scrollUntilVisible(store.hitTestable(), 180);
+    await tester.tap(store.hitTestable());
     await tester.pumpAndSettle();
     final blackwater = find.byKey(const ValueKey('theme-card-blackwater'));
     await tester.ensureVisible(blackwater);

@@ -12,6 +12,7 @@ import '../model/economy.dart';
 import '../model/user_preferences.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
 import 'components/tip_art.dart';
@@ -107,6 +108,7 @@ class _StoreViewState extends State<StoreView> {
                       ],
                     ),
                   ),
+                  JourneyArt(palette, chapter: _category, height: 46),
                   Expanded(
                     child: IndexedStack(
                       index: _category,
@@ -148,10 +150,9 @@ class _StoreViewState extends State<StoreView> {
           final candidate = BoardPalette.palettes[theme]!;
           final owned = model.ownsTheme(theme);
           final equipped = model.theme == theme;
-          return GameCard(
+          return Padding(
             key: ValueKey('theme-card-${theme.name}'),
             padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-            selected: equipped,
             child: Column(
               children: [
                 Expanded(
@@ -258,10 +259,9 @@ class _StoreViewState extends State<StoreView> {
         itemBuilder: (context, index) {
           final tip = PathTip.values[index];
           final equipped = model.equippedTip == tip;
-          return GameCard(
+          return Padding(
             key: ValueKey('tip-card-${tip.name}'),
             padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-            selected: equipped,
             child: Column(
               children: [
                 Expanded(

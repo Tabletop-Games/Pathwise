@@ -9,6 +9,7 @@ import '../model/game_state.dart';
 import '../model/play_streak.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
@@ -56,7 +57,8 @@ class StreakView extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                 children: [
-                  GameCard(
+                  JourneyArt(palette, chapter: 2, height: 70),
+                  Padding(
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                     child: Column(
                       children: [
@@ -70,7 +72,7 @@ class StreakView extends StatelessWidget {
                             style: TextStyle(
                               color: palette.ink,
                               fontSize: 56,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w500,
                               height: 1,
                             ),
                           ),
@@ -112,7 +114,7 @@ class StreakView extends StatelessWidget {
                   ),
                   if (next != null) ...[
                     const SizedBox(height: 10),
-                    GameCard(
+                    Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         children: [
@@ -171,7 +173,7 @@ class StreakView extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  GameCard(
+                  Padding(
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [

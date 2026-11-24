@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
+import '../model/journey.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'components/ad_banner.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
@@ -71,6 +73,36 @@ class _LevelsViewState extends State<LevelsView> {
             onPressed: () => _go(pageForLevel(model.highestUnlocked)),
             icon: const Icon(Icons.my_location_rounded),
           ),
+          IconButton(
+            tooltip: 'Chapters',
+            icon: const Icon(Icons.map_outlined),
+            onPressed: () async {
+              final chapter = await showModalBottomSheet<int>(
+                context: context,
+                builder: (sheet) => SafeArea(
+                  child: ListView.builder(
+                    itemCount: chapterFor(levelCount) + 1,
+                    itemBuilder: (context, chapter) {
+                      final start = chapter * chapterSize + 1;
+                      return ListTile(
+                        enabled: model.canPlayLevel(start),
+                        leading: Icon(
+                          model.canPlayLevel(start)
+                              ? Icons.terrain
+                              : Icons.lock_outline,
+                        ),
+                        title: Text(chapterName(chapter)),
+                        subtitle: Text('Levels $start–${chapterEnd(chapter)}'),
+                        onTap: () => Navigator.pop(sheet, chapter),
+                      );
+                    },
+                  ),
+                ),
+              );
+              if (mounted && chapter != null)
+                _go(pageForLevel(chapter * chapterSize + 1));
+            },
+          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -106,6 +138,41 @@ class _LevelsViewState extends State<LevelsView> {
                             ? null
                             : () => _go(_page + 1),
                         icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      JourneyArt(
+                        palette,
+                        chapter: chapterFor(first),
+                        height: 60,
+                      ),
+                      Text(
+                        chapterName(chapterFor(first)),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      LinearProgressIndicator(
+                        value:
+                            Iterable<int>.generate(
+                                  chapterEnd(chapterFor(first)) -
+                                      chapterFor(first) * chapterSize,
+                                  (index) =>
+                                      chapterFor(first) * chapterSize +
+                                      index +
+                                      1,
+                                )
+                                .where(
+                                  (level) =>
+                                      model.result(PuzzleId.level(level)) !=
+                                      null,
+                                )
+                                .length /
+                            chapterSize,
                       ),
                     ],
                   ),

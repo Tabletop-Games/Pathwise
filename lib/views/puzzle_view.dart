@@ -11,12 +11,15 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
+import '../model/journey.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'components/ad_banner.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
+import 'journey_rewards.dart';
 import 'mechanic_tutorial_view.dart';
 import 'share_view.dart';
 
@@ -280,9 +283,7 @@ class PuzzleView extends StatelessWidget {
                 BlockSemantics(child: _AttackResults(model: model)),
               ],
               if (model.complete && !timed) ...[
-                const Positioned.fill(
-                  child: ModalBarrier(color: Colors.black54),
-                ),
+                Positioned.fill(child: ModalBarrier(color: palette.canvas)),
                 if (model.completedThisVisit &&
                     !MediaQuery.disableAnimationsOf(context))
                   Positioned.fill(
@@ -440,6 +441,10 @@ class _Completion extends StatelessWidget {
       _ => null,
     };
     final result = model.result(id);
+    final levelCoins = model.firstCampaignClear && id.mode == PlayMode.levels
+        ? model.completionCoins
+        : model.lastReward;
+    final milestoneCoins = model.lastReward - levelCoins;
     final hints = result?.hints ?? model.hintsUsed;
     final duration = Duration(
       milliseconds: result?.milliseconds ?? model.elapsed.value.inMilliseconds,
@@ -449,51 +454,55 @@ class _Completion extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: palette.cardEdge),
-        ),
         child: Column(
           children: [
-            GameArt(ArtKind.check, palette: palette, size: 56),
-            const SizedBox(height: 10),
+            if (model.chapterCompletedThisVisit && id.mode == PlayMode.levels)
+              JourneyArt(palette, chapter: chapterFor(id.level), height: 90)
+            else
+              GameArt(ArtKind.check, palette: palette, size: 42),
             Text(
-              id.checkpoint != null
+              model.chapterCompletedThisVisit && id.mode == PlayMode.levels
+                  ? '${chapterName(chapterFor(id.level))} complete'
+                  : id.checkpoint != null
                   ? 'Checkpoint complete'
                   : id.mode == PlayMode.levels
                   ? 'Level complete!'
                   : 'Daily complete!',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                InfoChip(
-                  icon: GameArt(ArtKind.timer, palette: palette, size: 16),
-                  label: formatTime(duration),
-                ),
-                InfoChip(
-                  icon: GameArt(ArtKind.hint, palette: palette, size: 16),
-                  label: '$hints',
-                ),
-                if (model.recentStreakDay case final day?)
-                  InfoChip(
-                    icon: GameArt(ArtKind.flame, palette: palette, size: 16),
-                    label: '$day',
-                  ),
-              ],
-            ),
-            if (model.lastReward > 0)
+            Text('${formatTime(duration)} · $hints hints'),
+            if (levelCoins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 14, bottom: 4),
-                child: RewardAmount(model.lastReward, size: 34),
+                child: RewardAmount(levelCoins, size: 34),
               ),
+            if (milestoneCoins > 0) Text('+$milestoneCoins milestone coins'),
+            if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
+              const SizedBox(height: 10),
+              if (model.latestDiscovery case final discovery?) ...[
+                const Text('Discovery ready · 100%'),
+                DiscoveryRow(discovery, key: ValueKey(discovery.number)),
+                TextButton(
+                  onPressed: next == null
+                      ? () => Navigator.pop(context)
+                      : () => model.open(next),
+                  child: const Text('Claim later'),
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GameArt(ArtKind.gift, palette: palette, size: 28),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text('Discovery · ${model.discoveryPercent}%'),
+                    ),
+                  ],
+                ),
+                LinearProgressIndicator(value: model.discoveryPercent / 100),
+              ],
+            ],
             const SizedBox(height: 14),
             if (next != null)
               SizedBox(
@@ -515,6 +524,10 @@ class _Completion extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 8),
+            if (model.firstCampaignClear &&
+                model.latestDiscovery == null &&
+                id.mode == PlayMode.levels)
+              CompletionBonus(model, key: ValueKey(id.level)),
             AchievementCelebration(model),
             Wrap(
               alignment: WrapAlignment.center,

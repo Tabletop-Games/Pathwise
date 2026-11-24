@@ -9,26 +9,41 @@ import 'package:provider/provider.dart';
 
 import '../lib/logic/ad_service.dart';
 import '../lib/logic/billing_service.dart';
+import '../lib/logic/connectivity_service.dart';
+import '../lib/logic/mechanic_tutorials.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
+import '../lib/model/game_state.dart';
 import '../lib/model/path_tips.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/views/components/economy_navigation.dart';
+import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/components/tip_art.dart';
+import '../lib/views/connection_view.dart';
 import '../lib/views/fortune_view.dart';
+import '../lib/views/journey_rewards.dart';
 import '../lib/views/levels_view.dart';
+import '../lib/views/mechanic_tutorial_view.dart';
 import '../lib/views/progression_view.dart';
+import '../lib/views/puzzle_view.dart';
 import '../lib/views/settings_view.dart';
 import '../lib/views/store_view.dart';
 import '../lib/views/streak_view.dart';
-import 'app_model_test.dart' show MemoryStorage, fixture;
+import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 
 /// Renders every screen on the six reference themes and checks that nothing
 /// overflows or throws. When `PATHWISE_CAPTURE_DIR` is set it also writes a
 /// PNG per screen and a contact sheet of every path tip, so the output can be
 /// inspected.
 final _captureDir = Platform.environment['PATHWISE_CAPTURE_DIR'];
+
+class _PreviewAds extends AdService {
+  @override
+  bool get enabled => true;
+  @override
+  bool get videoReady => true;
+}
 
 const _themes = <String, PathwiseTheme>{
   'light': PathwiseTheme.field,
@@ -39,10 +54,12 @@ const _themes = <String, PathwiseTheme>{
   'contrast': PathwiseTheme.signal,
 };
 
-AppModel _model(PathwiseTheme theme) => AppModel(
+AppModel _model(PathwiseTheme theme, {int discoveryClears = 0}) => AppModel(
   storage: MemoryStorage(),
   snapshot: {
     'preferences': {'theme': theme.name},
+    'ownedThemes': [theme.name],
+    if (discoveryClears != 0) 'journey': {'clears': discoveryClears},
     'progressionBoot': 1,
     'ledger': [
       {
@@ -184,6 +201,59 @@ Future<void> _screens(
     () => const StoreView(),
     after: () => tab('Upgrades'),
   );
+  await screen('collections', () => const CollectionsView());
+  if (only == null) {
+    final model = _model(theme);
+    final rewardAds = _PreviewAds();
+    addTearDown(rewardAds.dispose);
+    await tester.pumpWidget(
+      _shell(
+        key,
+        model,
+        rewardAds,
+        billing,
+        Builder(
+          builder: (context) => Scaffold(
+            body: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [CompletionBonus(context.watch<AppModel>())],
+            ),
+          ),
+        ),
+      ),
+    );
+    await model.open(const PuzzleId.level(1));
+    complete(model);
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      _shell(key, model, rewardAds, billing, const PuzzleView()),
+    );
+    await shot('level-completion');
+    await tester.tap(find.text('Start bonus track'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 875));
+    expect(tester.takeException(), isNull);
+    await _snap(tester, key, '$label-multiplier-moving');
+    await tester.tap(find.text('Stop'));
+    await shot('multiplier-stopped');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await model.flush();
+    model.dispose();
+    final discoveryModel = _model(theme, discoveryClears: 9);
+    await tester.pumpWidget(
+      _shell(key, discoveryModel, rewardAds, billing, const PuzzleView()),
+    );
+    await discoveryModel.open(const PuzzleId.level(1));
+    complete(discoveryModel);
+    await shot('discovery-reveal');
+    await tester.pumpWidget(
+      _shell(key, discoveryModel, rewardAds, billing, const CollectionsView()),
+    );
+    await shot('pending-discovery');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await discoveryModel.flush();
+    discoveryModel.dispose();
+  }
   await screen('levels', () => const LevelsView());
   await screen('research', () => const ProgressionView());
   await screen('boosts', () => const ProgressionView(boosts: true));
@@ -200,6 +270,49 @@ Future<void> _screens(
   await screen('streak', () => const StreakView());
   await screen('stats', () => const StatisticsView());
   await screen('settings', () => const SettingsView());
+  await screen(
+    'tutorial',
+    () => MechanicTutorialView(
+      mechanic: MechanicTutorial.walls,
+      onAcknowledge: (_) async => true,
+    ),
+  );
+  await screen(
+    'connection',
+    () => ConnectionPane(
+      state: ConnectivityState.offline,
+      palette: BoardPalette.palettes[theme]!,
+      inPlay: true,
+      onRetry: () async {},
+    ),
+  );
+  await screen(
+    'theme-preview',
+    () => const StoreView(),
+    after: () async {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('theme-card-field')),
+          matching: find.byType(LevelOneBoardPreview),
+        ),
+      );
+      await tester.pumpAndSettle();
+    },
+  );
+  await screen(
+    'tip-preview',
+    () => const StoreView(),
+    after: () async {
+      await tab('Tips');
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('tip-card-arrow')),
+          matching: find.byType(TipArtwork),
+        ),
+      );
+      await tester.pumpAndSettle();
+    },
+  );
   await screen(
     'insufficient',
     () => Builder(

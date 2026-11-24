@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 /// same snapshot map the app keeps on the device, so both copies share one
 /// schema and one migration path.
 const cloudSaveFormat = 'pathwise-cloud';
-const cloudSaveVersion = 2;
+const cloudSaveVersion = 3;
 
 /// Saved Games allow several megabytes per snapshot. Refuse to upload anything
 /// near that size so a write cannot fail half way through a sync.
@@ -139,7 +139,9 @@ final class CloudEnvelope {
     }
     if (decoded is! Map ||
         decoded['format'] != cloudSaveFormat ||
-        (decoded['version'] != 1 && decoded['version'] != cloudSaveVersion)) {
+        (decoded['version'] != 1 &&
+            decoded['version'] != 2 &&
+            decoded['version'] != cloudSaveVersion)) {
       throw const CorruptSave('unknown format or version');
     }
     final revision = decoded['revision'];

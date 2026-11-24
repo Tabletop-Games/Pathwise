@@ -4,16 +4,17 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
-import '../logic/billing_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
-import '../model/economy.dart';
 import '../model/game_state.dart';
+import '../model/journey.dart';
 import '../model/progression.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
+import 'journey_rewards.dart';
 import 'level_one_demo.dart';
 import 'levels_view.dart';
 import 'progression_view.dart';
@@ -57,43 +58,10 @@ Future<void> openPuzzle(
     bool canPresent() =>
         context.mounted &&
         !model.adFree &&
+        (id.mode != PlayMode.levels || !ads.videoReady) &&
         model.activeId == null &&
         ModalRoute.isCurrentOf(context) == true &&
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
-    if (canPresent() &&
-        ads.videoReady &&
-        model.canOfferCoinVideo &&
-        !context.read<BillingService>().buying &&
-        await model.recordCoinOffer() &&
-        canPresent()) {
-      final watch = await showGameDialog<bool>(
-        context,
-        builder: (dialog) => GameDialog(
-          art: GameArt(ArtKind.coinStack3, palette: dialog.palette, size: 72),
-          child: Center(child: RewardAmount(economy.rewardedAdCoins)),
-          actions: [
-            ActionPill(
-              label: 'Not now',
-              onTap: () => Navigator.pop(dialog, false),
-            ),
-            ActionPill(
-              label: 'Watch video',
-              tone: ActionTone.primary,
-              icon: Icons.play_arrow_rounded,
-              onTap: () => Navigator.pop(dialog, true),
-            ),
-          ],
-        ),
-      );
-      if (watch == true &&
-          canPresent() &&
-          ads.videoReady &&
-          model.canEarnAdBonus) {
-        await ads.watchVideo(model.grantAdBonus, canPresent: canPresent);
-      }
-      unawaited(ads.afterCompletedExit(canPresent: false));
-      return;
-    }
     unawaited(
       ads.afterCompletedExit(
         canPresent: canPresent(),
@@ -303,19 +271,13 @@ class _MainMenuViewState extends State<MainMenuView>
                   ],
                 ),
                 const SizedBox(height: 10),
-                _DailyCard(
-                  palette: palette,
-                  done: dailyDone,
-                  time: result == null
-                      ? null
-                      : formatTime(Duration(milliseconds: result.milliseconds)),
-                  action: result != null
-                      ? 'View result'
-                      : model.hasAttempt(currentDaily)
-                      ? 'Resume'
-                      : 'Play daily',
-                  onTap: () => openPuzzle(context, currentDaily),
+                JourneyArt(palette, chapter: chapterFor(model.highestUnlocked)),
+                Text(
+                  chapterName(chapterFor(model.highestUnlocked)),
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
+                Text('Campaign · ${model.levelsSolved} solved'),
+                const SizedBox(height: 6),
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
@@ -338,6 +300,30 @@ class _MainMenuViewState extends State<MainMenuView>
                   ),
                 ),
                 const SizedBox(height: 10),
+                _DailyCard(
+                  palette: palette,
+                  done: dailyDone,
+                  time: result == null
+                      ? null
+                      : formatTime(Duration(milliseconds: result.milliseconds)),
+                  action: result != null
+                      ? 'View result'
+                      : model.hasAttempt(currentDaily)
+                      ? 'Resume'
+                      : 'Play daily',
+                  onTap: () => openPuzzle(context, currentDaily),
+                ),
+                const SizedBox(height: 14),
+                Text('Explore', style: Theme.of(context).textTheme.titleLarge),
+                ListTile(
+                  leading: const Icon(Icons.collections_bookmark_outlined),
+                  title: const Text('Collections'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CollectionsView()),
+                  ),
+                ),
                 _ModeTile(
                   palette: palette,
                   art: ArtKind.levels,
@@ -533,37 +519,19 @@ class _HomeShortcut extends StatelessWidget {
   final bool featured;
 
   @override
-  Widget build(BuildContext context) => GameCard(
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
     onTap: onTap,
-    selected: false,
-    color: featured
-        ? Color.lerp(palette.card, palette.accent, palette.dark ? .14 : .2)
-        : null,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    semanticLabel: badge == null ? title : '$title, $badge',
-    child: Row(
-      children: [
-        GameArt(art, palette: palette, size: 28),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-        ),
-        if (badge != null)
-          Text(
+    leading: GameArt(art, palette: palette, size: 24),
+    title: Text(title),
+    subtitle: badge == null
+        ? null
+        : Text(
             badge!,
             style: TextStyle(
-              color: palette.mutedInk,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+              color: featured ? palette.route : palette.mutedInk,
             ),
           ),
-      ],
-    ),
   );
 }
 
@@ -583,12 +551,8 @@ class _DailyCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-    decoration: BoxDecoration(
-      color: palette.route,
-      borderRadius: BorderRadius.circular(GameTokens.cardRadius + 4),
-    ),
     child: Row(
       children: [
         Expanded(
@@ -598,9 +562,9 @@ class _DailyCard extends StatelessWidget {
               Text(
                 'Daily challenge',
                 style: TextStyle(
-                  color: palette.onRoute,
+                  color: palette.ink,
                   fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w500,
                   height: 1.1,
                 ),
               ),
@@ -615,7 +579,7 @@ class _DailyCard extends StatelessWidget {
                     Text(
                       time!,
                       style: TextStyle(
-                        color: palette.onRoute,
+                        color: palette.ink,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -625,11 +589,9 @@ class _DailyCard extends StatelessWidget {
             ],
           ),
         ),
-        FilledButton(
+        TextButton(
           onPressed: onTap,
-          style: FilledButton.styleFrom(
-            backgroundColor: palette.accent,
-            foregroundColor: palette.onAccent,
+          style: TextButton.styleFrom(
             minimumSize: const Size(48, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(GameTokens.pillRadius),
@@ -669,7 +631,7 @@ class _OnRoutePips extends StatelessWidget {
               border: Border.all(
                 color: i < done
                     ? palette.accent
-                    : palette.onRoute.withValues(alpha: .6),
+                    : palette.route.withValues(alpha: .6),
                 width: 2,
               ),
             ),
@@ -699,36 +661,20 @@ class _ModeTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GameCard(
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
     onTap: onTap,
-    color: featured
-        ? Color.lerp(palette.card, palette.accent, palette.dark ? .14 : .2)
-        : null,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    semanticLabel: trailing == null ? title : '$title, $trailing',
-    child: Row(
-      children: [
-        GameArt(art, palette: palette, size: 30),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-          ),
-        ),
-        if (trailing != null)
-          Text(
+    leading: GameArt(art, palette: palette, size: 28),
+    title: Text(title),
+    subtitle: trailing == null
+        ? null
+        : Text(
             trailing!,
             style: TextStyle(
-              color: featured ? palette.ink : palette.mutedInk,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+              color: featured ? palette.route : palette.mutedInk,
             ),
           ),
-        const SizedBox(width: 4),
-        Icon(Icons.chevron_right_rounded, color: palette.mutedInk),
-      ],
-    ),
+    trailing: const Icon(Icons.chevron_right_rounded),
   );
 }
 
@@ -740,43 +686,14 @@ class _StoreCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GameCard(
+  Widget build(BuildContext context) => ListTile(
     key: const ValueKey('store-card'),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
     onTap: onTap,
-    color: Color.lerp(palette.card, palette.accent, palette.dark ? .18 : .26),
-    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-    semanticLabel: 'Store. Themes, tips and more',
-    child: Row(
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: palette.surface.withValues(alpha: .7),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: GameArt(ArtKind.store, palette: palette, size: 40),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Store',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-              ),
-              Text(
-                'Themes, tips & more',
-                style: TextStyle(color: palette.mutedInk, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        Icon(Icons.chevron_right_rounded, color: palette.ink),
-      ],
-    ),
+    leading: GameArt(ArtKind.store, palette: palette, size: 28),
+    title: const Text('Store'),
+    subtitle: const Text('Themes, tips & more'),
+    trailing: const Icon(Icons.chevron_right_rounded),
   );
 }
 

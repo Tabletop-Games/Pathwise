@@ -13,6 +13,7 @@ import '../model/game_state.dart';
 import '../model/user_preferences.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'cloud_save_section.dart';
 import 'components/brand_mark.dart';
 import 'level_one_demo.dart';
@@ -30,16 +31,13 @@ class SettingsView extends StatelessWidget {
     final p = context.palette;
     Widget group(List<Widget> tiles) => Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GameCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          children: [
-            for (var i = 0; i < tiles.length; i++) ...[
-              if (i > 0) Divider(height: 1, color: p.cardEdge),
-              tiles[i],
-            ],
+      child: Column(
+        children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: p.cardEdge),
+            tiles[i],
           ],
-        ),
+        ],
       ),
     );
     return Scaffold(
@@ -150,16 +148,7 @@ class StatisticsView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     Widget tile(ArtKind art, String label, String value) =>
         _StatTile(art: art, label: label, value: value, palette: palette);
-    Widget grid(List<Widget> tiles) => LayoutBuilder(
-      builder: (context, box) {
-        final width = (box.maxWidth - 8) / 2;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [for (final t in tiles) SizedBox(width: width, child: t)],
-        );
-      },
-    );
+    Widget grid(List<Widget> tiles) => Column(children: tiles);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 56,
@@ -176,6 +165,11 @@ class StatisticsView extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
+                JourneyArt(palette, height: 88),
+                Text(
+                  'Your journey',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 grid([
                   tile(ArtKind.check, 'Puzzles solved', '${model.solved}'),
                   tile(
@@ -331,38 +325,15 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: '$label, $value',
     excludeSemantics: true,
-    child: GameCard(
-      padding: const EdgeInsets.all(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
-          GameArt(art, palette: palette, size: 32),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      color: palette.ink,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      height: 1.1,
-                    ),
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: palette.mutedInk, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
+          GameArt(art, palette: palette, size: 22),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+          const SizedBox(width: 8),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
         ],
       ),
     ),
@@ -381,7 +352,7 @@ class _AchievementCard extends StatelessWidget {
   final BoardPalette palette;
 
   @override
-  Widget build(BuildContext context) => GameCard(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(12),
     child: Opacity(
       opacity: earned ? 1 : .7,

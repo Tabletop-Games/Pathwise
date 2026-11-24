@@ -175,8 +175,8 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                GameCard(
-                  padding: const EdgeInsets.all(14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -184,7 +184,7 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                         title,
                         style: TextStyle(
                           color: palette.ink,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w600,
                           fontSize: 22,
                         ),
                       ),

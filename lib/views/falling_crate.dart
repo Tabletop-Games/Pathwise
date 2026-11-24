@@ -167,7 +167,16 @@ class _CrateRewardState extends State<_CrateReward> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
     child: GameDialog(
-      art: GameArt(ArtKind.crate, palette: context.palette, size: 84),
+      art: TweenAnimationBuilder<double>(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 240),
+        tween: Tween(begin: .92, end: 1),
+        curve: Curves.easeOut,
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
+        child: GameArt(ArtKind.crate, palette: context.palette, size: 84),
+      ),
       title: 'Supply crate',
       child: Column(
         mainAxisSize: MainAxisSize.min,

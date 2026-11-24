@@ -21,3 +21,10 @@
 - Layouts must survive 320dp wide and 1.5x text. Scale or wrap instead of overflowing.
 - Pointer tracking lives in `lib/logic/tip_tracker.dart`: cardinal-only, no jump on cell acceptance, transient state never persisted.
 - Test visually: `test/ui_captures_test.dart` renders every screen on six themes and several viewports; set `PATHWISE_CAPTURE_DIR` to write PNGs and inspect them.
+
+## Quiet Journey
+
+- Design for a relaxing Android puzzle game. Put the campaign and the board first, use open layouts and give each screen its own composition. Shared controls must not turn screens into grids of identical cards and pills.
+- Use quiet landscape vector art, accent colors drawn from the equipped palette, and restrained motion. Keep high contrast and AMOLED views clear of atmospheric decoration.
+- Completion bonuses multiply only the configured base campaign payout. Credit only the difference from the earned SDK callback using one ledger ID per level. Replays and other modes cannot earn the bonus.
+- Ten prospective first clears reveal one unowned, unreserved cosmetic from the configured catalogue. Keep discoveries pending indefinitely and grant the fallback when exhausted or already owned. Equip only on an explicit action.

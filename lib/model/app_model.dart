@@ -15,6 +15,7 @@ import 'economy.dart';
 import 'economy_activity.dart';
 import 'fortune.dart';
 import 'game_state.dart';
+import 'journey.dart';
 import 'native_achievements.dart';
 import 'play_streak.dart';
 import 'product_catalog.dart';
@@ -190,6 +191,22 @@ class AppModel extends ChangeNotifier
         boot: offer['boot'] as int,
         milliseconds: offer['milliseconds'] as int,
       );
+    }
+    final journey = _map(snapshot['journey']);
+    _journeyClears = max(
+      0,
+      journey['clears'] is int ? journey['clears'] as int : 0,
+    );
+    for (final entry in _map(journey['pending']).entries) {
+      final number = int.tryParse(entry.key);
+      final item = entry.value;
+      if (number != null &&
+          number > 0 &&
+          number <= _journeyClears ~/ discoveryInterval &&
+          item is String &&
+          (item == Discovery.fallback || discoveryCatalogue.contains(item))) {
+        _discoveries[number] = Discovery(number, item);
+      }
     }
     final adStamp = _map(snapshot['lastAutomaticAd']);
     if (adStamp['boot'] is int && adStamp['milliseconds'] is int) {
@@ -1027,6 +1044,116 @@ class AppModel extends ChangeNotifier
   int _longestStreak = 0;
   int _playMilliseconds = 0;
   int _accountedMilliseconds = 0;
+  int _journeyClears = 0;
+  final _discoveries = <int, Discovery>{};
+  Discovery? latestDiscovery;
+  bool chapterCompletedThisVisit = false;
+  bool firstCampaignClear = false;
+  int completionCoins = 0;
+  int? selectedMultiplier;
+
+  int get discoveryPercent =>
+      _journeyClears % discoveryInterval * 100 ~/ discoveryInterval;
+  List<Discovery> get pendingDiscoveries =>
+      List.unmodifiable(_discoveries.values);
+
+  bool _ownsDiscoveryItem(String item) {
+    if (item.startsWith('tip/')) {
+      return PathTip.values.any(
+        (tip) => 'tip/${tip.name}' == item && ownsTip(tip),
+      );
+    }
+    return PathwiseTheme.values.any(
+      (theme) => 'theme/${theme.name}' == item && ownsTheme(theme),
+    );
+  }
+
+  Discovery displayedDiscovery(Discovery discovery) =>
+      _ownsDiscoveryItem(discovery.item)
+      ? Discovery(discovery.number, Discovery.fallback)
+      : discovery;
+
+  void _advanceJourney(int level) {
+    firstCampaignClear = true;
+    final chapter = chapterFor(level);
+    chapterCompletedThisVisit = Iterable<int>.generate(
+      chapterEnd(chapter) - chapter * chapterSize,
+      (index) => chapter * chapterSize + index + 1,
+    ).every((level) => result(PuzzleId.level(level)) != null);
+    _journeyClears++;
+    if (_journeyClears % discoveryInterval != 0) return;
+    final reserved = _discoveries.values
+        .map((discovery) => discovery.item)
+        .toSet();
+    final item = discoveryCatalogue.firstWhere(
+      (item) => !reserved.contains(item) && !_ownsDiscoveryItem(item),
+      orElse: () => Discovery.fallback,
+    );
+    final discovery = Discovery(_journeyClears ~/ discoveryInterval, item);
+    _discoveries[discovery.number] = discovery;
+    latestDiscovery = discovery;
+  }
+
+  bool get canMultiplyCompletion =>
+      firstCampaignClear &&
+      activeId?.mode == PlayMode.levels &&
+      !storageError &&
+      onlineReady &&
+      !_wallet.contains('journey/multiplier/${activeId?.level}');
+
+  void selectCompletionMultiplier(int multiplier) {
+    if (!canMultiplyCompletion ||
+        selectedMultiplier != null ||
+        multiplier < 2 ||
+        multiplier > 4)
+      return;
+    selectedMultiplier = multiplier;
+    notifyListeners();
+  }
+
+  /// Captures the eligible completion before the ad opens. The SDK can finish
+  /// after the player leaves the results screen.
+  Future<bool> Function(String)? completionRewardCallback() {
+    final id = activeId;
+    final multiplier = selectedMultiplier;
+    if (!canMultiplyCompletion || id == null || multiplier == null) return null;
+    final level = id.level;
+    return (_) async {
+      if (_disposed ||
+          !_wallet.add(
+            'journey/multiplier/$level',
+            'Level $level video bonus',
+            economy.clearReward(PlayMode.levels) * (multiplier - 1),
+            _today(),
+          ))
+        return false;
+      notifyListeners();
+      return flush();
+    };
+  }
+
+  Future<bool> claimDiscovery(int number) async {
+    if (_disposed || storageError) return false;
+    final pending = _discoveries.remove(number);
+    if (pending == null) return false;
+    final discovery = displayedDiscovery(pending);
+    if (discovery.item == Discovery.fallback) {
+      _wallet.add(
+        'journey/discovery/$number',
+        'Discovery reward',
+        discoveryFallbackCoins,
+        _today(),
+      );
+    } else if (discovery.isTip) {
+      _ownedTips.add(PathTip.values.byName(discovery.cosmeticId));
+    } else {
+      _owned.add(PathwiseTheme.values.byName(discovery.cosmeticId));
+      _awardAchievements();
+    }
+    notifyListeners();
+    return flush();
+  }
+
   int lastReward = 0;
   List<NativeAchievement> recentAchievements = const [];
   int achievementRevision = 0;
@@ -1594,6 +1721,11 @@ class AppModel extends ChangeNotifier
     _watch.reset();
     _accountedMilliseconds = 0;
     lastReward = 0;
+    completionCoins = 0;
+    latestDiscovery = null;
+    chapterCompletedThisVisit = false;
+    firstCampaignClear = false;
+    selectedMultiplier = null;
     recentStreakDay = null;
     recentAchievements = const [];
     newBest = false;
@@ -1684,8 +1816,10 @@ class AppModel extends ChangeNotifier
 
   void step(int cell) {
     if (!_foreground || !_canPlay) return;
-    if (_game?.step(cell) case RouteEdit.advance || RouteEdit.retract)
-      _edited();
+    final checkpoint = nextCheckpoint;
+    if (_game?.step(cell) case RouteEdit.advance || RouteEdit.retract) {
+      _edited(connectedCheckpoint: nextCheckpoint > checkpoint);
+    }
   }
 
   void end() {
@@ -1740,7 +1874,7 @@ class AppModel extends ChangeNotifier
     ];
   }
 
-  void _edited() {
+  void _edited({bool connectedCheckpoint = false}) {
     _started = true;
     if (_crateAnchor == null || complete) {
       _processCrates();
@@ -1803,6 +1937,7 @@ class AppModel extends ChangeNotifier
           _achievements.precision++;
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
+          _advanceJourney(id.level);
           _highestUnlocked = max(
             _highestUnlocked,
             (id.level + 1).clamp(1, levelCount),
@@ -1825,6 +1960,7 @@ class AppModel extends ChangeNotifier
               progression.multiplier(progressionTime),
           _today(),
         );
+        completionCoins = coinBalance - coinsBefore;
         if (id.mode == PlayMode.daily) {
           _achievements.daily(id.value as String, _bootTime());
           _updateLongestStreak();
@@ -1838,7 +1974,7 @@ class AppModel extends ChangeNotifier
       haptic.complete();
       unawaited(flush());
     } else {
-      if (endedEarly) {
+      if (endedEarly || connectedCheckpoint) {
         haptic.light();
       } else {
         haptic.selection();
@@ -1856,6 +1992,7 @@ class AppModel extends ChangeNotifier
     _results[id.key] = (milliseconds: 15000, hints: 0, unassisted: true);
     _achievements.precision++;
     _levelsSolved++;
+    _advanceJourney(1);
     _highestUnlocked = max(_highestUnlocked, 2);
     _wallet.add(
       'clear/${id.key}',
@@ -2023,6 +2160,14 @@ class AppModel extends ChangeNotifier
 
   Map<String, dynamic> _snapshotMap() => {
     'schemaVersion': GameStateStorage.schemaVersion,
+    if (_journeyClears != 0)
+      'journey': {
+        'clears': _journeyClears,
+        'pending': {
+          for (final discovery in _discoveries.values)
+            '${discovery.number}': discovery.item,
+        },
+      },
     'levelOneDemoSeen': _levelOneDemoSeen,
     'mechanicTutorials': _tutorialStatus,
     'nativeAchievements': _achievements.toJson(),
