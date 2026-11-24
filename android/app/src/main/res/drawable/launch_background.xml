@@ -1,5 +1,5 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/pathwise_splash" />
     <item android:width="120dp" android:height="120dp" android:gravity="center"
-        android:drawable="@drawable/pathwise_foreground" />
+        android:drawable="@mipmap/pathwise_route_launcher" />
 </layer-list>

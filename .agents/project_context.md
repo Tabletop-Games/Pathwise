@@ -13,4 +13,4 @@ Treat puzzle IDs, checkpoint order, accepted route semantics and canonical gener
 
 Extension priorities are Play device verification, gesture and large-font visual testing on hardware, ranked score validation, cloud-backed paid-currency recovery and refund reconciliation. Preserve Flutter plugin registration and explicit code and resource shrinking.
 
-The themed Flutter splash reads the saved palette after startup storage loads. Android displays a fixed-color native launch screen before Flutter can access the saved theme. Settings offers an optional Google Play update check using in_app_update_flutter. Play-distributed builds and an eligible newer release are needed to verify the update flow.
+Android keeps its black native launch screen visible while saved state and the clock load, then renders the home screen with the saved theme. Settings offers an optional Google Play update check using in_app_update_flutter. Play-distributed builds and an eligible newer release are needed to verify the update flow.

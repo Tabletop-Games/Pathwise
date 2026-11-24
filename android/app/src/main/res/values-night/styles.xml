@@ -1,8 +1,11 @@
 <resources>
-    <color name="pathwise_splash">#F1EFE2</color>
+    <color name="pathwise_splash">#000000</color>
     <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/pathwise_foreground</item>
+        <item name="android:statusBarColor">@color/pathwise_splash</item>
+        <item name="android:navigationBarColor">@color/pathwise_splash</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/pathwise_splash</item>
