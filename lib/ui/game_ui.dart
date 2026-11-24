@@ -232,13 +232,15 @@ class _PillFrame extends StatelessWidget {
       height: 36,
       constraints: const BoxConstraints(minWidth: 56),
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(GameTokens.pillRadius),
         border: border == null ? null : Border.all(color: border!),
       ),
-      child: FittedBox(fit: BoxFit.scaleDown, child: child),
+      child: Align(
+        widthFactor: 1,
+        child: FittedBox(fit: BoxFit.scaleDown, child: child),
+      ),
     );
     return Semantics(
       button: true,

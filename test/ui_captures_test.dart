@@ -329,7 +329,7 @@ void main() {
                                   TipArtwork(
                                     tip: tip,
                                     palette: palette,
-                                    scale: .6,
+                                    scale: .45,
                                   ),
                                 ],
                               ),
@@ -339,6 +339,7 @@ void main() {
                               style: TextStyle(
                                 color: palette.ink,
                                 fontSize: 12,
+                                fontFamily: 'Bricolage',
                                 decoration: TextDecoration.none,
                               ),
                             ),
