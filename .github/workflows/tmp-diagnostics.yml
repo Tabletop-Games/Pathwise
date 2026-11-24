@@ -1,0 +1,43 @@
+# TEMPORARY: prints the dart format diff and runs analyze and tests even when
+# formatting fails. Removed before merge.
+name: Diagnostics (temporary)
+on:
+  push:
+    branches: [feat/cloud-saves]
+permissions:
+  contents: read
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/flutter
+            ~/.pub-cache
+          key: flutter-${{ runner.os }}-3.50.1-${{ hashFiles('pubspec.lock') }}
+      - name: Install Flutter
+        run: |
+          if [ ! -x "$RUNNER_TEMP/flutter/bin/flutter" ]; then
+            git clone --depth 1 --branch 3.50.1 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          fi
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - run: flutter pub get --enforce-lockfile
+      - name: Format diff
+        run: |
+          dart format . > /dev/null
+          echo "=====FORMAT-PATCH-BEGIN====="
+          git diff --no-color || true
+          echo "=====FORMAT-PATCH-END====="
+          git checkout -- .
+      - name: Analyze
+        continue-on-error: true
+        run: flutter analyze --no-pub
+      - name: Test
+        continue-on-error: true
+        run: flutter test --no-pub --reporter expanded
+      - name: Release APK (debug)
+        continue-on-error: true
+        run: flutter build apk --debug --dart-define-from-file=config/production.example.json
