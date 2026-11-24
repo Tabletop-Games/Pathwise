@@ -124,8 +124,8 @@ class PricePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final fill = affordable ? p.accent : p.quiet;
-    final ink = affordable ? p.onAccent : p.mutedInk;
+    final fill = affordable ? p.route : p.quiet;
+    final ink = affordable ? p.onRoute : p.mutedInk;
     return _PillFrame(
       onTap: onTap,
       semanticLabel: semanticLabel ?? '$price coins',

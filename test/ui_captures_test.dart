@@ -134,7 +134,7 @@ Future<void> _screens(
     if (only != null && !only.contains(name)) return;
     final model = _model(theme);
     await tester.pumpWidget(_shell(key, model, ads, billing, home()));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 50));
     if (after != null) await after();
     await shot(name);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -186,7 +186,16 @@ Future<void> _screens(
   await screen('levels', () => const LevelsView());
   await screen('research', () => const ProgressionView());
   await screen('boosts', () => const ProgressionView(boosts: true));
-  await screen('wheel', () => const FortuneView());
+  await screen(
+    'wheel',
+    () => const FortuneView(),
+    after: () async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    },
+  );
   await screen('streak', () => const StreakView());
   await screen('stats', () => const StatisticsView());
   await screen('settings', () => const SettingsView());
@@ -215,6 +224,20 @@ void main() {
       final loader = FontLoader('Bricolage')
         ..addFont(Future.value(ByteData.sublistView(font.readAsBytesSync())));
       await loader.load();
+    }
+    // Icons render as boxes unless the Material icon font is loaded.
+    var dir = File(Platform.resolvedExecutable).parent;
+    for (var i = 0; i < 8; i++, dir = dir.parent) {
+      final icons = File(
+        '${dir.path}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      );
+      if (icons.existsSync()) {
+        final loader = FontLoader('MaterialIcons')
+          ..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
+        await loader.load();
+        break;
+      }
+      if (dir.path == dir.parent.path) break;
     }
   });
 

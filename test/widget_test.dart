@@ -375,7 +375,9 @@ void main() {
         await tester.tap(activate);
         await tester.pumpAndSettle();
         expect(find.text('10 min left'), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        final problem = tester.takeException();
+        if (problem != null) debugPrint('OVERFLOW-DETAIL: $problem');
+        expect(problem, isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await model.flush();
         model.dispose();

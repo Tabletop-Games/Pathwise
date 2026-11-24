@@ -235,15 +235,18 @@ class _MainMenuViewState extends State<MainMenuView>
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        'Pathwise',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.8,
-                            ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Pathwise',
+                          maxLines: 1,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.8,
+                              ),
+                        ),
                       ),
                     ),
                     BalanceChip(
