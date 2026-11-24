@@ -369,6 +369,7 @@ class _WheelPainter extends CustomPainter {
           text: '${prize.coins}',
           style: TextStyle(
             color: ink,
+            fontFamily: 'Bricolage',
             fontWeight: FontWeight.w800,
             fontSize: radius * .145,
           ),

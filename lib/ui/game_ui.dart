@@ -255,7 +255,7 @@ class _PillFrame extends StatelessWidget {
             minHeight: GameTokens.minTouch,
             minWidth: GameTokens.minTouch,
           ),
-          child: Center(child: pill),
+          child: Center(widthFactor: 1, child: pill),
         ),
       ),
     );
