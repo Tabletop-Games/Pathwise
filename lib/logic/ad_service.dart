@@ -15,21 +15,13 @@ class AdService extends ChangeNotifier {
   AdService({
     this.reserveInterstitial,
     this.onRewardedClosed,
-    this.startRewardSession,
     this.isConnected,
     bool testAds = const bool.fromEnvironment('PATHWISE_ADS_TEST'),
   }) : _test = !kReleaseMode && testAds;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
 
-  /// Asks the server for a reward session. Its id travels to AdMob as SSV
-  /// custom data, so only a Google-signed callback can pay it out. Null means
-  /// the server declined (limit reached, offline) and no video is shown.
-  final Future<String?> Function(RewardPlacement placement, String? kind)?
-  startRewardSession;
-
-  /// The shared connectivity service. Falls back to the platform check only
-  /// when none is provided (unit tests).
+  /// The app's connectivity service. Falls back to a platform check when absent.
   final bool Function()? isConnected;
   bool _reserving = false;
   final bool _test;
@@ -346,7 +338,6 @@ class AdService extends ChangeNotifier {
     bool Function()? canPresent,
     RewardPlacement placement = RewardPlacement.coins,
     bool waitForReward = false,
-    String? sessionKind,
   }) async {
     if (!readyFor(placement) || _disposed || _checkingReward) return false;
     _checkingReward = true;
@@ -359,26 +350,7 @@ class AdService extends ChangeNotifier {
       _report('Video unavailable. Check your connection and try again.');
       return false;
     }
-    String? session;
-    if (startRewardSession != null) {
-      _checkingReward = true;
-      try {
-        session = await startRewardSession!(placement, sessionKind);
-      } finally {
-        _checkingReward = false;
-      }
-      if (session == null || _disposed || !readyFor(placement)) {
-        _report('This video bonus isn’t available right now.');
-        return false;
-      }
-      if (canPresent?.call() == false) return false;
-    }
     final ad = _rewarded.remove(placement)!.$1;
-    if (session != null) {
-      await ad.setServerSideOptions(
-        ServerSideVerificationOptions(customData: session),
-      );
-    }
     _showing = ad;
     var granted = false;
     var closed = false;
@@ -387,12 +359,10 @@ class AdService extends ChangeNotifier {
       if (settled != null && !settled.isCompleted) settled.complete();
     }
 
-    final id =
-        session ??
-        List.generate(
-          3,
-          (_) => Random.secure().nextInt(1 << 32).toRadixString(16),
-        ).join('-');
+    final id = List.generate(
+      3,
+      (_) => Random.secure().nextInt(1 << 32).toRadixString(16),
+    ).join('-');
     final expiry = Timer(const Duration(minutes: 3), () {
       closed = true;
       _finished(ad);

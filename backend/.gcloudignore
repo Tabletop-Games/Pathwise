@@ -1,5 +1,0 @@
-.gcloudignore
-node_modules/
-*.test.mjs
-testing/
-deploy/

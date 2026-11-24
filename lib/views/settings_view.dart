@@ -11,6 +11,7 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
+import 'cloud_save_section.dart';
 import 'components/brand_mark.dart';
 import 'level_one_demo.dart';
 import 'play_games_view.dart';
@@ -47,28 +48,7 @@ class SettingsView extends StatelessWidget {
                   value: model.suggestSharing,
                   onChanged: model.setSharingSuggestions,
                 ),
-                const Divider(),
-                if (model.online?.gamesRecoveryAvailable == true)
-                  ListTile(
-                    leading: const Icon(Icons.cloud_sync_outlined),
-                    title: const Text('Back up with Google Play Games'),
-                    subtitle: const Text(
-                      'Restore your progress and purchases on a new device.',
-                    ),
-                    onTap: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final linked = await model.online!.linkGames();
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            linked
-                                ? 'Progress linked to Google Play Games.'
-                                : 'Couldn’t link right now. Try again later.',
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                const CloudSaveSection(),
                 ListTile(
                   leading: const Icon(Icons.school_outlined),
                   title: const Text('Demo'),

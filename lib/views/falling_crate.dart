@@ -153,7 +153,6 @@ class _CrateRewardState extends State<_CrateReward> {
         return credited;
       },
       placement: RewardPlacement.crate,
-      sessionKind: widget.crate.id,
       canPresent: _current,
       waitForReward: true,
     );

@@ -55,7 +55,7 @@ void main() {
 
   testWidgets('launch offers an unspent spin once per session', (tester) async {
     await tester.runAsync(
-      () => rootBundle.loadString('backend/fortune-prizes.json'),
+      () => rootBundle.loadString('assets/data/fortune-prizes.json'),
     );
     final store = MemoryStorage();
     AppModel model(Map<String, dynamic> snapshot) => AppModel(
@@ -258,7 +258,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 820));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.runAsync(
-        () => rootBundle.loadString('backend/fortune-prizes.json'),
+        () => rootBundle.loadString('assets/data/fortune-prizes.json'),
       );
       final model = AppModel(
         storage: MemoryStorage(),

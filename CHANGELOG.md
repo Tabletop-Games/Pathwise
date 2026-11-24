@@ -2,14 +2,12 @@
 
 ## Unreleased
 
-### Online-first architecture
-
-- Require an authenticated online session for all gameplay, rewards and purchases. A single connection service verifies backend reachability, and a themed connection screen distinguishes no internet, server unavailable, verification failure, expired session and required update. Gameplay pauses safely on connection loss and resumes the same puzzle.
-- Move the wallet, hints, themes, research, boosts, freezes, streaks, achievements and progression to the backend, using atomic Firestore transactions and an idempotent command ledger. Prices and rewards live in `backend/economy-config.mjs`.
-- Validate completions on the server against regenerated boards and server-timed Time Attack runs.
-- Verify Google Play purchases on the server, bind them to the player, restore entitlements across devices, and reverse refunds through RTDN and Voided Purchases reconciliation.
-- Grant every rewarded ad through AdMob server-side verification. The server chooses Fortune Wheel and supply-crate prizes.
-- Add server-issued identities with rotating refresh tokens and Play Games account recovery. Disable Android backup of credentials.
+- Replace the custom backend with client-managed cloud saves. Progress syncs through Play Games Services Saved Games, with versioned, digest-checked saves, conservative conflict handling and a backup before every replacement. No server, Firestore or Cloud Run is required.
+- Require an internet connection to play. A connectivity service checks a Google connectivity endpoint, pauses the board on connection loss without losing the route, and offers Retry.
+- Restore direct Google Play Billing: product availability, pending and cancelled handling, durable grants, and permanent entitlements reconciled against Google Play ownership. Coin packs require a successful cloud sync before purchase.
+- Restore client-side AdMob rewards. Each reward instance grants once, after the SDK's earned callback.
+- Settings → Cloud save shows account status, sync status, last sync, and offers sign-in, sync, restore and sign-out.
+- Android backup is disabled; Saved Games is the recovery mechanism.
 
 - Separate Themes, Store, Wallet and Settings into dedicated destinations. Centralize insufficient-coin dialogs and contextual Store navigation.
 - Add a global hint wallet, optional ad rewards and daily milestones, streak freezes, revised prizes, and ad-unlocked Boosts.

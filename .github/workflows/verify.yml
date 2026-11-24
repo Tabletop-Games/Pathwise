@@ -12,11 +12,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
       - uses: actions/cache@v4
         with:
           path: |
@@ -35,12 +30,9 @@ jobs:
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub
       - run: dart run tool/economy_simulation.dart
-      - run: npm --prefix backend ci
-      - run: npm --prefix backend test
-      - run: npm --prefix backend audit --omit=dev --audit-level=moderate
       - name: Check tracked files for credential patterns
         run: |
-          if git grep -l -I -E -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|AIza[A-Za-z0-9_-]{35}' -- ':!backend/*.test.mjs'; then
+          if git grep -l -I -E -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|AIza[A-Za-z0-9_-]{35}'; then
             exit 1
           fi
   android:

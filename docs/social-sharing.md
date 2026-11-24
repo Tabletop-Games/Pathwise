@@ -22,4 +22,4 @@ The Share view requests no contacts or account identity. It exports no images, r
 
 ## Verification
 
-Flutter tests exercise the typed templates, X length budget, URL encoding, narrow-screen preview, clipboard order, missing-app fallback, and optional suggestions. For live Android checks see [publisher setup](../setup.md#5-before-enabling-play-games).
+Flutter tests exercise the typed templates, X length budget, URL encoding, narrow-screen preview, clipboard order, missing-app fallback, and optional suggestions. For live Android checks see [publisher setup](../docs/play-console-setup.md#3-play-games-services-project-play-console-owner).

@@ -277,7 +277,7 @@ class _FortuneViewState extends State<FortuneView> {
 }
 
 Future<FortuneCatalog> loadFortuneCatalog() => rootBundle
-    .loadString('backend/fortune-prizes.json')
+    .loadString('assets/data/fortune-prizes.json')
     .then(FortuneCatalog.new);
 
 class _WheelPainter extends CustomPainter {
