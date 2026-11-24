@@ -107,7 +107,7 @@ class SettingsView extends StatelessWidget {
                     ),
                     SizedBox(height: 12),
                     Text(
-                      'Play unlimited Levels, a three-puzzle Daily Challenge, '
+                      'Play 1,000 Levels, a three-puzzle Daily Challenge, '
                       'or race the clock in Time Attack.',
                     ),
                   ],

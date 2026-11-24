@@ -4,6 +4,7 @@ enum PlayMode { levels, daily, attack }
 
 const legacyLevelCount = 36;
 const levelsPerPage = 12;
+const levelCount = 1000;
 const dailyCheckpointCount = 3;
 
 int pageForLevel(int level) => (level - 1) ~/ levelsPerPage;
@@ -40,7 +41,14 @@ final class PuzzleId {
   };
 
   int get size => switch (mode) {
-    PlayMode.levels => level <= legacyLevelCount ? 4 + ((level - 1) ~/ 9) : 7,
+    PlayMode.levels =>
+      level <= 30
+          ? 4
+          : level <= 100
+          ? 5
+          : level <= 300
+          ? 6
+          : 7,
     PlayMode.daily => checkpoint == null ? 6 : 3 + checkpoint!,
     PlayMode.attack => (4 + attackIndex ~/ 3).clamp(4, 7),
   };
@@ -73,21 +81,13 @@ final class PuzzleId {
         clues: baseline + variation,
       );
     }
-    if (mode == PlayMode.levels && level > legacyLevelCount) {
-      // Higher bands ask players to infer longer sections between clues.
-      // The generator keeps additional clues whenever uniqueness requires them.
-      final removed = switch (level) {
-        < 100 => 1,
-        < 150 => 2,
-        < 300 => 3,
-        < 500 => 4,
-        < 1000 => 5,
-        _ => 6,
-      };
+    if (mode == PlayMode.levels) {
+      final baseline = [0, 0, 0, 0, 8, 11, 15, 18][size];
+      final reduction = (level ~/ 200).clamp(0, 4);
       return (
         size: size,
-        seed: puzzleSeed('pathwise-v2/$key'),
-        clues: 17 - removed,
+        seed: puzzleSeed('pathwise-catalogue-v3/$key'),
+        clues: baseline - reduction,
       );
     }
     final difficulty = mode == PlayMode.levels ? ((value as int) - 1) % 9 : 5;

@@ -35,6 +35,10 @@ VerifiedPuzzle generatePuzzle(
   int level = 0,
   bool legacy = false,
 }) {
+  VerifiedPuzzle? best;
+  var distance = 1 << 30;
+  var certified = 0;
+  final target = 30 + (level / 10).round();
   for (var attempt = 0; attempt < 24; attempt++) {
     final seed = attempt == 0
         ? request.seed
@@ -44,8 +48,18 @@ VerifiedPuzzle generatePuzzle(
       level,
       legacy,
     );
-    if (board != null) return board;
+    if (board == null) continue;
+    if (level == 0 || legacy) return board;
+    final candidateDistance =
+        (difficultyScore(board) - target).abs() -
+        8 * mechanicInfluence(board.puzzle);
+    if (candidateDistance < distance) {
+      best = board;
+      distance = candidateDistance;
+    }
+    if (++certified == 2) return best!;
   }
+  if (best != null) return best;
   throw StateError('Could not certify this puzzle');
 }
 
@@ -80,9 +94,38 @@ VerifiedPuzzle? _tryGenerate(
     route.setAll(0, prefix);
   }
 
-  final mixed = level > 200;
+  // Each mechanic is introduced alone, practiced, then revisited in combinations.
+  final pattern = level > 300 ? (level - 301) % 6 : -1;
+  final wallEnabled =
+      (level >= 31 && level <= 70) ||
+      (level >= 101 && level <= 120) ||
+      (level >= 151 && level <= 180) ||
+      (level >= 231 && level <= 260) ||
+      pattern == 0 ||
+      pattern == 3 ||
+      pattern == 5;
+  final iceEnabled =
+      (level >= 71 && level <= 120) ||
+      (level >= 181 && level <= 200) ||
+      (level >= 261 && level <= 300) ||
+      pattern == 1 ||
+      pattern == 3 ||
+      pattern == 4 ||
+      pattern == 5;
+  final gateEnabled =
+      (level >= 121 && level <= 200) ||
+      pattern == 0 ||
+      pattern == 2 ||
+      pattern == 4 ||
+      pattern == 5;
+  final portalEnabled =
+      (level >= 201 && level <= 300) ||
+      pattern == 1 ||
+      pattern == 2 ||
+      pattern == 4 ||
+      pattern == 5;
   (int, int)? portal;
-  if ((level >= 101 && level <= 150) || mixed) {
+  if (portalEnabled) {
     final splices = <(int, int)>[
       for (var i = 1; i < route.length - 4; i++)
         for (var j = i + 2; j < route.length - 2; j++)
@@ -103,7 +146,7 @@ VerifiedPuzzle? _tryGenerate(
           (route[i], neighbor),
   ];
   final walls = <(int, int)>{};
-  if (level >= 21 && level <= 40 || mixed) {
+  if (wallEnabled) {
     if (legacy) {
       walls.add(wallOptions[random.nextInt(wallOptions.length)]);
     } else {
@@ -125,10 +168,8 @@ VerifiedPuzzle? _tryGenerate(
       walls.addAll(runs[random.nextInt(runs.length)]);
     }
   }
-  final arrow = legacy && ((level >= 41 && level <= 70) || mixed)
-      ? (route[1], route[2])
-      : null;
-  final gate = (level >= 71 && level <= 100) || mixed
+  final arrow = legacy && iceEnabled ? (route[1], route[2]) : null;
+  final gate = gateEnabled
       ? (
           route[2],
           legacy
@@ -145,7 +186,7 @@ VerifiedPuzzle? _tryGenerate(
     if (portal != null) ...[portal.$1, portal.$2],
     if (gate != null) ...[gate.$1, gate.$2],
   };
-  if (level >= 151 || !legacy && level >= 41 && level <= 70) {
+  if (iceEnabled) {
     final straight = <int>[
       for (var i = 1; i < area - 1; i++)
         if (neighbors[route[i - 1]].contains(route[i]) &&

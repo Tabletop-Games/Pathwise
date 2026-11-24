@@ -1,10 +1,11 @@
 import 'puzzle.dart';
 
 final class SearchResult {
-  const SearchResult(this.count, this.exhausted, this.first);
+  const SearchResult(this.count, this.exhausted, this.first, this.nodes);
   final int count;
   final bool exhausted;
   final List<int>? first;
+  final int nodes;
   bool get unique => exhausted && count == 1;
 }
 
@@ -98,5 +99,85 @@ SearchResult solve(Puzzle puzzle, {int budget = 120000}) {
   }
 
   search(puzzle.start, full ^ (1 << puzzle.start), 2);
-  return SearchResult(count, exhausted && count < 2, first);
+  return SearchResult(count, exhausted && count < 2, first, visitedNodes);
+}
+
+/// Heuristic for catalogue selection; it is a proxy, not human playtesting.
+/// Counts decision points and misleading choices along the verified route,
+/// solver search effort, route turns and interacting constraints.
+int difficultyScore(VerifiedPuzzle board) {
+  final p = board.puzzle;
+  final route = board.solution;
+  var choices = 0;
+  var decisions = 0;
+  var turns = 0;
+  var checkpoint = 2;
+  for (var i = 0; i < route.length - 1; i++) {
+    final seen = route.take(i + 1).toSet();
+    final options = p
+        .movesFrom(route[i])
+        .where(
+          (next) =>
+              !seen.contains(next) &&
+              p.canExtend(
+                route[i],
+                next,
+                i + 1,
+                checkpoint,
+                allowEarlyFinish: true,
+                previous: i > 0 ? route[i - 1] : null,
+                hasVisited: seen.contains,
+              ),
+        )
+        .length;
+    if (options > 1) {
+      decisions++;
+      choices += options - 1;
+    }
+    if (i > 0 && route[i] - route[i - 1] != route[i + 1] - route[i]) turns++;
+    if (p.numbers[route[i + 1]] != 0) checkpoint++;
+  }
+  final proof = solve(p);
+  var effort = 0;
+  for (var nodes = proof.nodes; nodes > 1; nodes ~/= 2) {
+    effort++;
+  }
+  final kinds = [
+    p.walls.isNotEmpty,
+    p.iceTiles.isNotEmpty,
+    p.gate != null,
+    p.portal != null,
+    p.arrow != null,
+  ].where((v) => v).length;
+  return decisions * 3 + choices * 2 + turns ~/ 3 + effort + kinds * kinds;
+}
+
+/// Counts mechanics proven to rule out alternate solutions. A zero does not
+/// prove that a mechanic is irrelevant: bounded searches may be inconclusive,
+/// and portals can change the shape of the solution space in other ways.
+int mechanicInfluence(Puzzle p) {
+  Puzzle without({
+    bool walls = false,
+    bool ice = false,
+    bool gate = false,
+    bool portal = false,
+  }) => Puzzle(
+    p.size,
+    p.checkpoints,
+    walls: walls ? const [] : p.walls,
+    iceTiles: ice ? const [] : p.iceTiles,
+    gate: gate ? null : p.gate,
+    portal: portal ? null : p.portal,
+    arrow: p.arrow,
+  );
+  var count = 0;
+  for (final candidate in [
+    if (p.walls.isNotEmpty) without(walls: true),
+    if (p.iceTiles.isNotEmpty) without(ice: true),
+    if (p.gate != null) without(gate: true),
+    if (p.portal != null) without(portal: true),
+  ]) {
+    if (solve(candidate, budget: 12000).count >= 2) count++;
+  }
+  return count;
 }

@@ -15,6 +15,7 @@ import 'components/ad_banner.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
 import 'falling_crate.dart';
+import 'mechanic_tutorial_view.dart';
 import 'share_view.dart';
 
 String formatTime(Duration value) {
@@ -33,6 +34,16 @@ class PuzzleView extends StatelessWidget {
     if (id == null) return const SizedBox.shrink();
     final palette = BoardPalette.palettes[model.theme]!;
     final puzzle = model.puzzle;
+    if (model.pendingMechanicTutorials.isNotEmpty) {
+      return MechanicTutorialView(
+        key: ValueKey(model.pendingMechanicTutorials.first.id),
+        mechanic: model.pendingMechanicTutorials.first,
+        onAcknowledge: (skipped) => model.acknowledgeMechanic(
+          model.pendingMechanicTutorials.first,
+          skipped: skipped,
+        ),
+      );
+    }
     final timed = id.mode == PlayMode.attack;
     final attackFinished = timed && model.attack?.finished == true;
     if (attackFinished && puzzle == null) {

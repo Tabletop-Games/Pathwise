@@ -125,6 +125,13 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     final cell = _cell(position);
     if (cell == null) return;
     _rejectedCell = null;
+    final controls = widget.model;
+    if (!controls.path.contains(cell) &&
+        controls is RejectionControls &&
+        (controls as RejectionControls).rejectionFor(cell) != null) {
+      _showRejection(cell);
+      return;
+    }
     if (!widget.model.begin(cell)) {
       _showRejection(cell);
       return;
@@ -283,11 +290,32 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       button: true,
                       enabled:
                           !model.complete &&
-                          (path.contains(cell) || model.canStep(cell)),
+                          (path.contains(cell) ||
+                              model.canStep(cell) ||
+                              (model is RejectionControls &&
+                                  widget.puzzle.neighbors[path.last].contains(
+                                    cell,
+                                  ))),
                       onTap:
                           !model.complete &&
-                              (path.contains(cell) || model.canStep(cell))
-                          ? () => model.tap(cell)
+                              (path.contains(cell) ||
+                                  model.canStep(cell) ||
+                                  (model is RejectionControls &&
+                                      widget.puzzle.neighbors[path.last]
+                                          .contains(cell)))
+                          ? () {
+                              final rejection = model is RejectionControls
+                                  ? (model as RejectionControls).rejectionFor(
+                                      cell,
+                                    )
+                                  : null;
+                              if (!path.contains(cell) && rejection != null) {
+                                _rejectedCell = null;
+                                _showRejection(cell);
+                              } else {
+                                model.tap(cell);
+                              }
+                            }
                           : null,
                       label: _label(cell, path, visited),
                       child: const SizedBox.expand(),

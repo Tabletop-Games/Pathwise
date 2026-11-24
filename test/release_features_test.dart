@@ -48,23 +48,18 @@ void main() {
     expect(pageForLevel(13), 1);
   });
 
-  test('later difficulty bands target and produce longer deductions on a 7×7 board', () {
-    expect(const PuzzleId.level(37).size, const PuzzleId.level(1000).size);
-    expect(
-      const PuzzleId.level(37).generation.clues,
-      greaterThan(const PuzzleId.level(1000).generation.clues),
-    );
-    double averageClues(int start) =>
-        List.generate(
-          12,
-          (i) =>
-              generatePuzzle(PuzzleId.level(start + i).generation)
-                  .puzzle
-                  .checkpoints
-                  .length,
-        ).reduce((left, right) => left + right) /
+  test('later difficulty bands target higher measured complexity', () {
+    double averageScore(int start) =>
+        List.generate(12, (i) {
+          final id = PuzzleId.level(start + i);
+          return difficultyScore(
+            generatePuzzle(id.generation, level: id.level),
+          );
+        }).reduce((a, b) => a + b) /
         12;
-    expect(averageClues(1000), lessThan(averageClues(37)));
+    expect(averageScore(901), greaterThan(averageScore(301)));
+    expect(const PuzzleId.level(301).size, 7);
+    expect(const PuzzleId.level(1000).size, 7);
   });
 
   test('level unlock, achievement and reward are durably idempotent including replay', () async {

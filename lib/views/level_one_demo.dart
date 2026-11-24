@@ -4,11 +4,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/game_controller.dart';
+import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle_generator.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import 'components/puzzle_board.dart';
+import 'mechanic_tutorial_view.dart';
 
 Future<void> openLevelOneDemo(BuildContext context) =>
     Navigator.of(context)
@@ -122,6 +124,43 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (context
+                    .watch<AppModel>()
+                    .acknowledgedMechanics
+                    .isNotEmpty) ...[
+                  const Divider(),
+                  Text(
+                    'Practice mechanics',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  for (final mechanic in MechanicTutorial.values)
+                    if (context.read<AppModel>().acknowledgedMechanics.contains(
+                      mechanic.id,
+                    ))
+                      ListTile(
+                        leading: const Icon(Icons.extension_outlined),
+                        title: Text(switch (mechanic) {
+                          MechanicTutorial.walls => 'Walls',
+                          MechanicTutorial.ice => 'Ice',
+                          MechanicTutorial.gate => 'Keys and gates',
+                          MechanicTutorial.portal => 'Portals',
+                          MechanicTutorial.arrow => 'Arrows',
+                        }),
+                        trailing: const Icon(Icons.replay),
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (routeContext) => MechanicTutorialView(
+                              mechanic: mechanic,
+                              onAcknowledge: (_) async {
+                                Navigator.of(routeContext).pop();
+                                return true;
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                  const Divider(),
+                ],
                 if (complete)
                   Center(
                     child: FilledButton(
