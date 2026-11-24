@@ -6,7 +6,38 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../logic/game_controller.dart';
 import '../../logic/puzzle.dart';
+import '../../logic/puzzle_generator.dart';
 import '../../model/app_themes.dart';
+import '../../model/game_state.dart';
+
+class LevelOneBoardPreview extends StatelessWidget {
+  const LevelOneBoardPreview({required this.palette, super.key});
+
+  final BoardPalette palette;
+  static final _board = generatePuzzle(
+    const PuzzleId.level(1).generation,
+    level: 1,
+  );
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    image: true,
+    label: 'Solved Level 1 board',
+    child: AspectRatio(
+      aspectRatio: 1,
+      child: CustomPaint(
+        painter: _BoardPainter(
+          puzzle: _board.puzzle,
+          palette: palette,
+          route: _board.solution,
+          hint: null,
+          next: _board.puzzle.checkpoints.length + 1,
+          complete: true,
+        ),
+      ),
+    ),
+  );
+}
 
 class PuzzleBoard extends StatefulWidget {
   const PuzzleBoard({
