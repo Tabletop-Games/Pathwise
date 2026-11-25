@@ -354,18 +354,12 @@ class _MainMenuViewState extends State<MainMenuView>
                         palette: palette,
                         title: 'Collections',
                         subtitle: 'Themes & tips',
-                        icon: Container(
+                        icon: Image.asset(
+                          'assets/art/ui/collections.png',
                           width: 34,
                           height: 34,
-                          decoration: BoxDecoration(
-                            color: palette.route.withValues(alpha: .14),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.auto_awesome_mosaic_rounded,
-                            color: palette.route,
-                            size: 20,
-                          ),
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
                         ),
                         onTap: () => Navigator.push<void>(
                           context,
@@ -640,9 +634,9 @@ class _TactilePlayButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       boxShadow: [
         BoxShadow(
-          color: palette.route.withValues(alpha: palette.dark ? .28 : .22),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
+          color: palette.route.withValues(alpha: palette.dark ? .14 : .12),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
         ),
       ],
     ),
@@ -887,18 +881,24 @@ class _DailyCard extends StatelessWidget {
     child: LayoutBuilder(
       builder: (context, constraints) {
         final compact =
-            constraints.maxWidth < 280 &&
-            MediaQuery.textScalerOf(context).scale(1) > 1.2;
+            constraints.maxWidth < 268 ||
+            (constraints.maxWidth < 290 &&
+                MediaQuery.textScalerOf(context).scale(1) > 1.2);
         final info = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Daily challenge',
-              style: TextStyle(
-                color: palette.ink,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Daily challenge',
+                maxLines: 1,
+                style: TextStyle(
+                  color: palette.ink,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -939,6 +939,8 @@ class _DailyCard extends StatelessWidget {
         }
         return Row(
           children: [
+            GameArt(ArtKind.calendar, palette: palette, size: 36),
+            const SizedBox(width: 12),
             Expanded(child: info),
             const SizedBox(width: 8),
             pill,

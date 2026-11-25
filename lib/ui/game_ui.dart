@@ -47,7 +47,7 @@ extension GameColors on BoardPalette {
   Color get cardBottom => _isSignal
       ? surface
       : Color.lerp(surface, dark ? canvas : tile, dark ? .22 : .12)!;
-  Color get cardEdge => Color.lerp(surface, ink, dark ? .18 : .10)!;
+  Color get cardEdge => Color.lerp(surface, ink, dark ? .11 : .06)!;
   Color get quiet => Color.lerp(tile, surface, .45)!;
   Color get track => Color.lerp(canvas, ink, dark ? .16 : .08)!;
   Color get mutedInk => Color.lerp(muted, ink, .2)!;
@@ -389,9 +389,9 @@ class _PillFrame extends StatelessWidget {
         boxShadow: gradient != null
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: .16),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: .08),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
               ]
             : null,
