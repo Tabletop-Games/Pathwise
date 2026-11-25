@@ -14,9 +14,9 @@ import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../ui/art/control_art.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'components/ad_banner.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
@@ -527,11 +527,39 @@ class _Completion extends StatelessWidget {
           children: [
             if (model.chapterCompletedThisVisit && id.mode == PlayMode.levels)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: JourneyArt(
-                  palette,
-                  chapter: chapterFor(id.level),
-                  height: 84,
+                padding: const EdgeInsets.only(bottom: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 76,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          biomeAssetPath(biomeForTheme(model.theme)),
+                          fit: BoxFit.cover,
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withValues(alpha: .15),
+                                Colors.black.withValues(alpha: .45),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: GameArt(
+                            ArtKind.treasureOpen,
+                            palette: palette,
+                            size: 56,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             Text(

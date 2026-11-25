@@ -52,33 +52,34 @@ class GameArt extends StatelessWidget {
   final double size;
   final String? semanticLabel;
 
-  String? get _rasterAsset => switch (kind) {
+  String get _rasterAsset => switch (kind) {
     ArtKind.coin => 'assets/art/resources/coin.png',
     ArtKind.coinStack1 => 'assets/art/resources/coin_stack_1.png',
     ArtKind.coinStack2 => 'assets/art/resources/coin_stack_2.png',
-    ArtKind.coinStack3 ||
-    ArtKind.coinStack4 ||
-    ArtKind.coinStack5 => 'assets/art/resources/coin_stack_3.png',
+    ArtKind.coinStack3 => 'assets/art/resources/coin_stack_3.png',
+    ArtKind.coinStack4 => 'assets/art/resources/coin_stack_4.png',
+    ArtKind.coinStack5 => 'assets/art/resources/coin_stack_5.png',
     ArtKind.hint => 'assets/art/resources/hint.png',
     ArtKind.gift => 'assets/art/ui/gift.png',
     ArtKind.treasure => 'assets/art/resources/chest_closed.png',
     ArtKind.treasureOpen => 'assets/art/resources/chest_open.png',
     ArtKind.crate => 'assets/art/resources/crate.png',
     ArtKind.store => 'assets/art/ui/store.png',
-    ArtKind.calendar => 'assets/art/ui/daily.png',
+    ArtKind.noAds => 'assets/art/ui/remove_ads.png',
+    ArtKind.brush => 'assets/art/ui/themes_forever.png',
+    ArtKind.crown => 'assets/art/ui/premium.png',
     ArtKind.levels => 'assets/art/ui/compass.png',
+    ArtKind.calendar => 'assets/art/ui/daily.png',
     ArtKind.wheel => 'assets/art/ui/wheel_ticket.png',
     ArtKind.research => 'assets/art/ui/research.png',
     ArtKind.bolt => 'assets/art/ui/boost.png',
     ArtKind.freeze => 'assets/art/ui/freeze.png',
     ArtKind.timer => 'assets/art/ui/timer.png',
     ArtKind.flame => 'assets/art/ui/flame.png',
-    ArtKind.trophy => 'assets/art/ui/achievement.png',
-    ArtKind.crown => 'assets/art/ui/boost_4x.png',
-    ArtKind.brush => 'assets/art/ui/collections.png',
-    ArtKind.noAds => 'assets/art/ui/achievement.png',
-    ArtKind.video => 'assets/art/ui/wheel_ticket.png',
-    _ => null,
+    ArtKind.trophy => 'assets/art/ui/trophy.png',
+    ArtKind.lock => 'assets/art/ui/lock.png',
+    ArtKind.check => 'assets/art/ui/check.png',
+    ArtKind.video => 'assets/art/ui/video_reward.png',
   };
 
   @override
@@ -86,17 +87,15 @@ class GameArt extends StatelessWidget {
     final asset = _rasterAsset;
     final art = SizedBox.square(
       dimension: size,
-      child: asset != null
-          ? Image.asset(
-              asset,
-              width: size,
-              height: size,
-              fit: BoxFit.contain,
-              gaplessPlayback: true,
-              errorBuilder: (_, _, _) =>
-                  CustomPaint(painter: _ArtPainter(kind, palette)),
-            )
-          : CustomPaint(painter: _ArtPainter(kind, palette)),
+      child: Image.asset(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) =>
+            CustomPaint(painter: _ArtPainter(kind, palette)),
+      ),
     );
     if (semanticLabel == null) return ExcludeSemantics(child: art);
     return Semantics(image: true, label: semanticLabel, child: art);

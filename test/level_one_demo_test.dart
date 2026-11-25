@@ -45,7 +45,7 @@ void main() {
     expect(demo, findsNothing);
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Demo'));
+    await tester.tap(find.text('How to play'));
     await tester.pumpAndSettle();
     expect(demo, findsOneWidget);
 

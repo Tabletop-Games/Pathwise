@@ -134,16 +134,17 @@ class _StoreViewState extends State<StoreView> {
   Widget _themesGrid(AppModel model) => LayoutBuilder(
     builder: (context, constraints) {
       final textScale = MediaQuery.textScalerOf(context).scale(1);
-      final width = (constraints.maxWidth - 24 - 16) / 3;
+      final columns = constraints.maxWidth >= 560 ? 4 : 3;
+      final width = (constraints.maxWidth - 24 - (columns - 1) * 8) / columns;
       return GridView.builder(
         key: const PageStorageKey('store-themes'),
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
         itemCount: PathwiseTheme.values.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+          crossAxisCount: columns,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          mainAxisExtent: width + 96 + (textScale > 1.2 ? 28 : 0),
+          mainAxisExtent: width + 74 + (textScale > 1.2 ? 28 : 0),
         ),
         itemBuilder: (context, index) {
           final theme = PathwiseTheme.values[index];
@@ -256,7 +257,7 @@ class _StoreViewState extends State<StoreView> {
           crossAxisCount: columns,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          mainAxisExtent: width + 84 + (large ? 28 : 0),
+          mainAxisExtent: width + 72 + (large ? 28 : 0),
         ),
         itemBuilder: (context, index) {
           final tip = PathTip.values[index];
@@ -341,15 +342,24 @@ class _StoreViewState extends State<StoreView> {
         _freeCoinsCard(model, ads, palette),
         const SizedBox(height: 14),
         const _SectionLabel('Coin packs'),
-        const SizedBox(height: 8),
-        _packGrid(model, billing, recommended),
         if (!billing.enabled)
-          const _Unavailable('Purchases are unavailable on this build.')
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: _Unavailable('Purchases are unavailable on this build.'),
+          )
         else if (billing.products.isEmpty)
-          _Unavailable(
-            'Prices are loading.',
-            action: billing.buying ? null : ('Refresh', billing.refreshCatalog),
-          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _Unavailable(
+              'Prices are loading.',
+              action: billing.buying
+                  ? null
+                  : ('Refresh', billing.refreshCatalog),
+            ),
+          )
+        else
+          const SizedBox(height: 8),
+        _packGrid(model, billing, recommended),
         if (billing.message case final message?)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -374,6 +384,7 @@ class _StoreViewState extends State<StoreView> {
     final reward =
         economy.rewardedAdCoins + (bonus ? economy.coinAdMilestoneBonus : 0);
     final claimed = model.coinMilestoneClaimed;
+    final highContrast = _isSignalPalette(palette);
     final String label;
     final VoidCallback? action;
     if (!ads.enabled) {
@@ -392,102 +403,122 @@ class _StoreViewState extends State<StoreView> {
       label = 'Load video';
       action = () => _prepareVideo(ads);
     }
-    return GameCard(
-      key: const ValueKey('free-coins'),
-      padding: const EdgeInsets.all(16),
-      color: Color.lerp(palette.card, palette.accent, palette.dark ? .12 : .16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const _SectionLabel('Free coins'),
-              const Spacer(),
-              Semantics(
-                label: '$watched of ${economy.rewardedAdsPerDay} videos today',
-                excludeSemantics: true,
-                child: InfoChip(
-                  icon: Icon(
-                    Icons.play_circle_outline_rounded,
-                    size: 16,
-                    color: palette.ink,
-                  ),
-                  label: '$watched/${economy.rewardedAdsPerDay}',
-                ),
+    return _accentHighlightCard(
+      palette: palette,
+      highlight: true,
+      child: GameCard(
+        key: const ValueKey('free-coins'),
+        padding: const EdgeInsets.all(16),
+        color: highContrast
+            ? palette.cardTop
+            : Color.lerp(
+                palette.card,
+                palette.accent,
+                palette.dark ? .12 : .16,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              GameArt(
-                bonus ? ArtKind.coinStack3 : ArtKind.coinStack2,
-                palette: palette,
-                size: 72,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Opacity(
-                      opacity: canEarn ? 1 : .5,
-                      child: RewardAmount(reward, size: 38),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const _SectionLabel('Free coins'),
+                const Spacer(),
+                Semantics(
+                  label:
+                      '$watched of ${economy.rewardedAdsPerDay} videos today',
+                  excludeSemantics: true,
+                  child: InfoChip(
+                    icon: Icon(
+                      Icons.play_circle_outline_rounded,
+                      size: 16,
+                      color: palette.ink,
                     ),
-                    if (bonus) ...[
-                      const SizedBox(height: 6),
-                      Semantics(
-                        label:
-                            '${economy.rewardedAdCoins} reward plus ${economy.coinAdMilestoneBonus} bonus',
-                        excludeSemantics: true,
-                        child: Row(
-                          children: [
-                            GameArt(ArtKind.gift, palette: palette, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${economy.rewardedAdCoins} + ${economy.coinAdMilestoneBonus} bonus',
-                              style: TextStyle(
-                                color: palette.mutedInk,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: ProgressPips(
-                    done: claimed ? milestone : watched.clamp(0, milestone - 1),
-                    total: milestone,
-                    finalReward: !claimed,
-                    semanticLabel: claimed
-                        ? 'Bonus claimed'
-                        : '$watched of $milestone videos for a ${economy.coinAdMilestoneBonus} coin bonus',
+                    label: '$watched/${economy.rewardedAdsPerDay}',
                   ),
                 ),
-              ),
-              ActionPill(
-                label: label,
-                tone: action == null ? ActionTone.quiet : ActionTone.primary,
-                icon: action != null && ads.videoReady
-                    ? Icons.play_arrow_rounded
-                    : null,
-                onTap: action,
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                GameArt(
+                  bonus ? ArtKind.coinStack3 : ArtKind.coinStack2,
+                  palette: palette,
+                  size: 72,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RewardAmount(reward, size: 38),
+                      if (!canEarn) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Come back tomorrow',
+                          style: TextStyle(
+                            color: palette.mutedInk,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ] else if (bonus) ...[
+                        const SizedBox(height: 6),
+                        Semantics(
+                          label:
+                              '${economy.rewardedAdCoins} reward plus ${economy.coinAdMilestoneBonus} bonus',
+                          excludeSemantics: true,
+                          child: Row(
+                            children: [
+                              GameArt(ArtKind.gift, palette: palette, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${economy.rewardedAdCoins} + ${economy.coinAdMilestoneBonus} bonus',
+                                style: TextStyle(
+                                  color: palette.mutedInk,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ProgressPips(
+                      done: claimed
+                          ? milestone
+                          : watched.clamp(0, milestone - 1),
+                      total: milestone,
+                      finalReward: !claimed,
+                      semanticLabel: claimed
+                          ? 'Bonus claimed'
+                          : '$watched of $milestone videos for a ${economy.coinAdMilestoneBonus} coin bonus',
+                    ),
+                  ),
+                ),
+                ActionPill(
+                  label: label,
+                  tone: action == null ? ActionTone.quiet : ActionTone.primary,
+                  icon: action != null && ads.videoReady
+                      ? Icons.play_arrow_rounded
+                      : null,
+                  onTap: action,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -540,25 +571,31 @@ class _StoreViewState extends State<StoreView> {
     BillingService billing,
     String? recommended,
   ) {
-    return GridView.count(
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 1.32,
-      children: [
-        for (final (id, art) in coinPackOrder)
-          _PackCard(
-            key: ValueKey('pack-$id'),
-            coins: storeProducts[id]!.coins,
-            art: art,
-            product: billing.products.where((p) => p.id == id).firstOrNull,
-            highlight: id == recommended,
-            enabled: billing.enabled && !billing.buying && !model.storageError,
-            onBuy: (product) => billing.buy(product),
-          ),
-      ],
+      itemCount: coinPackOrder.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        mainAxisExtent: 158,
+      ),
+      itemBuilder: (context, index) {
+        final (id, art) = coinPackOrder[index];
+        final entry = storeProducts[id]!;
+        final tier = entry.label.split(' · ').first;
+        return _PackCard(
+          key: ValueKey('pack-$id'),
+          tier: tier,
+          coins: entry.coins,
+          art: art,
+          product: billing.products.where((p) => p.id == id).firstOrNull,
+          highlight: id == recommended,
+          enabled: billing.enabled && !billing.buying && !model.storageError,
+          onBuy: (product) => billing.buy(product),
+        );
+      },
     );
   }
 
@@ -585,9 +622,10 @@ class _StoreViewState extends State<StoreView> {
           product: details(premiumProduct),
           enabled: buyable,
           chips: [
-            (ArtKind.brush, 'All themes'),
-            (ArtKind.noAds, 'No ads'),
-            (ArtKind.coin, '+${economy.premiumBonus}'),
+            (ArtKind.brush, 'All current & future themes'),
+            (ArtKind.noAds, 'No banners or exit ads'),
+            (ArtKind.coin, '+${_formatCoins(economy.premiumBonus)} coins'),
+            (ArtKind.video, 'Optional reward videos stay'),
           ],
           onBuy: billing.buy,
         ),
@@ -599,7 +637,10 @@ class _StoreViewState extends State<StoreView> {
           owned: model.hasThemePass,
           product: details(themePassProduct),
           enabled: buyable,
-          chips: const [(ArtKind.brush, 'All themes')],
+          chips: const [
+            (ArtKind.brush, 'Current & future themes'),
+            (null, 'Excludes path tips'),
+          ],
           onBuy: billing.buy,
         ),
         const SizedBox(height: 10),
@@ -611,8 +652,8 @@ class _StoreViewState extends State<StoreView> {
           product: details(removeAdsProduct),
           enabled: buyable,
           chips: const [
-            (ArtKind.noAds, 'No banners'),
-            (ArtKind.video, 'Rewards stay'),
+            (ArtKind.noAds, 'No banner or exit ads'),
+            (ArtKind.video, 'Optional reward videos stay'),
           ],
           onBuy: billing.buy,
         ),
@@ -994,8 +1035,38 @@ class _ShortfallBanner extends StatelessWidget {
   }
 }
 
+bool _isSignalPalette(BoardPalette p) =>
+    p == BoardPalette.palettes[PathwiseTheme.signal];
+
+Widget _accentHighlightCard({
+  required BoardPalette palette,
+  required bool highlight,
+  required Widget child,
+}) {
+  if (!highlight || !_isSignalPalette(palette)) return child;
+  return DecoratedBox(
+    position: DecorationPosition.foreground,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(GameTokens.cardRadius),
+      border: Border.all(color: palette.accent, width: 2),
+    ),
+    child: child,
+  );
+}
+
+String _formatCoins(int amount) {
+  final digits = amount.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
 class _PackCard extends StatelessWidget {
   const _PackCard({
+    required this.tier,
     required this.coins,
     required this.art,
     required this.product,
@@ -1005,6 +1076,7 @@ class _PackCard extends StatelessWidget {
     super.key,
   });
 
+  final String tier;
   final int coins;
   final ArtKind art;
   final ProductDetails? product;
@@ -1024,7 +1096,7 @@ class _PackCard extends StatelessWidget {
       _ => 64.0,
     };
     return GameCard(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       selected: highlight,
       child: Column(
         children: [
@@ -1036,21 +1108,38 @@ class _PackCard extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 4),
           Text(
-            '$coins',
+            tier,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: p.ink,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
+              color: p.mutedInk,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
               height: 1.1,
             ),
           ),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CoinMark(size: 18),
+              const SizedBox(width: 5),
+              Text(
+                _formatCoins(coins),
+                style: TextStyle(
+                  color: p.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
           if (details == null)
-            Text(
-              'Unavailable',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: p.mutedInk),
-            )
+            const ActionPill(label: 'Store unavailable', tone: ActionTone.quiet)
           else
             ActionPill(
               label: details.price,
@@ -1081,80 +1170,100 @@ class _UpgradeCard extends StatelessWidget {
   final String title;
   final bool owned, enabled, featured;
   final ProductDetails? product;
-  final List<(ArtKind, String)> chips;
+  final List<(ArtKind?, String)> chips;
   final void Function(ProductDetails) onBuy;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final details = product;
-    return GameCard(
-      padding: const EdgeInsets.all(14),
-      selected: featured,
-      color: featured ? Color.lerp(p.card, p.accent, p.dark ? .12 : .16) : null,
-      child: Row(
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: p.quiet,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: GameArt(art, palette: p, size: featured ? 56 : 48),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final highContrast = _isSignalPalette(p);
+    return _accentHighlightCard(
+      palette: p,
+      highlight: featured,
+      child: GameCard(
+        padding: const EdgeInsets.all(14),
+        selected: featured && !highContrast,
+        color: featured
+            ? (highContrast
+                  ? p.cardTop
+                  : Color.lerp(p.card, p.accent, p.dark ? .12 : .16))
+            : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: p.ink,
-                    fontWeight: FontWeight.w800,
-                    fontSize: featured ? 21 : 18,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: p.quiet,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: GameArt(art, palette: p, size: featured ? 56 : 48),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final (kind, label) in chips)
-                      InfoChip(
-                        icon: GameArt(kind, palette: p, size: 16),
-                        label: label,
-                      ),
-                  ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: p.ink,
+                      fontWeight: FontWeight.w800,
+                      fontSize: featured ? 21 : 18,
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 8),
+                if (owned)
+                  const ActionPill(
+                    label: 'Owned',
+                    icon: Icons.check_rounded,
+                    tone: ActionTone.selected,
+                  )
+                else if (details == null)
+                  Flexible(
+                    flex: 0,
+                    child: Text(
+                      'Unavailable',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        color: p.mutedInk,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                else
+                  ActionPill(
+                    label: details.price,
+                    tone: enabled ? ActionTone.primary : ActionTone.quiet,
+                    onTap: enabled ? () => onBuy(details) : null,
+                    semanticLabel: 'Buy $title for ${details.price}',
+                  ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          if (owned)
-            const ActionPill(
-              label: 'Owned',
-              icon: Icons.check_rounded,
-              tone: ActionTone.selected,
-            )
-          else if (details == null)
-            Flexible(
-              child: Text(
-                'Unavailable',
-                textAlign: TextAlign.end,
-                style: TextStyle(color: p.mutedInk),
-              ),
-            )
-          else
-            ActionPill(
-              label: details.price,
-              tone: enabled ? ActionTone.primary : ActionTone.quiet,
-              onTap: enabled ? () => onBuy(details) : null,
-              semanticLabel: 'Buy $title for ${details.price}',
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final (kind, label) in chips)
+                  InfoChip(
+                    icon: kind != null
+                        ? GameArt(kind, palette: p, size: 16)
+                        : Icon(
+                            Icons.info_outline_rounded,
+                            size: 15,
+                            color: p.mutedInk,
+                          ),
+                    label: label,
+                  ),
+              ],
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

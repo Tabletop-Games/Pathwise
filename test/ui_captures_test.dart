@@ -18,17 +18,13 @@ import '../lib/logic/puzzle.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
-import '../lib/model/economy.dart' show Achievement;
 import '../lib/model/game_state.dart';
-import '../lib/model/journey.dart';
 import '../lib/model/path_tips.dart';
 import '../lib/model/progression.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/ui/art/control_art.dart';
-import '../lib/ui/art/medallion_art.dart';
-import '../lib/ui/art/research_art.dart';
+import '../lib/ui/art/game_assets.dart';
 import '../lib/ui/game_art.dart';
-import '../lib/ui/journey_art.dart';
 import '../lib/views/components/economy_navigation.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/components/tip_art.dart';
@@ -372,10 +368,14 @@ Future<void> _screens(
     await shot('chapter-treasure');
     await tester.tap(find.text('Claim treasure'));
     await shot('journey-claimed-chest');
+    if (find.text('Done').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Treasure claimed'), findsOneWidget);
     await jump('48');
     await shot('journey-locked-chest');
-    expect(find.text('25 puzzles to treasure'), findsOneWidget);
+    expect(find.text('0 / 25 puzzles'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   }
@@ -697,54 +697,31 @@ void main() {
         (glyph.name, PathIcon(glyph, size: 24)),
     ]);
     await sheet('resources', [
-      for (final kind in [
-        ...ArtKind.values.take(18),
-        ArtKind.treasure,
-        ArtKind.treasureOpen,
-      ])
-        (kind.name, GameArt(kind, palette: field, size: 58)),
-    ]);
-    await sheet('research-art', [
-      for (final item in Research.values)
-        (item.title, ResearchArtwork(item, palette: field)),
-    ]);
+      for (final kind in ArtKind.values)
+        (kind.name, GameArt(kind, palette: field, size: 54)),
+    ], columns: 5);
     await sheet('boost-art', [
       for (final boost in Boost.values)
         (
           '${boost.multiplier}× · ${boost.minutes} min',
-          BoostArtwork(boost, palette: field, size: 62),
+          Image.asset(boostAssetPath(boost), width: 62, height: 62),
         ),
     ], columns: 4);
-    await sheet('achievement-emblems', [
-      for (final achievement in Achievement.values)
-        (
-          achievement.title,
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AchievementEmblem(
-                achievement,
-                palette: field,
-                earned: true,
-                size: 53,
-              ),
-              AchievementEmblem(
-                achievement,
-                palette: field,
-                earned: false,
-                size: 43,
-              ),
-            ],
-          ),
-        ),
-    ]);
     await sheet(
       'chapter-illustrations',
       [
-        for (var chapter = 0; chapter < 8; chapter++)
+        for (final biome in BiomeKind.values)
           (
-            chapterName(chapter),
-            JourneyArt(field, chapter: chapter, height: 100),
+            biome.name,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                biomeAssetPath(biome),
+                height: 90,
+                width: 280,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
       ],
       columns: 2,

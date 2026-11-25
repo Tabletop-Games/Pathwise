@@ -293,7 +293,7 @@ void main() {
             .whereType<File>()
             .where((f) => f.path.endsWith('.png'))
             .toList();
-        expect(files.length, 20);
+        expect(files.length, 21);
         for (final file in files) {
           final bytes = await file.readAsBytes();
           final codec = await ui.instantiateImageCodec(bytes);

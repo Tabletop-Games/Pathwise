@@ -47,7 +47,9 @@ extension GameColors on BoardPalette {
   Color get cardBottom => _isSignal
       ? surface
       : Color.lerp(surface, dark ? canvas : tile, dark ? .22 : .12)!;
-  Color get cardEdge => Color.lerp(surface, ink, dark ? .11 : .06)!;
+  Color get cardEdge => _isSignal
+      ? ink.withValues(alpha: .55)
+      : Color.lerp(surface, ink, dark ? .14 : .10)!;
   Color get quiet => Color.lerp(tile, surface, .45)!;
   Color get track => Color.lerp(canvas, ink, dark ? .16 : .08)!;
   Color get mutedInk => Color.lerp(muted, ink, .2)!;
@@ -331,7 +333,7 @@ class ActionPill extends StatelessWidget {
               colors: [p.buttonTop, p.buttonBottom],
             )
           : null,
-      border: border,
+      border: disabled ? p.cardEdge : border,
       selected: tone == ActionTone.selected,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -538,7 +540,9 @@ class ProgressPips extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: i < done ? p.route : Colors.transparent,
                   border: Border.all(
-                    color: i < done ? p.route : p.cardEdge,
+                    color: i < done
+                        ? p.route
+                        : p.mutedInk.withValues(alpha: .55),
                     width: 2,
                   ),
                 ),
@@ -779,6 +783,7 @@ class InfoChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: p.quiet,
         borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+        border: Border.all(color: p.cardEdge),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

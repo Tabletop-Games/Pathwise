@@ -562,7 +562,7 @@ void _paintTile(
   final dark = marks.isNotEmpty && base.computeLuminance() < .25;
   Color hue(_TileMark kind) => switch (kind) {
     _TileMark.key || _TileMark.lockedGate || _TileMark.openGate =>
-      dark ? const Color(0xffffcb66) : const Color(0xffaa6811),
+      dark ? const Color(0xffffd46b) : const Color(0xff854b00),
     _TileMark.portalEntry || _TileMark.portalExit =>
       dark ? const Color(0xff70e3d5) : const Color(0xff087b78),
     _TileMark.ice => dark ? const Color(0xff93d4ff) : const Color(0xff2469a5),
@@ -653,7 +653,7 @@ void _paintTile(
     }
     final ink = Paint()
       ..color = color.withValues(
-        alpha: mark.kind == _TileMark.arrow ? .28 : .53,
+        alpha: mark.kind == _TileMark.arrow ? .38 : .78,
       )
       ..style = PaintingStyle.stroke
       ..strokeWidth = .037

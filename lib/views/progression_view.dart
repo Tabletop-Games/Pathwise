@@ -8,20 +8,29 @@ import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
 import '../ui/art/game_assets.dart';
-import '../ui/art/medallion_art.dart';
-import '../ui/art/research_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
+enum _ProgressionTab {
+  research('Research'),
+  boosts('Boosts');
+
+  const _ProgressionTab(this.label);
+  final String label;
+}
+
 enum _ResearchBranch {
   income(
     'Coins',
     'Permanent boosts to puzzle, streak, and milestone coin payouts.',
+    'assets/art/resources/coin_stack_2.png',
+    ArtKind.coinStack2,
     [
       Research.magnet,
       Research.golden,
@@ -34,11 +43,15 @@ enum _ResearchBranch {
   supplies(
     'Crates',
     'Increase falling supply crate frequency and reward capacity.',
+    'assets/art/resources/crate.png',
+    ArtKind.crate,
     [Research.hunter, Research.collector, Research.scout],
   ),
   efficiency(
     'Efficiency',
     'Extend boost timers and reduce upgrade and boost costs.',
+    'assets/art/ui/boost.png',
+    ArtKind.bolt,
     [
       Research.efficiency,
       Research.savings,
@@ -47,9 +60,17 @@ enum _ResearchBranch {
     ],
   );
 
-  const _ResearchBranch(this.title, this.summary, this.items);
+  const _ResearchBranch(
+    this.title,
+    this.summary,
+    this.assetPath,
+    this.fallbackArt,
+    this.items,
+  );
   final String title;
   final String summary;
+  final String assetPath;
+  final ArtKind fallbackArt;
   final List<Research> items;
 }
 
@@ -69,8 +90,6 @@ String _researchAssetPath(Research item) => switch (item) {
   Research.procurement => 'assets/art/resources/hint.png',
 };
 
-String _boostAssetPath(Boost boost) => boostAssetPath(boost);
-
 String _compactDuration(int ms) {
   final totalSeconds = (ms / 1000).round();
   final hours = totalSeconds ~/ 3600;
@@ -85,6 +104,36 @@ String _compactDuration(int ms) {
   return '${seconds}s';
 }
 
+String _formatEffect(Research item, int value) => switch (item) {
+  Research.magnet ||
+  Research.golden ||
+  Research.fortune ||
+  Research.mastery ||
+  Research.momentum ||
+  Research.specialist => '+$value coins',
+  Research.hunter || Research.scout => '-${value}s',
+  Research.collector => '+${value}s',
+  Research.efficiency ||
+  Research.savings ||
+  Research.tuning ||
+  Research.procurement => '+$value%',
+};
+
+String _researchEffectText(Research item, int rank, bool mastered) {
+  final current = item.effectAt(rank);
+  if (mastered) return _formatEffect(item, current);
+  final next = item.effectAt(rank + 1);
+  return switch (item) {
+    Research.magnet ||
+    Research.golden ||
+    Research.fortune ||
+    Research.mastery ||
+    Research.momentum ||
+    Research.specialist => '+$current → +$next coins',
+    _ => '${_formatEffect(item, current)} → ${_formatEffect(item, next)}',
+  };
+}
+
 class ProgressionView extends StatefulWidget {
   const ProgressionView({this.boosts = false, super.key});
   final bool boosts;
@@ -95,43 +144,72 @@ class ProgressionView extends StatefulWidget {
 
 class _ProgressionViewState extends State<ProgressionView> {
   Timer? _tick;
+  late _ProgressionTab _tab;
   var _branch = _ResearchBranch.income;
+  var _recordedResearchActivity = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.boosts) {
-      _tick = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => setState(() {}),
-      );
+    _tab = widget.boosts ? _ProgressionTab.boosts : _ProgressionTab.research;
+    if (_tab == _ProgressionTab.boosts) {
+      _startTick();
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final model = context.read<AppModel>();
-        final open = Research.values.where(
-          (item) =>
-              model.progression.unlocked(item) &&
-              model.progression.rank(item) < item.limit,
-        );
-        final affordable = open
-            .where(
-              (item) =>
-                  item.price(model.progression.rank(item)) <= model.coinBalance,
-            )
-            .length;
-        model.recordActivity(EconomyEvent.researchAffordable, affordable);
-        model.recordActivity(
-          EconomyEvent.researchUnavailable,
-          open.length - affordable,
-        );
-      });
+      _scheduleResearchActivity();
+    }
+  }
+
+  void _startTick() {
+    _tick ??= Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => setState(() {}),
+    );
+  }
+
+  void _stopTick() {
+    _tick?.cancel();
+    _tick = null;
+  }
+
+  void _scheduleResearchActivity() {
+    if (_recordedResearchActivity) return;
+    _recordedResearchActivity = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final model = context.read<AppModel>();
+      final open = Research.values.where(
+        (item) =>
+            model.progression.unlocked(item) &&
+            model.progression.rank(item) < item.limit,
+      );
+      final affordable = open
+          .where(
+            (item) =>
+                item.price(model.progression.rank(item)) <= model.coinBalance,
+          )
+          .length;
+      model.recordActivity(EconomyEvent.researchAffordable, affordable);
+      model.recordActivity(
+        EconomyEvent.researchUnavailable,
+        open.length - affordable,
+      );
+    });
+  }
+
+  void _selectTab(_ProgressionTab tab) {
+    if (_tab == tab) return;
+    setState(() => _tab = tab);
+    if (tab == _ProgressionTab.boosts) {
+      _startTick();
+    } else {
+      _stopTick();
+      _scheduleResearchActivity();
     }
   }
 
   @override
   void dispose() {
-    _tick?.cancel();
+    _stopTick();
     super.dispose();
   }
 
@@ -154,9 +232,9 @@ class _ProgressionViewState extends State<ProgressionView> {
     final palette = BoardPalette.palettes[model.theme]!;
     final progression = model.progression;
     final now = model.progressionTime;
-    final active = Boost.values.where(
-      (boost) => progression.remaining(boost, now) > 0,
-    );
+    final active = Boost.values
+        .where((boost) => progression.remaining(boost, now) > 0)
+        .toList();
     final multipliers = Boost.values.where(
       (item) =>
           item.multiplier > 1 &&
@@ -176,9 +254,9 @@ class _ProgressionViewState extends State<ProgressionView> {
         appBar: AppBar(
           toolbarHeight: 56,
           titleSpacing: 0,
-          title: Text(
-            widget.boosts ? 'Boosts' : 'Research',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+          title: const Text(
+            'Upgrades',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
           ),
           actions: [
             BalanceChip(
@@ -194,161 +272,287 @@ class _ProgressionViewState extends State<ProgressionView> {
         ),
         body: AtmosphericBackdrop(
           child: SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
-                child: widget.boosts
-                    ? ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Temporary coin multipliers',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
+            child: LayoutBuilder(
+              builder: (context, viewport) {
+                final availableWidth = viewport.maxWidth;
+                final maxContentWidth =
+                    _tab == _ProgressionTab.boosts && availableWidth >= 620
+                    ? 760.0
+                    : 620.0;
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxContentWidth),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                          child: GameSegmented<_ProgressionTab>(
+                            selected: _tab,
+                            onChanged: _selectTab,
+                            segments: [
+                              for (final tab in _ProgressionTab.values)
+                                (value: tab, label: tab.label),
+                            ],
                           ),
-                          if (active.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-                              child: GameCard(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Active boosts',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    for (final boost in active)
-                                      ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: _boostArtworkBadge(
-                                          boost,
-                                          palette,
-                                          size: 42,
-                                        ),
-                                        title: Text(
-                                          boost.multiplier > 1
-                                              ? '${boost.multiplier}× coins'
-                                              : boost.title,
-                                        ),
-                                        subtitle: Text(
-                                          '${_duration(progression.remaining(boost, now))} left',
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final allBoosts = [...multipliers, ...supplies];
-                              final wide =
-                                  constraints.maxWidth >= 350 &&
-                                  MediaQuery.textScalerOf(context).scale(16) <=
-                                      19;
-                              if (!wide) {
-                                return Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (final boost in allBoosts)
-                                      _boost(model, boost, now),
-                                  ],
-                                );
-                              }
-                              return Column(
-                                children: [
-                                  for (var i = 0; i < allBoosts.length; i += 2)
-                                    IntrinsicHeight(
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Expanded(
-                                            child: _boost(
-                                              model,
-                                              allBoosts[i],
-                                              now,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: i + 1 < allBoosts.length
-                                                ? _boost(
-                                                    model,
-                                                    allBoosts[i + 1],
-                                                    now,
-                                                  )
-                                                : const SizedBox.shrink(),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                          if (multipliers.isEmpty && supplies.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 48),
-                              child: Column(
-                                children: [
-                                  GameArt(
-                                    ArtKind.bolt,
-                                    palette: palette,
-                                    size: 72,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No boosts yet',
-                                    style: TextStyle(
-                                      color: palette.mutedInk,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-                            child: _researchHeader(model, palette),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                            child: GameSegmented<_ResearchBranch>(
-                              selected: _branch,
-                              onChanged: (value) =>
-                                  setState(() => _branch = value),
-                              segments: [
-                                for (final branch in _ResearchBranch.values)
-                                  (value: branch, label: branch.title),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: ListView(
-                              key: PageStorageKey('research-${_branch.name}'),
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                              children: [
-                                for (final item in _branch.items)
-                                  _research(model, item),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+                        ),
+                        Expanded(
+                          child: _tab == _ProgressionTab.boosts
+                              ? _boostsBody(
+                                  model,
+                                  palette,
+                                  active,
+                                  [...multipliers, ...supplies],
+                                  now,
+                                  availableWidth,
+                                )
+                              : _researchBody(model, palette),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _researchBody(AppModel model, BoardPalette palette) {
+    final tier1 = _branch.items.where((item) => !item.advanced).toList();
+    final tier2 = _branch.items.where((item) => item.advanced).toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: _researchHeader(model, palette),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: GameSegmented<_ResearchBranch>(
+            selected: _branch,
+            onChanged: (value) => setState(() => _branch = value),
+            segments: [
+              for (final branch in _ResearchBranch.values)
+                (value: branch, label: branch.title),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            key: PageStorageKey('research-${_branch.name}'),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+            children: [
+              if (tier1.isNotEmpty) ...[
+                _researchSectionHeader('Tier 1 · Foundations', palette),
+                for (final item in tier1) _research(model, item),
+              ],
+              if (tier2.isNotEmpty) ...[
+                if (tier1.isNotEmpty) const SizedBox(height: 6),
+                _researchSectionHeader('Tier 2 · Advanced Contracts', palette),
+                for (final item in tier2) _research(model, item),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _researchSectionHeader(String title, BoardPalette palette) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: palette.mutedInk,
+            fontWeight: FontWeight.w800,
+            fontSize: 11.5,
+            letterSpacing: 0.7,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(height: 1, color: palette.cardEdge),
+      ],
+    ),
+  );
+
+  Widget _boostsBody(
+    AppModel model,
+    BoardPalette palette,
+    List<Boost> active,
+    List<Boost> allBoosts,
+    int now,
+    double screenWidth,
+  ) {
+    final twoColumn =
+        screenWidth >= 620 && MediaQuery.textScalerOf(context).scale(16) <= 19;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 24),
+      children: [
+        if (active.isNotEmpty) _activeBoostStrip(model, palette, active, now),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Coin boosts',
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Activate a boost or build your reserve',
+                style: TextStyle(color: palette.mutedInk, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        if (allBoosts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Column(
+              children: [
+                GameArt(ArtKind.bolt, palette: palette, size: 72),
+                const SizedBox(height: 12),
+                Text(
+                  'No boosts yet',
+                  style: TextStyle(
+                    color: palette.mutedInk,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (!twoColumn)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final boost in allBoosts) _boost(model, boost, now),
+            ],
+          )
+        else
+          Column(
+            children: [
+              for (var i = 0; i < allBoosts.length; i += 2)
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _boost(model, allBoosts[i], now)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: i + 1 < allBoosts.length
+                            ? _boost(model, allBoosts[i + 1], now)
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _activeBoostStrip(
+    AppModel model,
+    BoardPalette palette,
+    List<Boost> active,
+    int now,
+  ) {
+    final progress = model.progression;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GameCard(
+        selected: true,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                GameArt(ArtKind.bolt, palette: palette, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Active boosts',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.route,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            for (final boost in active) ...[
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final remaining = progress.remaining(boost, now);
+                  final totalDuration =
+                      boost.minutes * 600 * (100 + progress.durationBonus);
+                  return Row(
+                    children: [
+                      _boostArtworkBadge(boost, palette, size: 34),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 2,
+                              children: [
+                                Text(
+                                  boost.multiplier > 1
+                                      ? '${boost.multiplier}× ${boost.title}'
+                                      : boost.title,
+                                  style: TextStyle(
+                                    color: palette.ink,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                                Text(
+                                  '${_duration(remaining)} left',
+                                  style: TextStyle(
+                                    color: palette.route,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            GameBar(
+                              value: remaining / totalDuration,
+                              height: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -358,9 +562,14 @@ class _ProgressionViewState extends State<ProgressionView> {
     final progress = model.progression;
     var earnedRanks = 0;
     var totalRanks = 0;
+    Research? masteredItem;
     for (final item in _branch.items) {
-      earnedRanks += progress.rank(item);
+      final r = progress.rank(item);
+      earnedRanks += r;
       totalRanks += item.limit;
+      if (r == item.limit) {
+        masteredItem = item;
+      }
     }
     return GameCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -374,7 +583,16 @@ class _ProgressionViewState extends State<ProgressionView> {
             ),
             child: Padding(
               padding: const EdgeInsets.all(6),
-              child: GameArt(ArtKind.research, palette: palette, size: 42),
+              child: SizedBox.square(
+                dimension: 42,
+                child: Image.asset(
+                  _branch.assetPath,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) =>
+                      GameArt(_branch.fallbackArt, palette: palette, size: 42),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -410,6 +628,15 @@ class _ProgressionViewState extends State<ProgressionView> {
               ],
             ),
           ),
+          if (masteredItem != null)
+            IconButton(
+              icon: Icon(Icons.share_outlined, color: palette.mutedInk),
+              tooltip: 'Share ${masteredItem.title} milestone',
+              onPressed: () => const ShareDestinationService().open(
+                ShareResult.research(masteredItem!.title, masteredItem.limit),
+                ShareDestination.android,
+              ),
+            ),
         ],
       ),
     );
@@ -431,7 +658,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               fit: BoxFit.contain,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) =>
-                  ResearchArtwork(item, palette: palette),
+                  GameArt(ArtKind.research, palette: palette, size: 38),
             ),
           ),
         ),
@@ -440,7 +667,7 @@ class _ProgressionViewState extends State<ProgressionView> {
   Widget _boostArtworkBadge(
     Boost boost,
     BoardPalette palette, {
-    double size = 46,
+    double size = 56,
   }) => DecoratedBox(
     decoration: BoxDecoration(
       color: boost.multiplier >= 3
@@ -458,11 +685,11 @@ class _ProgressionViewState extends State<ProgressionView> {
       child: SizedBox.square(
         dimension: size - 12,
         child: Image.asset(
-          _boostAssetPath(boost),
+          boostAssetPath(boost),
           fit: BoxFit.contain,
           gaplessPlayback: true,
           errorBuilder: (_, _, _) => boost.multiplier > 1
-              ? BoostArtwork(boost, palette: palette, size: size - 12)
+              ? GameArt(ArtKind.bolt, palette: palette, size: size - 12)
               : GameArt(ArtKind.crate, palette: palette, size: size - 12),
         ),
       ),
@@ -479,23 +706,33 @@ class _ProgressionViewState extends State<ProgressionView> {
     final palette = BoardPalette.palettes[model.theme]!;
     final Widget action;
     if (mastered) {
-      action = ActionPill(
-        label: 'Share',
-        semanticLabel: 'Share ${item.title} milestone',
-        onTap: () => const ShareDestinationService().open(
-          ShareResult.research(item.title, item.limit),
-          ShareDestination.android,
-        ),
-      );
+      action = const ActionPill(label: 'MAX', tone: ActionTone.selected);
     } else if (!unlocked) {
-      action = ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 104),
-        child: Semantics(
-          label: 'Requires ${item.prerequisite!.title} rank 3',
-          excludeSemantics: true,
-          child: InfoChip(
-            icon: GameArt(ArtKind.lock, palette: palette, size: 16),
-            label: '${item.prerequisite!.title} 3',
+      action = Semantics(
+        label: 'Requires ${item.prerequisite!.title} rank 3',
+        excludeSemantics: true,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: palette.quiet,
+            borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+            border: Border.all(color: palette.cardEdge),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GameArt(ArtKind.lock, palette: palette, size: 15),
+              const SizedBox(width: 5),
+              Text(
+                'Locked',
+                style: TextStyle(
+                  color: palette.mutedInk,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -520,76 +757,97 @@ class _ProgressionViewState extends State<ProgressionView> {
               },
       );
     }
-    final effect = mastered
-        ? '+${item.effectAt(rank)}'
-        : '+${item.effectAt(rank)} → +${item.effectAt(rank + 1)}';
+    final effect = _researchEffectText(item, rank, mastered);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GameCard(
         key: ValueKey('research-${item.name}'),
-        padding: const EdgeInsets.all(14),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _researchArtworkBadge(item, palette),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: unlocked ? palette.ink : palette.mutedInk,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.benefit,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: palette.mutedInk, fontSize: 12),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    effect,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: unlocked ? palette.ink : palette.mutedInk,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _researchArtworkBadge(item, palette),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: GameBar(value: rank / item.limit)),
-                      const SizedBox(width: 8),
-                      Semantics(
-                        label: mastered
-                            ? 'Mastered'
-                            : 'Rank $rank of ${item.limit}',
-                        excludeSemantics: true,
-                        child: Text(
-                          '$rank/${item.limit}',
-                          style: TextStyle(
-                            color: palette.mutedInk,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: unlocked ? palette.ink : palette.mutedInk,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.benefit,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: palette.mutedInk, fontSize: 12),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        effect,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: unlocked ? palette.route : palette.mutedInk,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
                         ),
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                action,
+              ],
+            ),
+            if (!unlocked && item.prerequisite != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  GameArt(ArtKind.lock, palette: palette, size: 13),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      'Requires ${item.prerequisite!.title} rank 3',
+                      style: TextStyle(
+                        color: palette.mutedInk,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: GameBar(value: rank / item.limit, height: 7)),
+                const SizedBox(width: 8),
+                Semantics(
+                  label: mastered ? 'Mastered' : 'Rank $rank of ${item.limit}',
+                  excludeSemantics: true,
+                  child: Text(
+                    '$rank/${item.limit}',
+                    style: TextStyle(
+                      color: palette.mutedInk,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            action,
           ],
         ),
       ),
@@ -608,10 +866,15 @@ class _ProgressionViewState extends State<ProgressionView> {
     final watch =
         (boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
         context.watch<AdService>().enabled;
+    final adLimit = boost == Boost.doubleTen ? economy.doubleBoostAdsPerDay : 1;
+    final adsUsed = model.boostAdsToday(boost);
+    final adsLeft = (adLimit - adsUsed).clamp(0, adLimit);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: GameCard(
         key: ValueKey('boost-${boost.name}'),
+        selected: remaining > 0,
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -619,8 +882,8 @@ class _ProgressionViewState extends State<ProgressionView> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _boostArtworkBadge(boost, palette, size: 54),
-                const SizedBox(width: 10),
+                _boostArtworkBadge(boost, palette, size: 56),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,41 +895,62 @@ class _ProgressionViewState extends State<ProgressionView> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
+                              horizontal: 8,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: palette.route.withValues(alpha: .16),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              multiplier ? '${boost.multiplier}×' : 'Crates',
+                              multiplier
+                                  ? '${boost.multiplier}× · ${_compactDuration(duration)}'
+                                  : 'Crates · ${_compactDuration(duration)}',
                               style: TextStyle(
                                 color: palette.route,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 12,
+                                fontSize: 11.5,
                               ),
                             ),
                           ),
-                          Text(
-                            _compactDuration(duration),
-                            style: TextStyle(
-                              color: palette.mutedInk,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: inventory > 0
+                                  ? palette.route.withValues(alpha: .10)
+                                  : palette.quiet,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: inventory > 0
+                                    ? palette.route.withValues(alpha: .35)
+                                    : palette.cardEdge,
+                              ),
+                            ),
+                            child: Text(
+                              '$inventory owned',
+                              style: TextStyle(
+                                color: inventory > 0
+                                    ? palette.ink
+                                    : palette.mutedInk,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11.5,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Text(
                         boost.title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: palette.ink,
                           fontWeight: FontWeight.w800,
-                          fontSize: 15,
+                          fontSize: 15.5,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -676,7 +960,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: palette.mutedInk,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 1.25,
                         ),
                       ),
@@ -685,29 +969,18 @@ class _ProgressionViewState extends State<ProgressionView> {
                 ),
               ],
             ),
-            if (inventory > 0 && remaining <= 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                '$inventory owned · ready to activate',
-                style: TextStyle(
-                  color: palette.route,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ],
             if (remaining > 0) ...[
               const SizedBox(height: 10),
               Text(
                 'Active · ${_duration(remaining)} left',
                 style: TextStyle(
                   color: palette.route,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   fontSize: 12,
                 ),
               ),
               const SizedBox(height: 5),
-              GameBar(value: remaining / duration),
+              GameBar(value: remaining / duration, height: 6),
             ],
             const SizedBox(height: 10),
             Wrap(
@@ -718,9 +991,15 @@ class _ProgressionViewState extends State<ProgressionView> {
               children: [
                 if (watch)
                   ActionPill(
-                    label: 'Watch',
-                    icon: Icons.play_arrow_rounded,
-                    semanticLabel: 'Watch a video for one boost',
+                    label: adsLeft > 0
+                        ? 'Watch · $adsLeft/$adLimit'
+                        : 'Daily limit',
+                    icon: adsLeft > 0
+                        ? Icons.play_arrow_rounded
+                        : Icons.schedule_rounded,
+                    semanticLabel: adsLeft > 0
+                        ? 'Watch a video for one ${boost.title}'
+                        : 'Daily video limit reached for ${boost.title}',
                     onTap: model.canEarnBoostAd(boost)
                         ? () async {
                             final ads = context.read<AdService>();

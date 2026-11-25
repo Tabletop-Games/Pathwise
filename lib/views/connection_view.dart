@@ -21,8 +21,8 @@ import 'components/brand_mark.dart';
     ConnectivityState.online => (title: '', message: '', retry: false),
     ConnectivityState.offline => (
       title: "You're offline",
-      message: 'You can keep playing! Your progress will be saved on this device and synced when you\'re back online.',
-      retry: false,
+      message: 'Cloud sync is unavailable and progress will not be synced right now. Continue playing and saving locally?',
+      retry: true,
     ),
   };
 }
@@ -57,13 +57,10 @@ class _ConnectionGateState extends State<ConnectionGate> {
     final theme = context.select((AppModel model) => model.theme);
 
     if (state == ConnectivityState.online) {
-      if (_shownForOfflinePeriod || _visible) {
+      if (_visible) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          setState(() {
-            _shownForOfflinePeriod = false;
-            _visible = false;
-          });
+          setState(() => _visible = false);
         });
       }
     } else if (state == ConnectivityState.offline &&
@@ -201,6 +198,16 @@ class ConnectionPane extends StatelessWidget {
                       tone: ActionTone.primary,
                       onTap: onDismiss ?? () => onRetry(),
                     ),
+                    if (copy.retry && onDismiss != null) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => onRetry(),
+                        child: Text(
+                          'Retry connection',
+                          style: TextStyle(color: palette.route),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pathwise/model/app_themes.dart';
 import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/ui/game_ui.dart';
 
 void main() {
   test('every catalogue palette provides readable card and action colours', () {
@@ -17,18 +18,40 @@ void main() {
       expect(
         contrast(palette.ink, palette.surface),
         greaterThanOrEqualTo(4.5),
-        reason: '${theme.label} name',
+        reason: '${theme.label} surface',
+      );
+      expect(
+        contrast(palette.ink, palette.cardBottom),
+        greaterThanOrEqualTo(4.5),
+        reason: '${theme.label} cardBottom',
       );
       expect(
         contrast(scheme.primary, scheme.onPrimary),
         greaterThanOrEqualTo(4.5),
-        reason: '${theme.label} price',
+        reason: '${theme.label} primary',
+      );
+      expect(
+        contrast(palette.buttonTop, palette.onRoute),
+        greaterThanOrEqualTo(4.5),
+        reason: '${theme.label} buttonTop',
+      );
+      expect(
+        contrast(palette.accent, palette.onAccent),
+        greaterThanOrEqualTo(4.5),
+        reason: '${theme.label} accent',
       );
       expect(
         contrast(scheme.secondary, scheme.onSecondary),
         greaterThanOrEqualTo(4.5),
         reason: '${theme.label} apply',
       );
+      if (theme == PathwiseTheme.signal) {
+        expect(
+          contrast(palette.ink, palette.surface),
+          greaterThanOrEqualTo(7.0),
+          reason: 'High Contrast AAA ink/surface',
+        );
+      }
     }
   });
 }

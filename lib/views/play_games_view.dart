@@ -9,7 +9,8 @@ import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/native_achievements.dart';
-import '../ui/art/medallion_art.dart';
+import '../ui/game_art.dart';
+import '../ui/game_ui.dart';
 
 class PlayGamesView extends StatefulWidget {
   const PlayGamesView({super.key});
@@ -106,42 +107,90 @@ class _PlayGamesViewState extends State<PlayGamesView> {
             const SizedBox(height: 12),
             for (final item in nativeAchievements)
               if (!item.hidden || item.earned(counters) || sync.confirmed(item))
-                Card(
-                  child: ListTile(
-                    leading: NativeAchievementEmblem(
-                      item,
-                      palette: BoardPalette.palettes[model.theme]!,
-                      earned: item.earned(counters) || sync.confirmed(item),
-                    ),
-                    title: Text(item.name),
-                    subtitle: Text(
-                      [
-                        item.description,
-                        if (sync.confirmed(item))
-                          'Confirmed by Google Play'
-                        else if (item.earned(counters))
-                          sync.ids.containsKey(item.id) && sync.enabled
-                              ? 'Earned locally · Pending Google Play sync'
-                              : 'Earned locally'
-                        else if (item.incremental)
-                          '${max(item.progress(counters), sync.confirmedSteps(item))} / ${item.target}',
-                      ].join('\n'),
-                    ),
-                    trailing: item.earned(counters) || sync.confirmed(item)
-                        ? IconButton(
-                            tooltip: 'Share Achievement',
-                            icon: const Icon(Icons.share_outlined),
-                            onPressed: () =>
-                                const ShareDestinationService().open(
-                                  ShareResult.achievement(
-                                    item.name,
-                                    item.description,
+                Builder(
+                  builder: (context) {
+                    final palette = BoardPalette.palettes[model.theme]!;
+                    final earned =
+                        item.earned(counters) || sync.confirmed(item);
+                    final trophy = GameArt(
+                      ArtKind.trophy,
+                      palette: palette,
+                      size: 38,
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GameCard(
+                        padding: EdgeInsets.zero,
+                        selected: earned,
+                        child: ListTile(
+                          leading: earned
+                              ? trophy
+                              : ColorFiltered(
+                                  colorFilter: const ColorFilter.matrix(
+                                    <double>[
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      1,
+                                      0,
+                                    ],
                                   ),
-                                  ShareDestination.android,
+                                  child: trophy,
                                 ),
-                          )
-                        : null,
-                  ),
+                          title: Text(
+                            item.name,
+                            style: TextStyle(
+                              color: earned ? palette.ink : palette.mutedInk,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            [
+                              item.description,
+                              if (sync.confirmed(item))
+                                'Confirmed by Google Play'
+                              else if (item.earned(counters))
+                                sync.ids.containsKey(item.id) && sync.enabled
+                                    ? 'Earned locally · Pending Google Play sync'
+                                    : 'Earned locally'
+                              else if (item.incremental)
+                                '${max(item.progress(counters), sync.confirmedSteps(item))} / ${item.target}',
+                            ].join('\n'),
+                            style: TextStyle(color: palette.mutedInk),
+                          ),
+                          trailing: earned
+                              ? IconButton(
+                                  tooltip: 'Share Achievement',
+                                  icon: const Icon(Icons.share_outlined),
+                                  onPressed: () =>
+                                      const ShareDestinationService().open(
+                                        ShareResult.achievement(
+                                          item.name,
+                                          item.description,
+                                        ),
+                                        ShareDestination.android,
+                                      ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
                 ),
           ],
         ),

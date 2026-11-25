@@ -4,6 +4,7 @@ import 'package:in_app_update_flutter/in_app_update_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../cloud/cloud_sync_service.dart';
 import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
@@ -14,7 +15,6 @@ import '../model/journey.dart';
 import '../model/user_preferences.dart';
 import '../ui/art/control_art.dart';
 import '../ui/art/game_assets.dart';
-import '../ui/art/medallion_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'cloud_save_section.dart';
@@ -31,16 +31,20 @@ class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final ads = context.watch<AdService>();
+    final cloud = context.watch<CloudSyncService?>();
     final p = context.palette;
     Widget group(List<Widget> tiles) => Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        children: [
-          for (var i = 0; i < tiles.length; i++) ...[
-            if (i > 0) Divider(height: 1, color: p.cardEdge),
-            tiles[i],
+      child: GameCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) Divider(height: 1, color: p.cardEdge),
+              tiles[i],
+            ],
           ],
-        ],
+        ),
       ),
     );
     return Scaffold(
@@ -73,14 +77,18 @@ class SettingsView extends StatelessWidget {
                       onChanged: model.setSharingSuggestions,
                     ),
                   ]),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10),
-                    child: CloudSaveSection(compact: true),
-                  ),
+                  if (cloud != null)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: GameCard(
+                        padding: EdgeInsets.zero,
+                        child: CloudSaveSection(compact: true),
+                      ),
+                    ),
                   group([
                     ListTile(
                       leading: GameArt(ArtKind.levels, palette: p, size: 28),
-                      title: const Text('Demo'),
+                      title: const Text('How to play'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => openLevelOneDemo(context),
                     ),
@@ -100,6 +108,7 @@ class SettingsView extends StatelessWidget {
                         title: const Text('Ad privacy'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
                           if (!ads.privacyRequired) {
                             await ads.prepare(
                               canPresent: () =>
@@ -107,10 +116,24 @@ class SettingsView extends StatelessWidget {
                                   ModalRoute.isCurrentOf(context) == true,
                             );
                           }
-                          if (context.mounted &&
-                              ModalRoute.isCurrentOf(context) == true &&
-                              ads.privacyRequired) {
-                            await ads.privacyOptions();
+                          if (!context.mounted) return;
+                          if (ads.privacyRequired) {
+                            if (ModalRoute.isCurrentOf(context) == true) {
+                              await ads.privacyOptions();
+                              if (context.mounted && ads.message != null) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text(ads.message!)),
+                                );
+                              }
+                            }
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ads.message ?? 'Ad privacy options are not required in your region.',
+                                ),
+                              ),
+                            );
                           }
                         },
                       ),
@@ -156,10 +179,22 @@ class StatisticsView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     Widget tile(ArtKind art, String label, String value) =>
         _StatTile(art: art, label: label, value: value, palette: palette);
-    Widget details(String title, List<Widget> items) => ExpansionTile(
-      title: Text(title),
-      tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-      children: items,
+    Widget details(String title, List<Widget> items) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GameCard(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: ExpansionTile(
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10),
+          childrenPadding: const EdgeInsets.only(bottom: 6),
+          children: items,
+        ),
+      ),
     );
     final chapter = chapterFor(model.highestUnlocked);
     final text = Theme.of(context).textTheme;
@@ -224,31 +259,46 @@ class StatisticsView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(chapterName(chapter), style: text.headlineSmall),
-                  Text(
-                    'Level ${model.highestUnlocked}',
-                    style: text.bodyMedium,
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 24,
-                    runSpacing: 10,
-                    children: [
-                      for (final (value, label) in [
-                        (model.solved, 'Puzzles solved'),
-                        (model.unassisted, 'Hint-free'),
-                        (model.streak.count, 'Day streak'),
-                      ])
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  GameCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(chapterName(chapter), style: text.headlineSmall),
+                        Text(
+                          'Level ${model.highestUnlocked}',
+                          style: text.bodyMedium?.copyWith(
+                            color: palette.mutedInk,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 24,
+                          runSpacing: 10,
                           children: [
-                            Text('$value', style: text.headlineMedium),
-                            Text(label, style: text.bodyMedium),
+                            for (final (value, label) in [
+                              (model.solved, 'Puzzles solved'),
+                              (model.unassisted, 'Hint-free'),
+                              (model.streak.count, 'Day streak'),
+                            ])
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('$value', style: text.headlineMedium),
+                                  Text(
+                                    label,
+                                    style: text.bodyMedium?.copyWith(
+                                      color: palette.mutedInk,
+                                    ),
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   details('Campaign and daily', [
                     tile(
                       ArtKind.flame,
@@ -432,7 +482,7 @@ class _AchievementCard extends StatelessWidget {
       _asset,
       fit: BoxFit.contain,
       errorBuilder: (_, _, _) =>
-          AchievementEmblem(achievement, earned: earned, palette: palette),
+          GameArt(ArtKind.trophy, palette: palette, size: 46),
     );
     if (earned) return img;
     return ColorFiltered(
@@ -466,47 +516,45 @@ class _AchievementCard extends StatelessWidget {
   Widget build(BuildContext context) => GameCard(
     padding: const EdgeInsets.all(12),
     selected: earned,
-    child: Opacity(
-      opacity: earned ? 1 : .58,
-      child: Row(
-        children: [
-          SizedBox.square(dimension: 46, child: _achievementIcon()),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  achievement.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
+    child: Row(
+      children: [
+        SizedBox.square(dimension: 46, child: _achievementIcon()),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                achievement.title,
+                style: TextStyle(
+                  color: earned ? palette.ink : palette.mutedInk,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
                 ),
-                Text(
-                  achievement.description,
-                  style: TextStyle(color: palette.mutedInk, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (earned)
-            IconButton(
-              tooltip: 'Share Achievement',
-              icon: const Icon(Icons.share_outlined),
-              onPressed: () => const ShareDestinationService().open(
-                ShareResult.achievement(
-                  achievement.title,
-                  achievement.description,
-                ),
-                ShareDestination.android,
               ),
-            )
-          else
-            RewardAmount(achievement.coins, size: 18),
-        ],
-      ),
+              Text(
+                achievement.description,
+                style: TextStyle(color: palette.mutedInk, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (earned)
+          IconButton(
+            tooltip: 'Share Achievement',
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () => const ShareDestinationService().open(
+              ShareResult.achievement(
+                achievement.title,
+                achievement.description,
+              ),
+              ShareDestination.android,
+            ),
+          )
+        else
+          RewardAmount(achievement.coins, size: 18),
+      ],
     ),
   );
 }

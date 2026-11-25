@@ -282,7 +282,7 @@ void main() {
           child: const MaterialApp(home: SettingsView()),
         ),
       );
-      await tester.tap(find.text('Demo'));
+      await tester.tap(find.text('How to play'));
       await tester.pumpAndSettle();
       expect(find.text('Walls'), findsOneWidget);
       expect(find.text('Portals'), findsNothing);

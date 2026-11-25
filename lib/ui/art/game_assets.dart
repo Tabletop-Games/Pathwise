@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../model/app_themes.dart';
 import '../../model/path_tips.dart';
 import '../../model/progression.dart';
 import '../../model/user_preferences.dart';
@@ -45,9 +44,7 @@ String biomeAssetPath(BiomeKind biome) => switch (biome) {
   BiomeKind.desert => 'assets/art/biomes/desert.png',
 };
 
-String tipAssetPath(PathTip tip) => tip == PathTip.classic
-    ? 'assets/art/tips/robot.png'
-    : 'assets/art/tips/${tip.name}.png';
+String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.png';
 
 String boostAssetPath(Boost boost) => switch (boost) {
   Boost.doubleTen || Boost.doubleFifteen => 'assets/art/ui/boost_2x_fast.png',
@@ -61,6 +58,7 @@ String boostAssetPath(Boost boost) => switch (boost) {
 /// PNG (excluding transparent padding) so bottom-to-top discovery reveals map
 /// directly to the visible collectible height.
 const tipVisibleVerticalBounds = <PathTip, (double, double)>{
+  PathTip.classic: (0.040, 0.960),
   PathTip.arrow: (0.047, 0.953),
   PathTip.bee: (0.010, 0.990),
   PathTip.cat: (0.104, 0.896),
@@ -104,8 +102,8 @@ final class GameAssetCache extends ChangeNotifier {
   /// previews never briefly show fallback vector shapes.
   Future<void> preloadAll() async {
     final paths = <String>{
-      for (final tip in PathTip.values)
-        if (tip != PathTip.classic) tipAssetPath(tip),
+      for (final tip in PathTip.values) tipAssetPath(tip),
+      'assets/art/resources/coin.png',
     };
     await Future.wait([
       for (final path in paths)
@@ -127,12 +125,4 @@ final class GameAssetCache extends ChangeNotifier {
       _loading.remove(assetPath);
     }
   }
-}
-
-/// Resolves the active [PathwiseTheme] from a [BoardPalette].
-PathwiseTheme themeForPalette(BoardPalette palette) {
-  for (final entry in BoardPalette.palettes.entries) {
-    if (entry.value == palette) return entry.key;
-  }
-  return PathwiseTheme.field;
 }

@@ -71,7 +71,7 @@ class StreakView extends StatelessWidget {
                               style: TextStyle(
                                 color: palette.ink,
                                 fontSize: 56,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w800,
                                 height: 1,
                               ),
                             ),
@@ -134,6 +134,17 @@ class StreakView extends StatelessWidget {
                                       fontSize: 16,
                                     ),
                                   ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    next.key - streak.count == 1
+                                        ? '1 day to next milestone'
+                                        : '${next.key - streak.count} days to next milestone',
+                                    style: TextStyle(
+                                      color: palette.mutedInk,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                   const SizedBox(height: 6),
                                   GameBar(value: streak.count / next.key),
                                 ],
@@ -174,6 +185,62 @@ class StreakView extends StatelessWidget {
                           ],
                         ),
                       ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      Builder(
+                        builder: (context) {
+                          final progress =
+                              streak.count % economy.streakInterval;
+                          final daysToWeekly =
+                              economy.streakInterval - progress;
+                          return GameCard(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              children: [
+                                GameArt(
+                                  ArtKind.trophy,
+                                  palette: palette,
+                                  size: 48,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Steady streak',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        daysToWeekly == 1
+                                            ? 'All milestones reached · 1 day to weekly bonus'
+                                            : 'All milestones reached · $daysToWeekly days to weekly bonus',
+                                        style: TextStyle(
+                                          color: palette.mutedInk,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      GameBar(
+                                        value:
+                                            progress / economy.streakInterval,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                RewardAmount(economy.streakBonus, size: 22),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                     const SizedBox(height: 10),
                     GameCard(
@@ -193,7 +260,15 @@ class StreakView extends StatelessWidget {
                                     fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Protects your streak if you miss a day. Holds up to ${economy.maxFreezes}.',
+                                  style: TextStyle(
+                                    color: palette.mutedInk,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
                                 Semantics(
                                   label:
                                       '${streak.freezes} of ${economy.maxFreezes} owned',
@@ -221,17 +296,34 @@ class StreakView extends StatelessWidget {
                                   'Buy Streak Freeze for ${economy.freezePrice} coins',
                               onTap: freezeFull
                                   ? null
-                                  : () {
+                                  : () async {
                                       if (model.coinBalance <
                                           economy.freezePrice) {
-                                        showInsufficientCoins(
+                                        await showInsufficientCoins(
                                           context,
                                           itemName: 'Streak Freeze',
                                           requiredCoins: economy.freezePrice,
                                           currentBalance: model.coinBalance,
                                         );
                                       } else {
-                                        model.buyFreeze();
+                                        final messenger = ScaffoldMessenger.of(
+                                          context,
+                                        );
+                                        final bought = await model.buyFreeze();
+                                        if (messenger.mounted) {
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                bought
+                                                    ? 'Streak Freeze added.'
+                                                    : 'Couldn’t buy Streak Freeze. Try again.',
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                            ),
+                                          );
+                                        }
                                       }
                                     },
                             ),
@@ -264,6 +356,8 @@ class _Day extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final weekday = weekdays[day.weekday - 1];
     final label = switch (status) {
       'played' => 'Played',
       'protected' => 'Protected by a freeze',
@@ -284,9 +378,18 @@ class _Day extends StatelessWidget {
         child: Column(
           children: [
             Text(
+              weekday,
+              style: TextStyle(
+                color: today ? palette.route : palette.mutedInk,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
               MaterialLocalizations.of(context).formatDecimal(day.day),
               style: TextStyle(
-                color: palette.mutedInk,
+                color: today ? palette.ink : palette.mutedInk,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
               ),

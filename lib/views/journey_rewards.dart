@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/billing_service.dart';
+import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -331,12 +332,12 @@ class _MultiplierSegment extends StatelessWidget {
             Color.lerp(
               palette.surface,
               palette.route,
-              palette.dark ? .44 : .34,
+              palette.dark ? .24 : .34,
             )!,
             Color.lerp(
               palette.surface,
               palette.route,
-              palette.dark ? .24 : .18,
+              palette.dark ? .14 : .18,
             )!,
           ]
         : [
@@ -747,6 +748,11 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                             });
                             var shown = false;
                             try {
+                              if (!model.onlineReady && mounted) {
+                                await context
+                                    .read<ConnectivityService?>()
+                                    ?.retry();
+                              }
                               if (model.onlineReady && !ads.videoReady) {
                                 await ads.prepare(
                                   canPresent: () =>
@@ -803,8 +809,17 @@ class CollectionsView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     final owned =
         PathTip.values.where(model.ownsTip).length + model.ownedThemes;
+    final ownedTips = PathTip.values.where(model.ownsTip).length;
     return Scaffold(
-      appBar: AppBar(title: const Text('Collections')),
+      appBar: AppBar(
+        title: const Text('Collections'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: BalanceChip(coins: model.coinBalance),
+          ),
+        ],
+      ),
       body: AtmosphericBackdrop(
         child: SafeArea(
           child: ListView(
@@ -857,7 +872,7 @@ class CollectionsView extends StatelessWidget {
                 ),
               ),
               _Album(
-                title: 'Path tips',
+                title: 'Path tips · $ownedTips / ${PathTip.values.length}',
                 children: [
                   for (final tip in PathTip.values)
                     _AlbumItem(
@@ -869,7 +884,7 @@ class CollectionsView extends StatelessWidget {
                               item: model.upcomingDiscoveryItem,
                               palette: palette,
                               progress: model.discoveryPercent / 100,
-                              size: 62,
+                              size: 56,
                             )
                           : TipArtwork(
                               tip: tip,
@@ -878,6 +893,10 @@ class CollectionsView extends StatelessWidget {
                             ),
                       owned: model.ownsTip(tip),
                       artwork: TipArtwork(tip: tip, palette: palette),
+                      unlockHint:
+                          model.upcomingDiscoveryItem == 'tip/${tip.name}'
+                          ? 'Keep completing campaign puzzles to reveal this mystery reward!'
+                          : 'Unlock in the Store (${tip.price} coins) or earn from Mystery Rewards.',
                       apply: tip == model.equippedTip
                           ? null
                           : () => model.equipTip(tip),
@@ -885,7 +904,8 @@ class CollectionsView extends StatelessWidget {
                 ],
               ),
               _Album(
-                title: 'Themes',
+                title:
+                    'Themes · ${model.ownedThemes} / ${PathwiseTheme.values.length}',
                 children: [
                   for (final theme in PathwiseTheme.values)
                     _AlbumItem(
@@ -898,14 +918,18 @@ class CollectionsView extends StatelessWidget {
                               item: model.upcomingDiscoveryItem,
                               palette: palette,
                               progress: model.discoveryPercent / 100,
-                              size: 62,
+                              size: 56,
                             )
-                          : _ThemeSilhouette(theme.index),
+                          : _ThemeSilhouette(theme.index, palette: palette),
                       owned: model.ownsTheme(theme),
                       artwork: LevelOneBoardPreview(
                         palette: BoardPalette.palettes[theme]!,
                         tip: model.equippedTip,
                       ),
+                      unlockHint:
+                          model.upcomingDiscoveryItem == 'theme/${theme.name}'
+                          ? 'Keep completing campaign puzzles to reveal this mystery reward!'
+                          : 'Unlock in the Store (${economy.themePrice(theme)} coins) or earn from Mystery Rewards.',
                       apply: theme == model.theme
                           ? null
                           : () => model.setTheme(theme),
@@ -932,34 +956,50 @@ class _Album extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Wrap(spacing: 10, runSpacing: 6, children: children),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = constraints.maxWidth >= 520 ? 5 : 4;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                mainAxisExtent: 106,
+              ),
+              itemCount: children.length,
+              itemBuilder: (_, i) => children[i],
+            );
+          },
+        ),
       ],
     ),
   );
 }
 
 class _ThemeSilhouette extends StatelessWidget {
-  const _ThemeSilhouette(this.index);
+  const _ThemeSilhouette(this.index, {required this.palette});
   final int index;
+  final BoardPalette palette;
+
   @override
   Widget build(BuildContext context) => Center(
     child: Transform.rotate(
-      angle: (index % 5 - 2) * .09,
+      angle: (index % 5 - 2) * .06,
       child: Container(
-        width: 34,
-        height: 43,
+        width: 40,
+        height: 48,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          borderRadius: const BorderRadius.all(Radius.circular(5)),
-        ),
-        child: Center(
-          child: Container(
-            width: 18 + (index % 3) * 3,
-            height: 2,
-            color: Theme.of(context).colorScheme.surface,
+          color: palette.quiet,
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          border: Border.all(
+            color: palette.mutedInk.withValues(alpha: .45),
+            width: 1.5,
           ),
         ),
+        child: Center(child: GameArt(ArtKind.lock, palette: palette, size: 22)),
       ),
     ),
   );
@@ -971,59 +1011,96 @@ class _AlbumItem extends StatelessWidget {
     required this.owned,
     required this.artwork,
     required this.silhouette,
+    required this.unlockHint,
     required this.apply,
   });
   final String label;
   final bool owned;
   final Widget artwork;
   final Widget silhouette;
+  final String unlockHint;
   final VoidCallback? apply;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: owned
-        ? (apply == null ? '$label, equipped' : label)
-        : 'Undiscovered',
-    button: owned,
-    child: ExcludeSemantics(
-      child: InkWell(
-        onTap: !owned
-            ? null
-            : () => showDialog<void>(
-                context: context,
-                builder: (dialog) => AlertDialog(
-                  title: Text(label),
-                  content: SizedBox(width: 200, child: artwork),
-                  actions: [
-                    if (apply != null)
-                      TextButton(
-                        onPressed: () {
-                          apply!();
-                          Navigator.pop(dialog);
-                        },
-                        child: const Text('Apply'),
-                      ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialog),
-                      child: const Text('Close'),
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Semantics(
+      label: owned
+          ? (apply == null ? '$label, equipped' : label)
+          : 'Undiscovered',
+      button: true,
+      child: ExcludeSemantics(
+        child: GameCard(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (dialog) => GameDialog(
+              title: owned ? label : 'Mystery item',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 140,
+                    child: owned ? artwork : silhouette,
+                  ),
+                  if (!owned) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      unlockHint,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: palette.mutedInk, fontSize: 13),
                     ),
                   ],
-                ),
+                ],
               ),
-        child: SizedBox(
-          width: 82,
+              actions: [
+                if (owned && apply != null)
+                  ActionPill(
+                    label: 'Apply',
+                    tone: ActionTone.primary,
+                    onTap: () {
+                      apply!();
+                      Navigator.pop(dialog);
+                    },
+                  ),
+                ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
+              ],
+            ),
+          ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox.square(
-                dimension: 62,
+                dimension: 56,
                 child: owned ? artwork : silhouette,
               ),
-              if (owned) Text(label, maxLines: 2, textAlign: TextAlign.center),
-              if (owned && apply == null) const Icon(Icons.check, size: 14),
+              const SizedBox(height: 4),
+              if (owned)
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                )
+              else
+                Text(
+                  'Locked',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: palette.mutedInk,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             ],
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

@@ -43,11 +43,13 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
   @override
   bool get complete => game.complete;
   bool get success => switch (widget.mechanic) {
-    MechanicTutorial.walls => path.contains(4),
-    MechanicTutorial.gate => path.contains(3) && path.contains(1),
-    MechanicTutorial.ice => path.contains(1) && path.contains(2),
-    MechanicTutorial.portal => path.contains(1) && path.contains(8),
-    MechanicTutorial.arrow => path.contains(3),
+    MechanicTutorial.walls => complete || (rejected && path.contains(4)),
+    MechanicTutorial.gate =>
+      complete || (rejected && path.contains(3) && path.contains(1)),
+    MechanicTutorial.ice => complete || (path.contains(1) && path.contains(2)),
+    MechanicTutorial.portal =>
+      complete || (path.contains(1) && path.contains(8)),
+    MechanicTutorial.arrow => complete || (rejected && path.contains(3)),
   };
 
   @override
@@ -113,15 +115,20 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
   Future<void> done(bool skipped) async {
     if (busy) return;
     setState(() => busy = true);
-    final ok = await widget.onAcknowledge(skipped);
-    if (!mounted) return;
-    if (!ok) {
-      setState(() => busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save tutorial progress. Please try again.'),
-        ),
-      );
+    var ok = false;
+    try {
+      ok = await widget.onAcknowledge(skipped);
+    } finally {
+      if (mounted && !ok) {
+        setState(() => busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save tutorial progress. Please try again.',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -172,26 +179,25 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final side = math.min(
-              (constraints.maxWidth - 32).clamp(0.0, 390.0),
-              390.0,
-            );
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxBoard = math.min(
+                (constraints.maxWidth - 32).clamp(0.0, 360.0),
+                (constraints.maxHeight - 230).clamp(180.0, 360.0),
+              );
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
                         style: TextStyle(
                           color: palette.ink,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           fontSize: 22,
                         ),
                       ),
@@ -202,52 +208,53 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: SizedBox.square(
-                    dimension: side,
-                    child: PuzzleBoard(
-                      model: this,
-                      puzzle: board,
-                      palette: palette,
-                      tipStyle: context.watch<AppModel>().equippedTip,
+                  const SizedBox(height: 14),
+                  Center(
+                    child: SizedBox.square(
+                      dimension: maxBoard,
+                      child: PuzzleBoard(
+                        model: this,
+                        puzzle: board,
+                        palette: palette,
+                        tipStyle: context.watch<AppModel>().equippedTip,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    success ? 'Well done!' : instruction,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: success ? palette.route : palette.ink,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+                  const SizedBox(height: 14),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      success ? 'Well done!' : instruction,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: success ? palette.route : palette.ink,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ActionPill(
-                      label: 'Restart demo',
-                      icon: Icons.restart_alt_rounded,
-                      onTap: busy ? null : () => setState(reset),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionPill(
-                      label: 'Continue',
-                      tone: ActionTone.primary,
-                      onTap: success && !busy ? () => done(false) : null,
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      ActionPill(
+                        label: 'Restart demo',
+                        icon: Icons.restart_alt_rounded,
+                        onTap: busy ? null : () => setState(reset),
+                      ),
+                      ActionPill(
+                        label: busy ? 'Saving…' : 'Continue',
+                        tone: ActionTone.primary,
+                        onTap: success && !busy ? () => done(false) : null,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

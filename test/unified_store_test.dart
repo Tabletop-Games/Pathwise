@@ -235,7 +235,7 @@ void main() {
       expect(
         (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
             .crossAxisCount,
-        3,
+        size.width >= 560 ? 4 : 3,
       );
       await tester.tap(find.text('Tips'));
       await tester.pumpAndSettle();

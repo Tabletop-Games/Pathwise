@@ -5,7 +5,7 @@ import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../ui/art/control_art.dart';
-import '../ui/art/medallion_art.dart';
+import '../ui/game_art.dart';
 
 class ShareResultButton extends StatelessWidget {
   const ShareResultButton({
@@ -195,10 +195,10 @@ class AchievementCelebration extends StatelessWidget {
     if (model.recentAchievements.isEmpty) return const SizedBox.shrink();
     final item = model.recentAchievements.last;
     return ListTile(
-      leading: NativeAchievementEmblem(
-        item,
+      leading: GameArt(
+        ArtKind.trophy,
         palette: BoardPalette.palettes[model.theme]!,
-        earned: true,
+        size: 38,
       ),
       title: Text(item.name),
       subtitle: Text(item.description),

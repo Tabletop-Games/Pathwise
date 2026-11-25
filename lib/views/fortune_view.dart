@@ -82,16 +82,30 @@ class _FortuneViewState extends State<FortuneView> {
     try {
       if (video) {
         model.recordActivity(EconomyEvent.wheelRequested);
-        await context.read<AdService>().watchVideo(
+        final messenger = ScaffoldMessenger.of(context);
+        final ads = context.read<AdService>();
+        var rewarded = false;
+        final shown = await ads.watchVideo(
           (receipt) async {
             final prize = await model.spinRewardedFortune(catalog, receipt);
-            if (mounted && prize != null) _show(catalog, prize);
+            if (prize != null) {
+              rewarded = true;
+              if (mounted) _show(catalog, prize);
+            }
             return prize != null;
           },
           placement: RewardPlacement.wheel,
           canPresent: _current,
           waitForReward: true,
         );
+        if (mounted && !rewarded) {
+          final fallback = shown
+              ? 'Video closed before the reward finished.'
+              : 'Video unavailable. Try again shortly.';
+          messenger.showSnackBar(
+            SnackBar(content: Text(ads.message ?? fallback)),
+          );
+        }
       } else {
         final prize = await model.spinFreeFortune(catalog);
         if (mounted && prize != null) _show(catalog, prize);
@@ -140,13 +154,12 @@ class _FortuneViewState extends State<FortuneView> {
     final palette = BoardPalette.palettes[model.theme]!;
     final wait = model.fortuneWait;
     final remaining = model.fortuneVideosRemaining;
-    final showVideo =
-        ads.wheelConfigured &&
-        ads.readyFor(RewardPlacement.wheel) &&
-        remaining > 0;
+    final showVideo = ads.wheelConfigured;
+    final videoReady = ads.readyFor(RewardPlacement.wheel);
     final busy = _working || _pending != null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     final canSpin = !busy && wait == 0 && !model.storageError;
+    final canVideoSpin = !busy && remaining > 0 && videoReady;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayFor(palette),
       child: Scaffold(
@@ -203,45 +216,54 @@ class _FortuneViewState extends State<FortuneView> {
                             child: AspectRatio(
                               aspectRatio: 1,
                               child: Semantics(
+                                button: canSpin,
                                 label: 'Coin wheel. Rewards 8, 15, 25, 40, 70, and 100 coins.',
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    TweenAnimationBuilder<double>(
-                                      tween: Tween(begin: 0, end: _rotation),
-                                      duration: reduced
-                                          ? Duration.zero
-                                          : const Duration(milliseconds: 3200),
-                                      curve: Curves.easeInOutCubic,
-                                      onEnd: _finish,
-                                      builder: (_, turns, _) => RepaintBoundary(
-                                        child: CustomPaint(
-                                          painter: _WheelPainter(
-                                            catalog,
-                                            turns,
-                                            palette,
+                                onTap: canSpin ? () => _spin(catalog) : null,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: canSpin ? () => _spin(catalog) : null,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      TweenAnimationBuilder<double>(
+                                        tween: Tween(begin: 0, end: _rotation),
+                                        duration: reduced
+                                            ? Duration.zero
+                                            : const Duration(
+                                                milliseconds: 3200,
+                                              ),
+                                        curve: Curves.easeInOutCubic,
+                                        onEnd: _finish,
+                                        builder: (_, turns, _) =>
+                                            RepaintBoundary(
+                                              child: CustomPaint(
+                                                painter: _WheelPainter(
+                                                  catalog,
+                                                  turns,
+                                                  palette,
+                                                ),
+                                              ),
+                                            ),
+                                      ),
+                                      IgnorePointer(
+                                        child: Center(
+                                          child: _WheelHubMedallion(
+                                            palette: palette,
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    IgnorePointer(
-                                      child: Center(
-                                        child: _WheelHubMedallion(
-                                          palette: palette,
+                                      Align(
+                                        alignment: Alignment.topCenter,
+                                        child: SizedBox(
+                                          width: 38,
+                                          height: 36,
+                                          child: CustomPaint(
+                                            painter: _PointerPainter(palette),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    Align(
-                                      alignment: Alignment.topCenter,
-                                      child: SizedBox(
-                                        width: 38,
-                                        height: 36,
-                                        child: CustomPaint(
-                                          painter: _PointerPainter(palette),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -296,19 +318,37 @@ class _FortuneViewState extends State<FortuneView> {
                           ),
                         if (showVideo) ...[
                           const SizedBox(height: 10),
-                          FilledButton.tonalIcon(
+                          FilledButton.icon(
                             key: const ValueKey('wheel-video'),
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(52),
                               shape: const StadiumBorder(),
+                              backgroundColor: palette.accent,
+                              foregroundColor: palette.onAccent,
+                              disabledBackgroundColor: palette.quiet,
+                              disabledForegroundColor: palette.mutedInk,
+                              textStyle: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
                             ),
-                            onPressed: busy
-                                ? null
-                                : () => _spin(catalog, video: true),
-                            icon: const Icon(Icons.play_arrow_rounded),
+                            onPressed: canVideoSpin
+                                ? () => _spin(catalog, video: true)
+                                : null,
+                            icon: Icon(
+                              remaining <= 0
+                                  ? Icons.block_rounded
+                                  : (videoReady
+                                        ? Icons.play_arrow_rounded
+                                        : Icons.hourglass_top_rounded),
+                            ),
                             label: Text(
-                              'Spin · $remaining left',
-                              style: Theme.of(context).textTheme.labelLarge,
+                              remaining <= 0
+                                  ? 'No video spins left'
+                                  : (videoReady
+                                        ? 'Spin · $remaining left'
+                                        : 'Loading video'),
                             ),
                           ),
                         ],
@@ -549,7 +589,7 @@ class _WheelPainter extends CustomPainter {
       final angle = start + sweep / 2;
       final spot =
           center + Offset(math.cos(angle), math.sin(angle)) * (radius * .66);
-      final ink = palette.onColor(base);
+      final ink = palette.onColor(outerTone);
       final coinCenter = spot.translate(0, -radius * .11);
       final coinRadius = radius * .115;
 

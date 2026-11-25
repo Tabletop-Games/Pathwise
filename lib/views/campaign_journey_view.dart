@@ -32,7 +32,9 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
   double get _extent =>
       MediaQuery.textScalerOf(context).scale(1) > 1.35 ? 176 : 138;
 
-  static int _slotForLevel(int level) => level - 1 + chapterFor(level);
+  static const _slotsPerChapter = chapterSize + 2;
+
+  static int _slotForLevel(int level) => level + chapterFor(level) * 2;
 
   double _focusedOffset(int slot, double viewportHeight) {
     final target = (slot + 0.5) * _extent - viewportHeight * 0.34;
@@ -69,7 +71,6 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
-    final biome = biomeForTheme(model.theme);
     final highContrast =
         model.theme == PathwiseTheme.signal ||
         model.theme == PathwiseTheme.amoledCarbon;
@@ -176,12 +177,56 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                           itemExtent: _extent,
                           controller: _scroll,
                           itemBuilder: (context, index) {
-                            final chapter = index ~/ (chapterSize + 1);
-                            final position = index % (chapterSize + 1);
-                            if (position == chapterSize) {
-                              return _ChestStop(chapter, palette, model.theme);
+                            final chapter = index ~/ _slotsPerChapter;
+                            final position = index % _slotsPerChapter;
+                            final biome = BiomeKind
+                                .values[chapter % BiomeKind.values.length];
+                            if (position == 0) {
+                              final startLevel = chapter * chapterSize + 1;
+                              final unlocked = model.canPlayLevel(startLevel);
+                              final completed =
+                                  model.chapterClears(chapter) == chapterSize;
+                              return CustomPaint(
+                                painter: _JourneyLine(
+                                  index,
+                                  palette,
+                                  biome,
+                                  lit: unlocked,
+                                  current: false,
+                                  completed: completed,
+                                  highContrast: highContrast,
+                                  showGrounding: false,
+                                ),
+                                child: _ChapterHeaderStop(
+                                  chapter: chapter,
+                                  palette: palette,
+                                  biome: biome,
+                                  unlocked: unlocked,
+                                ),
+                              );
                             }
-                            final level = chapter * chapterSize + position + 1;
+                            if (position == chapterSize + 1) {
+                              final claimed = model.chapterClaimed(chapter);
+                              final ready = model.chapterReady(chapter);
+                              final lit =
+                                  claimed ||
+                                  ready ||
+                                  model.canPlayLevel(chapterEnd(chapter) + 1);
+                              return CustomPaint(
+                                painter: _JourneyLine(
+                                  index,
+                                  palette,
+                                  biome,
+                                  lit: lit,
+                                  current: false,
+                                  completed: claimed,
+                                  highContrast: highContrast,
+                                  showGrounding: false,
+                                ),
+                                child: _ChestStop(chapter, palette, biome),
+                              );
+                            }
+                            final level = chapter * chapterSize + position;
                             final id = PuzzleId.level(level);
                             final result = model.result(id);
                             final playable = model.canPlayLevel(level);
@@ -197,7 +242,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                                 highContrast: highContrast,
                               ),
                               child: Align(
-                                alignment: Alignment(_nodeX(index), 0),
+                                alignment: Alignment(_slotX(index), 0),
                                 child: _MedallionNode(
                                   key: ValueKey('journey-level-$level'),
                                   level: level,
@@ -219,7 +264,19 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                                               result != null &&
                                               !model.hasAttempt(id),
                                         )
-                                      : null,
+                                      : () {
+                                          ScaffoldMessenger.of(context)
+                                            ..hideCurrentSnackBar()
+                                            ..showSnackBar(
+                                              SnackBar(
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                                content: Text(
+                                                  'Clear Level ${model.highestUnlocked} first to unlock Level $level',
+                                                ),
+                                              ),
+                                            );
+                                        },
                                 ),
                               ),
                             );
@@ -259,6 +316,7 @@ class _MedallionNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completed = solveTime != null;
+    final isMilestone = level % discoveryInterval == 0;
     final diameter = current ? 68.0 : 58.0;
     final border = current
         ? palette.accent
@@ -288,106 +346,235 @@ class _MedallionNode extends StatelessWidget {
         ? [palette.cardTop, palette.cardBottom]
         : [palette.quiet, Color.lerp(palette.quiet, palette.canvas, .35)!];
 
+    final medallion = Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: diameter,
+          height: diameter,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: gradientColors,
+            ),
+            border: Border.all(
+              color: border,
+              width: current
+                  ? 3
+                  : completed
+                  ? 2.4
+                  : 1.8,
+            ),
+            boxShadow: current
+                ? [
+                    BoxShadow(
+                      color: palette.route.withValues(alpha: .44),
+                      blurRadius: 18,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : playable
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: palette.dark ? .28 : .13,
+                      ),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(2.5),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: current
+                      ? Colors.white.withValues(alpha: .28)
+                      : completed
+                      ? palette.route.withValues(alpha: .25)
+                      : playable
+                      ? palette.ink.withValues(alpha: .06)
+                      : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!playable)
+                      Icon(Icons.lock_outline, size: 15, color: fg)
+                    else if (current)
+                      Icon(Icons.play_arrow_rounded, size: 18, color: fg),
+                    Text(
+                      '$level',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: fg,
+                        fontWeight: FontWeight.w800,
+                        fontSize: level >= 10000 ? 11 : 14,
+                        height: 1.05,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Semantics(
       button: playable,
-      label: 'Level $level',
+      label: playable ? 'Level $level' : 'Level $level, locked',
       excludeSemantics: true,
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: onTap,
-              customBorder: const CircleBorder(),
-              child: Container(
-                width: diameter,
-                height: diameter,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: gradientColors,
-                  ),
-                  border: Border.all(
-                    color: border,
-                    width: current
-                        ? 3
-                        : completed
-                        ? 2.4
-                        : 1.8,
-                  ),
-                  boxShadow: current
-                      ? [
-                          BoxShadow(
-                            color: palette.route.withValues(alpha: .44),
-                            blurRadius: 18,
-                            spreadRadius: 2,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: .22),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : playable
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: palette.dark ? .28 : .13,
-                            ),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(2.5),
-                  child: DecoratedBox(
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              if (current)
+                IgnorePointer(
+                  child: Container(
+                    width: diameter + 14,
+                    height: diameter + 14,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: current
-                            ? Colors.white.withValues(alpha: .28)
-                            : completed
-                            ? palette.route.withValues(alpha: .25)
-                            : playable
-                            ? palette.ink.withValues(alpha: .06)
-                            : Colors.transparent,
-                        width: 1,
+                        color: palette.accent.withValues(alpha: .65),
+                        width: 2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: palette.accent.withValues(alpha: .32),
+                          blurRadius: 14,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!playable)
-                            Icon(Icons.lock_outline, size: 15, color: fg)
-                          else if (current)
-                            Icon(Icons.play_arrow_rounded, size: 18, color: fg),
-                          Text(
-                            '$level',
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: fg,
-                              fontWeight: FontWeight.w800,
-                              fontSize: level >= 10000 ? 11 : 14,
-                              height: 1.05,
-                            ),
-                          ),
-                        ],
+                  ),
+                ),
+              medallion,
+              if (isMilestone)
+                Positioned(
+                  top: -3,
+                  left: -3,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 21,
+                      height: 21,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: playable
+                              ? [palette.accent, palette.route]
+                              : [palette.quiet, palette.cardBottom],
+                        ),
+                        border: Border.all(color: palette.surface, width: 1.5),
+                        boxShadow: playable
+                            ? [
+                                BoxShadow(
+                                  color: palette.accent.withValues(alpha: .35),
+                                  blurRadius: 5,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.diamond_rounded,
+                        size: 11,
+                        color: playable ? palette.onRoute : palette.mutedInk,
                       ),
                     ),
                   ),
                 ),
+              if (completed)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFFFF3B0),
+                            Color(0xFFF5B041),
+                            Color(0xFFD48806),
+                          ],
+                        ),
+                        border: Border.all(color: palette.surface, width: 1.6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFF5B041)
+                                .withValues(alpha: .45),
+                            blurRadius: 6,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.star_rounded,
+                        size: 14,
+                        color: Color(0xFF4A2C00),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (current && !completed) ...[
+            const SizedBox(height: 3),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+              decoration: BoxDecoration(
+                color: palette.accent,
+                borderRadius: BorderRadius.circular(GameTokens.pillRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: palette.dark ? .28 : .14,
+                    ),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Text(
+                'PLAY',
+                style: TextStyle(
+                  color: palette.onAccent,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                  letterSpacing: 0.8,
+                  height: 1.1,
+                ),
               ),
             ),
-          ),
-          if (solveTime != null) ...[
+          ] else if (solveTime != null) ...[
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -422,7 +609,11 @@ class _MedallionNode extends StatelessWidget {
   }
 }
 
-double _nodeX(int index) => math.sin(index * .91) * .63;
+double _slotX(int index) {
+  final position = index % (chapterSize + 2);
+  if (position == 0 || position == chapterSize + 1) return 0;
+  return math.sin(index * .91) * .63;
+}
 
 class _JourneyLine extends CustomPainter {
   const _JourneyLine(
@@ -433,6 +624,7 @@ class _JourneyLine extends CustomPainter {
     required this.current,
     required this.completed,
     required this.highContrast,
+    this.showGrounding = true,
   });
 
   final int index;
@@ -442,10 +634,11 @@ class _JourneyLine extends CustomPainter {
   final bool current;
   final bool completed;
   final bool highContrast;
+  final bool showGrounding;
 
   @override
   void paint(Canvas canvas, Size size) {
-    double x(int level) => size.width * (.5 + _nodeX(level) * .32);
+    double x(int slot) => size.width * (.5 + _slotX(slot) * .32);
     final mid = size.height / 2;
     final here = x(index);
     final from = (here + x(index + 1)) / 2;
@@ -453,7 +646,7 @@ class _JourneyLine extends CustomPainter {
 
     if (!highContrast) {
       _paintBiomeAccents(canvas, size, here, mid);
-      _paintNodeGrounding(canvas, Offset(here, mid));
+      if (showGrounding) _paintNodeGrounding(canvas, Offset(here, mid));
     }
 
     final trail = Path()
@@ -667,27 +860,144 @@ class _JourneyLine extends CustomPainter {
       oldDelegate.lit != lit ||
       oldDelegate.current != current ||
       oldDelegate.completed != completed ||
-      oldDelegate.highContrast != highContrast;
+      oldDelegate.highContrast != highContrast ||
+      oldDelegate.showGrounding != showGrounding;
+}
+
+class _ChapterHeaderStop extends StatelessWidget {
+  const _ChapterHeaderStop({
+    required this.chapter,
+    required this.palette,
+    required this.biome,
+    required this.unlocked,
+  });
+
+  final int chapter;
+  final BoardPalette palette;
+  final BiomeKind biome;
+  final bool unlocked;
+
+  String _biomeTitle() => switch (biome) {
+    BiomeKind.ocean => 'Coastal Shore',
+    BiomeKind.forest => 'Mossy Grove',
+    BiomeKind.winter => 'Frost Peaks',
+    BiomeKind.desert => 'Sunlit Dunes',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final start = chapter * chapterSize + 1;
+    final end = chapterEnd(chapter);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(GameTokens.cardRadius),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [palette.cardTop, palette.cardBottom],
+            ),
+            border: Border.all(
+              color: unlocked
+                  ? palette.route.withValues(alpha: .55)
+                  : palette.cardEdge,
+              width: unlocked ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: palette.dark ? .24 : .08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Image.asset(
+                      biomeAssetPath(biome),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: palette.route.withValues(alpha: .16),
+                        ),
+                        child: Icon(
+                          Icons.terrain_rounded,
+                          size: 20,
+                          color: palette.route,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chapter ${chapter + 1} · ${chapterName(chapter)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_biomeTitle()} · Levels $start–$end',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.mutedInk,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                          height: 1.15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ChestStop extends StatelessWidget {
-  const _ChestStop(this.chapter, this.palette, this.theme);
+  const _ChestStop(this.chapter, this.palette, this.biome);
   final int chapter;
   final BoardPalette palette;
-  final PathwiseTheme theme;
+  final BiomeKind biome;
 
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final claimed = model.chapterClaimed(chapter);
     final ready = model.chapterReady(chapter);
-    final remaining = chapterSize - model.chapterClears(chapter);
-    final biomePath = biomeAssetPath(biomeForTheme(theme));
+    final clears = model.chapterClears(chapter);
+    final biomePath = biomeAssetPath(biome);
     final scrimLeft = palette.surface.withValues(
       alpha: palette.dark ? .92 : .94,
     );
     final scrimRight = palette.surface.withValues(
-      alpha: palette.dark ? .48 : .54,
+      alpha: palette.dark ? .56 : .62,
     );
 
     return Padding(
@@ -741,12 +1051,15 @@ class _ChestStop extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Container(
-                        width: 62,
-                        height: 62,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
@@ -761,11 +1074,11 @@ class _ChestStop extends StatelessWidget {
                           child: GameArt(
                             claimed ? ArtKind.treasureOpen : ArtKind.treasure,
                             palette: palette,
-                            size: 52,
+                            size: 48,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -773,39 +1086,80 @@ class _ChestStop extends StatelessWidget {
                           children: [
                             Text(
                               chapterName(chapter),
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: palette.ink,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 17,
+                                fontSize: 15.5,
                                 height: 1.15,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              claimed
-                                  ? 'Treasure claimed'
-                                  : ready
-                                  ? 'Treasure ready'
-                                  : remaining == 0
-                                  ? 'Chapter complete'
-                                  : '$remaining puzzles to treasure',
-                              style: TextStyle(
-                                color: ready ? palette.route : palette.mutedInk,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                GameArt(
+                                  ArtKind.coin,
+                                  palette: palette,
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    '$chapterRewardCoins coins · $chapterRewardHints hint',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: palette.ink.withValues(alpha: .86),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 5),
+                            if (claimed || ready)
+                              Text(
+                                claimed ? 'Treasure claimed' : 'Treasure ready',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: ready
+                                      ? palette.route
+                                      : palette.mutedInk,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12.5,
+                                  height: 1.1,
+                                ),
+                              )
+                            else ...[
+                              GameBar(value: clears / chapterSize, height: 6),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$clears / $chapterSize puzzles',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: palette.mutedInk,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      if (ready)
+                      if (ready) ...[
+                        const SizedBox(width: 8),
                         ActionPill(
                           label: 'Open',
                           tone: ActionTone.primary,
                           onTap: () => _showChapterReward(context, chapter),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -893,9 +1247,10 @@ class _ChapterRewardDialog extends StatefulWidget {
 class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
   bool _opened = false;
   bool _claiming = false;
+  bool _claimed = false;
 
   Future<void> _claim() async {
-    if (_claiming) return;
+    if (_claiming || _claimed) return;
     final model = context.read<AppModel>();
     setState(() {
       _claiming = true;
@@ -903,11 +1258,12 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
     });
     await Future<void>.delayed(const Duration(milliseconds: 280));
     final claimed = await model.claimChapter(widget.chapter);
-    if (mounted && claimed) {
-      Navigator.pop(context);
-    } else if (mounted) {
-      setState(() => _claiming = false);
-    }
+    if (!mounted) return;
+    setState(() {
+      _claiming = false;
+      _claimed = claimed;
+      if (!claimed) _opened = false;
+    });
   }
 
   @override
@@ -916,72 +1272,65 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
     final palette = BoardPalette.palettes[model.theme]!;
     final ready = model.chapterReady(widget.chapter) && !model.storageError;
 
-    return AlertDialog(
-      icon: Center(
-        child: Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                palette.route.withValues(alpha: .26),
-                Colors.transparent,
-              ],
-            ),
+    return GameDialog(
+      art: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              (_claimed ? palette.accent : palette.route).withValues(
+                alpha: _claimed ? .34 : .26,
+              ),
+              Colors.transparent,
+            ],
           ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            child: GameArt(
-              _opened ? ArtKind.treasureOpen : ArtKind.treasure,
-              key: ValueKey(_opened),
-              palette: palette,
-              size: 74,
-            ),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: GameArt(
+            _opened ? ArtKind.treasureOpen : ArtKind.treasure,
+            key: ValueKey(_opened),
+            palette: palette,
+            size: 74,
           ),
         ),
       ),
-      title: Text(
-        chapterName(widget.chapter),
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontWeight: FontWeight.w800),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      title: chapterName(widget.chapter),
+      body: _claimed
+          ? 'Chapter ${widget.chapter + 1} treasure claimed!'
+          : 'Chapter ${widget.chapter + 1} treasure',
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _RewardChip(
-                palette: palette,
-                art: ArtKind.coin,
-                label: '$chapterRewardCoins coins',
-              ),
-              const SizedBox(width: 8),
-              _RewardChip(
-                palette: palette,
-                art: ArtKind.hint,
-                label: '$chapterRewardHints hint',
-              ),
-            ],
+          _RewardChip(
+            palette: palette,
+            art: ArtKind.coin,
+            label: '$chapterRewardCoins coins',
+          ),
+          _RewardChip(
+            palette: palette,
+            art: ArtKind.hint,
+            label: '$chapterRewardHints hint',
           ),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.center,
       actions: [
-        FilledButton(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(180, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+        if (_claimed)
+          ActionPill(
+            label: 'Done',
+            tone: ActionTone.primary,
+            onTap: () => Navigator.pop(context),
+          )
+        else
+          ActionPill(
+            label: _claiming ? 'Opening...' : 'Claim treasure',
+            tone: ActionTone.primary,
+            onTap: ready && !_claiming ? _claim : null,
           ),
-          onPressed: ready && !_claiming ? _claim : null,
-          child: const Text(
-            'Claim treasure',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
       ],
     );
   }

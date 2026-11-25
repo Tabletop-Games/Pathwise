@@ -1926,11 +1926,14 @@ class AppModel extends ChangeNotifier
   }
 
   void end() {
-    if (_game?.end() ?? false) {
+    final changed = _game?.end() ?? false;
+    if (changed) {
       _processCrates();
       _saveSoon();
-      notifyListeners();
     }
+    // Always notify on stroke end so deferred offline notices or UI listeners
+    // update cleanly even if the path did not change.
+    notifyListeners();
   }
 
   void tap(int cell) {

@@ -437,7 +437,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         title: 'Research',
                         subtitle: researched > 0
                             ? '$researched unlocked'
-                            : null,
+                            : 'Permanent upgrades',
                         icon: GameArt(
                           ArtKind.research,
                           palette: palette,
@@ -457,7 +457,7 @@ class _MainMenuViewState extends State<MainMenuView>
                             ? '$active on'
                             : owned > 0
                             ? '$owned ready'
-                            : null,
+                            : '2×–4× multipliers',
                         icon: GameArt(ArtKind.bolt, palette: palette, size: 30),
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
@@ -1270,11 +1270,11 @@ class _AttackSetup extends StatelessWidget {
                             GameArt(ArtKind.trophy, palette: palette, size: 22),
                             const SizedBox(width: 6),
                             Text(
-                              '${model.attackBestFor(minutes)}',
+                              '${model.attackBestFor(minutes)} pts',
                               style: TextStyle(
                                 color: palette.mutedInk,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 18,
+                                fontSize: 16,
                               ),
                             ),
                           ],
