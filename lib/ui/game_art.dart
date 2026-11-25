@@ -74,6 +74,10 @@ class GameArt extends StatelessWidget {
     ArtKind.timer => 'assets/art/ui/timer.png',
     ArtKind.flame => 'assets/art/ui/flame.png',
     ArtKind.trophy => 'assets/art/ui/achievement.png',
+    ArtKind.crown => 'assets/art/ui/boost_4x.png',
+    ArtKind.brush => 'assets/art/ui/collections.png',
+    ArtKind.noAds => 'assets/art/ui/achievement.png',
+    ArtKind.video => 'assets/art/ui/wheel_ticket.png',
     _ => null,
   };
 

@@ -133,7 +133,7 @@ void paintPathTip(
   bool catalogue = false,
 }) {
   final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
-  if (tip != PathTip.classic && !concealed && !highContrast) {
+  if (tip != PathTip.classic && !concealed) {
     final raster = GameAssetCache.instance.imageFor(tipAssetPath(tip));
     if (raster != null) {
       final drawRadius = radius * (tip == PathTip.classic ? 1.25 : 1.18);
@@ -341,11 +341,10 @@ class TipArtwork extends StatelessWidget {
   final bool concealed;
   @override
   Widget build(BuildContext context) {
-    final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
     final Widget fallback = CustomPaint(
       painter: _TipArtPainter(tip, palette, quarterTurns, scale, concealed),
     );
-    final Widget art = highContrast || tip == PathTip.classic
+    final Widget art = tip == PathTip.classic
         ? fallback
         : FractionallySizedBox(
             widthFactor: (scale * 2.0).clamp(0.6, 1.0),

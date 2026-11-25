@@ -43,11 +43,11 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
   @override
   bool get complete => game.complete;
   bool get success => switch (widget.mechanic) {
-    MechanicTutorial.walls => rejected && path.contains(4),
-    MechanicTutorial.gate => rejected && path.contains(3) && path.contains(1),
+    MechanicTutorial.walls => path.contains(4),
+    MechanicTutorial.gate => path.contains(3) && path.contains(1),
     MechanicTutorial.ice => path.contains(1) && path.contains(2),
     MechanicTutorial.portal => path.contains(1) && path.contains(8),
-    MechanicTutorial.arrow => rejected && path.contains(3),
+    MechanicTutorial.arrow => path.contains(3),
   };
 
   @override
@@ -115,7 +115,14 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
     setState(() => busy = true);
     final ok = await widget.onAcknowledge(skipped);
     if (!mounted) return;
-    if (!ok) setState(() => busy = false);
+    if (!ok) {
+      setState(() => busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save tutorial progress. Please try again.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -228,7 +235,7 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                     ActionPill(
                       label: 'Restart demo',
                       icon: Icons.restart_alt_rounded,
-                      onTap: () => setState(reset),
+                      onTap: busy ? null : () => setState(reset),
                     ),
                     const SizedBox(width: 8),
                     ActionPill(
