@@ -25,7 +25,7 @@
 ## Quiet Journey
 
 - Design for a relaxing Android puzzle game. Put the campaign and the board first, use open layouts and give each screen its own composition. Shared controls must not turn screens into grids of identical cards and pills.
-- Use quiet landscape vector art, accent colors drawn from the equipped palette, and restrained motion. Keep high contrast and AMOLED views clear of atmospheric decoration.
+- Compose Journey terrain from the existing biome illustrations. Use palette colors for controls, keep motion restrained, and subdue scenery in High Contrast and AMOLED.
 - Completion bonuses multiply only the configured base campaign payout. Credit only the difference from the earned SDK callback using one ledger ID per level. Replays and other modes cannot earn the bonus.
 - Ten prospective first clears reveal one unowned, unreserved cosmetic from the configured catalogue. Keep discoveries pending indefinitely and grant the fallback when exhausted or already owned. Equip only on an explicit action.
 
@@ -38,7 +38,7 @@
 ## Endless campaign and results
 
 - The procedural campaign is unbounded. Keep generation identity stable and derive chapter metadata on demand.
-- Show the journey bottom to top with lazy rendering and direct positioning. Keep the compact grid as an alternate level selector.
+- Show Journey bottom to top with lazy rendering, direct level jumps, and an unlocked chapter picker.
 - Keep earned chapter chests claimable. Grant the free reward once using the wallet transaction and commit the corresponding hint in the same save.
 - Start the completion multiplier independently of ad or network state. Request a video only on claim. Award the difference on the configured base reward after the SDK confirms it.
 - Choose the resting tip's cardinal direction with ordinary local movement validation. Use a neutral pose where there is no unvisited exit. Never consult the solver or replace the active pointer projection.

@@ -25,13 +25,13 @@ import '../lib/model/user_preferences.dart';
 import '../lib/ui/art/control_art.dart';
 import '../lib/ui/art/game_assets.dart';
 import '../lib/ui/game_art.dart';
+import '../lib/views/campaign_journey_view.dart';
 import '../lib/views/components/economy_navigation.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/components/tip_art.dart';
 import '../lib/views/connection_view.dart';
 import '../lib/views/fortune_view.dart';
 import '../lib/views/journey_rewards.dart';
-import '../lib/views/levels_view.dart';
 import '../lib/views/mechanic_tutorial_view.dart';
 import '../lib/views/progression_view.dart';
 import '../lib/views/puzzle_view.dart';
@@ -149,6 +149,7 @@ Future<void> _screens(
   required Size size,
   double textScale = 1,
   Set<String>? only,
+  bool capture = true,
 }) async {
   await tester.binding.setSurfaceSize(size);
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -159,16 +160,46 @@ Future<void> _screens(
   await tester.runAsync(
     () => rootBundle.loadString('assets/data/fortune-prizes.json'),
   );
+  if (only == null || only.contains('journey')) {
+    final cache = GameAssetCache.instance;
+    await tester.runAsync(cache.preloadBiomes);
+    for (final biome in BiomeKind.values) {
+      expect(cache.imageFor(biomeAssetPath(biome)), isNotNull);
+    }
+  }
   final ads = AdService();
   final billing = BillingService(persist: (_) async => true);
   addTearDown(ads.dispose);
   addTearDown(billing.dispose);
   final key = GlobalKey();
+  if (capture && _captureDir != null) {
+    // Image.asset decodes asynchronously. Warm the same providers before those
+    // widgets build so a settled animation frame also has its illustrations.
+    final assets = <String>{
+      if (only == null || only.contains('journey')) ...{
+        'assets/art/resources/chest_closed.png',
+        'assets/art/resources/chest_open.png',
+        'assets/art/resources/coin.png',
+        'assets/art/resources/hint.png',
+      },
+      if (only == null || only.contains('boosts')) ...{
+        for (final boost in Boost.values) boostAssetPath(boost),
+        'assets/art/ui/boost.png',
+      },
+    };
+    await tester.pumpWidget(MaterialApp(home: SizedBox(key: key)));
+    await tester.runAsync(() async {
+      final context = key.currentContext!;
+      await Future.wait([
+        for (final asset in assets) precacheImage(AssetImage(asset), context),
+      ]);
+    });
+  }
 
   Future<void> shot(String name) async {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: '$label $name');
-    await _snap(tester, key, '$label-$name');
+    if (capture) await _snap(tester, key, '$label-$name');
   }
 
   Future<void> screen(
@@ -329,8 +360,7 @@ Future<void> _screens(
     await crateModel.flush();
     crateModel.dispose();
   }
-  await screen('journey', () => const LevelsView());
-  await screen('levels', () => const LevelsView(quickNavigation: true));
+  await screen('journey', () => const CampaignJourneyView());
   if (only == null) {
     final model = AppModel(
       storage: MemoryStorage(),
@@ -348,7 +378,7 @@ Future<void> _screens(
       },
     );
     await tester.pumpWidget(
-      _shell(key, model, ads, billing, const LevelsView()),
+      _shell(key, model, ads, billing, const CampaignJourneyView()),
     );
     await tester.pumpAndSettle();
     await shot('journey-high-level');
@@ -367,12 +397,12 @@ Future<void> _screens(
     await tester.tap(find.text('Treasure ready'));
     await shot('chapter-treasure');
     await tester.tap(find.text('Claim treasure'));
-    await shot('journey-claimed-chest');
-    if (find.text('Done').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
-    }
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     expect(find.text('Treasure claimed'), findsOneWidget);
+    await shot('journey-claimed-chest');
     await jump('48');
     await shot('journey-locked-chest');
     expect(find.text('0 / 25 puzzles'), findsOneWidget);
@@ -530,6 +560,23 @@ void main() {
     });
   }
 
+  for (final theme in PathwiseTheme.values.where(
+    (theme) => !_themes.containsValue(theme),
+  )) {
+    testWidgets('Journey and Boosts render on the ${theme.label} theme', (
+      tester,
+    ) async {
+      await _screens(
+        tester,
+        theme: theme,
+        label: theme.name,
+        size: const Size(390, 844),
+        only: {'journey', 'boosts'},
+        capture: false,
+      );
+    });
+  }
+
   for (final (name, size, scale) in [
     ('small', const Size(360, 640), 1.0),
     ('large', const Size(430, 932), 1.0),
@@ -552,6 +599,8 @@ void main() {
           'store-coins',
           'store-upgrades',
           'research',
+          'journey',
+          'boosts',
           'wheel',
         },
       );

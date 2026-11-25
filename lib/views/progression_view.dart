@@ -235,19 +235,6 @@ class _ProgressionViewState extends State<ProgressionView> {
     final active = Boost.values
         .where((boost) => progression.remaining(boost, now) > 0)
         .toList();
-    final multipliers = Boost.values.where(
-      (item) =>
-          item.multiplier > 1 &&
-          (item.availableToBuy ||
-              (progression.inventory[item.name] ?? 0) > 0 ||
-              progression.remaining(item, now) > 0),
-    );
-    final supplies = Boost.values.where(
-      (item) =>
-          item.multiplier == 1 &&
-          ((progression.inventory[item.name] ?? 0) > 0 ||
-              progression.remaining(item, now) > 0),
-    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayFor(palette),
       child: Scaffold(
@@ -272,47 +259,31 @@ class _ProgressionViewState extends State<ProgressionView> {
         ),
         body: AtmosphericBackdrop(
           child: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, viewport) {
-                final availableWidth = viewport.maxWidth;
-                final maxContentWidth =
-                    _tab == _ProgressionTab.boosts && availableWidth >= 620
-                    ? 760.0
-                    : 620.0;
-                return Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxContentWidth),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                          child: GameSegmented<_ProgressionTab>(
-                            selected: _tab,
-                            onChanged: _selectTab,
-                            segments: [
-                              for (final tab in _ProgressionTab.values)
-                                (value: tab, label: tab.label),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: _tab == _ProgressionTab.boosts
-                              ? _boostsBody(
-                                  model,
-                                  palette,
-                                  active,
-                                  [...multipliers, ...supplies],
-                                  now,
-                                  availableWidth,
-                                )
-                              : _researchBody(model, palette),
-                        ),
-                      ],
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                      child: GameSegmented<_ProgressionTab>(
+                        selected: _tab,
+                        onChanged: _selectTab,
+                        segments: [
+                          for (final tab in _ProgressionTab.values)
+                            (value: tab, label: tab.label),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                    Expanded(
+                      child: _tab == _ProgressionTab.boosts
+                          ? _boostsBody(model, palette, active, now)
+                          : _researchBody(model, palette),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -385,84 +356,78 @@ class _ProgressionViewState extends State<ProgressionView> {
     AppModel model,
     BoardPalette palette,
     List<Boost> active,
-    List<Boost> allBoosts,
     int now,
-    double screenWidth,
   ) {
-    final twoColumn =
-        screenWidth >= 620 && MediaQuery.textScalerOf(context).scale(16) <= 19;
+    final progress = model.progression;
+    final owned = Boost.values
+        .where((boost) => (progress.inventory[boost.name] ?? 0) > 0)
+        .toList();
+    final adsEnabled = context.watch<AdService>().enabled;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 2, 12, 24),
       children: [
         if (active.isNotEmpty) _activeBoostStrip(model, palette, active, now),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Coin boosts',
-                style: TextStyle(
-                  color: palette.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Activate a boost or build your reserve',
-                style: TextStyle(color: palette.mutedInk, fontSize: 13),
+        _boostSectionHeader('Your inventory', palette),
+        if (owned.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+            child: Text(
+              'No boosts in your inventory',
+              style: TextStyle(color: palette.mutedInk, fontSize: 13),
+            ),
+          ),
+        for (final boost in owned)
+          _boostRow(
+            key: ValueKey('boost-inventory-${boost.name}'),
+            boost: boost,
+            palette: palette,
+            details: _boostDetails(progress, boost),
+            quantity: progress.inventory[boost.name],
+            actions: [
+              ActionPill(
+                label: 'Activate',
+                semanticLabel: 'Activate ${boost.title}',
+                tone: ActionTone.primary,
+                onTap: !model.storageError && progress.canActivate(boost, now)
+                    ? () => model.activateBoost(boost)
+                    : null,
               ),
             ],
           ),
-        ),
-        if (allBoosts.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Column(
-              children: [
-                GameArt(ArtKind.bolt, palette: palette, size: 72),
-                const SizedBox(height: 12),
-                Text(
-                  'No boosts yet',
-                  style: TextStyle(
-                    color: palette.mutedInk,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else if (!twoColumn)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final boost in allBoosts) _boost(model, boost, now),
-            ],
-          )
-        else
-          Column(
-            children: [
-              for (var i = 0; i < allBoosts.length; i += 2)
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: _boost(model, allBoosts[i], now)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: i + 1 < allBoosts.length
-                            ? _boost(model, allBoosts[i + 1], now)
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                ),
+        const SizedBox(height: 10),
+        _boostSectionHeader('Boost Shop', palette),
+        for (final boost in Boost.values.where((boost) => boost.availableToBuy))
+          _boostRow(
+            key: ValueKey('boost-shop-${boost.name}'),
+            boost: boost,
+            palette: palette,
+            details: _boostDetails(progress, boost),
+            actions: [
+              if (adsEnabled &&
+                  (boost == Boost.doubleTen || boost == Boost.tripleFifteen))
+                _boostVideoAction(model, boost),
+              _boostPurchaseAction(model, boost),
             ],
           ),
       ],
     );
   }
+
+  Widget _boostSectionHeader(String title, BoardPalette palette) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+    child: Semantics(
+      header: true,
+      child: Text(
+        title,
+        style: TextStyle(
+          color: palette.ink,
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+        ),
+      ),
+    ),
+  );
 
   Widget _activeBoostStrip(
     AppModel model,
@@ -854,213 +819,163 @@ class _ProgressionViewState extends State<ProgressionView> {
     );
   }
 
-  Widget _boost(AppModel model, Boost boost, int now) {
-    final progress = model.progression;
-    final palette = BoardPalette.palettes[model.theme]!;
-    final inventory = progress.inventory[boost.name] ?? 0;
-    final remaining = progress.remaining(boost, now);
+  String _boostDetails(Progression progress, Boost boost) {
     final duration = boost.minutes * 600 * (100 + progress.durationBonus);
-    final price = progress.discount(boost.price);
-    final canActivate = !model.storageError && progress.canActivate(boost, now);
-    final multiplier = boost.multiplier > 1;
-    final watch =
-        (boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
-        context.watch<AdService>().enabled;
+    final effect = boost == Boost.crateFrequency
+        ? '2× crate drop rate'
+        : '${boost.multiplier}×';
+    return '$effect · ${_compactDuration(duration)}';
+  }
+
+  Widget _boostRow({
+    required Key key,
+    required Boost boost,
+    required BoardPalette palette,
+    required String details,
+    required List<Widget> actions,
+    int? quantity,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: GameCard(
+        key: key,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < (actions.length == 2 ? 300 : 245) ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18;
+              final description = Row(
+                children: [
+                  _boostArtworkBadge(boost, palette, size: 42),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          boost.title,
+                          style: TextStyle(
+                            color: palette.ink,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          details,
+                          style: TextStyle(
+                            color: palette.mutedInk,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (quantity != null)
+                          Text(
+                            '$quantity owned',
+                            style: TextStyle(
+                              color: palette.ink,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              final actionGroup = Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 6,
+                runSpacing: 4,
+                children: actions,
+              );
+              if (stacked) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [description, actionGroup],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: description),
+                  const SizedBox(width: 8),
+                  actionGroup,
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _boostPurchaseAction(AppModel model, Boost boost) {
+    final price = model.progression.discount(boost.price);
+    return PricePill(
+      price: price,
+      affordable: model.coinBalance >= price,
+      semanticLabel: 'Buy ${boost.title} for $price coins',
+      onTap: model.storageError
+          ? null
+          : () {
+              if (model.coinBalance < price) {
+                showInsufficientCoins(
+                  context,
+                  itemName: boost.title,
+                  requiredCoins: price,
+                  currentBalance: model.coinBalance,
+                );
+              } else {
+                model.buyBoost(boost);
+              }
+            },
+    );
+  }
+
+  Widget _boostVideoAction(AppModel model, Boost boost) {
     final adLimit = boost == Boost.doubleTen ? economy.doubleBoostAdsPerDay : 1;
     final adsUsed = model.boostAdsToday(boost);
     final adsLeft = (adLimit - adsUsed).clamp(0, adLimit);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GameCard(
-        key: ValueKey('boost-${boost.name}'),
-        selected: remaining > 0,
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _boostArtworkBadge(boost, palette, size: 56),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.route.withValues(alpha: .16),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              multiplier
-                                  ? '${boost.multiplier}× · ${_compactDuration(duration)}'
-                                  : 'Crates · ${_compactDuration(duration)}',
-                              style: TextStyle(
-                                color: palette.route,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: inventory > 0
-                                  ? palette.route.withValues(alpha: .10)
-                                  : palette.quiet,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: inventory > 0
-                                    ? palette.route.withValues(alpha: .35)
-                                    : palette.cardEdge,
-                              ),
-                            ),
-                            child: Text(
-                              '$inventory owned',
-                              style: TextStyle(
-                                color: inventory > 0
-                                    ? palette.ink
-                                    : palette.mutedInk,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        boost.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        boost.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.mutedInk,
-                          fontSize: 12,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (remaining > 0) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Active · ${_duration(remaining)} left',
-                style: TextStyle(
-                  color: palette.route,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 5),
-              GameBar(value: remaining / duration, height: 6),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                if (watch)
-                  ActionPill(
-                    label: adsLeft > 0
-                        ? 'Watch · $adsLeft/$adLimit'
-                        : 'Daily limit',
-                    icon: adsLeft > 0
-                        ? Icons.play_arrow_rounded
-                        : Icons.schedule_rounded,
-                    semanticLabel: adsLeft > 0
-                        ? 'Watch a video for one ${boost.title}'
-                        : 'Daily video limit reached for ${boost.title}',
-                    onTap: model.canEarnBoostAd(boost)
-                        ? () async {
-                            final ads = context.read<AdService>();
-                            bool current() =>
-                                mounted &&
-                                ModalRoute.isCurrentOf(context) == true;
-                            if (!ads.readyFor(RewardPlacement.boost)) {
-                              await ads.prepare(canPresent: current);
-                            }
-                            if (!current()) return;
-                            final shown = await ads.watchVideo(
-                              (event) => model.grantBoostAd(boost, event),
-                              placement: RewardPlacement.boost,
-                              canPresent: () =>
-                                  current() && model.canEarnBoostAd(boost),
-                            );
-                            if (!shown && current()) {
-                              _feedback('Video unavailable');
-                            }
-                          }
-                        : null,
-                  ),
-                if (boost.availableToBuy)
-                  PricePill(
-                    price: price,
-                    affordable: model.coinBalance >= price,
-                    semanticLabel: 'Buy ${boost.title} for $price coins',
-                    onTap: model.storageError
-                        ? null
-                        : () {
-                            if (model.coinBalance < price) {
-                              showInsufficientCoins(
-                                context,
-                                itemName: boost.title,
-                                requiredCoins: price,
-                                currentBalance: model.coinBalance,
-                              );
-                            } else if (model.buyBoost(boost)) {
-                              _feedback('Added to your boost reserve');
-                            }
-                          },
-                  ),
-                if (inventory > 0 && remaining <= 0)
-                  ActionPill(
-                    label: 'Activate',
-                    tone: ActionTone.primary,
-                    onTap: canActivate
-                        ? () {
-                            if (model.activateBoost(boost)) {
-                              _feedback(
-                                'Boost active for ${_compactDuration(duration)}',
-                              );
-                            }
-                          }
-                        : null,
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    final milestoneLocked =
+        boost == Boost.tripleFifteen &&
+        model.adsToday < economy.coinAdMilestone;
+    return ActionPill(
+      label: adsLeft == 0
+          ? 'Daily limit'
+          : milestoneLocked
+          ? 'Video locked'
+          : 'Watch · $adsLeft/$adLimit',
+      icon: adsLeft == 0
+          ? Icons.schedule_rounded
+          : milestoneLocked
+          ? Icons.lock_outline_rounded
+          : Icons.play_arrow_rounded,
+      semanticLabel: adsLeft == 0
+          ? 'Daily video limit reached for ${boost.title}'
+          : milestoneLocked
+          ? 'Watch ${economy.coinAdMilestone} coin videos today to unlock a video for ${boost.title}'
+          : 'Watch a video for one ${boost.title}',
+      onTap: model.canEarnBoostAd(boost)
+          ? () async {
+              final ads = context.read<AdService>();
+              bool current() =>
+                  mounted && ModalRoute.isCurrentOf(context) == true;
+              if (!ads.readyFor(RewardPlacement.boost)) {
+                await ads.prepare(canPresent: current);
+              }
+              if (!current()) return;
+              final shown = await ads.watchVideo(
+                (event) => model.grantBoostAd(boost, event),
+                placement: RewardPlacement.boost,
+                canPresent: () => current() && model.canEarnBoostAd(boost),
+              );
+              if (!shown && current()) _feedback('Video unavailable');
+            }
+          : null,
     );
   }
 }

@@ -51,13 +51,7 @@ void main() {
         generatePuzzle(id.generation).puzzle.checkpoints,
         board.puzzle.checkpoints,
       );
-      expect(
-        firstLevelOnPage(pageForLevel(number)),
-        inInclusiveRange(number - 11, number),
-      );
     }
-    expect(pageForLevel(12), 0);
-    expect(pageForLevel(13), 1);
   });
 
   test('later difficulty bands target higher measured complexity', () {

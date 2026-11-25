@@ -111,6 +111,13 @@ final class GameAssetCache extends ChangeNotifier {
     ]);
   }
 
+  /// Decodes the shared Journey paintings ahead of rendering.
+  Future<void> preloadBiomes() => Future.wait([
+    for (final biome in BiomeKind.values)
+      if (!_images.containsKey(biomeAssetPath(biome)))
+        _load(biomeAssetPath(biome)),
+  ]);
+
   Future<void> _load(String assetPath) async {
     try {
       final data = await rootBundle.load(assetPath);

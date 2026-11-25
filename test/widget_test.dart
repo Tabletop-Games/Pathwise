@@ -6,12 +6,17 @@ import 'package:provider/provider.dart';
 import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
+import '../lib/model/journey.dart';
+import '../lib/model/user_preferences.dart';
 import '../lib/ui/game_ui.dart';
 import '../lib/views/components/brand_mark.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/fortune_view.dart';
 import '../lib/views/store_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
+
+Finder _journeyLevel(int level) =>
+    find.byKey(ValueKey('journey-level-$level')).hitTestable();
 
 void main() {
   test('contextual coin shortfalls select the smallest covering pack', () {
@@ -128,7 +133,7 @@ void main() {
       final ordered = [
         'Play level 1',
         'Daily challenge',
-        'Levels',
+        'Journey',
         'Time Attack',
         'Store',
         'Fortune Wheel',
@@ -188,11 +193,9 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Levels'));
+    await tester.tap(find.text('Journey'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('journey-level-1')).hitTestable(),
-    );
+    await tester.tap(_journeyLevel(1));
     await tester.pumpAndSettle();
     final grid = find.byKey(const ValueKey('puzzle-grid'));
     final board = tester.getRect(grid);
@@ -381,7 +384,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Boosts'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('boost-doubleTen')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('boost-inventory-doubleTen')),
+          findsOneWidget,
+        );
         final activate = find.text('Activate').first;
         await tester.ensureVisible(activate);
         await tester.pumpAndSettle();
@@ -548,101 +554,203 @@ void main() {
     model.dispose();
   });
 
-  testWidgets('paged levels show legacy unlock and continue from results', (
+  testWidgets(
+    'Journey supports replay, locked feedback and continuing from results',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final model = AppModel(
+        storage: MemoryStorage(),
+        snapshot: {
+          'results': {
+            'levels/36': {'milliseconds': 1000, 'hints': 0},
+          },
+        },
+        loader: (_) async => fixture(),
+      )..setHaptics(false);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+      );
+      await tester.tap(find.text('Journey'));
+      await tester.pumpAndSettle();
+      expect(find.text('Journey'), findsOneWidget);
+      expect(find.byTooltip('Level grid'), findsNothing);
+      expect(_journeyLevel(37), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pump();
+        expect(find.bySemanticsLabel('Level 37, current'), findsOneWidget);
+        expect(find.bySemanticsLabel('Level 38, locked'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel('Level 36, completed, 0:01'),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
+      await tester.tap(_journeyLevel(36));
+      await tester.pumpAndSettle();
+      expect(model.activeId?.key, 'levels/36');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(_journeyLevel(37), findsOneWidget);
+
+      await tester.tap(_journeyLevel(38));
+      await tester.pumpAndSettle();
+      expect(model.activeId, isNull);
+      expect(
+        find.text('Clear Level 37 first to unlock Level 38'),
+        findsOneWidget,
+      );
+      await tester.tap(_journeyLevel(37));
+      await tester.pumpAndSettle();
+      expect(model.activeId?.key, 'levels/37');
+      final route = fixture().solution;
+      model.begin(route.first);
+      for (final cell in route.skip(1)) {
+        model.step(cell);
+      }
+      model.end();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.ensureVisible(find.text('Next level'));
+      await tester.tap(find.text('Next level'));
+      await tester.pumpAndSettle();
+      expect(model.activeId!.value, 38);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(_journeyLevel(38), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
+    },
+  );
+  testWidgets('Journey keeps distant jumps usable with large text', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 900));
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     final model = AppModel(
       storage: MemoryStorage(),
       snapshot: {
-        'results': {
-          'levels/36': {'milliseconds': 1000, 'hints': 0},
-        },
+        'highestUnlocked': 100000,
+        'ownedThemes': ['signal'],
       },
       loader: (_) async => fixture(),
-    )..setHaptics(false);
+    );
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.tap(find.text('Levels'));
+    await tester.scrollUntilVisible(find.text('Journey').hitTestable(), 140);
+    await tester.tap(find.text('Journey'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Level grid'));
+    expect(_journeyLevel(100000), findsOneWidget);
+    expect(find.byKey(const ValueKey('journey-level-1')), findsNothing);
+
+    await tester.tap(find.byTooltip('Chapters'));
     await tester.pumpAndSettle();
-    expect(find.text('Levels 37–48'), findsOneWidget);
-    await tester.tap(find.byTooltip('Next page'));
+    expect(find.text('Chapters'), findsOneWidget);
+    const chapter = 3999;
+    final chapterChoice = find.byKey(
+      const ValueKey('journey-chapter-choice-$chapter'),
+    );
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const ValueKey('journey-chapter-choice-4000')),
+          )
+          .enabled,
+      isFalse,
+    );
+    await tester.scrollUntilVisible(
+      chapterChoice.hitTestable(),
+      140,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(chapterChoice.hitTestable());
     await tester.pumpAndSettle();
-    expect(find.text('Levels 49–60'), findsOneWidget);
+    expect(_journeyLevel(99976), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Jump to level'));
+    await tester.pumpAndSettle();
+    final go = find.widgetWithText(FilledButton, 'Go');
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(go).onPressed, isNull);
+    await tester.enterText(find.byType(TextField), '1000');
+    await tester.pump();
+    await tester.tap(go);
+    await tester.pumpAndSettle();
+    expect(_journeyLevel(1000), findsOneWidget);
+
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    await tester.pumpAndSettle();
+    expect(_journeyLevel(1000), findsOneWidget);
+    model.setTheme(PathwiseTheme.signal);
+    await tester.pumpAndSettle();
+    expect(_journeyLevel(1000), findsOneWidget);
+    for (final level in [1, 25, 26, 100, 10000, 1000000]) {
+      await tester.tap(find.byTooltip('Jump to level'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '$level');
+      await tester.pump();
+      await tester.tap(go);
+      await tester.pumpAndSettle();
+      expect(_journeyLevel(level), findsOneWidget);
+    }
     await tester.tap(find.byTooltip('Current level'));
     await tester.pumpAndSettle();
-    expect(find.text('Levels 37–48'), findsOneWidget);
-    await tester.tap(find.text('38').hitTestable());
-    await tester.pumpAndSettle();
-    expect(model.activeId, isNull);
-    await tester.tap(find.text('37').hitTestable());
-    await tester.pumpAndSettle();
-    expect(model.activeId!.value, 37);
-    final route = fixture().solution;
-    model.begin(route.first);
-    for (final cell in route.skip(1)) {
-      model.step(cell);
-    }
-    model.end();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.ensureVisible(find.text('Next level'));
-    await tester.tap(find.text('Next level'));
-    await tester.pumpAndSettle();
-    expect(model.activeId!.value, 38);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    expect(find.text('Levels 37–48'), findsOneWidget);
+    expect(_journeyLevel(100000), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();
   });
-  testWidgets('journey jumps directly from a six-digit level and back', (
+
+  testWidgets('Journey shows and claims pending chapter treasures', (
     tester,
   ) async {
     final model = AppModel(
       storage: MemoryStorage(),
       snapshot: {
-        'highestUnlocked': 100000,
-        'results': {
-          'levels/99999': {'ms': 1234, 'hints': 0},
+        'journey': {
+          'chapterChests': [0, 1],
         },
       },
-      loader: (_) async => fixture(),
     );
     await tester.pumpWidget(
       ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
     );
-    await tester.scrollUntilVisible(find.text('Levels'), 140);
-    await tester.tap(find.text('Levels'));
+    await tester.tap(find.text('Journey'));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('journey-level-100000')).hitTestable(),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('journey-level-1')), findsNothing);
-    await tester.tap(find.byTooltip('Jump to level'));
+    expect(find.text('Treasures · 2'), findsOneWidget);
+    await tester.tap(find.text('Treasures · 2'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '1000');
-    await tester.pump();
-    await tester.tap(find.text('Go'));
+    expect(find.text('Chapter treasures'), findsOneWidget);
+    expect(find.text(chapterName(0)).hitTestable(), findsOneWidget);
+    expect(find.text(chapterName(1)).hitTestable(), findsOneWidget);
+
+    await tester.tap(find.text('Open').first);
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('journey-level-1000')).hitTestable(),
-      findsOneWidget,
-    );
-    await tester.tap(find.byTooltip('Current level'));
+    await tester.tap(find.text('Claim treasure'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('journey-level-100000')).hitTestable(),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
+    expect(find.text('Chapter 1 treasure claimed!'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Treasures · 1'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();

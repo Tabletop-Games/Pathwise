@@ -14,7 +14,7 @@ Run `dart run tool/journey_economy.dart` for the incremental economy estimate. I
 
 ## Endless campaign
 
-The journey uses a reversed, fixed-extent lazy list. A level maps directly to its scroll slot, with one chest inserted after every 25 levels. The journey starts at the current level, increases upwards and supports direct jumps. The paged grid remains available for quick navigation. The chapter art uses eight environments with deterministic variations. Seeds and best-time records retain their previous identities.
+Journey uses a reversed, fixed-extent lazy list. Each 25-level chapter has a chapter label and a treasure stop. The map opens near the current level and increases upwards. Use the header to return to the current level, browse by number, or choose an unlocked chapter. Completed nodes show best times and open replays. Four existing biome illustrations repeat in deterministic terrain compositions. Puzzle seeds and best-time records retain their previous identities.
 
 Chapter chests are prospective. A chapter that was already fully complete before migration attracts no new reward. Complete the last outstanding puzzle of an unfinished chapter to earn its chest. Pending chests stay visible in the journey and their own list on Home. A claim is local and ad-free. The coin ledger records the chapter ID, and the same save records the hint and removes the pending marker. Cloud reconciliation preserves this state as one economy unit.
 

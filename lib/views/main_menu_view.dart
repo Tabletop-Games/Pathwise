@@ -21,7 +21,6 @@ import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'journey_rewards.dart';
 import 'level_one_demo.dart';
-import 'levels_view.dart';
 import 'progression_view.dart';
 import 'puzzle_view.dart';
 import 'settings_view.dart';
@@ -369,7 +368,7 @@ class _MainMenuViewState extends State<MainMenuView>
                     children: [
                       _ActivityTile(
                         palette: palette,
-                        title: 'Levels',
+                        title: 'Journey',
                         subtitle: '${model.levelsSolved} solved',
                         icon: _UiArtIcon(
                           assetPath: 'assets/art/ui/compass.png',
@@ -382,7 +381,9 @@ class _MainMenuViewState extends State<MainMenuView>
                         ),
                         onTap: () => Navigator.push<void>(
                           context,
-                          MaterialPageRoute(builder: (_) => const LevelsView()),
+                          MaterialPageRoute(
+                            builder: (_) => const CampaignJourneyView(),
+                          ),
                         ),
                       ),
                       _ActivityTile(

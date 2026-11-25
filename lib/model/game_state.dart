@@ -3,11 +3,7 @@ import '../logic/puzzle_generator.dart';
 enum PlayMode { levels, daily, attack }
 
 const legacyLevelCount = 36;
-const levelsPerPage = 12;
 const dailyCheckpointCount = 3;
-
-int pageForLevel(int level) => (level - 1) ~/ levelsPerPage;
-int firstLevelOnPage(int page) => 1 + page * levelsPerPage;
 
 String dayKey(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-'

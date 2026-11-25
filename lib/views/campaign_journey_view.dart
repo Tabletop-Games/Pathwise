@@ -11,12 +11,13 @@ import '../model/user_preferences.dart';
 import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import 'levels_view.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
 
-/// Reverse list with one fixed-size slot per level and one per chapter chest.
-/// A distant jump targets a pixel offset without visiting preceding levels.
+part 'journey_landscape.dart';
+
+/// A reverse, lazy route. Even distant level jumps require one offset
+/// calculation and build only the rows around the destination.
 class CampaignJourneyView extends StatefulWidget {
   const CampaignJourneyView({super.key});
 
@@ -25,31 +26,30 @@ class CampaignJourneyView extends StatefulWidget {
 }
 
 class _CampaignJourneyViewState extends State<CampaignJourneyView> {
+  static const _slotsPerChapter = chapterSize + 2;
+
   ScrollController? _scroll;
   int? _lastFocusedLevel;
-  double _lastViewportHeight = 0;
+  double _extent = 72;
 
-  double get _extent =>
-      MediaQuery.textScalerOf(context).scale(1) > 1.35 ? 176 : 138;
-
-  static const _slotsPerChapter = chapterSize + 2;
+  // Keep subpixel precision in the scroll offset, including at large text sizes.
+  static int _maxLevelForExtent(double extent) =>
+      (1 << 49) ~/ extent ~/ _slotsPerChapter * chapterSize;
 
   static int _slotForLevel(int level) => level + chapterFor(level) * 2;
 
-  double _focusedOffset(int slot, double viewportHeight) {
-    final target = (slot + 0.5) * _extent - viewportHeight * 0.34;
-    return math.max(0.0, target);
-  }
+  double _focusedOffset(int slot, double viewportHeight) =>
+      math.max(0.0, (slot + 0.5) * _extent - viewportHeight * 0.34);
 
-  void _focusSlot(int slot, {bool animate = false}) {
+  void _focusLevel(int level) {
     final scroll = _scroll;
     if (scroll == null || !scroll.hasClients) return;
-    final viewportHeight = scroll.position.viewportDimension > 0
-        ? scroll.position.viewportDimension
-        : _lastViewportHeight;
-    final target = _focusedOffset(slot, viewportHeight);
-    if (!animate ||
-        MediaQuery.disableAnimationsOf(context) ||
+    final viewportHeight = scroll.position.viewportDimension;
+    final target = _focusedOffset(
+      _slotForLevel(math.min(level, _maxLevelForExtent(_extent))),
+      viewportHeight,
+    );
+    if (MediaQuery.disableAnimationsOf(context) ||
         (target - scroll.offset).abs() > viewportHeight * 2.5) {
       scroll.jumpTo(target);
     } else {
@@ -67,23 +67,77 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
     super.dispose();
   }
 
+  Future<void> _chooseChapter() async {
+    final model = context.read<AppModel>();
+    final reached = chapterFor(
+      math.min(model.highestUnlocked, _maxLevelForExtent(_extent)),
+    );
+    final chapter = await showModalBottomSheet<int>(
+      context: context,
+      sheetAnimationStyle: _journeyAnimationStyle(context),
+      isScrollControlled: true,
+      builder: (sheet) => FractionallySizedBox(
+        heightFactor: .7,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Chapters',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(sheet).textTheme.titleLarge,
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: reached + 2,
+                  itemBuilder: (context, index) {
+                    final chapter = reached + 1 - index;
+                    final start = chapter * chapterSize + 1;
+                    final unlocked = model.canPlayLevel(start);
+                    return ListTile(
+                      key: ValueKey('journey-chapter-choice-$chapter'),
+                      enabled: unlocked,
+                      leading: Icon(
+                        unlocked ? Icons.terrain_rounded : Icons.lock_outline,
+                      ),
+                      title: Text(
+                        chapterName(chapter),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        'Levels $start–${chapterEnd(chapter)}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: unlocked
+                          ? () => Navigator.pop(sheet, chapter)
+                          : null,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && chapter != null) _focusLevel(chapter * chapterSize + 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
     final highContrast =
         model.theme == PathwiseTheme.signal ||
-        model.theme == PathwiseTheme.amoledCarbon;
+        model.theme == PathwiseTheme.amoledCarbon ||
+        MediaQuery.highContrastOf(context);
     final highest = model.highestUnlocked;
-
-    if (_lastFocusedLevel != null && _lastFocusedLevel != highest) {
-      _lastFocusedLevel = highest;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _focusSlot(_slotForLevel(highest), animate: true);
-        }
-      });
-    }
+    final treasureCount = model.pendingChapterChests.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,8 +146,12 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
           IconButton(
             tooltip: 'Current level',
             icon: const Icon(Icons.my_location),
-            onPressed: () =>
-                _focusSlot(_slotForLevel(model.highestUnlocked), animate: true),
+            onPressed: () => _focusLevel(model.highestUnlocked),
+          ),
+          IconButton(
+            tooltip: 'Chapters',
+            icon: const Icon(Icons.map_outlined),
+            onPressed: _chooseChapter,
           ),
           IconButton(
             tooltip: 'Jump to level',
@@ -101,186 +159,91 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
             onPressed: () async {
               final level = await showDialog<int>(
                 context: context,
-                builder: (_) => const _JumpDialog(),
+                animationStyle: _journeyAnimationStyle(context),
+                builder: (_) =>
+                    _JumpDialog(maximumLevel: _maxLevelForExtent(_extent)),
               );
-              if (mounted && level != null) {
-                _focusSlot(_slotForLevel(level), animate: true);
-              }
+              if (mounted && level != null) _focusLevel(level);
             },
-          ),
-          IconButton(
-            tooltip: 'Level grid',
-            icon: const Icon(Icons.grid_view_rounded),
-            onPressed: () => Navigator.of(context).push<void>(
-              MaterialPageRoute(
-                builder: (_) => const LevelsView(quickNavigation: true),
-              ),
-            ),
           ),
         ],
       ),
-      body: AtmosphericBackdrop(
+      body: Material(
+        color: palette.canvas,
         child: SafeArea(
           child: Column(
             children: [
-              if (model.pendingChapterChests.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: GameCard(
-                      selected: true,
-                      onTap: () => showChapterTreasures(context),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          GameArt(ArtKind.treasure, palette: palette, size: 28),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Treasures · ${model.pendingChapterChests.length}',
-                              style: TextStyle(
-                                color: palette.ink,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          ActionPill(
-                            label: 'Claim',
-                            tone: ActionTone.primary,
-                            onTap: () => showChapterTreasures(context),
-                          ),
-                        ],
+              if (treasureCount > 0)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 550),
+                  child: ListTile(
+                    minTileHeight: 56,
+                    leading: GameArt(
+                      ArtKind.treasure,
+                      palette: palette,
+                      size: 34,
+                    ),
+                    title: Text('Treasures · $treasureCount'),
+                    trailing: Text(
+                      'Claim',
+                      style: TextStyle(
+                        color: palette.ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
                       ),
                     ),
+                    onTap: () => showChapterTreasures(context),
                   ),
                 ),
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
+                    constraints: const BoxConstraints(maxWidth: 550),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        _lastViewportHeight = constraints.maxHeight;
-                        _lastFocusedLevel ??= highest;
+                        final oldExtent = _extent;
+                        final scaler = MediaQuery.textScalerOf(context);
+                        _extent = 72 + math.max(0.0, scaler.scale(16) - 16) * 3;
+                        final refocus =
+                            _lastFocusedLevel != null &&
+                            _lastFocusedLevel != highest;
+                        _lastFocusedLevel = highest;
+                        final previousOffset = _scroll?.hasClients == true
+                            ? _scroll!.offset
+                            : null;
                         _scroll ??= ScrollController(
                           initialScrollOffset: _focusedOffset(
-                            _slotForLevel(highest),
+                            _slotForLevel(
+                              math.min(highest, _maxLevelForExtent(_extent)),
+                            ),
                             constraints.maxHeight,
                           ),
                         );
+                        if (refocus ||
+                            (previousOffset != null && oldExtent != _extent)) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            if (refocus) {
+                              _focusLevel(highest);
+                            } else if (_scroll!.hasClients) {
+                              _scroll!.jumpTo(
+                                previousOffset! * _extent / oldExtent,
+                              );
+                            }
+                          });
+                        }
                         return ListView.builder(
+                          padding: EdgeInsets.zero,
                           reverse: true,
                           itemExtent: _extent,
                           controller: _scroll,
-                          itemBuilder: (context, index) {
-                            final chapter = index ~/ _slotsPerChapter;
-                            final position = index % _slotsPerChapter;
-                            final biome = BiomeKind
-                                .values[chapter % BiomeKind.values.length];
-                            if (position == 0) {
-                              final startLevel = chapter * chapterSize + 1;
-                              final unlocked = model.canPlayLevel(startLevel);
-                              final completed =
-                                  model.chapterClears(chapter) == chapterSize;
-                              return CustomPaint(
-                                painter: _JourneyLine(
-                                  index,
-                                  palette,
-                                  biome,
-                                  lit: unlocked,
-                                  current: false,
-                                  completed: completed,
-                                  highContrast: highContrast,
-                                  showGrounding: false,
-                                ),
-                                child: _ChapterHeaderStop(
-                                  chapter: chapter,
-                                  palette: palette,
-                                  biome: biome,
-                                  unlocked: unlocked,
-                                ),
-                              );
-                            }
-                            if (position == chapterSize + 1) {
-                              final claimed = model.chapterClaimed(chapter);
-                              final ready = model.chapterReady(chapter);
-                              final lit =
-                                  claimed ||
-                                  ready ||
-                                  model.canPlayLevel(chapterEnd(chapter) + 1);
-                              return CustomPaint(
-                                painter: _JourneyLine(
-                                  index,
-                                  palette,
-                                  biome,
-                                  lit: lit,
-                                  current: false,
-                                  completed: claimed,
-                                  highContrast: highContrast,
-                                  showGrounding: false,
-                                ),
-                                child: _ChestStop(chapter, palette, biome),
-                              );
-                            }
-                            final level = chapter * chapterSize + position;
-                            final id = PuzzleId.level(level);
-                            final result = model.result(id);
-                            final playable = model.canPlayLevel(level);
-                            final current = level == model.highestUnlocked;
-                            return CustomPaint(
-                              painter: _JourneyLine(
-                                index,
-                                palette,
-                                biome,
-                                lit: playable,
-                                current: current,
-                                completed: result != null,
-                                highContrast: highContrast,
-                              ),
-                              child: Align(
-                                alignment: Alignment(_slotX(index), 0),
-                                child: _MedallionNode(
-                                  key: ValueKey('journey-level-$level'),
-                                  level: level,
-                                  palette: palette,
-                                  playable: playable,
-                                  current: current,
-                                  solveTime: result == null
-                                      ? null
-                                      : formatTime(
-                                          Duration(
-                                            milliseconds: result.milliseconds,
-                                          ),
-                                        ),
-                                  onTap: playable
-                                      ? () => openPuzzle(
-                                          context,
-                                          id,
-                                          replay:
-                                              result != null &&
-                                              !model.hasAttempt(id),
-                                        )
-                                      : () {
-                                          ScaffoldMessenger.of(context)
-                                            ..hideCurrentSnackBar()
-                                            ..showSnackBar(
-                                              SnackBar(
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                content: Text(
-                                                  'Clear Level ${model.highestUnlocked} first to unlock Level $level',
-                                                ),
-                                              ),
-                                            );
-                                        },
-                                ),
-                              ),
-                            );
-                          },
+                          itemBuilder: (context, index) => _buildStop(
+                            context,
+                            model,
+                            palette,
+                            highContrast,
+                            index,
+                          ),
                         );
                       },
                     ),
@@ -293,698 +256,362 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
       ),
     );
   }
+
+  Widget _buildStop(
+    BuildContext context,
+    AppModel model,
+    BoardPalette palette,
+    bool highContrast,
+    int index,
+  ) {
+    final chapter = index ~/ _slotsPerChapter;
+    final position = index % _slotsPerChapter;
+    final biome = _biomeForChapter(chapter);
+    final first = chapter * chapterSize + 1;
+    final level = chapter * chapterSize + position;
+    final isHeader = position == 0;
+    final isTreasure = position == chapterSize + 1;
+    final stopX = _routeX(position);
+    final unlocked = model.canPlayLevel(
+      isHeader
+          ? first
+          : isTreasure
+          ? chapterEnd(chapter)
+          : level,
+    );
+
+    final Widget stop;
+    if (isHeader) {
+      stop = _ChapterHeaderStop(chapter: chapter, palette: palette);
+    } else if (isTreasure) {
+      stop = _ChestStop(chapter, palette);
+    } else {
+      final id = PuzzleId.level(level);
+      final result = model.result(id);
+      stop = _JourneyNode(
+        level: level,
+        palette: palette,
+        x: stopX,
+        playable: unlocked,
+        current: level == model.highestUnlocked,
+        solveTime: result == null
+            ? null
+            : formatTime(Duration(milliseconds: result.milliseconds)),
+        onTap: unlocked
+            ? () => openPuzzle(
+                context,
+                id,
+                replay: result != null && !model.hasAttempt(id),
+              )
+            : () {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text(
+                        'Clear Level ${model.highestUnlocked} first to unlock Level $level',
+                      ),
+                    ),
+                  );
+              },
+      );
+    }
+
+    return CustomPaint(
+      painter: _JourneyLandscape(
+        chapter: chapter,
+        position: position,
+        palette: palette,
+        biome: biome,
+        highContrast: highContrast,
+        pathBelowReached: unlocked,
+        pathAboveReached: model.canPlayLevel(
+          isHeader
+              ? first
+              : isTreasure
+              ? chapterEnd(chapter) + 1
+              : level + 1,
+        ),
+      ),
+      child: stop,
+    );
+  }
 }
 
-class _MedallionNode extends StatelessWidget {
-  const _MedallionNode({
+class _JourneyNode extends StatelessWidget {
+  const _JourneyNode({
     required this.level,
     required this.palette,
+    required this.x,
     required this.playable,
     required this.current,
     required this.solveTime,
     required this.onTap,
-    super.key,
   });
 
   final int level;
   final BoardPalette palette;
+  final double x;
   final bool playable;
   final bool current;
   final String? solveTime;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final completed = solveTime != null;
-    final isMilestone = level % discoveryInterval == 0;
-    final diameter = current ? 68.0 : 58.0;
-    final border = current
-        ? palette.accent
+    final discovery = level % discoveryInterval == 0;
+    final stroke = current
+        ? palette.onRoute
         : completed
         ? palette.route
+        : palette.cardEdge;
+    final fill = current
+        ? palette.route
         : playable
-        ? palette.cardEdge
-        : palette.cardEdge.withValues(alpha: .55);
-    final fg = current
+        ? palette.card
+        : palette.quiet;
+    final ink = current
         ? palette.onRoute
         : playable
         ? palette.ink
         : palette.mutedInk;
-
-    final gradientColors = current
-        ? [palette.buttonTop, palette.buttonBottom]
+    final badge = current
+        ? Icons.play_arrow_rounded
         : completed
-        ? [
-            Color.lerp(
-              palette.cardTop,
-              palette.route,
-              palette.dark ? .14 : .08,
-            )!,
-            palette.surface,
-          ]
+        ? Icons.star_rounded
         : playable
-        ? [palette.cardTop, palette.cardBottom]
-        : [palette.quiet, Color.lerp(palette.quiet, palette.canvas, .35)!];
-
-    final medallion = Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: diameter,
-          height: diameter,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: gradientColors,
-            ),
-            border: Border.all(
-              color: border,
-              width: current
-                  ? 3
-                  : completed
-                  ? 2.4
-                  : 1.8,
-            ),
-            boxShadow: current
-                ? [
-                    BoxShadow(
-                      color: palette.route.withValues(alpha: .44),
-                      blurRadius: 18,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .22),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : playable
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: palette.dark ? .28 : .13,
-                      ),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(2.5),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: current
-                      ? Colors.white.withValues(alpha: .28)
-                      : completed
-                      ? palette.route.withValues(alpha: .25)
-                      : playable
-                      ? palette.ink.withValues(alpha: .06)
-                      : Colors.transparent,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!playable)
-                      Icon(Icons.lock_outline, size: 15, color: fg)
-                    else if (current)
-                      Icon(Icons.play_arrow_rounded, size: 18, color: fg),
-                    Text(
-                      '$level',
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: fg,
-                        fontWeight: FontWeight.w800,
-                        fontSize: level >= 10000 ? 11 : 14,
-                        height: 1.05,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+        ? null
+        : Icons.lock_outline_rounded;
+    final label = current ? 'Current' : solveTime;
+    final semanticsLabel = current
+        ? 'Level $level, current'
+        : !playable
+        ? 'Level $level, locked'
+        : completed
+        ? 'Level $level, completed, $solveTime'
+        : 'Level $level';
+    final textScale = MediaQuery.textScalerOf(context).scale(20);
+    final width = math.max(
+      current ? 64.0 : 54.0,
+      math.min(114.0, textScale * (level.toString().length * .57 + .9)),
     );
+    final height = math.max(current ? 60.0 : 50.0, textScale + 18);
 
-    return Semantics(
-      button: playable,
-      label: playable ? 'Level $level' : 'Level $level, locked',
-      excludeSemantics: true,
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              if (current)
-                IgnorePointer(
-                  child: Container(
-                    width: diameter + 14,
-                    height: diameter + 14,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: palette.accent.withValues(alpha: .65),
-                        width: 2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final widthAvailable = constraints.maxWidth;
+        final center = widthAvailable * x;
+        final nodeWidth = math.min(
+          width,
+          2.0 * math.min(center, widthAvailable - center) - 12,
+        );
+        final labelOnRight = x <= .5;
+        final labelInset = labelOnRight ? center : widthAvailable - center;
+        final tagStart = labelInset + nodeWidth / 2 + 8;
+        final shape = StadiumBorder(
+          side: BorderSide(color: stroke, width: current ? 2.5 : 1.5),
+        );
+
+        return Stack(
+          children: [
+            if (label != null && widthAvailable - tagStart > 20)
+              Positioned(
+                left: labelOnRight ? tagStart : null,
+                right: labelOnRight ? null : tagStart,
+                top: 0,
+                bottom: 0,
+                width: math.min(130.0, widthAvailable - tagStart - 6),
+                child: Align(
+                  alignment: labelOnRight
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+                  child: ExcludeSemantics(
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        color: current ? fill : palette.surface,
+                        shape: StadiumBorder(
+                          side: BorderSide(
+                            color: current ? stroke : palette.cardEdge,
+                          ),
+                        ),
                       ),
-                      boxShadow: [
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: current ? ink : palette.ink,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: center - nodeWidth / 2,
+              top: (constraints.maxHeight - height) / 2,
+              width: nodeWidth,
+              height: height,
+              child: Semantics(
+                key: ValueKey('journey-level-$level'),
+                button: true,
+                label: semanticsLabel,
+                hint: !playable ? 'Shows how to unlock this level' : null,
+                excludeSemantics: true,
+                onTap: onTap,
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    color: fill,
+                    shape: shape,
+                    shadows: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .42),
+                        offset: const Offset(0, 3),
+                        blurRadius: 5,
+                      ),
+                      if (current)
                         BoxShadow(
-                          color: palette.accent.withValues(alpha: .32),
-                          blurRadius: 14,
-                          spreadRadius: 1,
+                          color: palette.accent,
+                          spreadRadius: 3,
+                          blurRadius: 1,
                         ),
-                      ],
-                    ),
+                    ],
                   ),
-                ),
-              medallion,
-              if (isMilestone)
-                Positioned(
-                  top: -3,
-                  left: -3,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 21,
-                      height: 21,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: playable
-                              ? [palette.accent, palette.route]
-                              : [palette.quiet, palette.cardBottom],
-                        ),
-                        border: Border.all(color: palette.surface, width: 1.5),
-                        boxShadow: playable
-                            ? [
-                                BoxShadow(
-                                  color: palette.accent.withValues(alpha: .35),
-                                  blurRadius: 5,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    shape: shape,
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: onTap,
+                      customBorder: shape,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (badge != null)
+                              Icon(badge, color: ink, size: current ? 18 : 14),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  '$level',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: ink,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 20,
+                                    height: 1.05,
+                                  ),
                                 ),
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        Icons.diamond_rounded,
-                        size: 11,
-                        color: playable ? palette.onRoute : palette.mutedInk,
-                      ),
-                    ),
-                  ),
-                ),
-              if (completed)
-                Positioned(
-                  top: -3,
-                  right: -3,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFFFF3B0),
-                            Color(0xFFF5B041),
-                            Color(0xFFD48806),
+                              ),
+                            ),
                           ],
                         ),
-                        border: Border.all(color: palette.surface, width: 1.6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFF5B041)
-                                .withValues(alpha: .45),
-                            blurRadius: 6,
-                            spreadRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.star_rounded,
-                        size: 14,
-                        color: Color(0xFF4A2C00),
                       ),
                     ),
                   ),
                 ),
-            ],
-          ),
-          if (current && !completed) ...[
-            const SizedBox(height: 3),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
-              decoration: BoxDecoration(
-                color: palette.accent,
-                borderRadius: BorderRadius.circular(GameTokens.pillRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: palette.dark ? .28 : .14,
-                    ),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Text(
-                'PLAY',
-                style: TextStyle(
-                  color: palette.onAccent,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 10,
-                  letterSpacing: 0.8,
-                  height: 1.1,
-                ),
               ),
             ),
-          ] else if (solveTime != null) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(GameTokens.pillRadius),
-                border: Border.all(color: palette.cardEdge),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: palette.dark ? .24 : .08,
+            if (discovery)
+              Positioned(
+                left: center - nodeWidth / 2 - 4,
+                top: (constraints.maxHeight - height) / 2 - 2,
+                child: ExcludeSemantics(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        color: playable ? palette.accent : palette.quiet,
+                        shape: CircleBorder(
+                          side: BorderSide(color: palette.surface, width: 1.5),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(
+                          Icons.auto_awesome,
+                          size: 13,
+                          color: playable ? palette.onAccent : palette.mutedInk,
+                        ),
+                      ),
                     ),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
                   ),
-                ],
-              ),
-              child: Text(
-                solveTime!,
-                style: TextStyle(
-                  color: palette.mutedInk,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                  height: 1.1,
                 ),
               ),
-            ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-double _slotX(int index) {
-  final position = index % (chapterSize + 2);
-  if (position == 0 || position == chapterSize + 1) return 0;
-  return math.sin(index * .91) * .63;
-}
-
-class _JourneyLine extends CustomPainter {
-  const _JourneyLine(
-    this.index,
-    this.palette,
-    this.biome, {
-    required this.lit,
-    required this.current,
-    required this.completed,
-    required this.highContrast,
-    this.showGrounding = true,
-  });
-
-  final int index;
-  final BoardPalette palette;
-  final BiomeKind biome;
-  final bool lit;
-  final bool current;
-  final bool completed;
-  final bool highContrast;
-  final bool showGrounding;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    double x(int slot) => size.width * (.5 + _slotX(slot) * .32);
-    final mid = size.height / 2;
-    final here = x(index);
-    final from = (here + x(index + 1)) / 2;
-    final to = (here + x(index - 1)) / 2;
-
-    if (!highContrast) {
-      _paintBiomeAccents(canvas, size, here, mid);
-      if (showGrounding) _paintNodeGrounding(canvas, Offset(here, mid));
-    }
-
-    final trail = Path()
-      ..moveTo(from, 0)
-      ..cubicTo(from, mid * .7, here, mid * .64, here, mid);
-    if (index > 0) {
-      trail.cubicTo(here, mid * 1.36, to, mid * 1.3, to, size.height);
-    }
-
-    // Layered glowing path: wide soft outer glow, mid halo, crisp core, inner gleam.
-    canvas.drawPath(
-      trail,
-      Paint()
-        ..color = palette.route.withValues(alpha: lit ? .16 : .07)
-        ..strokeWidth = 18
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-    canvas.drawPath(
-      trail,
-      Paint()
-        ..color = palette.route.withValues(alpha: lit ? .34 : .14)
-        ..strokeWidth = 9
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-    canvas.drawPath(
-      trail,
-      Paint()
-        ..color = palette.route.withValues(alpha: lit ? .80 : .30)
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-    if (lit) {
-      canvas.drawPath(
-        trail,
-        Paint()
-          ..color = palette.onRoute.withValues(alpha: palette.dark ? .22 : .30)
-          ..strokeWidth = 1.4
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke,
-      );
-    }
-  }
-
-  void _paintNodeGrounding(Canvas canvas, Offset center) {
-    final radius = current ? 54.0 : 42.0;
-    final glowColor = current
-        ? palette.accent.withValues(alpha: palette.dark ? .20 : .26)
-        : completed
-        ? palette.route.withValues(alpha: palette.dark ? .14 : .11)
-        : palette.ink.withValues(alpha: palette.dark ? .10 : .05);
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = RadialGradient(colors: [glowColor, Colors.transparent])
-            .createShader(rect),
-    );
-  }
-
-  void _paintBiomeAccents(Canvas canvas, Size size, double here, double mid) {
-    final position = index % (chapterSize + 1);
-    final onRight = here < size.width / 2;
-    final sideX = onRight ? size.width * .78 : size.width * .22;
-    final secondaryX = onRight ? size.width * .16 : size.width * .84;
-    final jitter = math.sin(index * 1.73) * 10;
-    final y = mid + math.cos(index * 1.37) * 16;
-
-    final primary = palette.route.withValues(alpha: palette.dark ? .14 : .11);
-    final soft = palette.covered.withValues(alpha: palette.dark ? .22 : .32);
-    final accent = palette.accent.withValues(alpha: palette.dark ? .24 : .22);
-
-    if (position % 2 == 0) {
-      switch (biome) {
-        case BiomeKind.forest:
-          // Layered fern / foliage cluster + mossy stepping stone.
-          canvas.drawOval(
-            Rect.fromCenter(
-              center: Offset(sideX + jitter, y + 8),
-              width: 44,
-              height: 18,
-            ),
-            Paint()..color = soft,
-          );
-          canvas.drawOval(
-            Rect.fromCenter(
-              center: Offset(sideX + jitter - 10, y - 4),
-              width: 24,
-              height: 12,
-            ),
-            Paint()..color = primary,
-          );
-          canvas.drawOval(
-            Rect.fromCenter(
-              center: Offset(sideX + jitter + 11, y - 2),
-              width: 20,
-              height: 10,
-            ),
-            Paint()..color = primary,
-          );
-          if (position % 4 == 0) {
-            canvas.drawCircle(
-              Offset(sideX + jitter + 4, y - 10),
-              2.6,
-              Paint()..color = accent,
-            );
-          }
-        case BiomeKind.ocean:
-          // Gentle wave ripples & tide pebbles.
-          final wavePaint = Paint()
-            ..color = primary
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.0
-            ..strokeCap = StrokeCap.round;
-          final wx = sideX + jitter;
-          final wave = Path()
-            ..moveTo(wx - 20, y)
-            ..quadraticBezierTo(wx - 10, y - 6, wx, y)
-            ..quadraticBezierTo(wx + 10, y + 6, wx + 20, y);
-          canvas.drawPath(wave, wavePaint);
-          canvas.drawCircle(
-            Offset(wx - 14, y + 12),
-            3.2,
-            Paint()..color = soft,
-          );
-          canvas.drawCircle(
-            Offset(wx + 12, y - 11),
-            2.2,
-            Paint()..color = accent,
-          );
-        case BiomeKind.winter:
-          // Soft snowdrift & crystalline 6-point snowflake.
-          canvas.drawOval(
-            Rect.fromCenter(
-              center: Offset(sideX + jitter, y + 10),
-              width: 48,
-              height: 14,
-            ),
-            Paint()..color = soft,
-          );
-          final sx = sideX + jitter + (onRight ? -8 : 8);
-          final sy = y - 10;
-          final flakePaint = Paint()
-            ..color = primary
-            ..strokeWidth = 1.4
-            ..strokeCap = StrokeCap.round;
-          for (var a = 0; a < 3; a++) {
-            final angle = a * math.pi / 3;
-            final dx = math.cos(angle) * 7;
-            final dy = math.sin(angle) * 7;
-            canvas.drawLine(
-              Offset(sx - dx, sy - dy),
-              Offset(sx + dx, sy + dy),
-              flakePaint,
-            );
-          }
-        case BiomeKind.desert:
-          // Layered dune contour & sun-warmed stone.
-          final dx = sideX + jitter;
-          final dune = Path()
-            ..moveTo(dx - 24, y + 10)
-            ..quadraticBezierTo(dx, y - 8, dx + 24, y + 10)
-            ..close();
-          canvas.drawPath(dune, Paint()..color = soft);
-          canvas.drawOval(
-            Rect.fromCenter(
-              center: Offset(dx + 10, y + 12),
-              width: 14,
-              height: 7,
-            ),
-            Paint()..color = primary,
-          );
-          if (position % 4 == 0) {
-            canvas.drawCircle(
-              Offset(dx - 12, y - 8),
-              2.5,
-              Paint()..color = accent,
-            );
-          }
-      }
-    }
-
-    // Subtle starlight / ambient motes on dark themes or every 3rd slot.
-    if (palette.dark || position % 3 == 1) {
-      final starCenter = Offset(secondaryX - jitter * .5, mid - 20);
-      canvas.drawCircle(
-        starCenter,
-        palette.dark ? 2.0 : 1.6,
-        Paint()
-          ..color = palette.particleColor.withValues(
-            alpha: palette.dark ? .32 : .18,
-          ),
-      );
-      if (palette.dark && position % 2 == 1) {
-        canvas.drawCircle(
-          Offset(sideX - jitter * .4, mid + 24),
-          1.4,
-          Paint()..color = palette.accent.withValues(alpha: .28),
         );
-      }
-    }
+      },
+    );
   }
-
-  @override
-  bool shouldRepaint(_JourneyLine oldDelegate) =>
-      oldDelegate.index != index ||
-      oldDelegate.palette != palette ||
-      oldDelegate.biome != biome ||
-      oldDelegate.lit != lit ||
-      oldDelegate.current != current ||
-      oldDelegate.completed != completed ||
-      oldDelegate.highContrast != highContrast ||
-      oldDelegate.showGrounding != showGrounding;
 }
 
 class _ChapterHeaderStop extends StatelessWidget {
-  const _ChapterHeaderStop({
-    required this.chapter,
-    required this.palette,
-    required this.biome,
-    required this.unlocked,
-  });
+  const _ChapterHeaderStop({required this.chapter, required this.palette});
 
   final int chapter;
   final BoardPalette palette;
-  final BiomeKind biome;
-  final bool unlocked;
-
-  String _biomeTitle() => switch (biome) {
-    BiomeKind.ocean => 'Coastal Shore',
-    BiomeKind.forest => 'Mossy Grove',
-    BiomeKind.winter => 'Frost Peaks',
-    BiomeKind.desert => 'Sunlit Dunes',
-  };
 
   @override
-  Widget build(BuildContext context) {
-    final start = chapter * chapterSize + 1;
-    final end = chapterEnd(chapter);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(GameTokens.cardRadius),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [palette.cardTop, palette.cardBottom],
-            ),
-            border: Border.all(
-              color: unlocked
-                  ? palette.route.withValues(alpha: .55)
-                  : palette.cardEdge,
-              width: unlocked ? 1.5 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: palette.dark ? .24 : .08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          color: palette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: palette.cardEdge),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Chapter ${chapter + 1} · ${chapterName(chapter)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
+              Text(
+                'Levels ${chapter * chapterSize + 1}–${chapterEnd(chapter)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.mutedInk,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Image.asset(
-                      biomeAssetPath(biome),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: palette.route.withValues(alpha: .16),
-                        ),
-                        child: Icon(
-                          Icons.terrain_rounded,
-                          size: 20,
-                          color: palette.route,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Chapter ${chapter + 1} · ${chapterName(chapter)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          height: 1.15,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_biomeTitle()} · Levels $start–$end',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.mutedInk,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11.5,
-                          height: 1.15,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _ChestStop extends StatelessWidget {
-  const _ChestStop(this.chapter, this.palette, this.biome);
+  const _ChestStop(this.chapter, this.palette);
   final int chapter;
   final BoardPalette palette;
-  final BiomeKind biome;
 
   @override
   Widget build(BuildContext context) {
@@ -992,177 +619,78 @@ class _ChestStop extends StatelessWidget {
     final claimed = model.chapterClaimed(chapter);
     final ready = model.chapterReady(chapter);
     final clears = model.chapterClears(chapter);
-    final biomePath = biomeAssetPath(biome);
-    final scrimLeft = palette.surface.withValues(
-      alpha: palette.dark ? .92 : .94,
-    );
-    final scrimRight = palette.surface.withValues(
-      alpha: palette.dark ? .56 : .62,
-    );
+    final status = claimed
+        ? 'Treasure claimed'
+        : ready
+        ? 'Treasure ready'
+        : '$clears / $chapterSize puzzles';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(GameTokens.cardRadius),
-          boxShadow: [
-            BoxShadow(
-              color: ready
-                  ? palette.route.withValues(alpha: .28)
-                  : Colors.black.withValues(alpha: palette.dark ? .28 : .10),
-              blurRadius: ready ? 16 : 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Material(
-          color: palette.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(GameTokens.cardRadius),
-            side: BorderSide(
-              color: ready ? palette.route : palette.cardEdge,
-              width: ready ? 2 : 1,
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+      child: Material(
+        color: palette.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: ready ? palette.route : palette.cardEdge,
+            width: ready ? 2 : 1,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: ready ? () => _showChapterReward(context, chapter) : null,
-            child: Stack(
-              fit: StackFit.expand,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: ready ? () => _showChapterReward(context, chapter) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            child: Row(
               children: [
-                Image.asset(
-                  biomePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [palette.cardTop, palette.cardBottom],
-                      ),
-                    ),
-                  ),
+                GameArt(
+                  claimed ? ArtKind.treasureOpen : ArtKind.treasure,
+                  palette: palette,
+                  size: 42,
                 ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [scrimLeft, scrimRight],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              (ready ? palette.accent : palette.route)
-                                  .withValues(alpha: ready ? .36 : .14),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: GameArt(
-                            claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-                            palette: palette,
-                            size: 48,
-                          ),
+                      Text(
+                        chapterName(chapter),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          height: 1.12,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              chapterName(chapter),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: palette.ink,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15.5,
-                                height: 1.15,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                GameArt(
-                                  ArtKind.coin,
-                                  palette: palette,
-                                  size: 13,
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    '$chapterRewardCoins coins · $chapterRewardHints hint',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: palette.ink.withValues(alpha: .86),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            if (claimed || ready)
-                              Text(
-                                claimed ? 'Treasure claimed' : 'Treasure ready',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: ready
-                                      ? palette.route
-                                      : palette.mutedInk,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12.5,
-                                  height: 1.1,
-                                ),
-                              )
-                            else ...[
-                              GameBar(value: clears / chapterSize, height: 6),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$clears / $chapterSize puzzles',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: palette.mutedInk,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  height: 1.1,
-                                ),
-                              ),
-                            ],
-                          ],
+                      Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          height: 1.12,
                         ),
                       ),
-                      if (ready) ...[
-                        const SizedBox(width: 8),
-                        ActionPill(
-                          label: 'Open',
-                          tone: ActionTone.primary,
-                          onTap: () => _showChapterReward(context, chapter),
+                      Text(
+                        '$chapterRewardCoins coins · $chapterRewardHints hint',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.mutedInk,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          height: 1.12,
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
+                if (ready) const Icon(Icons.chevron_right_rounded),
               ],
             ),
           ),
@@ -1172,9 +700,13 @@ class _ChestStop extends StatelessWidget {
   }
 }
 
+AnimationStyle? _journeyAnimationStyle(BuildContext context) =>
+    MediaQuery.disableAnimationsOf(context) ? AnimationStyle.noAnimation : null;
+
 Future<void> showChapterTreasures(BuildContext context) =>
     showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: _journeyAnimationStyle(context),
       builder: (context) {
         final model = context.watch<AppModel>();
         final palette = BoardPalette.palettes[model.theme]!;
@@ -1233,6 +765,7 @@ Future<void> showChapterTreasures(BuildContext context) =>
 Future<void> _showChapterReward(BuildContext context, int chapter) =>
     showDialog<void>(
       context: context,
+      animationStyle: _journeyAnimationStyle(context),
       builder: (_) => _ChapterRewardDialog(chapter: chapter),
     );
 
@@ -1256,7 +789,9 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
       _claiming = true;
       _opened = true;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 280));
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+    }
     final claimed = await model.claimChapter(widget.chapter);
     if (!mounted) return;
     setState(() {
@@ -1288,7 +823,9 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
           ),
         ),
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
           child: GameArt(
             _opened ? ArtKind.treasureOpen : ArtKind.treasure,
             key: ValueKey(_opened),
@@ -1374,13 +911,20 @@ class _RewardChip extends StatelessWidget {
 }
 
 class _JumpDialog extends StatefulWidget {
-  const _JumpDialog();
+  const _JumpDialog({required this.maximumLevel});
+
+  final int maximumLevel;
+
   @override
   State<_JumpDialog> createState() => _JumpDialogState();
 }
 
 class _JumpDialogState extends State<_JumpDialog> {
-  int? _level;
+  String _input = '';
+
+  int? get _level => int.tryParse(_input.trim(), radix: 10);
+
+  bool get _valid => (_level ?? 0) > 0 && _level! <= widget.maximumLevel;
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -1388,8 +932,16 @@ class _JumpDialogState extends State<_JumpDialog> {
     content: TextField(
       autofocus: true,
       keyboardType: TextInputType.number,
-      onChanged: (value) => setState(() => _level = int.tryParse(value)),
-      decoration: const InputDecoration(labelText: 'Level number'),
+      onChanged: (value) => setState(() => _input = value),
+      onSubmitted: (_) {
+        if (_valid) Navigator.pop(context, _level);
+      },
+      decoration: InputDecoration(
+        labelText: 'Level number',
+        errorText: _input.isNotEmpty && !_valid
+            ? 'Enter a level from 1 to ${widget.maximumLevel}'
+            : null,
+      ),
     ),
     actions: [
       TextButton(
@@ -1397,9 +949,7 @@ class _JumpDialogState extends State<_JumpDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: (_level ?? 0) > 0
-            ? () => Navigator.pop(context, _level)
-            : null,
+        onPressed: _valid ? () => Navigator.pop(context, _level) : null,
         child: const Text('Go'),
       ),
     ],
