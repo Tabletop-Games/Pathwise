@@ -28,7 +28,19 @@ void main() {
   )..setHaptics(false);
 
   test('early, boundary and very high levels are deterministic and unique', () {
-    for (final number in [1, 12, 36, 37, 100, 150, 500, 1000, 1000000]) {
+    for (final number in [
+      1,
+      12,
+      36,
+      37,
+      100,
+      150,
+      500,
+      1000,
+      10000,
+      100000,
+      1000000,
+    ]) {
       final id = PuzzleId.level(number);
       final board = generatePuzzle(id.generation);
       expect(solve(board.puzzle).unique, isTrue, reason: 'level $number');

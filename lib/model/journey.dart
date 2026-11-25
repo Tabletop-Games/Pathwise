@@ -1,7 +1,7 @@
-import 'game_state.dart';
-
 const chapterSize = 25;
 const discoveryInterval = 10;
+const chapterRewardCoins = 25;
+const chapterRewardHints = 1;
 const discoveryFallbackCoins = 20;
 const accessibleMultiplier = 3;
 const multiplierRegions = <(double, int)>[
@@ -34,11 +34,14 @@ const _seasons = ['Arrival', 'Drift', 'Echo', 'Return', 'Horizon'];
 String chapterName(int chapter) {
   final landscape = _landscapes[chapter % _landscapes.length];
   final season = _seasons[chapter ~/ _landscapes.length % _seasons.length];
-  return chapter < _landscapes.length ? landscape : '$landscape · $season';
+  if (chapter < _landscapes.length) return landscape;
+  final volume = chapter ~/ (_landscapes.length * _seasons.length);
+  return volume == 0
+      ? '$landscape · $season'
+      : '$landscape · $season ${volume + 1}';
 }
 
-int chapterEnd(int chapter) =>
-    ((chapter + 1) * chapterSize).clamp(1, levelCount);
+int chapterEnd(int chapter) => (chapter + 1) * chapterSize;
 
 const discoveryCatalogue = [
   'tip/arrow',

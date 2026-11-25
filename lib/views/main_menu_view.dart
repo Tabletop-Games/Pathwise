@@ -13,6 +13,7 @@ import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import '../ui/journey_art.dart';
+import 'campaign_journey_view.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'journey_rewards.dart';
@@ -158,6 +159,7 @@ class _MainMenuViewState extends State<MainMenuView>
         model.dailyCurrent(model.daily.value as String).key,
         model.highestUnlocked,
         model.levelsSolved,
+        model.pendingChapterChests.length,
         model.developerMode,
         model.progression,
         model.coinBalance,
@@ -170,6 +172,8 @@ class _MainMenuViewState extends State<MainMenuView>
     );
     final model = context.read<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
+    final chapter = chapterFor(model.highestUnlocked);
+    final chapterProgress = model.chapterClears(chapter);
     final daily = model.daily;
     final result = model.result(daily);
     final currentDaily = model.dailyCurrent(daily.value as String);
@@ -193,6 +197,63 @@ class _MainMenuViewState extends State<MainMenuView>
         ? dailyCheckpointCount - 1
         : currentDaily.checkpoint! - 1;
     return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 530),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Pathwise',
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                            ),
+                      ),
+                    ),
+                  ),
+                  BalanceChip(
+                    coins: model.coinBalance,
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const StoreView(section: StoreSection.coins),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Statistics',
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const StatisticsView()),
+                    ),
+                    icon: const PathIcon(ControlGlyph.statistics),
+                  ),
+                  IconButton(
+                    tooltip: 'Settings',
+                    onPressed: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsView()),
+                    ),
+                    icon: const PathIcon(ControlGlyph.settings),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -201,53 +262,6 @@ class _MainMenuViewState extends State<MainMenuView>
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Pathwise',
-                          maxLines: 1,
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.8,
-                              ),
-                        ),
-                      ),
-                    ),
-                    BalanceChip(
-                      coins: model.coinBalance,
-                      onTap: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const StoreView(section: StoreSection.coins),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Statistics',
-                      onPressed: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const StatisticsView(),
-                        ),
-                      ),
-                      icon: const PathIcon(ControlGlyph.statistics),
-                    ),
-                    IconButton(
-                      tooltip: 'Settings',
-                      onPressed: () => Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsView()),
-                      ),
-                      icon: const PathIcon(ControlGlyph.settings),
-                    ),
-                  ],
-                ),
                 Row(
                   children: [
                     _CounterChip(
@@ -274,17 +288,20 @@ class _MainMenuViewState extends State<MainMenuView>
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: const BorderRadius.all(Radius.circular(6)),
-                  child: JourneyArt(
-                    palette,
-                    chapter: chapterFor(model.highestUnlocked),
-                  ),
+                  child: JourneyArt(palette, chapter: chapter),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  chapterName(chapterFor(model.highestUnlocked)),
+                  chapterName(chapter),
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                Text('Campaign · ${model.levelsSolved} solved'),
+                Text('$chapterProgress / $chapterSize puzzles'),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: chapterProgress / chapterSize,
+                  backgroundColor: palette.tile,
+                  color: palette.route,
+                ),
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
@@ -307,6 +324,14 @@ class _MainMenuViewState extends State<MainMenuView>
                   ),
                 ),
                 const SizedBox(height: 10),
+                if (model.pendingChapterChests.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => showChapterTreasures(context),
+                    icon: const Icon(Icons.card_giftcard_outlined),
+                    label: Text(
+                      'Chapter treasures · ${model.pendingChapterChests.length}',
+                    ),
+                  ),
                 _DailyCard(
                   palette: palette,
                   done: dailyDone,

@@ -33,6 +33,8 @@ enum ArtKind {
   timer,
   levels,
   calendar,
+  treasure,
+  treasureOpen,
 }
 
 /// A square illustration. Painted in a unit box so it scales cleanly.
@@ -94,6 +96,10 @@ void paintArt(Canvas canvas, ArtKind kind, BoardPalette p) {
       paintResource(canvas, p, ResourceForm.gift);
     case ArtKind.crate:
       paintResource(canvas, p, ResourceForm.crate);
+    case ArtKind.treasure:
+      paintResource(canvas, p, ResourceForm.treasure);
+    case ArtKind.treasureOpen:
+      paintResource(canvas, p, ResourceForm.treasureOpen);
     case ArtKind.noAds:
       paintResource(canvas, p, ResourceForm.shield);
     case ArtKind.brush:

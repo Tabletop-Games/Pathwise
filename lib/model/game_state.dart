@@ -4,7 +4,6 @@ enum PlayMode { levels, daily, attack }
 
 const legacyLevelCount = 36;
 const levelsPerPage = 12;
-const levelCount = 1000;
 const dailyCheckpointCount = 3;
 
 int pageForLevel(int level) => (level - 1) ~/ levelsPerPage;

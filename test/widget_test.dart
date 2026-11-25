@@ -190,7 +190,9 @@ void main() {
     );
     await tester.tap(find.text('Levels'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('1').hitTestable());
+    await tester.tap(
+      find.byKey(const ValueKey('journey-level-1')).hitTestable(),
+    );
     await tester.pumpAndSettle();
     final grid = find.byKey(const ValueKey('puzzle-grid'));
     final board = tester.getRect(grid);
@@ -234,7 +236,8 @@ void main() {
       await tester.pump();
     }
     await solution.up();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('Level complete!'), findsOneWidget);
     expect(find.text('Next level'), findsOneWidget);
     expect(model.complete, true);
@@ -562,6 +565,8 @@ void main() {
     );
     await tester.tap(find.text('Levels'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Level grid'));
+    await tester.pumpAndSettle();
     expect(find.text('Levels 37–48'), findsOneWidget);
     await tester.tap(find.byTooltip('Next page'));
     await tester.pumpAndSettle();
@@ -581,7 +586,8 @@ void main() {
       model.step(cell);
     }
     model.end();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
     await tester.ensureVisible(find.text('Next level'));
     await tester.tap(find.text('Next level'));
     await tester.pumpAndSettle();
@@ -594,6 +600,52 @@ void main() {
     await model.flush();
     model.dispose();
   });
+  testWidgets('journey jumps directly from a six-digit level and back', (
+    tester,
+  ) async {
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {
+        'highestUnlocked': 100000,
+        'results': {
+          'levels/99999': {'ms': 1234, 'hints': 0},
+        },
+      },
+      loader: (_) async => fixture(),
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(value: model, child: const PathwiseApp()),
+    );
+    await tester.scrollUntilVisible(find.text('Levels'), 140);
+    await tester.tap(find.text('Levels'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('journey-level-100000')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('journey-level-1')), findsNothing);
+    await tester.tap(find.byTooltip('Jump to level'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '1000');
+    await tester.pump();
+    await tester.tap(find.text('Go'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('journey-level-1000')).hitTestable(),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Current level'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('journey-level-100000')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await model.flush();
+    model.dispose();
+  });
+
   testWidgets('theme preview is isolated and shortfall is exact', (
     tester,
   ) async {

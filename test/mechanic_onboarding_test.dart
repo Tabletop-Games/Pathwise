@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../lib/logic/ad_service.dart';
+import '../lib/logic/billing_service.dart';
 import '../lib/logic/mechanic_tutorials.dart';
 import '../lib/logic/puzzle.dart';
 import '../lib/model/app_model.dart';
@@ -236,16 +237,19 @@ void main() {
     model.end();
     expect(model.complete, isTrue);
     final ads = AdService();
+    final billing = BillingService(persist: (_) async => true);
+    addTearDown(billing.dispose);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: model),
           ChangeNotifierProvider.value(value: ads),
+          ChangeNotifierProvider.value(value: billing),
         ],
         child: const MaterialApp(home: PuzzleView()),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 700));
     final next = find.text('Next level');
     await tester.ensureVisible(next);
     await tester.tap(next);

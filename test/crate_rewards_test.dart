@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../lib/logic/ad_service.dart';
+import '../lib/logic/billing_service.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/native_achievements.dart';
@@ -83,6 +84,8 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final store = MemoryStorage();
         final ads = CrateAds();
+        final billing = BillingService(persist: (_) async => true);
+        addTearDown(billing.dispose);
         var ms = 100;
         final model = AppModel(
           storage: store,
@@ -96,6 +99,7 @@ void main() {
             providers: [
               ChangeNotifierProvider.value(value: model),
               ChangeNotifierProvider<AdService>.value(value: ads),
+              ChangeNotifierProvider<BillingService>.value(value: billing),
             ],
             child: const MaterialApp(home: PuzzleView()),
           ),
@@ -161,8 +165,14 @@ void main() {
         expect(model.fallingCrate, crate);
         expect(tester.getCenter(catchCrate), positionBeforeCompletion);
         final beforeClaim = model.coinBalance;
+        Future<void> finishDialogAnimation() async {
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump();
+        }
+
         await tester.tap(catchCrate);
-        await tester.pumpAndSettle();
+        await finishDialogAnimation();
         expect(find.text('+$amount'), findsOneWidget);
         expect(catchCrate, findsNothing);
         for (final feedback in [
@@ -170,12 +180,12 @@ void main() {
           'Video ended without a reward. Try again.',
         ]) {
           await tester.tap(find.text('Watch'));
-          await tester.pumpAndSettle();
+          await finishDialogAnimation();
           expect(find.text(feedback), findsOneWidget);
           expect(model.coinBalance, beforeClaim);
         }
         await tester.tap(find.text('Watch'));
-        await tester.pumpAndSettle();
+        await finishDialogAnimation();
         expect(find.text('Watch'), findsNothing);
         expect(
           model.transactions

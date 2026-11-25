@@ -28,8 +28,9 @@ class _CompletionBonusState extends State<CompletionBonus>
     duration: const Duration(milliseconds: 1750),
   );
   bool _busy = false;
-  bool _moving = false;
+  bool _unavailable = false;
   var _visiblePosition = 0.0;
+  var _reduced = false;
 
   @override
   void initState() {
@@ -38,10 +39,65 @@ class _CompletionBonusState extends State<CompletionBonus>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduced =
+        MediaQuery.disableAnimationsOf(context) ||
+        MediaQuery.accessibleNavigationOf(context);
+    _updateMotion(WidgetsBinding.instance.lifecycleState);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) =>
+      _updateMotion(state);
+
+  void _updateMotion(AppLifecycleState? state) {
+    if (!_reduced &&
+        widget.model.selectedMultiplier == null &&
+        widget.model.canMultiplyCompletion &&
+        (state == null || state == AppLifecycleState.resumed)) {
+      if (!_track.isAnimating) {
+        _track.repeat(reverse: true);
+      }
+    } else {
       _track.stop();
-      if (mounted) setState(() => _moving = false);
+    }
+  }
+
+  bool get _current =>
+      mounted &&
+      ModalRoute.isCurrentOf(context) == true &&
+      widget.model.canMultiplyCompletion &&
+      widget.model.onlineReady;
+
+  Future<void> _claim(AdService ads) async {
+    final model = widget.model;
+    model.selectCompletionMultiplier(accessibleMultiplier);
+    final reward = model.completionRewardCallback();
+    if (reward == null) return;
+    setState(() {
+      _busy = true;
+      _unavailable = false;
+    });
+    var shown = false;
+    try {
+      if (_current && !ads.videoReady) {
+        await ads.prepare(canPresent: () => _current);
+      }
+      if (_current && ads.videoReady) {
+        shown = await ads.watchVideo(
+          reward,
+          waitForReward: true,
+          canPresent: () => _current,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _unavailable = !shown;
+        });
+      }
     }
   }
 
@@ -54,97 +110,57 @@ class _CompletionBonusState extends State<CompletionBonus>
 
   @override
   Widget build(BuildContext context) {
-    final ads = context.watch<AdService>();
     final model = widget.model;
-    if (!model.canMultiplyCompletion || !ads.enabled)
-      return const SizedBox.shrink();
+    if (!model.canMultiplyCompletion) return const SizedBox.shrink();
+    final ads = context.read<AdService>();
     final selected = model.selectedMultiplier;
-    final reduced =
-        MediaQuery.disableAnimationsOf(context) ||
-        MediaQuery.accessibleNavigationOf(context);
     final extra =
         economy.clearReward(PlayMode.levels) *
         ((selected ?? accessibleMultiplier) - 1);
-    final ready = ads.videoReady && !context.watch<BillingService>().buying;
+    final buying = context.watch<BillingService>().buying;
     return Column(
       children: [
-        if (!reduced && (ready || selected != null))
+        if (!_reduced)
           AnimatedBuilder(
             animation: _track,
             builder: (context, _) {
               _visiblePosition = _track.value;
-              return _MultiplierTrack(_visiblePosition);
+              return _MultiplierTrack(
+                _visiblePosition,
+                stopped: selected != null,
+              );
             },
           ),
-        if (ready && selected == null && !reduced)
-          Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              TextButton(
-                onPressed: !ready
-                    ? null
-                    : () {
-                        if (!_moving) {
-                          setState(() => _moving = true);
-                          _track.repeat(reverse: true);
-                        } else {
-                          _track.stop();
-                          model.selectCompletionMultiplier(
-                            multiplierAt(_visiblePosition),
-                          );
-                        }
-                      },
-                child: Text(_moving ? 'Stop' : 'Start bonus track'),
-              ),
-              TextButton(
-                onPressed: !ready
-                    ? null
-                    : () {
-                        _track.stop();
-                        _track.value = .35;
-                        model.selectCompletionMultiplier(accessibleMultiplier);
-                      },
-                child: const Text('Choose fixed 3×'),
-              ),
-            ],
+        if (selected == null && !_reduced)
+          TextButton(
+            onPressed: () {
+              _track.stop();
+              _track.value = _visiblePosition;
+              model.selectCompletionMultiplier(multiplierAt(_visiblePosition));
+            },
+            child: const Text('Stop'),
           ),
-        if (selected != null || reduced) ...[
+        if (selected != null || _reduced) ...[
           Text('${selected ?? accessibleMultiplier}× base level reward'),
           TextButton.icon(
             icon: const Icon(Icons.play_circle_outline),
-            onPressed: !ready || _busy
-                ? null
-                : () async {
-                    final multiplier = selected ?? accessibleMultiplier;
-                    model.selectCompletionMultiplier(multiplier);
-                    final reward = model.completionRewardCallback();
-                    if (reward == null) return;
-                    setState(() => _busy = true);
-                    await ads.watchVideo(
-                      reward,
-                      waitForReward: true,
-                      canPresent: () =>
-                          mounted &&
-                          ModalRoute.isCurrentOf(context) == true &&
-                          model.canMultiplyCompletion,
-                    );
-                    if (mounted) setState(() => _busy = false);
-                  },
+            onPressed: _busy || buying ? null : () => _claim(ads),
             label: Text(
-              'Watch for +$extra coins · ${model.completionCoins + extra} level coins',
+              'Watch video for +$extra coins · ${model.completionCoins + extra} level coins',
             ),
           ),
+          if (_unavailable)
+            const Text('Video unavailable. Try again or continue.'),
         ],
-        if (!ready && ads.enabled)
-          const Text('Optional video temporarily unavailable'),
       ],
     );
   }
 }
 
 class _MultiplierTrack extends StatelessWidget {
-  const _MultiplierTrack(this.position);
+  const _MultiplierTrack(this.position, {required this.stopped});
   final double position;
+  final bool stopped;
 
   @override
   Widget build(BuildContext context) {
@@ -173,19 +189,25 @@ class _MultiplierTrack extends StatelessWidget {
                           color: Color.lerp(
                             colors.surface,
                             colors.primary,
-                            switch (region.$2) {
-                              4 => .33,
-                              3 => .20,
-                              _ => .09,
-                            },
+                            stopped &&
+                                    index ==
+                                        multiplierRegions.indexWhere(
+                                          (zone) => position <= zone.$1,
+                                        )
+                                ? .55
+                                : switch (region.$2) {
+                                    4 => .33,
+                                    3 => .20,
+                                    _ => .09,
+                                  },
                           )!,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              '${region.$2}×',
-                              maxLines: 1,
-                              overflow: TextOverflow.clip,
-                              textAlign: TextAlign.center,
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('${region.$2}×', maxLines: 1),
+                              ),
                             ),
                           ),
                         ),
@@ -202,6 +224,7 @@ class _MultiplierTrack extends StatelessWidget {
               top: 0,
               bottom: 0,
               child: ColoredBox(
+                key: const ValueKey('multiplier-pointer'),
                 color: colors.onSurface,
                 child: const SizedBox(width: 2),
               ),

@@ -8,18 +8,18 @@ This document describes the design, the rules a sync pass follows, and what the 
 
 One saved game per player, named `pathwise-progress-v1` (debug builds use a local test store, see below). Its payload is the same snapshot map the app writes to the device, so there is one schema and one migration path.
 
-The cloud envelope is compact JSON:
+The cloud envelope uses canonical JSON with optional gzip compression:
 
 | Field | Meaning |
 | --- | --- |
-| `format`, `version` | `pathwise-cloud`, version 3. Version 1 is verified and migrated to Classic tip defaults. Versions 1 and 2 start discovery progress prospectively unless the payload already includes it. |
+| `format`, `version` | `pathwise-cloud`, version 4. Versions 1–3 remain readable. Version 1 is verified and migrated to Classic tip defaults. Versions 1 and 2 start discovery progress prospectively unless the payload already includes it. |
 | `revision` | Increments on every successful upload. Used to detect remote changes. |
 | `savedAt` | Upload time in milliseconds, for display only. |
 | `economy` | SHA-256 of the economy unit (below). Lets a device compare copies without parsing both. |
 | `payloadDigest` | SHA-256 of the whole payload. Detects corruption or tampering. |
-| `payload` | Coins, hints, purchases and entitlement flags, research, boosts, streak, achievements, results, daily and Time Attack records, tutorials, preferences, and the unfinished route. |
+| `payload` | Coins, hints, purchases and entitlement flags, research, boosts, chapter chests, discoveries, streak, achievements, results, daily and Time Attack records, tutorials, preferences, and the unfinished route. |
 
-Canonical JSON (sorted keys) keeps digests stable across devices. The envelope is limited to 2 MB. Saved Games allow more, and the margin ensures a write never fails part way through.
+Canonical JSON (sorted keys) keeps digests stable across devices. Envelopes of at least 64 KiB are gzip-compressed. The transport limit remains 2 MiB, and the decoder allows at most 64 MiB after expansion. The bound protects mobile memory. A save beyond either limit cannot sync to the single Play Games slot but remains local.
 
 Excluded: Play Games and Play Billing tokens, account identifiers (only a hash of the player ID is kept, and only to detect an account switch), device identifiers, and any secrets. Purchase tokens are not stored. The grant record is a hash of the token, so a purchase cannot be credited twice.
 

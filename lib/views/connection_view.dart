@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/game_state.dart';
 import '../ui/game_ui.dart';
 import 'components/brand_mark.dart';
 
@@ -33,7 +34,7 @@ import 'components/brand_mark.dart';
 }
 
 /// Covers the whole app while there is no confirmed internet connection. It
-/// sits above the Navigator, so individual screens do not check the network.
+/// sits above the Navigator. A completed puzzle may keep its result visible.
 class ConnectionGate extends StatelessWidget {
   const ConnectionGate({
     required this.connectivity,
@@ -51,7 +52,11 @@ class ConnectionGate extends StatelessWidget {
     );
     final inPlay = context.select((AppModel model) => model.activeId != null);
     final theme = context.select((AppModel model) => model.theme);
-    final blocked = state != ConnectivityState.online;
+    final showingResult = context.select((AppModel model) {
+      final id = model.activeId;
+      return id != null && id.mode != PlayMode.attack && model.complete;
+    });
+    final blocked = state != ConnectivityState.online && !showingResult;
     return Stack(
       children: [
         IgnorePointer(

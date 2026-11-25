@@ -30,11 +30,11 @@ void main() {
     expect(find.byTooltip('Store'), findsNothing);
     expect(find.text('Themes'), findsNothing);
     final cardWidth = tester.getSize(card).width;
-    expect(
-      cardWidth,
-      tester.getSize(find.byKey(const ValueKey('wheel-tile'))).width,
-    );
+    final wheel = find.byKey(const ValueKey('wheel-tile'));
+    await tester.scrollUntilVisible(wheel, 100);
+    expect(cardWidth, tester.getSize(wheel).width);
     expect(cardWidth, greaterThan(300));
+    await tester.ensureVisible(card);
     await tester.tap(card);
     await tester.pumpAndSettle();
     expect(find.byType(StoreView), findsOneWidget);
@@ -72,7 +72,7 @@ void main() {
       findsOneWidget,
     );
     // Packs are shown with an unavailable price, never an invented one.
-    expect(find.text('—'), findsWidgets);
+    expect(find.text('Unavailable'), findsWidgets);
     expect(find.text('500'), findsOneWidget);
     await tester.tap(find.text('Upgrades'));
     await tester.pumpAndSettle();

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../model/app_themes.dart';
 import '../../model/path_tips.dart';
 import '../../model/user_preferences.dart';
+import '../../ui/art/directional_tip_shapes.dart';
 import '../../ui/art/tip_shapes.dart';
 import '../../ui/art/vector_path.dart';
 
@@ -15,6 +16,15 @@ final _art = {
       compileVector(shape.$2),
       compileVector(shape.$3),
       compileVector(shape.$4),
+    ),
+};
+final _directionalArt = {
+  for (final MapEntry(key: tip, value: shape) in directionalTipShapes.entries)
+    tip: (
+      Color(0xff000000 | tipShapes[tip]!.$1),
+      compileVector(shape.$1),
+      compileVector(shape.$2),
+      compileVector(shape.$3),
     ),
 };
 final _inks = <(BoardPalette, PathTip), (Paint, Paint, Paint, Paint)>{};
@@ -88,7 +98,8 @@ void paintPathTip(
       Paint()..color = palette.accent,
     );
   } else {
-    final (seed, silhouette, light, detail) = _art[tip]!;
+    final (seed, silhouette, light, detail) =
+        (catalogue ? null : _directionalArt[tip]) ?? _art[tip]!;
     canvas.scale(radius / 12);
     canvas.translate(-12, -12);
     if (concealed) {

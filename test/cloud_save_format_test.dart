@@ -51,6 +51,29 @@ void main() {
       expect(decoded.payload, save());
     });
 
+    test('compresses and restores a six-digit campaign history', () {
+      final payload = save(
+        results: {
+          for (var level = 1; level <= 100000; level++)
+            'levels/$level': {'ms': level + 800, 'hints': level % 4},
+        },
+      );
+      expect(
+        utf8.encode(jsonEncode(payload)).length,
+        greaterThan(cloudSaveMaxBytes),
+      );
+      final envelope = CloudEnvelope.wrap(payload, revision: 3, savedAt: 1000);
+      final bytes = envelope.encode();
+      expect(bytes.take(2), [0x1f, 0x8b]);
+      expect(bytes.length, lessThan(cloudSaveMaxBytes));
+      final restored = CloudEnvelope.decode(bytes);
+      expect(restored.payloadDigest, envelope.payloadDigest);
+      expect(restored.payload['results']['levels/100000'], {
+        'ms': 100800,
+        'hints': 0,
+      });
+    });
+
     test('version 1 migrates to Classic after validating its checksum', () {
       final old = save();
       final bytes = utf8.encode(

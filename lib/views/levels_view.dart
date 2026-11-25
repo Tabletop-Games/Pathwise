@@ -8,12 +8,14 @@ import '../model/journey.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import '../ui/journey_art.dart';
+import 'campaign_journey_view.dart';
 import 'components/ad_banner.dart';
 import 'main_menu_view.dart';
 import 'puzzle_view.dart';
 
 class LevelsView extends StatefulWidget {
-  const LevelsView({super.key});
+  const LevelsView({this.quickNavigation = false, super.key});
+  final bool quickNavigation;
 
   @override
   State<LevelsView> createState() => _LevelsViewState();
@@ -31,8 +33,7 @@ class _LevelsViewState extends State<LevelsView> {
   }
 
   void _go(int page) {
-    if (page < 0 || page > pageForLevel(levelCount) || !_controller.hasClients)
-      return;
+    if (page < 0 || !_controller.hasClients) return;
     if (MediaQuery.disableAnimationsOf(context) || (page - _page).abs() > 3) {
       _controller.jumpToPage(page);
     } else {
@@ -52,6 +53,7 @@ class _LevelsViewState extends State<LevelsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.quickNavigation) return const CampaignJourneyView();
     context.select(
       (AppModel model) => (
         model.theme,
@@ -81,7 +83,6 @@ class _LevelsViewState extends State<LevelsView> {
                 context: context,
                 builder: (sheet) => SafeArea(
                   child: ListView.builder(
-                    itemCount: chapterFor(levelCount) + 1,
                     itemBuilder: (context, chapter) {
                       final start = chapter * chapterSize + 1;
                       return ListTile(
@@ -126,7 +127,7 @@ class _LevelsViewState extends State<LevelsView> {
                         child: Semantics(
                           liveRegion: true,
                           child: Text(
-                            'Levels $first–${(first + levelsPerPage - 1).clamp(1, levelCount)}',
+                            'Levels $first–${first + levelsPerPage - 1}',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
@@ -134,9 +135,7 @@ class _LevelsViewState extends State<LevelsView> {
                       ),
                       IconButton(
                         tooltip: 'Next page',
-                        onPressed: _page >= pageForLevel(levelCount)
-                            ? null
-                            : () => _go(_page + 1),
+                        onPressed: () => _go(_page + 1),
                         icon: const Icon(Icons.chevron_right),
                       ),
                     ],
@@ -180,15 +179,13 @@ class _LevelsViewState extends State<LevelsView> {
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
-                    itemCount: pageForLevel(levelCount) + 1,
                     allowImplicitScrolling: true,
                     onPageChanged: (page) => setState(() => _page = page),
                     itemBuilder: (context, page) => Padding(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                       child: LayoutBuilder(
                         builder: (context, constraints) => GridView.builder(
-                          itemCount: (levelCount - firstLevelOnPage(page) + 1)
-                              .clamp(0, levelsPerPage),
+                          itemCount: levelsPerPage,
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,

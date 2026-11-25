@@ -44,7 +44,7 @@ class _Landscape extends CustomPainter {
     canvas.save();
     canvas.scale(size.width / 320, size.height / 128);
     final scene = chapter % _horizons.length;
-    final cycle = chapter ~/ _horizons.length;
+    final cycle = (chapter ~/ _horizons.length) % 5;
     final dusk = palette.dark || scene == 6 || scene == 7;
     final air = Color.lerp(palette.canvas, palette.route, dusk ? .21 : .085)!;
     final ridge = Color.lerp(

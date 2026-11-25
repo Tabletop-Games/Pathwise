@@ -26,10 +26,14 @@ void main() {
     final discoveries = clears / discoveryInterval;
     final claims = discoveries * fraction;
     final fallback = exhausted ? claims * discoveryFallbackCoins : 0.0;
-    final total = normal + bonus + fallback;
+    final chestCoins = clears * chapterRewardCoins / chapterSize;
+    final chestHints = clears * chapterRewardHints / chapterSize;
+    final previous = normal + bonus + fallback;
+    final total = previous + chestCoins;
     print(
-      '$label: ${normal.toStringAsFixed(1)} → ${total.toStringAsFixed(1)} coins/day; '
+      '$label: ${previous.toStringAsFixed(1)} → ${total.toStringAsFixed(1)} coins/day; '
       '+${bonus.toStringAsFixed(1)} multiplier; +${fallback.toStringAsFixed(1)} fallback; '
+      '+${chestCoins.toStringAsFixed(1)} chest coins; +${chestHints.toStringAsFixed(2)} chest hints; '
       '${(exhausted ? 0 : claims).toStringAsFixed(2)} cosmetics/day; '
       '${(videos + claims).toStringAsFixed(1)} videos/day; '
       '${(100 / total).toStringAsFixed(1)} days per 100 coins',

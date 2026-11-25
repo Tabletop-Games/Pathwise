@@ -46,6 +46,8 @@ String signature(Puzzle p) {
   return variants.first;
 }
 
+const sampledLevels = 1000;
+
 void main() {
   final watch = Stopwatch()..start();
   final signatures = <String, int>{};
@@ -57,7 +59,7 @@ void main() {
   var mechanicBoards = 0;
   final bands = <int, List<int>>{};
   final duplicates = <String>[];
-  for (var level = 1; level <= levelCount; level++) {
+  for (var level = 1; level <= sampledLevels; level++) {
     final id = PuzzleId.level(level);
     final board = generatePuzzle(id.generation, level: level);
     final again = generatePuzzle(id.generation, level: level);
@@ -115,7 +117,7 @@ void main() {
   }
   print(
     jsonEncode({
-      'levels': levelCount,
+      'levels': sampledLevels,
       'firstMechanics': first,
       'firstCombination': firstCombination,
       'mechanicBoards': mechanicBoards,

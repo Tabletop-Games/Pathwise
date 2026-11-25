@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Open the procedural campaign on a bottom-to-top journey with direct level jumps, solve times and a quick-navigation grid. Remove the 1,000-level progression limit.
+- Place a claimable treasure after every finished chapter. Large Play Games snapshots compress for transfer.
+- Start the completion multiplier automatically and let the player stop it without ad readiness or connectivity. Cap newly pending coin-only discoveries at one.
+- Keep the route tip pointed toward an available unvisited exit at rest, and use separate overhead artwork for several collectibles while dragging.
+- Make chapter progress and pending treasures visible on Home. Refresh Research illustrations, boost artwork, coins and chapter chests.
+
 - Game-first UI/UX overhaul. New shared design system (`lib/ui`): flat themed cards, price pills (coin and number only), original vector illustrations, and themed dialogs. Every screen uses palette tokens and was checked on light, dark, warm, cool, AMOLED and High Contrast themes.
 - Main menu: a prominent full-width Store card replaces the header bag and the Themes tile; the Wheel is a compact full-width card; the coin balance opens Coins.
 - Store: Themes, Tips, Coins and Upgrades under a full-width selector. Themes use board-only thumbnails; Tips show upright art; Coins show a free-coins card with a milestone indicator and coin packs with an unavailable state; Upgrades are illustrated cards.

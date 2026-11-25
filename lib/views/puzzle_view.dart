@@ -59,7 +59,7 @@ class PuzzleView extends StatelessWidget {
       );
     }
     return Scaffold(
-      bottomNavigationBar: timed ? null : const AdBanner(),
+      bottomNavigationBar: timed || model.complete ? null : const AdBanner(),
       appBar: AppBar(
         title: Text(
           id.title,
@@ -154,11 +154,15 @@ class PuzzleView extends StatelessWidget {
                     math.min(constraints.maxWidth - 32, 490.0),
                     math.max(200.0, constraints.maxHeight - 270),
                   );
+                  final verticalSpace = constraints.maxHeight - side - 200;
+                  final topInset = verticalSpace > 0
+                      ? (verticalSpace * .40).clamp(6.0, 88.0)
+                      : 6.0;
                   return Align(
                     alignment: Alignment.topCenter,
                     child: SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 18),
+                      padding: EdgeInsets.fromLTRB(16, topInset, 16, 18),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 490),
                         child: Column(
@@ -489,7 +493,7 @@ class _Completion extends StatelessWidget {
                   key: ValueKey(discovery.number),
                 ),
                 TextButton(
-                  onPressed: next == null
+                  onPressed: next == null || !model.onlineReady
                       ? () => Navigator.pop(context)
                       : () => model.open(next),
                   child: const Text('Claim later'),
@@ -505,7 +509,11 @@ class _Completion extends StatelessWidget {
                     ),
                   ],
                 ),
-                LinearProgressIndicator(value: model.discoveryPercent / 100),
+                LinearProgressIndicator(
+                  value: model.discoveryPercent / 100,
+                  backgroundColor: palette.tile,
+                  color: palette.route,
+                ),
               ],
             ],
             const SizedBox(height: 14),
@@ -521,13 +529,15 @@ class _Completion extends StatelessWidget {
                       ),
                     ),
                   ),
-                  onPressed: () => model.open(next),
+                  onPressed: model.onlineReady ? () => model.open(next) : null,
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: Text(
                     id.checkpoint == null ? 'Next level' : 'Next checkpoint',
                   ),
                 ),
               ),
+            if (next != null && !model.onlineReady)
+              const Text('Reconnect to play the next puzzle.'),
             const SizedBox(height: 8),
             if (model.firstCampaignClear &&
                 model.latestDiscovery == null &&

@@ -123,6 +123,54 @@ void main() {
     },
   );
 
+  test('six-digit chapter clears restore multiple pending chests', () async {
+    final store = MemoryStorage();
+    final model = journeyModel(store, {
+      'schemaVersion': 14,
+      'results': {
+        for (final end in [25, 100000, 100025])
+          for (
+            var level = end - 24;
+            level <= (end == 25 ? end : end - 1);
+            level++
+          )
+            'levels/$level': {'milliseconds': 1000, 'hints': 0},
+      },
+    });
+    expect(model.highestUnlocked, 100025);
+    expect(model.pendingChapterChests, isEmpty);
+    expect(model.chapterReady(chapterFor(25)), false);
+    expect(chapterEnd(chapterFor(100000)), 100000);
+    expect(chapterName(chapterFor(100000)), isNot(chapterName(0)));
+    await clear(model, 100000);
+    await clear(model, 100025);
+    expect(model.canPlayLevel(100026), true);
+    expect(model.canPlayLevel(100027), false);
+    final older = chapterFor(100000);
+    final newer = chapterFor(100025);
+    expect(model.pendingChapterChests, [older, newer]);
+    final coins = model.coinBalance;
+    final hints = model.hintsRemaining;
+    final restored = journeyModel(store, await store.load());
+    expect(restored.pendingChapterChests, [older, newer]);
+    expect(await restored.claimChapter(older), true);
+    expect(await restored.claimChapter(older), false);
+    expect(restored.coinBalance, coins + chapterRewardCoins);
+    expect(restored.hintsRemaining, hints + chapterRewardHints);
+    final remote = CloudEnvelope.decode(
+      CloudEnvelope.wrap(await store.load(), revision: 1, savedAt: 1).encode(),
+    );
+    final synced = journeyModel(store, remote.payload);
+    expect(synced.highestUnlocked, 100026);
+    expect(synced.chapterClaimed(older), true);
+    expect(synced.pendingChapterChests, [newer]);
+    await clear(synced, 100000, replay: true);
+    expect(synced.chapterReady(older), false);
+    synced.dispose();
+    restored.dispose();
+    model.dispose();
+  });
+
   test('exhausted owned catalogue falls back to coins once', () async {
     final model = journeyModel(MemoryStorage(), {
       'themePass': true,
@@ -131,6 +179,10 @@ void main() {
     });
     await clear(model, 1);
     expect(model.latestDiscovery?.item, Discovery.fallback);
+    for (var level = 2; level <= 11; level++) {
+      await clear(model, level);
+    }
+    expect(model.pendingDiscoveries.map((item) => item.number), [1]);
     final before = model.coinBalance;
     expect(await model.claimDiscovery(1), isTrue);
     expect(await model.claimDiscovery(1), isFalse);

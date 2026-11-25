@@ -27,7 +27,7 @@ final class TipVisual {
   /// Where the tip is drawn.
   final Offset tip;
 
-  /// 0 right, 1 down, 2 left, 3 up. Always cardinal.
+  /// 0 right, 1 down, 2 left, 3 up, or -1 for a neutral resting pose.
   final int facing;
 
   /// The tip has moved back along the accepted trail, so the last accepted
@@ -100,6 +100,32 @@ class TipTracker {
   static Offset centerOf(Puzzle puzzle, int cell) =>
       Offset(cell % puzzle.size + .5, cell ~/ puzzle.size + .5);
 
+  /// Chooses a locally legal direction without revealing a solution.
+  /// Returns -1 when no unvisited neighbour is accessible.
+  static int restingFacing(
+    Puzzle puzzle,
+    List<int> route,
+    int preferred,
+    bool Function(int cell) canEnter,
+  ) {
+    final x = route.last % puzzle.size;
+    final y = route.last ~/ puzzle.size;
+    for (final direction in {if (preferred >= 0) preferred, 0, 1, 2, 3}) {
+      final vector = facingVector(direction);
+      final nextX = x + vector.dx.toInt();
+      final nextY = y + vector.dy.toInt();
+      if (nextX < 0 ||
+          nextX >= puzzle.size ||
+          nextY < 0 ||
+          nextY >= puzzle.size) {
+        continue;
+      }
+      final cell = nextY * puzzle.size + nextX;
+      if (!route.contains(cell) && canEnter(cell)) return direction;
+    }
+    return -1;
+  }
+
   /// Where the tip rests with no finger down. On a checkpoint it sits on the
   /// leading rim so the number stays readable.
   static TipVisual rest(
@@ -110,7 +136,9 @@ class TipTracker {
   }) {
     final cell = route.last;
     final center = centerOf(puzzle, cell);
-    final lead = puzzle.numbers[cell] != 0 ? checkpointLead : 0.0;
+    final lead = facing >= 0 && puzzle.numbers[cell] != 0
+        ? checkpointLead
+        : 0.0;
     return TipVisual(
       cell: cell,
       center: center,

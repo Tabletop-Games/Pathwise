@@ -5,6 +5,7 @@ import '../../model/economy.dart';
 import '../../model/native_achievements.dart';
 import '../../model/progression.dart';
 import 'control_art.dart';
+import 'resource_art.dart';
 
 class AchievementEmblem extends StatelessWidget {
   const AchievementEmblem(
@@ -158,40 +159,31 @@ class _BoostPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.translate(size.width / 2, size.height / 2);
     canvas.scale(size.shortestSide / 2);
-    final color = Color.lerp(
-      switch (boost.multiplier) {
-        2 => const Color(0xff6e8f86),
-        3 => const Color(0xff897ba1),
-        _ => const Color(0xffaf8260),
-      },
-      palette.route,
-      .22,
-    )!;
     final layers = boost.multiplier.clamp(1, 4);
-    final width = .63 + boost.minutes.clamp(10, 60) * .004;
-    for (var index = layers - 1; index >= 0; index--) {
-      final top = -.55 + .30 * index;
-      final slab = Path()
-        ..moveTo(0, top - .27)
-        ..lineTo(width, top + .10)
-        ..lineTo(0, top + .47)
-        ..lineTo(-width, top + .10)
-        ..close();
-      canvas.drawPath(
-        slab,
-        Paint()..color = Color.lerp(color, palette.surface, index * .16)!,
-      );
-    }
-    if (boost.minutes >= 30) {
-      canvas.drawLine(
-        Offset(-width * .32, -.44),
-        Offset(width * .32, -.44),
-        Paint()
-          ..color = palette.onRoute
-          ..strokeWidth = .07
-          ..strokeCap = StrokeCap.round,
-      );
-    }
+    final arc = Rect.fromCircle(center: Offset.zero, radius: .79);
+    canvas.drawArc(
+      arc,
+      -1.58,
+      2.8 + boost.minutes.clamp(10, 60) * .038,
+      false,
+      Paint()
+        ..color = palette.route
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .095
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      const Offset(0, -.94),
+      const Offset(0, -.66),
+      Paint()
+        ..color = palette.ink
+        ..strokeWidth = .085
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.save();
+    canvas.scale(.63);
+    paintCoins(canvas, palette, layers);
+    canvas.restore();
   }
 
   @override

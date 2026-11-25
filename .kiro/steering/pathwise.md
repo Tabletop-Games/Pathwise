@@ -34,3 +34,13 @@
 - Review [Visual identity](../../docs/visual-identity.md) and its reference sheet before creating assets. Keep functional marks, collectible silhouettes and chapter illustrations distinct.
 - Use layered silhouettes, optical sizing and muted, palette-aware colour. Review new artwork on its actual board and at catalogue scale. Avoid heavy outlines, exaggerated faces, generic badges and decorative chart-like UI.
 - Derive any new art from the shared vector families under `lib/ui/art/`. Decorative changes must preserve the hit targets, reward timings and persisted identifiers that the art represents.
+
+## Endless campaign and results
+
+- The procedural campaign is unbounded. Keep generation identity stable and derive chapter metadata on demand.
+- Show the journey bottom to top with lazy rendering and direct positioning. Keep the compact grid as an alternate level selector.
+- Keep earned chapter chests claimable. Grant the free reward once using the wallet transaction and commit the corresponding hint in the same save.
+- Start the completion multiplier independently of ad or network state. Request a video only on claim. Award the difference on the configured base reward after the SDK confirms it.
+- Choose the resting tip's cardinal direction with ordinary local movement validation. Use a neutral pose where there is no unvisited exit. Never consult the solver or replace the active pointer projection.
+- Keep Android as the sole supported platform. Preserve the local and Play Games architecture, existing purchases and entitlements.
+- Keep Pathwise's visual layouts compact, varied and legible. Use deliberate focal points and inspect rendered compositions at real game scale.

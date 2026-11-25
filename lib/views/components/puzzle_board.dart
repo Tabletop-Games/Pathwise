@@ -170,15 +170,33 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   );
   int? _pointer;
   Offset? _previous;
+  int _preferredRest = -1;
 
-  void _track(Offset position) {
+  int _restingDirection(List<int> path) {
+    final model = widget.model;
+    final facing = TipTracker.restingFacing(
+      widget.puzzle,
+      path,
+      _preferredRest,
+      (cell) =>
+          model.canStep(cell) &&
+          (model is! RejectionControls ||
+              (model as RejectionControls).rejectionFor(cell) == null),
+    );
+    _preferredRest = facing;
+    return facing;
+  }
+
+  void _track(Offset position, {int initialFacing = -1}) {
     final controls = widget.model;
     final route = controls.path;
     final visual = _tracker.update(
       puzzle: widget.puzzle,
       route: route,
       pointer: position,
-      acceptedFacing: tipDirection(widget.puzzle, route),
+      acceptedFacing: initialFacing >= 0
+          ? initialFacing
+          : tipDirection(widget.puzzle, route),
       canEnter: controls.canStep,
     );
     _visual.value = visual;
@@ -189,6 +207,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   }
 
   void _settle() {
+    _preferredRest = _visual.value?.facing ?? _preferredRest;
     _tracker.reset();
     _visual.value = null;
     _trim.value = null;
@@ -226,7 +245,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _pointer = event.pointer;
     _rejectedCell = null;
     _previous = position;
-    _track(position);
+    _track(position, initialFacing: _restingDirection(controls.path));
   }
 
   void _move(PointerMoveEvent event, double side) {
@@ -293,6 +312,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
       _tracker = _newTracker();
       _settle();
     }
+    if (oldWidget.puzzle != widget.puzzle) _preferredRest = -1;
     if (oldWidget.puzzle != widget.puzzle ||
         widget.model.complete ||
         (_rejectedMove != null &&
@@ -355,6 +375,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                         tipStyle: widget.tipStyle,
                         route: path,
                         visual: _visual,
+                        restingFacing: () => _restingDirection(path),
                         rejection: _rejection,
                         reduced: MediaQuery.disableAnimationsOf(context),
                       ),
@@ -1074,7 +1095,9 @@ void paintTip(
   final checkpoint = puzzle.numbers[v.cell] != 0;
   final classic = style == PathTip.classic;
   // Classic on a checkpoint is the highlighted disc itself.
-  if (classic && checkpoint && v.extension <= .275) return;
+  if (checkpoint && (v.facing < 0 || (classic && v.extension <= .275))) {
+    return;
+  }
   if (v.extension > 0 && !v.trim) {
     final dir = v.tip - v.center;
     final unit = dir / dir.distance;
@@ -1093,7 +1116,7 @@ void paintTip(
     canvas,
     v.tip,
     tipRadiusOf(style),
-    style,
+    v.facing < 0 ? PathTip.classic : style,
     palette,
     quarterTurns: v.facing,
   );
@@ -1107,6 +1130,7 @@ class _TipPainter extends CustomPainter {
     required this.tipStyle,
     required this.route,
     required this.visual,
+    required this.restingFacing,
     required this.rejection,
     required this.reduced,
   }) : super(repaint: Listenable.merge([visual, rejection]));
@@ -1116,6 +1140,7 @@ class _TipPainter extends CustomPainter {
   final PathTip tipStyle;
   final List<int> route;
   final ValueNotifier<TipVisual?> visual;
+  final int Function() restingFacing;
   final AnimationController rejection;
   final bool reduced;
 
@@ -1128,7 +1153,7 @@ class _TipPainter extends CustomPainter {
         TipTracker.rest(
           puzzle,
           route,
-          tipDirection(puzzle, route),
+          restingFacing(),
           checkpointLead: tipLead(tipStyle),
         );
     canvas.save();

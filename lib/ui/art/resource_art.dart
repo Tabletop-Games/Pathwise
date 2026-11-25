@@ -6,6 +6,8 @@ import 'vector_path.dart';
 enum ResourceForm {
   gift,
   crate,
+  treasure,
+  treasureOpen,
   hint,
   flame,
   freeze,
@@ -25,6 +27,16 @@ const _resourceLayers = <ResourceForm, (String, String, String)>{
     'M 1 10 L 12 4 L 23 9 L 23 16 L 12 22 L 1 17 Z',
     'M 1 10 L 12 4 L 23 9 L 12 15 Z',
     'M 12 15 L 23 9 L 23 16 L 12 22 Z M 9 10 L 12 8 L 15 9 L 12 11 Z',
+  ),
+  ResourceForm.treasure: (
+    'M 2 11 L 22 11 L 22 19 Q 22 21 20 21 L 4 21 Q 2 21 2 19 Z',
+    'M 2 11 L 2 9 Q 2 4 7 4 L 17 4 Q 22 4 22 9 L 22 11 Z',
+    'M 10 10 L 14 10 L 14 16 L 10 16 Z M 5 18 L 19 18 L 19 19 L 5 19 Z',
+  ),
+  ResourceForm.treasureOpen: (
+    'M 2 13 L 22 13 L 22 19 Q 22 21 20 21 L 4 21 Q 2 21 2 19 Z',
+    'M 2 11 L 3 6 Q 4 3 8 3 L 18 3 Q 21 3 21 6 L 22 8 Z',
+    'M 10 12 L 14 12 L 14 16 L 10 16 Z M 6 17 L 18 17 L 18 19 L 6 19 Z',
   ),
   ResourceForm.hint: (
     'M 8 18 Q 8 15 5 12 C 1 3 12 0 17 4 Q 23 9 17 14 Q 15 16 15 18 Z M 9 20 L 15 20 L 14 22 L 10 22 Z',
@@ -75,6 +87,8 @@ final _vectors = {
 Color _base(BoardPalette p, ResourceForm form) => switch (form) {
   ResourceForm.freeze => Color.lerp(const Color(0xff83a5ac), p.route, .25)!,
   ResourceForm.flame => Color.lerp(const Color(0xffbc775e), p.accent, .25)!,
+  ResourceForm.treasure ||
+  ResourceForm.treasureOpen ||
   ResourceForm.crown ||
   ResourceForm.medal ||
   ResourceForm.hint => Color.lerp(const Color(0xffb39567), p.accent, .35)!,
@@ -123,6 +137,14 @@ void paintCoins(Canvas canvas, BoardPalette palette, int count) {
       Paint()..color = edge,
     );
     canvas.drawCircle(center, radius * .94, Paint()..color = face);
+    canvas.drawCircle(
+      center,
+      radius * .73,
+      Paint()
+        ..color = edge
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * .08,
+    );
     canvas.drawPath(
       Path()
         ..moveTo(center.dx - radius * .47, center.dy + radius * .24)

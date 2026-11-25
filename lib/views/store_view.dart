@@ -1024,16 +1024,19 @@ class _PackCard extends StatelessWidget {
               height: 1.1,
             ),
           ),
-          ActionPill(
-            label: details?.price ?? '—',
-            tone: details != null && enabled
-                ? ActionTone.primary
-                : ActionTone.quiet,
-            onTap: details != null && enabled ? () => onBuy(details) : null,
-            semanticLabel: details == null
-                ? '$coins coins, price unavailable'
-                : 'Buy $coins coins for ${details.price}',
-          ),
+          if (details == null)
+            Text(
+              'Unavailable',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: p.mutedInk),
+            )
+          else
+            ActionPill(
+              label: details.price,
+              tone: enabled ? ActionTone.primary : ActionTone.quiet,
+              onTap: enabled ? () => onBuy(details) : null,
+              semanticLabel: 'Buy $coins coins for ${details.price}',
+            ),
         ],
       ),
     );
@@ -1115,16 +1118,20 @@ class _UpgradeCard extends StatelessWidget {
               icon: Icons.check_rounded,
               tone: ActionTone.selected,
             )
+          else if (details == null)
+            Flexible(
+              child: Text(
+                'Unavailable',
+                textAlign: TextAlign.end,
+                style: TextStyle(color: p.mutedInk),
+              ),
+            )
           else
             ActionPill(
-              label: details?.price ?? '—',
-              tone: details != null && enabled
-                  ? ActionTone.primary
-                  : ActionTone.quiet,
-              onTap: details != null && enabled ? () => onBuy(details) : null,
-              semanticLabel: details == null
-                  ? '$title, price unavailable'
-                  : 'Buy $title for ${details.price}',
+              label: details.price,
+              tone: enabled ? ActionTone.primary : ActionTone.quiet,
+              onTap: enabled ? () => onBuy(details) : null,
+              semanticLabel: 'Buy $title for ${details.price}',
             ),
         ],
       ),

@@ -22,6 +22,7 @@ import '../lib/model/progression.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/ui/art/control_art.dart';
 import '../lib/ui/art/medallion_art.dart';
+import '../lib/ui/art/research_art.dart';
 import '../lib/ui/game_art.dart';
 import '../lib/ui/journey_art.dart';
 import '../lib/views/components/economy_navigation.dart';
@@ -231,16 +232,18 @@ Future<void> _screens(
     );
     await model.open(const PuzzleId.level(1));
     complete(model);
-    await tester.pumpAndSettle();
+    await tester.pump();
     await tester.pumpWidget(
       _shell(key, model, rewardAds, billing, const PuzzleView()),
     );
-    await shot('level-completion');
-    await tester.tap(find.text('Start bonus track'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await _snap(tester, key, '$label-level-completion');
     await tester.pump(const Duration(milliseconds: 875));
+    await tester.ensureVisible(find.text('Stop'));
     expect(tester.takeException(), isNull);
     await _snap(tester, key, '$label-multiplier-moving');
+    await tester.ensureVisible(find.text('Stop'));
     await tester.tap(find.text('Stop'));
     await shot('multiplier-stopped');
     await tester.pumpWidget(const SizedBox.shrink());
@@ -274,7 +277,38 @@ Future<void> _screens(
     await crateModel.flush();
     crateModel.dispose();
   }
-  await screen('levels', () => const LevelsView());
+  await screen('journey', () => const LevelsView());
+  await screen('levels', () => const LevelsView(quickNavigation: true));
+  if (only == null) {
+    final model = AppModel(
+      storage: MemoryStorage(),
+      snapshot: {
+        'preferences': {'theme': theme.name},
+        'ownedThemes': [theme.name],
+        'journey': {
+          'chapterChests': [0],
+        },
+        'results': {
+          for (var level = 1; level <= 25; level++)
+            'levels/$level': {'milliseconds': 57000, 'hints': 0},
+        },
+      },
+    );
+    await tester.pumpWidget(
+      _shell(key, model, ads, billing, const LevelsView()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Treasures · 1'));
+    await tester.pumpAndSettle();
+    final treasure = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text('First Light'),
+    );
+    await tester.tap(treasure);
+    await shot('chapter-treasure');
+    await tester.pumpWidget(const SizedBox.shrink());
+    model.dispose();
+  }
   await screen('research', () => const ProgressionView());
   await screen('boosts', () => const ProgressionView(boosts: true));
   await screen(
@@ -563,8 +597,16 @@ void main() {
         (glyph.name, PathIcon(glyph, size: 24)),
     ]);
     await sheet('resources', [
-      for (final kind in ArtKind.values.take(18))
+      for (final kind in [
+        ...ArtKind.values.take(18),
+        ArtKind.treasure,
+        ArtKind.treasureOpen,
+      ])
         (kind.name, GameArt(kind, palette: field, size: 58)),
+    ]);
+    await sheet('research-art', [
+      for (final item in Research.values)
+        (item.title, ResearchArtwork(item, palette: field)),
     ]);
     await sheet('boost-art', [
       for (final boost in Boost.values)

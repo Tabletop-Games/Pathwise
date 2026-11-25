@@ -28,6 +28,24 @@ void main() {
   late TipTracker tracker;
   setUp(() => tracker = TipTracker());
 
+  test('rest prefers a legal unvisited direction and can stay neutral', () {
+    final puzzle = open4(walls: [(0, 1)]);
+    final visited = [0, 4, 5];
+    expect(TipTracker.restingFacing(puzzle, [0], 3, (cell) => cell == 4), 1);
+    expect(
+      TipTracker.restingFacing(puzzle, visited, 3, (cell) => cell != 1),
+      0,
+    );
+    expect(TipTracker.restingFacing(puzzle, visited, 1, (_) => true), 1);
+    expect(
+      TipTracker.restingFacing(puzzle, visited, 2, (cell) => cell == 4),
+      -1,
+    );
+    final deadEnd = TipTracker.rest(puzzle, [0], -1);
+    expect(deadEnd.tip, deadEnd.center);
+    expect(deadEnd.extension, 0);
+  });
+
   group('continuous tracking before a cell is accepted', () {
     test('horizontal: the tip follows the finger between cell centres', () {
       final puzzle = open4();

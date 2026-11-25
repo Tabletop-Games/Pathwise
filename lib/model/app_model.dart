@@ -193,6 +193,12 @@ class AppModel extends ChangeNotifier
       );
     }
     final journey = _map(snapshot['journey']);
+    final chests = journey['chapterChests'];
+    if (chests is List) {
+      _chapterChests.addAll(
+        chests.whereType<int>().where((chapter) => chapter >= 0),
+      );
+    }
     _journeyClears = max(
       0,
       journey['clears'] is int ? journey['clears'] as int : 0,
@@ -1044,6 +1050,43 @@ class AppModel extends ChangeNotifier
   int _longestStreak = 0;
   int _playMilliseconds = 0;
   int _accountedMilliseconds = 0;
+  final _chapterChests = <int>{};
+
+  List<int> get pendingChapterChests => _chapterChests.toList()..sort();
+
+  int chapterClears(int chapter) {
+    var cleared = 0;
+    for (
+      var level = chapter * chapterSize + 1;
+      level <= chapterEnd(chapter);
+      level++
+    ) {
+      if (_results.containsKey('levels/$level')) cleared++;
+    }
+    return cleared;
+  }
+
+  bool chapterClaimed(int chapter) =>
+      _wallet.contains('journey/chapter/$chapter');
+
+  bool chapterReady(int chapter) =>
+      _chapterChests.contains(chapter) && !chapterClaimed(chapter);
+
+  Future<bool> claimChapter(int chapter) async {
+    if (_disposed || storageError || !chapterReady(chapter)) return false;
+    if (!_wallet.add(
+      'journey/chapter/$chapter',
+      'Chapter treasure',
+      chapterRewardCoins,
+      _today(),
+    ))
+      return false;
+    _chapterChests.remove(chapter);
+    _hintBalance += chapterRewardHints;
+    notifyListeners();
+    return flush();
+  }
+
   int _journeyClears = 0;
   final _discoveries = <int, Discovery>{};
   Discovery? latestDiscovery;
@@ -1076,10 +1119,10 @@ class AppModel extends ChangeNotifier
   void _advanceJourney(int level) {
     firstCampaignClear = true;
     final chapter = chapterFor(level);
-    chapterCompletedThisVisit = Iterable<int>.generate(
-      chapterEnd(chapter) - chapter * chapterSize,
-      (index) => chapter * chapterSize + index + 1,
-    ).every((level) => result(PuzzleId.level(level)) != null);
+    chapterCompletedThisVisit = chapterClears(chapter) == chapterSize;
+    if (chapterCompletedThisVisit && !chapterClaimed(chapter)) {
+      _chapterChests.add(chapter);
+    }
     _journeyClears++;
     if (_journeyClears % discoveryInterval != 0) return;
     final reserved = _discoveries.values
@@ -1089,6 +1132,12 @@ class AppModel extends ChangeNotifier
       (item) => !reserved.contains(item) && !_ownsDiscoveryItem(item),
       orElse: () => Discovery.fallback,
     );
+    if (item == Discovery.fallback &&
+        _discoveries.values.any(
+          (reward) => displayedDiscovery(reward).item == Discovery.fallback,
+        )) {
+      return;
+    }
     final discovery = Discovery(_journeyClears ~/ discoveryInterval, item);
     _discoveries[discovery.number] = discovery;
     latestDiscovery = discovery;
@@ -1098,7 +1147,6 @@ class AppModel extends ChangeNotifier
       firstCampaignClear &&
       activeId?.mode == PlayMode.levels &&
       !storageError &&
-      onlineReady &&
       !_wallet.contains('journey/multiplier/${activeId?.level}');
 
   void selectCompletionMultiplier(int multiplier) {
@@ -1272,11 +1320,9 @@ class AppModel extends ChangeNotifier
   int get unassisted =>
       _results.values.where((value) => value.unassisted).length + _retiredClean;
   int get levelsSolved => _levelsSolved;
-  int get highestUnlocked => _highestUnlocked.clamp(1, levelCount);
+  int get highestUnlocked => _highestUnlocked;
   bool canPlayLevel(int level) =>
-      level > 0 &&
-      level <= levelCount &&
-      (developerMode || level <= highestUnlocked);
+      level > 0 && (developerMode || level <= highestUnlocked);
   int get coinBalance => _wallet.balance;
   int get coinsEarned => _wallet.earned;
   int get coinsSpent => _wallet.spent;
@@ -1938,10 +1984,7 @@ class AppModel extends ChangeNotifier
         if (id.mode == PlayMode.levels) {
           _levelsSolved++;
           _advanceJourney(id.level);
-          _highestUnlocked = max(
-            _highestUnlocked,
-            (id.level + 1).clamp(1, levelCount),
-          );
+          _highestUnlocked = max(_highestUnlocked, id.level + 1);
         }
         _wallet.add(
           'clear/${id.key}',
@@ -2163,6 +2206,7 @@ class AppModel extends ChangeNotifier
     if (_journeyClears != 0)
       'journey': {
         'clears': _journeyClears,
+        if (_chapterChests.isNotEmpty) 'chapterChests': pendingChapterChests,
         'pending': {
           for (final discovery in _discoveries.values)
             '${discovery.number}': discovery.item,

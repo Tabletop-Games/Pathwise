@@ -11,13 +11,14 @@ import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
 import '../ui/art/medallion_art.dart';
+import '../ui/art/research_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
 enum _ResearchBranch {
-  income('Coins', ArtKind.coinStack2, [
+  income('Coins', [
     Research.magnet,
     Research.golden,
     Research.fortune,
@@ -25,21 +26,16 @@ enum _ResearchBranch {
     Research.momentum,
     Research.specialist,
   ]),
-  supplies('Crates', ArtKind.crate, [
-    Research.hunter,
-    Research.collector,
-    Research.scout,
-  ]),
-  efficiency('Efficiency', ArtKind.research, [
+  supplies('Crates', [Research.hunter, Research.collector, Research.scout]),
+  efficiency('Efficiency', [
     Research.efficiency,
     Research.savings,
     Research.tuning,
     Research.procurement,
   ]);
 
-  const _ResearchBranch(this.title, this.art, this.items);
+  const _ResearchBranch(this.title, this.items);
   final String title;
-  final ArtKind art;
   final List<Research> items;
 }
 
@@ -307,11 +303,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           opacity: unlocked ? 1 : .62,
           child: Row(
             children: [
-              GameArt(
-                unlocked ? _branch.art : ArtKind.lock,
-                palette: palette,
-                size: 44,
-              ),
+              ResearchArtwork(item, palette: palette),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

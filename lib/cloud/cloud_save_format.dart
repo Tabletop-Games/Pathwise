@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
@@ -6,11 +8,28 @@ import 'package:crypto/crypto.dart';
 /// same snapshot map the app keeps on the device, so both copies share one
 /// schema and one migration path.
 const cloudSaveFormat = 'pathwise-cloud';
-const cloudSaveVersion = 3;
+const cloudSaveVersion = 4;
 
 /// Saved Games allow several megabytes per snapshot. Refuse to upload anything
 /// near that size so a write cannot fail half way through a sync.
 const cloudSaveMaxBytes = 2 * 1024 * 1024;
+const _compressionThreshold = 64 * 1024;
+const _decodedSizeLimit = 32 * cloudSaveMaxBytes;
+
+final class _SaveBytes implements Sink<List<int>> {
+  final bytes = BytesBuilder(copy: false);
+
+  @override
+  void add(List<int> data) {
+    if (data.length > _decodedSizeLimit - bytes.length) {
+      throw const CorruptSave('expanded save is oversized');
+    }
+    bytes.add(data);
+  }
+
+  @override
+  void close() {}
+}
 
 /// Keys that are device-local or safe to merge when economy matches.
 /// Everything else belongs to the economy unit: coins, hints, purchases,
@@ -114,17 +133,23 @@ final class CloudEnvelope {
   final String payloadDigest;
   final Map<String, dynamic> payload;
 
-  List<int> encode() => utf8.encode(
-    canonicalJson({
-      'format': cloudSaveFormat,
-      'version': cloudSaveVersion,
-      'revision': revision,
-      'savedAt': savedAt,
-      'economy': economy,
-      'payloadDigest': payloadDigest,
-      'payload': payload,
-    }),
-  );
+  List<int> encode() {
+    final json = utf8.encode(
+      canonicalJson({
+        'format': cloudSaveFormat,
+        'version': cloudSaveVersion,
+        'revision': revision,
+        'savedAt': savedAt,
+        'economy': economy,
+        'payloadDigest': payloadDigest,
+        'payload': payload,
+      }),
+    );
+    if (json.length > _decodedSizeLimit) {
+      throw const CorruptSave('expanded save is oversized');
+    }
+    return json.length < _compressionThreshold ? json : gzip.encode(json);
+  }
 
   /// Throws [CorruptSave] for anything that is not exactly what [encode] writes.
   static CloudEnvelope decode(List<int> bytes) {
@@ -133,7 +158,17 @@ final class CloudEnvelope {
     }
     final Object? decoded;
     try {
-      decoded = jsonDecode(utf8.decode(bytes));
+      final compressed =
+          bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+      if (compressed) {
+        final out = _SaveBytes();
+        final decoder = gzip.decoder.startChunkedConversion(out);
+        decoder.add(bytes);
+        decoder.close();
+        decoded = jsonDecode(utf8.decode(out.bytes.takeBytes()));
+      } else {
+        decoded = jsonDecode(utf8.decode(bytes));
+      }
     } on FormatException {
       throw const CorruptSave('not JSON');
     }
@@ -141,6 +176,7 @@ final class CloudEnvelope {
         decoded['format'] != cloudSaveFormat ||
         (decoded['version'] != 1 &&
             decoded['version'] != 2 &&
+            decoded['version'] != 3 &&
             decoded['version'] != cloudSaveVersion)) {
       throw const CorruptSave('unknown format or version');
     }
