@@ -28,3 +28,9 @@
 - Use quiet landscape vector art, accent colors drawn from the equipped palette, and restrained motion. Keep high contrast and AMOLED views clear of atmospheric decoration.
 - Completion bonuses multiply only the configured base campaign payout. Credit only the difference from the earned SDK callback using one ledger ID per level. Replays and other modes cannot earn the bonus.
 - Ten prospective first clears reveal one unowned, unreserved cosmetic from the configured catalogue. Keep discoveries pending indefinitely and grant the fallback when exhausted or already owned. Equip only on an explicit action.
+
+## Field Notes artwork
+
+- Review [Visual identity](../../docs/visual-identity.md) and its reference sheet before creating assets. Keep functional marks, collectible silhouettes and chapter illustrations distinct.
+- Use layered silhouettes, optical sizing and muted, palette-aware colour. Review new artwork on its actual board and at catalogue scale. Avoid heavy outlines, exaggerated faces, generic badges and decorative chart-like UI.
+- Derive any new art from the shared vector families under `lib/ui/art/`. Decorative changes must preserve the hit targets, reward timings and persisted identifiers that the art represents.

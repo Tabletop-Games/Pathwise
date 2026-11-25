@@ -10,7 +10,6 @@ import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/user_preferences.dart';
 import '../ui/game_art.dart';
-import '../ui/journey_art.dart';
 import 'components/puzzle_board.dart';
 import 'components/tip_art.dart';
 
@@ -155,34 +154,44 @@ class _MultiplierTrack extends StatelessWidget {
         return Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Row(
-                children: [
-                  for (final (index, region) in multiplierRegions.indexed)
-                    Expanded(
-                      flex:
-                          ((region.$1 -
-                                      (index == 0
-                                          ? 0
-                                          : multiplierRegions[index - 1].$1)) *
-                                  100)
-                              .round(),
-                      child: ColoredBox(
-                        color: index.isEven
-                            ? colors.secondaryContainer
-                            : colors.surfaceContainerHighest,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            '${region.$2}×',
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
-                            textAlign: TextAlign.center,
+              padding: const EdgeInsets.only(top: 9),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(9)),
+                child: Row(
+                  children: [
+                    for (final (index, region) in multiplierRegions.indexed)
+                      Expanded(
+                        flex:
+                            ((region.$1 -
+                                        (index == 0
+                                            ? 0
+                                            : multiplierRegions[index - 1]
+                                                  .$1)) *
+                                    100)
+                                .round(),
+                        child: ColoredBox(
+                          color: Color.lerp(
+                            colors.surface,
+                            colors.primary,
+                            switch (region.$2) {
+                              4 => .33,
+                              3 => .20,
+                              _ => .09,
+                            },
+                          )!,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              '${region.$2}×',
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             Positioned(
@@ -205,8 +214,9 @@ class _MultiplierTrack extends StatelessWidget {
 }
 
 class DiscoveryRow extends StatefulWidget {
-  const DiscoveryRow(this.discovery, {super.key});
+  const DiscoveryRow(this.discovery, {this.reveal = false, super.key});
   final Discovery discovery;
+  final bool reveal;
 
   @override
   State<DiscoveryRow> createState() => _DiscoveryRowState();
@@ -230,23 +240,39 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
     final theme = !fallback && tip == null
         ? PathwiseTheme.values.byName(discovery.cosmeticId)
         : null;
+    final art = SizedBox.square(
+      dimension: widget.reveal ? 112 : 52,
+      child: tip != null
+          ? TipArtwork(tip: tip, palette: palette)
+          : theme != null
+          ? LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!)
+          : GameArt(ArtKind.coinStack3, palette: palette),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+      child: Flex(
+        direction: widget.reveal ? Axis.vertical : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 52,
-            height: 52,
-            child: tip != null
-                ? TipArtwork(tip: tip, palette: palette)
-                : theme != null
-                ? LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!)
-                : GameArt(ArtKind.coinStack3, palette: palette, size: 46),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          if (widget.reveal)
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: .88, end: 1),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 310),
+              curve: Curves.easeOut,
+              builder: (context, scale, child) =>
+                  Transform.scale(scale: scale, child: child),
+              child: art,
+            )
+          else
+            art,
+          SizedBox(width: 12, height: widget.reveal ? 8 : 0),
+          Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: widget.reveal
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               children: [
                 Text(
                   tip?.label ?? theme?.label ?? '$discoveryFallbackCoins coins',
@@ -324,7 +350,6 @@ class CollectionsView extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            JourneyArt(palette, height: 92),
             Text(
               '$owned of ${PathTip.values.length + PathwiseTheme.values.length} collected',
               style: Theme.of(context).textTheme.titleLarge,
@@ -356,6 +381,11 @@ class CollectionsView extends StatelessWidget {
                 for (final tip in PathTip.values)
                   _AlbumItem(
                     label: tip.label,
+                    silhouette: TipArtwork(
+                      tip: tip,
+                      palette: palette,
+                      concealed: true,
+                    ),
                     owned: model.ownsTip(tip),
                     artwork: TipArtwork(tip: tip, palette: palette),
                     apply: tip == model.equippedTip
@@ -370,6 +400,7 @@ class CollectionsView extends StatelessWidget {
                 for (final theme in PathwiseTheme.values)
                   _AlbumItem(
                     label: theme.label,
+                    silhouette: _ThemeSilhouette(theme.index),
                     owned: model.ownsTheme(theme),
                     artwork: LevelOneBoardPreview(
                       palette: BoardPalette.palettes[theme]!,
@@ -429,21 +460,51 @@ class _Album extends StatelessWidget {
   );
 }
 
+class _ThemeSilhouette extends StatelessWidget {
+  const _ThemeSilhouette(this.index);
+  final int index;
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Transform.rotate(
+      angle: (index % 5 - 2) * .09,
+      child: Container(
+        width: 34,
+        height: 43,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          borderRadius: const BorderRadius.all(Radius.circular(5)),
+        ),
+        child: Center(
+          child: Container(
+            width: 18 + (index % 3) * 3,
+            height: 2,
+            color: Theme.of(context).colorScheme.surface,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _AlbumItem extends StatelessWidget {
   const _AlbumItem({
     required this.label,
     required this.owned,
     required this.artwork,
+    required this.silhouette,
     required this.apply,
   });
   final String label;
   final bool owned;
   final Widget artwork;
+  final Widget silhouette;
   final VoidCallback? apply;
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: owned ? label : 'Undiscovered',
+    label: owned
+        ? (apply == null ? '$label, equipped' : label)
+        : 'Undiscovered',
     button: owned,
     child: ExcludeSemantics(
       child: InkWell(
@@ -476,14 +537,10 @@ class _AlbumItem extends StatelessWidget {
             children: [
               SizedBox.square(
                 dimension: 62,
-                child: owned
-                    ? artwork
-                    : Icon(
-                        Icons.change_history,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                child: owned ? artwork : silhouette,
               ),
               if (owned) Text(label, maxLines: 2, textAlign: TextAlign.center),
+              if (owned && apply == null) const Icon(Icons.check, size: 14),
             ],
           ),
         ),

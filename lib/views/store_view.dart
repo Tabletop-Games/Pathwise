@@ -12,7 +12,6 @@ import '../model/economy.dart';
 import '../model/user_preferences.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'components/economy_navigation.dart';
 import 'components/puzzle_board.dart';
 import 'components/tip_art.dart';
@@ -108,7 +107,6 @@ class _StoreViewState extends State<StoreView> {
                       ],
                     ),
                   ),
-                  JourneyArt(palette, chapter: _category, height: 46),
                   Expanded(
                     child: IndexedStack(
                       index: _category,

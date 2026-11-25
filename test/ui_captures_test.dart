@@ -14,9 +14,16 @@ import '../lib/logic/mechanic_tutorials.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
+import '../lib/model/economy.dart' show Achievement;
 import '../lib/model/game_state.dart';
+import '../lib/model/journey.dart';
 import '../lib/model/path_tips.dart';
+import '../lib/model/progression.dart';
 import '../lib/model/user_preferences.dart';
+import '../lib/ui/art/control_art.dart';
+import '../lib/ui/art/medallion_art.dart';
+import '../lib/ui/game_art.dart';
+import '../lib/ui/journey_art.dart';
 import '../lib/views/components/economy_navigation.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/components/tip_art.dart';
@@ -253,6 +260,19 @@ Future<void> _screens(
     await tester.pumpWidget(const SizedBox.shrink());
     await discoveryModel.flush();
     discoveryModel.dispose();
+    final crateModel = _model(theme);
+    await tester.pumpWidget(
+      _shell(key, crateModel, rewardAds, billing, const PuzzleView()),
+    );
+    await crateModel.open(const PuzzleId.level(1));
+    crateModel.forceCrateForDebug();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(find.byTooltip('Catch supply crate'));
+    await shot('supply-crate');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await crateModel.flush();
+    crateModel.dispose();
   }
   await screen('levels', () => const LevelsView());
   await screen('research', () => const ProgressionView());
@@ -269,6 +289,13 @@ Future<void> _screens(
   );
   await screen('streak', () => const StreakView());
   await screen('stats', () => const StatisticsView());
+  await screen(
+    'achievements',
+    () => const StatisticsView(),
+    after: () async {
+      await tester.scrollUntilVisible(find.text('Pathwise Achievements'), 220);
+    },
+  );
   await screen('settings', () => const SettingsView());
   await screen(
     'tutorial',
@@ -469,6 +496,185 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull, reason: label);
       await _snap(tester, key, 'tips-$label');
+    }
+  });
+  testWidgets('the production artwork renders labeled inventory sheets', (
+    tester,
+  ) async {
+    final field = BoardPalette.palettes[PathwiseTheme.field]!;
+    Future<void> sheet(
+      String name,
+      List<(String, Widget)> entries, {
+      BoardPalette? colors,
+      int columns = 5,
+      double width = 150,
+      double height = 86,
+    }) async {
+      final palette = colors ?? field;
+      final key = GlobalKey();
+      final rows = (entries.length / columns).ceil();
+      await tester.binding.setSurfaceSize(
+        Size(columns * width + 32, rows * (height + 39) + 32),
+      );
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: palette.theme,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: GridView.count(
+                  crossAxisCount: columns,
+                  mainAxisExtent: height + 39,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    for (final (label, art) in entries)
+                      Column(
+                        children: [
+                          SizedBox(
+                            height: height,
+                            child: Center(child: art),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            label,
+                            style: const TextStyle(fontSize: 14),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: name);
+      await _snap(tester, key, name);
+    }
+
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await sheet('controls', [
+      for (final glyph in ControlGlyph.values)
+        (glyph.name, PathIcon(glyph, size: 24)),
+    ]);
+    await sheet('resources', [
+      for (final kind in ArtKind.values.take(18))
+        (kind.name, GameArt(kind, palette: field, size: 58)),
+    ]);
+    await sheet('boost-art', [
+      for (final boost in Boost.values)
+        (
+          '${boost.multiplier}× · ${boost.minutes} min',
+          BoostArtwork(boost, palette: field, size: 62),
+        ),
+    ], columns: 4);
+    await sheet('achievement-emblems', [
+      for (final achievement in Achievement.values)
+        (
+          achievement.title,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AchievementEmblem(
+                achievement,
+                palette: field,
+                earned: true,
+                size: 53,
+              ),
+              AchievementEmblem(
+                achievement,
+                palette: field,
+                earned: false,
+                size: 43,
+              ),
+            ],
+          ),
+        ),
+    ]);
+    await sheet(
+      'chapter-illustrations',
+      [
+        for (var chapter = 0; chapter < 8; chapter++)
+          (
+            chapterName(chapter),
+            JourneyArt(field, chapter: chapter, height: 100),
+          ),
+      ],
+      columns: 2,
+      width: 340,
+      height: 110,
+    );
+    await sheet('mystery-silhouettes', [
+      for (final (index, tip) in PathTip.values.skip(1).indexed)
+        (
+          'Unknown ${index + 1}',
+          SizedBox.square(
+            dimension: 62,
+            child: TipArtwork(tip: tip, palette: field, concealed: true),
+          ),
+        ),
+    ]);
+    await sheet(
+      'reward-illustrations',
+      [
+        for (final kind in [
+          ArtKind.coinStack3,
+          ArtKind.gift,
+          ArtKind.crate,
+          ArtKind.crown,
+        ])
+          (kind.name, GameArt(kind, palette: field, size: 96)),
+      ],
+      columns: 4,
+      height: 106,
+    );
+    for (final theme in [
+      PathwiseTheme.field,
+      PathwiseTheme.blackwater,
+      PathwiseTheme.signal,
+    ]) {
+      final palette = BoardPalette.palettes[theme]!;
+      final model = _model(theme);
+      await model.open(const PuzzleId.level(1));
+      model.begin(0);
+      for (final (step, pose) in [
+        (1, 'horizontal'),
+        (2, 'checkpoint'),
+        (5, 'corner-vertical'),
+      ]) {
+        model.step(step);
+        await sheet(
+          'board-${theme.name}-$pose',
+          [
+            for (final tip in PathTip.values)
+              (
+                tip.label,
+                SizedBox.square(
+                  dimension: 216,
+                  child: PuzzleBoard(
+                    model: model,
+                    puzzle: fixture().puzzle,
+                    palette: palette,
+                    tipStyle: tip,
+                  ),
+                ),
+              ),
+          ],
+          colors: palette,
+          columns: 5,
+          width: 224,
+          height: 216,
+        );
+      }
+      model.end();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await model.flush();
+      model.dispose();
     }
   });
 }

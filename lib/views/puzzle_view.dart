@@ -12,6 +12,7 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
+import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import '../ui/journey_art.dart';
@@ -198,7 +199,7 @@ class PuzzleView extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   _ControlButton(
-                                    icon: Icons.undo_rounded,
+                                    icon: ControlGlyph.undo,
                                     label: 'Undo',
                                     onPressed: model.canUndo
                                         ? model.undo
@@ -206,7 +207,7 @@ class PuzzleView extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   _ControlButton(
-                                    icon: Icons.restart_alt_rounded,
+                                    icon: ControlGlyph.clear,
                                     label: 'Clear',
                                     onPressed: model.canClear
                                         ? model.clear
@@ -475,14 +476,18 @@ class _Completion extends StatelessWidget {
             if (levelCoins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 14, bottom: 4),
-                child: RewardAmount(levelCoins, size: 34),
+                child: RewardAmount(levelCoins, size: 46),
               ),
             if (milestoneCoins > 0) Text('+$milestoneCoins milestone coins'),
             if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
               const SizedBox(height: 10),
               if (model.latestDiscovery case final discovery?) ...[
                 const Text('Discovery ready · 100%'),
-                DiscoveryRow(discovery, key: ValueKey(discovery.number)),
+                DiscoveryRow(
+                  discovery,
+                  reveal: true,
+                  key: ValueKey(discovery.number),
+                ),
                 TextButton(
                   onPressed: next == null
                       ? () => Navigator.pop(context)
@@ -728,7 +733,7 @@ class _HintAction extends StatelessWidget {
         ? () => showHintShop(context, model)
         : null;
     return _ControlButton(
-      icon: Icons.lightbulb_outline_rounded,
+      icon: ControlGlyph.hint,
       label: 'Hint · ${model.hintsRemaining} left',
       onPressed: onTap,
       primary: true,
@@ -745,7 +750,7 @@ class _ControlButton extends StatelessWidget {
     this.primary = false,
   });
 
-  final IconData icon;
+  final ControlGlyph icon;
   final String label;
   final VoidCallback? onPressed;
   final bool primary;
@@ -786,7 +791,10 @@ class _ControlButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 18, color: ink),
+                  IconTheme(
+                    data: IconThemeData(color: ink),
+                    child: PathIcon(icon, size: 18),
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     label,

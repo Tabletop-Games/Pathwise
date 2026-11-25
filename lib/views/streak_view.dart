@@ -9,7 +9,6 @@ import '../model/game_state.dart';
 import '../model/play_streak.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
@@ -57,12 +56,11 @@ class StreakView extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                 children: [
-                  JourneyArt(palette, chapter: 2, height: 70),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                     child: Column(
                       children: [
-                        GameArt(ArtKind.flame, palette: palette, size: 88),
+                        GameArt(ArtKind.flame, palette: palette, size: 68),
                         const SizedBox(height: 8),
                         Semantics(
                           label: '${streak.count} days',

@@ -9,6 +9,7 @@ import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/progression.dart';
+import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import '../ui/journey_art.dart';
@@ -235,7 +236,7 @@ class _MainMenuViewState extends State<MainMenuView>
                           builder: (_) => const StatisticsView(),
                         ),
                       ),
-                      icon: const Icon(Icons.insights_rounded),
+                      icon: const PathIcon(ControlGlyph.statistics),
                     ),
                     IconButton(
                       tooltip: 'Settings',
@@ -243,7 +244,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         context,
                         MaterialPageRoute(builder: (_) => const SettingsView()),
                       ),
-                      icon: const Icon(Icons.settings_outlined),
+                      icon: const PathIcon(ControlGlyph.settings),
                     ),
                   ],
                 ),
@@ -271,14 +272,20 @@ class _MainMenuViewState extends State<MainMenuView>
                   ],
                 ),
                 const SizedBox(height: 10),
-                JourneyArt(palette, chapter: chapterFor(model.highestUnlocked)),
+                ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(6)),
+                  child: JourneyArt(
+                    palette,
+                    chapter: chapterFor(model.highestUnlocked),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Text(
                   chapterName(chapterFor(model.highestUnlocked)),
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 Text('Campaign · ${model.levelsSolved} solved'),
-                const SizedBox(height: 6),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
@@ -292,7 +299,7 @@ class _MainMenuViewState extends State<MainMenuView>
                     context,
                     PuzzleId.level(model.highestUnlocked),
                   ),
-                  icon: const Icon(Icons.play_arrow_rounded),
+                  icon: const PathIcon(ControlGlyph.play),
                   label: Text(
                     model.levelsSolved == 0
                         ? 'Play level 1'
@@ -316,7 +323,7 @@ class _MainMenuViewState extends State<MainMenuView>
                 const SizedBox(height: 14),
                 Text('Explore', style: Theme.of(context).textTheme.titleLarge),
                 ListTile(
-                  leading: const Icon(Icons.collections_bookmark_outlined),
+                  leading: const PathIcon(ControlGlyph.collections),
                   title: const Text('Collections'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push<void>(
@@ -771,7 +778,7 @@ class _AttackSetup extends StatelessWidget {
                     const PuzzleId.attack('start/0'),
                     timeAttack: true,
                   ),
-                  icon: const Icon(Icons.play_arrow_rounded),
+                  icon: const PathIcon(ControlGlyph.play),
                   label: Text(running ? 'Resume' : 'Play'),
                 ),
               ],

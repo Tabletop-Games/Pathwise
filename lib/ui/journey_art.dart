@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../model/app_themes.dart';
 import '../model/user_preferences.dart';
+import 'art/vector_path.dart';
 
 class JourneyArt extends StatelessWidget {
   const JourneyArt(
@@ -42,92 +43,33 @@ class _Landscape extends CustomPainter {
       return;
     canvas.save();
     canvas.scale(size.width / 320, size.height / 128);
-    final route = Paint()
-      ..color = palette.route.withValues(alpha: .47)
-      ..strokeWidth = 1.3
-      ..style = PaintingStyle.stroke;
-    final land = Paint()..color = palette.route.withValues(alpha: .09);
-    final sun = Paint()..color = palette.accent.withValues(alpha: .55);
-    bool uses(PathwiseTheme theme) => palette == BoardPalette.palettes[theme];
-    final sea = uses(PathwiseTheme.oceanicBreeze) || uses(PathwiseTheme.tidal);
-    final frost = uses(PathwiseTheme.glacier) || uses(PathwiseTheme.highPass);
-    final grove = uses(PathwiseTheme.forestMint);
-    final dunes = uses(PathwiseTheme.terracotta) || uses(PathwiseTheme.canyon);
-    final night =
-        uses(PathwiseTheme.midnightSlate) || uses(PathwiseTheme.blackwater);
-    final phase = chapter * .8;
-    final horizon = 36 + 8 * math.cos(phase);
+    final scene = chapter % _horizons.length;
+    final cycle = chapter ~/ _horizons.length;
+    final dusk = palette.dark || scene == 6 || scene == 7;
+    final air = Color.lerp(palette.canvas, palette.route, dusk ? .21 : .085)!;
+    final ridge = Color.lerp(
+      palette.canvas,
+      palette.route,
+      .24 + cycle * .025,
+    )!;
+    final ground = Color.lerp(palette.canvas, palette.route, .55)!;
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 320, 128), Paint()..color = air);
+    final sun = Offset(204 + 23 * math.sin(chapter * .8), 35 - cycle * 3);
     canvas.drawCircle(
-      Offset(235 + 25 * math.sin(phase), horizon),
-      night ? 13 : 19,
       sun,
+      scene == 5 ? 25 : 15,
+      Paint()..color = Color.lerp(palette.accent, air, .30)!,
     );
-    if (night || frost) {
-      final haze = Paint()..color = palette.ink.withValues(alpha: .27);
-      for (var i = 0; i < 10; i++) {
-        canvas.drawCircle(
-          Offset(21.0 + i * 28, 17.0 + i * 13 % 32),
-          i.isEven ? 1.4 : .85,
-          haze,
-        );
-      }
-    }
-    for (var layer = 0; layer < 4; layer++) {
-      final hill = Path();
-      for (var x = 0; x <= 320; x += 4) {
-        final wave = math.sin(
-          x /
-                  (sea
-                      ? 26
-                      : dunes
-                      ? 72
-                      : 47) +
-              layer * .64 +
-              phase,
-        );
-        final y =
-            68 +
-            layer * 13 +
-            (frost ? wave.abs() : wave) *
-                (sea
-                    ? 7
-                    : dunes
-                    ? 30
-                    : 19);
-        if (x == 0) {
-          hill.moveTo(0, y);
-        } else {
-          hill.lineTo(x.toDouble(), y);
-        }
-      }
-      canvas.drawPath(hill, route);
-      hill.lineTo(320, 128);
-      hill.lineTo(0, 128);
-      hill.close();
-      canvas.drawPath(hill, land);
-    }
-    if (grove) {
-      for (var i = 0; i < 7; i++) {
-        final x = 26.0 + i * 13;
-        final y = 42.0 + 11 * math.sin(i.toDouble());
-        canvas.drawPath(
-          Path()
-            ..moveTo(x, y + 24)
-            ..lineTo(x + 5, y)
-            ..lineTo(x + 11, y + 24)
-            ..close(),
-          route,
-        );
-      }
-    }
-    final trail = Path()
-      ..moveTo(22, 109)
-      ..cubicTo(91, 102, 100, 126, 156, 92)
-      ..cubicTo(193, 67, 221, 99, 293, 65);
-    canvas.drawPath(trail, route..strokeWidth = 2.5);
-    final point = Paint()..color = palette.route;
-    canvas.drawCircle(const Offset(22, 109), 3, point);
-    canvas.drawCircle(const Offset(293, 65), 4, point);
+    canvas.drawPath(_horizons[scene], Paint()..color = ridge);
+    canvas.drawPath(_foregrounds[scene], Paint()..color = ground);
+    final trail = Paint()
+      ..color = palette.onRoute.withValues(alpha: .88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(_trails[scene], trail);
+    final endpoint = _endpoints[scene];
+    canvas.drawCircle(endpoint, 3, Paint()..color = palette.onRoute);
     canvas.restore();
   }
 
@@ -135,3 +77,44 @@ class _Landscape extends CustomPainter {
   bool shouldRepaint(_Landscape oldDelegate) =>
       oldDelegate.palette != palette || oldDelegate.chapter != chapter;
 }
+
+// The chapter's silhouette supplies its identity. Cycling revisits these
+// environments at different light levels and sun positions.
+final _horizons = [
+  'M 0 100 L 55 63 L 100 86 L 154 34 L 233 88 L 265 73 L 320 100 L 320 128 L 0 128 Z',
+  'M 0 108 L 13 70 L 25 93 L 42 39 L 62 86 L 76 52 L 97 96 L 128 56 L 154 106 L 187 84 L 220 105 L 277 75 L 320 101 L 320 128 L 0 128 Z',
+  'M 0 70 Q 46 66 89 81 L 221 81 Q 272 61 320 70 L 320 128 L 0 128 Z',
+  'M 0 47 Q 25 25 58 62 Q 86 87 122 99 Q 181 120 223 58 Q 269 6 320 44 L 320 128 L 0 128 Z',
+  'M 0 108 L 41 76 L 64 77 L 104 24 L 132 57 L 154 42 L 220 104 L 260 65 L 320 107 L 320 128 L 0 128 Z',
+  'M 0 72 Q 68 59 119 88 Q 164 103 230 59 Q 288 24 320 45 L 320 128 L 0 128 Z',
+  'M 0 93 L 37 67 L 64 69 L 86 55 L 119 65 L 161 86 L 203 65 L 256 45 L 320 74 L 320 128 L 0 128 Z',
+  'M 0 98 L 43 82 L 70 89 L 105 65 L 151 92 L 204 72 L 235 90 L 287 58 L 320 88 L 320 128 L 0 128 Z',
+].map(compileVector).toList();
+
+final _foregrounds = [
+  'M 0 109 Q 72 84 150 109 Q 205 122 264 101 Q 292 95 320 102 L 320 128 L 0 128 Z',
+  'M 0 108 Q 53 82 118 103 Q 205 126 320 90 L 320 128 L 0 128 Z',
+  'M 0 101 Q 51 109 91 97 Q 140 86 187 102 Q 232 113 320 94 L 320 128 L 0 128 Z',
+  'M 0 91 Q 82 117 143 113 Q 217 102 320 81 L 320 128 L 0 128 Z',
+  'M 0 108 Q 55 116 96 91 Q 126 80 162 101 Q 210 119 320 98 L 320 128 L 0 128 Z',
+  'M 0 106 Q 125 57 184 100 Q 233 122 320 90 L 320 128 L 0 128 Z',
+  'M 0 109 L 41 92 L 85 94 L 125 110 L 171 105 L 230 81 L 274 95 L 320 101 L 320 128 L 0 128 Z',
+  'M 0 109 Q 53 83 119 107 Q 183 124 235 97 Q 273 80 320 94 L 320 128 L 0 128 Z',
+].map(compileVector).toList();
+
+final _trails = [
+  'M 23 118 Q 81 97 138 113 Q 191 126 256 111',
+  'M 28 114 C 96 90 158 130 279 105',
+  'M 29 114 Q 87 118 129 108 Q 169 101 216 112',
+  'M 42 112 Q 117 132 178 113 Q 219 105 259 100',
+  'M 35 120 Q 76 115 103 104 Q 127 93 162 112 Q 189 122 229 114',
+  'M 24 111 Q 111 74 172 102 Q 222 124 285 106',
+  'M 26 116 L 62 102 L 110 113 L 154 116 L 222 95 L 267 104',
+  'M 34 114 Q 79 95 134 118 Q 185 126 256 104',
+].map(compileVector).toList();
+
+final _endpoints = [
+  for (final path in _trails)
+    for (final metric in path.computeMetrics())
+      metric.getTangentForOffset(metric.length)!.position,
+];

@@ -10,6 +10,7 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
+import '../ui/art/medallion_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'components/economy_navigation.dart';
@@ -398,17 +399,10 @@ class _ProgressionViewState extends State<ProgressionView> {
           children: [
             Row(
               children: [
-                GameArt(
-                  switch (boost.multiplier) {
-                    2 =>
-                      boost == Boost.doubleTen ? ArtKind.bolt : ArtKind.timer,
-                    3 => ArtKind.flame,
-                    4 => ArtKind.crown,
-                    _ => ArtKind.crate,
-                  },
-                  palette: palette,
-                  size: 48,
-                ),
+                if (multiplier)
+                  BoostArtwork(boost, palette: palette, size: 42)
+                else
+                  GameArt(ArtKind.crate, palette: palette, size: 42),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

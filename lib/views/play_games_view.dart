@@ -7,7 +7,9 @@ import '../logic/achievement_sync.dart';
 import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
+import '../model/app_themes.dart';
 import '../model/native_achievements.dart';
+import '../ui/art/medallion_art.dart';
 
 class PlayGamesView extends StatefulWidget {
   const PlayGamesView({super.key});
@@ -106,10 +108,10 @@ class _PlayGamesViewState extends State<PlayGamesView> {
               if (!item.hidden || item.earned(counters) || sync.confirmed(item))
                 Card(
                   child: ListTile(
-                    leading: Icon(
-                      item.earned(counters) || sync.confirmed(item)
-                          ? Icons.emoji_events_outlined
-                          : Icons.lock_outline,
+                    leading: NativeAchievementEmblem(
+                      item,
+                      palette: BoardPalette.palettes[model.theme]!,
+                      earned: item.earned(counters) || sync.confirmed(item),
                     ),
                     title: Text(item.name),
                     subtitle: Text(

@@ -11,9 +11,10 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/user_preferences.dart';
+import '../ui/art/control_art.dart';
+import '../ui/art/medallion_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'cloud_save_section.dart';
 import 'components/brand_mark.dart';
 import 'level_one_demo.dart';
@@ -58,6 +59,7 @@ class SettingsView extends StatelessWidget {
               children: [
                 group([
                   SwitchListTile(
+                    secondary: const PathIcon(ControlGlyph.haptics),
                     title: const Text('Haptic feedback'),
                     value: model.haptics,
                     onChanged: model.setHaptics,
@@ -165,7 +167,6 @@ class StatisticsView extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
-                JourneyArt(palette, height: 88),
                 Text(
                   'Your journey',
                   style: Theme.of(context).textTheme.headlineSmall,
@@ -358,11 +359,7 @@ class _AchievementCard extends StatelessWidget {
       opacity: earned ? 1 : .7,
       child: Row(
         children: [
-          GameArt(
-            earned ? ArtKind.trophy : ArtKind.lock,
-            palette: palette,
-            size: 40,
-          ),
+          AchievementEmblem(achievement, earned: earned, palette: palette),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

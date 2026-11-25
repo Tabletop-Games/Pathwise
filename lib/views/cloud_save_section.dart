@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../cloud/cloud_save_format.dart';
 import '../cloud/cloud_sync_service.dart';
+import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 
@@ -47,7 +48,10 @@ class CloudSaveSection extends StatelessWidget {
     final tiles = <Widget>[
       ListTile(
         key: const ValueKey('cloud-save-status'),
-        leading: Icon(Icons.cloud_outlined, color: p.route),
+        leading: IconTheme(
+          data: IconThemeData(color: p.route),
+          child: const PathIcon(ControlGlyph.cloud),
+        ),
         title: const Text('Cloud save'),
         subtitle: Text(
           '${_statusLine(cloud)}\n${_when(cloud.lastSynced)}',

@@ -3,6 +3,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
+import '../model/app_themes.dart';
+import '../ui/art/control_art.dart';
+import '../ui/art/medallion_art.dart';
 
 class ShareResultButton extends StatelessWidget {
   const ShareResultButton({
@@ -23,12 +26,12 @@ class ShareResultButton extends StatelessWidget {
     return prominent
         ? FilledButton.tonalIcon(
             onPressed: open,
-            icon: const Icon(Icons.share_outlined),
+            icon: const PathIcon(ControlGlyph.share),
             label: Text(label),
           )
         : TextButton.icon(
             onPressed: open,
-            icon: const Icon(Icons.share_outlined),
+            icon: const PathIcon(ControlGlyph.share),
             label: Text(label),
           );
   }
@@ -138,7 +141,7 @@ class _ShareViewState extends State<ShareView> {
                                 ? 'Caption copied and ready to paste.'
                                 : null;
                           }),
-                    icon: const Icon(Icons.share_outlined),
+                    icon: const PathIcon(ControlGlyph.share),
                     label: Text(
                       linkedIn
                           ? 'Copy Caption and Open LinkedIn'
@@ -191,12 +194,14 @@ class AchievementCelebration extends StatelessWidget {
   Widget build(BuildContext context) {
     if (model.recentAchievements.isEmpty) return const SizedBox.shrink();
     final item = model.recentAchievements.last;
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.emoji_events_outlined),
-        title: Text(item.name),
-        subtitle: Text(item.description),
+    return ListTile(
+      leading: NativeAchievementEmblem(
+        item,
+        palette: BoardPalette.palettes[model.theme]!,
+        earned: true,
       ),
+      title: Text(item.name),
+      subtitle: Text(item.description),
     );
   }
 }
