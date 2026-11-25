@@ -77,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(model.selectedMultiplier, 4);
     expect(tester.getCenter(pointer), position);
-    final watch = find.textContaining('Watch video for +15 coins');
+    final watch = find.textContaining('Watch ad for +15 coins');
     await tester.tap(watch);
     await tester.pumpAndSettle();
     expect(ads.requests, 1);
@@ -177,7 +177,7 @@ void main() {
     final billing = BillingService(persist: (_) async => true);
     await clear(model, 1);
     final normal = model.coinBalance;
-    final watch = find.textContaining('Watch video for +10 coins');
+    final watch = find.textContaining('Watch ad for +10 coins');
     await tester.pumpWidget(
       MultiProvider(
         providers: [

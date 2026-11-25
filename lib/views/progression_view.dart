@@ -333,7 +333,7 @@ class _ProgressionViewState extends State<ProgressionView> {
         : '+${item.effectAt(rank)} → +${item.effectAt(rank + 1)}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+      child: GameCard(
         key: ValueKey('research-${item.name}'),
         padding: const EdgeInsets.all(14),
         child: Opacity(
@@ -420,7 +420,7 @@ class _ProgressionViewState extends State<ProgressionView> {
         context.watch<AdService>().enabled;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+      child: GameCard(
         key: ValueKey('boost-${boost.name}'),
         padding: const EdgeInsets.all(14),
         child: Column(

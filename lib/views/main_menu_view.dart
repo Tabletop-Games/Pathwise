@@ -60,7 +60,6 @@ Future<void> openPuzzle(
     bool canPresent() =>
         context.mounted &&
         !model.adFree &&
-        (id.mode != PlayMode.levels || !ads.videoReady) &&
         model.activeId == null &&
         ModalRoute.isCurrentOf(context) == true &&
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;

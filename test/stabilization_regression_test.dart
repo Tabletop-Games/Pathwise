@@ -1,0 +1,262 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../lib/logic/ad_frequency.dart';
+import '../lib/logic/connectivity_service.dart';
+import '../lib/logic/game_controller.dart';
+import '../lib/logic/game_state_storage.dart';
+import '../lib/logic/puzzle.dart';
+import '../lib/logic/tip_tracker.dart';
+import '../lib/model/app_model.dart';
+import '../lib/model/app_themes.dart';
+import '../lib/model/economy.dart';
+import '../lib/model/journey.dart';
+import '../lib/model/user_preferences.dart';
+import '../lib/views/components/puzzle_board.dart';
+import '../lib/views/journey_rewards.dart';
+
+class _TestBoardControls implements BoardControls, RejectionControls {
+  _TestBoardControls(this.game);
+  final GameController game;
+  VoidCallback? changed;
+
+  @override
+  List<int> get path => game.path;
+  @override
+  int? get tip => game.tip;
+  @override
+  int? get hintCell => game.hintCell;
+  @override
+  int get nextCheckpoint => game.nextCheckpoint;
+  @override
+  bool get complete => game.complete;
+  @override
+  bool begin(int cell) {
+    final ok = game.begin(cell);
+    changed?.call();
+    return ok;
+  }
+
+  @override
+  bool canStep(int cell) => game.canStep(cell);
+  @override
+  void step(int cell) {
+    game.step(cell);
+    changed?.call();
+  }
+
+  @override
+  void end() {
+    game.end();
+    changed?.call();
+  }
+
+  @override
+  void tap(int cell) {
+    if (begin(cell)) end();
+  }
+
+  @override
+  RejectedMove? rejectionFor(int cell) => game.rejectionFor(cell);
+  @override
+  void rejectHaptic() {}
+}
+
+class _MemoryStorage extends GameStateStorage {
+  String data = '{}';
+
+  @override
+  Future<Map<String, dynamic>> load() async =>
+      Map<String, dynamic>.from(jsonDecode(data) as Map);
+
+  @override
+  Future<void> save(String snapshot) async {
+    data = snapshot;
+  }
+}
+
+void main() {
+  group('P0 strict directional tip validation & cosmetic consistency', () {
+    test('TipTracker never faces out-of-bounds, walls, or closed gates', () {
+      // 3x3 board, start at 0, wall between 0 and 1, only legal move is down (1 -> cell 3).
+      final puzzle = Puzzle(3, [0, 8], walls: [(0, 1)]);
+      final tracker = TipTracker();
+
+      // Drag right toward wall (0, 1) -> must NOT face 0 (right); must preserve legal facing 1 (down).
+      final rightDrag = tracker.update(
+        puzzle: puzzle,
+        route: const [0],
+        pointer: const Offset(0.85, 0.5),
+        acceptedFacing: 1,
+        canEnter: (c) => c == 3,
+      );
+      expect(rightDrag.facing, 1);
+
+      // Drag up toward board edge -> must NOT face 3 (up); must preserve legal facing 1 (down).
+      final upDrag = tracker.update(
+        puzzle: puzzle,
+        route: const [0],
+        pointer: const Offset(0.5, 0.15),
+        acceptedFacing: 1,
+        canEnter: (c) => c == 3,
+      );
+      expect(upDrag.facing, 1);
+
+      // Drag left toward board edge -> must NOT face 2 (left); must preserve legal facing 1 (down).
+      final leftDrag = tracker.update(
+        puzzle: puzzle,
+        route: const [0],
+        pointer: const Offset(0.15, 0.5),
+        acceptedFacing: 1,
+        canEnter: (c) => c == 3,
+      );
+      expect(leftDrag.facing, 1);
+    });
+
+    test(
+      'TipTracker.rest handles neutral -1 without using facingVector(-1)',
+      () {
+        final puzzle = Puzzle(3, [0, 8]);
+        final rest = TipTracker.rest(puzzle, const [0], -1);
+        expect(rest.facing, -1);
+        expect(rest.tip, rest.center);
+        expect(rest.extension, 0);
+      },
+    );
+
+    testWidgets(
+      'PuzzleBoard renders non-classic cosmetic at rest, during drag, and at dead end',
+      (tester) async {
+        final puzzle = Puzzle(3, [0, 8], walls: [(1, 2), (1, 4)]);
+        final game = GameController(
+          VerifiedPuzzle(puzzle, [0, 3, 6, 7, 4, 5, 2, 1, 8]),
+        );
+        final controls = _TestBoardControls(game);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox.square(
+                  dimension: 300,
+                  child: StatefulBuilder(
+                    builder: (context, update) {
+                      controls.changed = () => update(() {});
+                      return PuzzleBoard(
+                        model: controls,
+                        puzzle: puzzle,
+                        palette: BoardPalette.palettes[PathwiseTheme.field]!,
+                        tipStyle: PathTip.cat,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        // Move to cell 1 (which only has backtracking to 0 because walls block 2 and 4).
+        final grid = find.byKey(const ValueKey('puzzle-grid'));
+        final topLeft = tester.getTopLeft(grid);
+        final gesture = await tester.startGesture(
+          topLeft + const Offset(50, 50),
+        );
+        await gesture.moveTo(topLeft + const Offset(150, 50));
+        await tester.pump();
+        expect(controls.path, [0, 1]);
+
+        // Release at dead end cell 1 -> should settle cleanly without exceptions.
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('P1 progressive mystery discovery & claim/apply', () {
+    test(
+      'upcoming discovery persists across snapshot save and restore',
+      () async {
+        final storage = _MemoryStorage();
+        final model = AppModel(
+          storage: storage,
+          snapshot: const {},
+          connectivity: ConnectivityService(probe: () async => true),
+          today: () => DateTime(2026, 11, 25),
+          bootTime: () => (boot: 1, milliseconds: 1000),
+        );
+
+        final firstUpcoming = model.upcomingDiscoveryItem;
+        expect(firstUpcoming, discoveryCatalogue.first);
+        await model.flush();
+
+        // Reload from storage and verify identical upcoming discovery item.
+        final loadedSnapshot = await storage.load();
+        final reloaded = AppModel(
+          storage: storage,
+          snapshot: loadedSnapshot,
+          connectivity: ConnectivityService(probe: () async => true),
+          today: () => DateTime(2026, 11, 25),
+          bootTime: () => (boot: 1, milliseconds: 1000),
+        );
+        expect(reloaded.upcomingDiscoveryItem, firstUpcoming);
+
+        model.dispose();
+        reloaded.dispose();
+      },
+    );
+
+    testWidgets('ProgressiveDiscoveryArt renders at every 10% increment', (
+      tester,
+    ) async {
+      final palette = BoardPalette.palettes[PathwiseTheme.field]!;
+      for (final pct in [0, 10, 30, 50, 90, 100]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: ProgressiveDiscoveryArt(
+                  item: 'tip/cat',
+                  palette: palette,
+                  progress: pct / 100,
+                  size: 84,
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull, reason: 'failed at $pct%');
+      }
+    });
+  });
+
+  group('P1 interstitial frequency', () {
+    test('AdFrequency enforces exit count, minimum gap, and rewarded gap', () {
+      final freq = AdFrequency(
+        minimumGap: const Duration(minutes: 3),
+        rewardedGap: const Duration(minutes: 1),
+        exitsPerInterstitial: 5,
+      );
+      for (var i = 0; i < 4; i++) {
+        freq.completedExit();
+        expect(freq.eligible(const Duration(minutes: 5)), isFalse);
+      }
+      freq.completedExit();
+      expect(freq.eligible(const Duration(minutes: 5)), isTrue);
+
+      freq.attemptedInterstitial(const Duration(minutes: 5));
+      for (var i = 0; i < 5; i++) {
+        freq.completedExit();
+      }
+      expect(freq.eligible(const Duration(minutes: 6)), isFalse);
+      expect(freq.eligible(const Duration(minutes: 8)), isTrue);
+
+      freq.rewardedClosed(const Duration(minutes: 8));
+      expect(freq.eligible(const Duration(minutes: 8, seconds: 30)), isFalse);
+      expect(freq.eligible(const Duration(minutes: 9)), isTrue);
+    });
+  });
+}

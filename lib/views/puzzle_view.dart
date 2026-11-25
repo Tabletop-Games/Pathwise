@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -150,14 +151,22 @@ class PuzzleView extends StatelessWidget {
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
+                  final extraHeader =
+                      (timed ? 28.0 : 0.0) +
+                      (id.layoutLabel != null ? 22.0 : 0.0) +
+                      (id.mode == PlayMode.daily && id.checkpoint == null
+                          ? 26.0
+                          : 0.0);
+                  final reservedVertical = 176.0 + extraHeader;
                   final side = math.min(
                     math.min(constraints.maxWidth - 32, 490.0),
-                    math.max(200.0, constraints.maxHeight - 270),
+                    math.max(200.0, constraints.maxHeight - reservedVertical),
                   );
-                  final verticalSpace = constraints.maxHeight - side - 200;
+                  final verticalSpace =
+                      constraints.maxHeight - side - reservedVertical;
                   final topInset = verticalSpace > 0
-                      ? (verticalSpace * .40).clamp(6.0, 88.0)
-                      : 6.0;
+                      ? (verticalSpace * .22).clamp(8.0, 36.0)
+                      : 8.0;
                   return Align(
                     alignment: Alignment.topCenter,
                     child: SingleChildScrollView(
@@ -434,6 +443,28 @@ class _Completion extends StatelessWidget {
   final PuzzleId id;
   final BoardPalette palette;
 
+  void _openNextLevel(BuildContext context, AppModel model, PuzzleId next) {
+    final ads = context.read<AdService>();
+    final shouldCheckInterstitial =
+        id.mode == PlayMode.levels && model.completedThisVisit && !model.adFree;
+    unawaited(model.open(next));
+    if (shouldCheckInterstitial && context.mounted) {
+      bool canPresent() =>
+          context.mounted &&
+          !model.adFree &&
+          !model.complete &&
+          ModalRoute.isCurrentOf(context) == true &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      unawaited(
+        ads.afterCompletedExit(
+          canPresent: canPresent(),
+          stillPresent: canPresent,
+        ),
+      );
+      if (canPresent()) unawaited(ads.prepare(canPresent: canPresent));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final next = switch (id.mode) {
@@ -488,33 +519,57 @@ class _Completion extends StatelessWidget {
             if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
               const SizedBox(height: 10),
               if (model.latestDiscovery case final discovery?) ...[
-                const Text('Discovery ready · 100%'),
+                Text(
+                  'New discovery!',
+                  style: TextStyle(
+                    color: palette.route,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
                 DiscoveryRow(
                   discovery,
                   reveal: true,
+                  onClaimLater: next == null || !model.onlineReady
+                      ? () => Navigator.pop(context)
+                      : () => _openNextLevel(context, model, next),
                   key: ValueKey(discovery.number),
                 ),
-                TextButton(
-                  onPressed: next == null || !model.onlineReady
-                      ? () => Navigator.pop(context)
-                      : () => model.open(next),
-                  child: const Text('Claim later'),
-                ),
               ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GameArt(ArtKind.gift, palette: palette, size: 28),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text('Discovery · ${model.discoveryPercent}%'),
-                    ),
-                  ],
-                ),
-                LinearProgressIndicator(
-                  value: model.discoveryPercent / 100,
-                  backgroundColor: palette.tile,
-                  color: palette.route,
+                TweenAnimationBuilder<double>(
+                  key: ValueKey(
+                    'discovery-${id.level}-${model.discoveryPercent}',
+                  ),
+                  tween: Tween(
+                    begin:
+                        (model.discoveryStartPercent ??
+                            model.discoveryPercent) /
+                        100,
+                    end: model.discoveryPercent / 100,
+                  ),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 520),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, progress, _) => Column(
+                    children: [
+                      ProgressiveDiscoveryArt(
+                        item: model.upcomingDiscoveryItem,
+                        palette: palette,
+                        progress: progress,
+                        size: 84,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Mystery discovery · ${(progress * 100).round()}%',
+                        style: TextStyle(
+                          color: palette.mutedInk,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -531,7 +586,9 @@ class _Completion extends StatelessWidget {
                       ),
                     ),
                   ),
-                  onPressed: model.onlineReady ? () => model.open(next) : null,
+                  onPressed: model.onlineReady
+                      ? () => _openNextLevel(context, model, next)
+                      : null,
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: Text(
                     id.checkpoint == null ? 'Next level' : 'Next checkpoint',

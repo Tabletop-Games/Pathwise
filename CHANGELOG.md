@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Stabilize pointer tracking and directional cosmetic rendering: strictly validate cardinal directions against board bounds, walls, gates, arrows, and revisits; preserve the equipped cosmetic across resting, checkpoint, dead-end, and rejection states; add overhead directional silhouettes for `robot` and `ufo`.
+- Redesign the completion multiplier track with distinct segments, a game-style pointer, tap-to-stop on the track, and clear bonus coin wording.
+- Replace the generic discovery progress bar with `ProgressiveDiscoveryArt` (persisted upcoming collectible identity, bottom-to-top reveal at 10% increments, and clean `Watch to unlock` → `Unlocked!` → `Apply` → `Applied`/`Equipped` transitions).
+- Trigger interstitial exit checks on `Next level` transitions, remove the `ads.videoReady` suppression when returning to the menu, and reserve a stable banner ad slot height to prevent layout shifts.
+- Improve coin icon contrast against themed buttons, tighten gameplay vertical spacing, and wrap Research and Boost items in `GameCard` containers.
+
 - Open the procedural campaign on a bottom-to-top journey with direct level jumps, solve times and a quick-navigation grid. Remove the 1,000-level progression limit.
 - Place a claimable treasure after every finished chapter. Large Play Games snapshots compress for transfer.
 - Start the completion multiplier automatically and let the player stop it without ad readiness or connectivity. Cap newly pending coin-only discoveries at one.

@@ -214,6 +214,12 @@ class AppModel extends ChangeNotifier
         _discoveries[number] = Discovery(number, item);
       }
     }
+    final upcoming = journey['upcoming'];
+    if (upcoming is String &&
+        (upcoming == Discovery.fallback ||
+            discoveryCatalogue.contains(upcoming))) {
+      _upcomingDiscoveryItem = upcoming;
+    }
     final adStamp = _map(snapshot['lastAutomaticAd']);
     if (adStamp['boot'] is int && adStamp['milliseconds'] is int) {
       _lastAutomaticAd = (
@@ -1089,7 +1095,9 @@ class AppModel extends ChangeNotifier
 
   int _journeyClears = 0;
   final _discoveries = <int, Discovery>{};
+  String? _upcomingDiscoveryItem;
   Discovery? latestDiscovery;
+  int? discoveryStartPercent;
   bool chapterCompletedThisVisit = false;
   bool firstCampaignClear = false;
   int completionCoins = 0;
@@ -1103,6 +1111,33 @@ class AppModel extends ChangeNotifier
       _journeyClears % discoveryInterval * 100 ~/ discoveryInterval;
   List<Discovery> get pendingDiscoveries =>
       List.unmodifiable(_discoveries.values);
+  bool hasPendingDiscovery(int number) => _discoveries.containsKey(number);
+
+  String _nextEligibleDiscoveryItem() {
+    final reserved = _discoveries.values
+        .map((discovery) => discovery.item)
+        .toSet();
+    return discoveryCatalogue.firstWhere(
+      (item) => !reserved.contains(item) && !_ownsDiscoveryItem(item),
+      orElse: () => Discovery.fallback,
+    );
+  }
+
+  /// The persisted mystery collectible for the current 10-puzzle discovery
+  /// cycle. Reconciles deterministically if purchased before completion.
+  String get upcomingDiscoveryItem {
+    final current = _upcomingDiscoveryItem;
+    if (current != null &&
+        (current == Discovery.fallback ||
+            (discoveryCatalogue.contains(current) &&
+                !_ownsDiscoveryItem(current) &&
+                !_discoveries.values.any((d) => d.item == current)))) {
+      return current;
+    }
+    final next = _nextEligibleDiscoveryItem();
+    _upcomingDiscoveryItem = next;
+    return next;
+  }
 
   bool _ownsDiscoveryItem(String item) {
     if (item.startsWith('tip/')) {
@@ -1122,20 +1157,22 @@ class AppModel extends ChangeNotifier
 
   void _advanceJourney(int level) {
     firstCampaignClear = true;
+    discoveryStartPercent = discoveryPercent;
     final chapter = chapterFor(level);
     chapterCompletedThisVisit = chapterClears(chapter) == chapterSize;
     if (chapterCompletedThisVisit && !chapterClaimed(chapter)) {
       _chapterChests.add(chapter);
     }
+    final selectedItem = upcomingDiscoveryItem;
     _journeyClears++;
     if (_journeyClears % discoveryInterval != 0) return;
-    final reserved = _discoveries.values
-        .map((discovery) => discovery.item)
-        .toSet();
-    final item = discoveryCatalogue.firstWhere(
-      (item) => !reserved.contains(item) && !_ownsDiscoveryItem(item),
-      orElse: () => Discovery.fallback,
-    );
+    final item =
+        selectedItem != Discovery.fallback &&
+            !_ownsDiscoveryItem(selectedItem) &&
+            !_discoveries.values.any((d) => d.item == selectedItem)
+        ? selectedItem
+        : _nextEligibleDiscoveryItem();
+    _upcomingDiscoveryItem = null;
     if (item == Discovery.fallback &&
         _discoveries.values.any(
           (reward) => displayedDiscovery(reward).item == Discovery.fallback,
@@ -1145,6 +1182,7 @@ class AppModel extends ChangeNotifier
     final discovery = Discovery(_journeyClears ~/ discoveryInterval, item);
     _discoveries[discovery.number] = discovery;
     latestDiscovery = discovery;
+    _upcomingDiscoveryItem = _nextEligibleDiscoveryItem();
   }
 
   bool get canMultiplyCompletion =>
@@ -1773,6 +1811,7 @@ class AppModel extends ChangeNotifier
     lastReward = 0;
     completionCoins = 0;
     latestDiscovery = null;
+    discoveryStartPercent = null;
     chapterCompletedThisVisit = false;
     firstCampaignClear = false;
     selectedMultiplier = null;
@@ -2207,9 +2246,10 @@ class AppModel extends ChangeNotifier
 
   Map<String, dynamic> _snapshotMap() => {
     'schemaVersion': GameStateStorage.schemaVersion,
-    if (_journeyClears != 0)
+    if (_journeyClears != 0 || _upcomingDiscoveryItem != null)
       'journey': {
         'clears': _journeyClears,
+        if (_upcomingDiscoveryItem case final upcoming?) 'upcoming': upcoming,
         if (_chapterChests.isNotEmpty) 'chapterChests': pendingChapterChests,
         'pending': {
           for (final discovery in _discoveries.values)

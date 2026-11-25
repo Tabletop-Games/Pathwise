@@ -15,8 +15,10 @@ class AdBanner extends StatefulWidget {
 }
 
 class _AdBannerState extends State<AdBanner> {
+  static const double _fallbackHeight = 50;
   BannerAd? _ad;
   bool _loaded = false;
+  double _reservedHeight = _fallbackHeight;
   (int, Orientation, int)? _request;
 
   @override
@@ -32,8 +34,9 @@ class _AdBannerState extends State<AdBanner> {
       }
       return const SizedBox.shrink();
     }
-    if (!current || MediaQuery.sizeOf(context).height < 570)
+    if (!current || MediaQuery.sizeOf(context).height < 570) {
       return const SizedBox.shrink();
+    }
     return SafeArea(
       top: false,
       child: LayoutBuilder(
@@ -51,15 +54,20 @@ class _AdBannerState extends State<AdBanner> {
             });
           }
           final ad = _ad;
-          if (!_loaded || ad == null || _request != request)
-            return const SizedBox.shrink();
-          return Center(
-            heightFactor: 1,
-            child: SizedBox(
-              width: ad.size.width.toDouble(),
-              height: ad.size.height.toDouble(),
-              child: AdWidget(ad: ad),
-            ),
+          final ready = _loaded && ad != null && _request == request;
+          final height = ready ? ad.size.height.toDouble() : _reservedHeight;
+          return SizedBox(
+            height: height,
+            child: ready
+                ? Center(
+                    heightFactor: 1,
+                    child: SizedBox(
+                      width: ad.size.width.toDouble(),
+                      height: height,
+                      child: AdWidget(ad: ad),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           );
         },
       ),
@@ -75,6 +83,9 @@ class _AdBannerState extends State<AdBanner> {
       );
       if (!mounted || _request != request || size == null || !ads.canLoadBanner)
         return;
+      if (mounted) {
+        setState(() => _reservedHeight = size.height.toDouble());
+      }
       final ad = BannerAd(
         size: size,
         adUnitId: ads.bannerUnit,

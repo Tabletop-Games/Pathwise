@@ -303,7 +303,14 @@ class AdService extends ChangeNotifier {
     required bool canPresent,
     bool Function()? stillPresent,
   }) async {
-    if (!enabled || _disposed) return;
+    if (!enabled || _disposed) {
+      if (kDebugMode) {
+        debugPrint(
+          'Pathwise interstitial skipped: enabled=$enabled disposed=$_disposed',
+        );
+      }
+      return;
+    }
     _frequency.completedExit();
     final now = _watch.elapsed;
     if (!canPresent ||
@@ -311,19 +318,35 @@ class AdService extends ChangeNotifier {
         _fullScreen ||
         !ready(_interstitial) ||
         !_frequency.eligible(now)) {
+      if (kDebugMode) {
+        debugPrint(
+          'Pathwise interstitial deferred: canPresent=$canPresent '
+          'canRequest=$_canRequest fullScreen=$_fullScreen '
+          'ready=${ready(_interstitial)} eligible=${_frequency.eligible(now)}',
+        );
+      }
       _preload();
       return;
     }
     if (_reserving) return;
     _reserving = true;
     try {
-      if (reserveInterstitial != null && !await reserveInterstitial!()) return;
+      if (reserveInterstitial != null && !await reserveInterstitial!()) {
+        if (kDebugMode) {
+          debugPrint('Pathwise interstitial suppressed: reservation declined');
+        }
+        return;
+      }
       if (_disposed ||
           _fullScreen ||
           !_canRequest ||
           !ready(_interstitial) ||
-          stillPresent?.call() == false)
+          stillPresent?.call() == false) {
+        if (kDebugMode) {
+          debugPrint('Pathwise interstitial cancelled before show');
+        }
         return;
+      }
     } finally {
       _reserving = false;
     }
@@ -331,6 +354,9 @@ class AdService extends ChangeNotifier {
     _interstitial = null;
     _frequency.attemptedInterstitial(now);
     _showing = ad;
+    if (kDebugMode) {
+      debugPrint('Pathwise interstitial presenting');
+    }
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (_) => _finished(ad),
       onAdFailedToShowFullScreenContent: (_, _) => _finished(ad),

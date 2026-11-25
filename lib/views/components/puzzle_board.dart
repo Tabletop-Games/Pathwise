@@ -172,18 +172,41 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   Offset? _previous;
   int _preferredRest = -1;
 
-  int _restingDirection(List<int> path) {
+  bool _canEnterCell(int cell) {
     final model = widget.model;
-    final facing = TipTracker.restingFacing(
+    return model.canStep(cell) &&
+        (model is! RejectionControls ||
+            (model as RejectionControls).rejectionFor(cell) == null);
+  }
+
+  int _restingDirection(List<int> path) {
+    var facing = TipTracker.restingFacing(
       widget.puzzle,
       path,
       _preferredRest,
-      (cell) =>
-          model.canStep(cell) &&
-          (model is! RejectionControls ||
-              (model as RejectionControls).rejectionFor(cell) == null),
+      _canEnterCell,
     );
-    _preferredRest = facing;
+    if (facing < 0 && path.length > 1) {
+      final from = path.last;
+      final to = path[path.length - 2];
+      final portal = widget.puzzle.portal;
+      final isPortal =
+          portal != null &&
+          ((portal.$1 == from && portal.$2 == to) ||
+              (portal.$1 == to && portal.$2 == from));
+      final hasWall =
+          widget.puzzle.walls.contains((from, to)) ||
+          widget.puzzle.walls.contains((to, from));
+      if (!isPortal && !hasWall) {
+        final dx = to % _size - from % _size;
+        final dy = to ~/ _size - from ~/ _size;
+        if (dx == 1 && dy == 0) facing = 0;
+        if (dx == 0 && dy == 1) facing = 1;
+        if (dx == -1 && dy == 0) facing = 2;
+        if (dx == 0 && dy == -1) facing = 3;
+      }
+    }
+    if (facing >= 0) _preferredRest = facing;
     return facing;
   }
 
@@ -197,7 +220,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
       acceptedFacing: initialFacing >= 0
           ? initialFacing
           : tipDirection(widget.puzzle, route),
-      canEnter: controls.canStep,
+      canEnter: _canEnterCell,
     );
     _visual.value = visual;
     final trim = visual.trim ? (cell: visual.cell, tip: visual.tip) : null;
@@ -394,7 +417,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       tipColor: widget.palette.accent,
                       palette: widget.palette,
                       tipStyle: widget.tipStyle,
-                      direction: tipDirection(widget.puzzle, path),
+                      direction: _restingDirection(path),
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -1095,7 +1118,7 @@ void paintTip(
   final checkpoint = puzzle.numbers[v.cell] != 0;
   final classic = style == PathTip.classic;
   // Classic on a checkpoint is the highlighted disc itself.
-  if (checkpoint && (v.facing < 0 || (classic && v.extension <= .275))) {
+  if (checkpoint && classic && v.extension <= .275) {
     return;
   }
   if (v.extension > 0 && !v.trim) {
@@ -1116,9 +1139,9 @@ void paintTip(
     canvas,
     v.tip,
     tipRadiusOf(style),
-    v.facing < 0 ? PathTip.classic : style,
+    style,
     palette,
-    quarterTurns: v.facing,
+    quarterTurns: v.facing < 0 ? 3 : v.facing,
   );
 }
 
@@ -1229,18 +1252,6 @@ class _RejectionPainter extends CustomPainter {
     final end = segment * distance;
     final classic = tipStyle == PathTip.classic;
     final lead = tipLead(tipStyle);
-    // Face the attempted neighbour, not the accepted heading.
-    final stepX = destination % puzzle.size - origin % puzzle.size;
-    final stepY = destination ~/ puzzle.size - origin ~/ puzzle.size;
-    final attempted = stepX == 1 && stepY == 0
-        ? 0
-        : stepX == 0 && stepY == 1
-        ? 1
-        : stepX == -1 && stepY == 0
-        ? 2
-        : stepX == 0 && stepY == -1
-        ? 3
-        : direction;
     final travel = checkpoint ? math.max(end, lead) : end;
     final endPoint = Offset.lerp(from, to, travel)!;
     final rim = checkpoint ? .275 : 0.0;
@@ -1263,7 +1274,7 @@ class _RejectionPainter extends CustomPainter {
       tipRadiusOf(tipStyle),
       tipStyle,
       palette,
-      quarterTurns: attempted,
+      quarterTurns: direction < 0 ? 3 : direction,
     );
     canvas.restore();
   }

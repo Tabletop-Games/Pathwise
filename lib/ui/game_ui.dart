@@ -177,7 +177,11 @@ class ActionPill extends StatelessWidget {
     final (fill, ink, border) = switch (tone) {
       ActionTone.primary => (p.route, p.onRoute, null),
       ActionTone.quiet => (p.quiet, p.ink, p.cardEdge),
-      ActionTone.selected => (Colors.transparent, p.mutedInk, null),
+      ActionTone.selected => (
+        p.route.withValues(alpha: p.dark ? .18 : .12),
+        p.ink,
+        p.route.withValues(alpha: .45),
+      ),
     };
     final disabled = onTap == null && tone != ActionTone.selected;
     return _PillFrame(

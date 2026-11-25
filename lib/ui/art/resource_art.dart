@@ -125,11 +125,8 @@ void paintResource(Canvas canvas, BoardPalette palette, ResourceForm form) {
 
 void paintCoins(Canvas canvas, BoardPalette palette, int count) {
   final face = Color.lerp(const Color(0xffd6bc8a), palette.accent, .31)!;
-  final edge = Color.lerp(
-    face,
-    palette.dark ? palette.canvas : palette.ink,
-    .40,
-  )!;
+  final rim = palette.dark ? palette.canvas : palette.ink;
+  final edge = Color.lerp(face, rim, .58)!;
   void coin(Offset center, double radius) {
     canvas.drawCircle(
       center.translate(0, radius * .09),
@@ -137,6 +134,14 @@ void paintCoins(Canvas canvas, BoardPalette palette, int count) {
       Paint()..color = edge,
     );
     canvas.drawCircle(center, radius * .94, Paint()..color = face);
+    canvas.drawCircle(
+      center,
+      radius * .94,
+      Paint()
+        ..color = rim.withValues(alpha: .55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * .09,
+    );
     canvas.drawCircle(
       center,
       radius * .73,

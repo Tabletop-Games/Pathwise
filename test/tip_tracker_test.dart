@@ -356,8 +356,8 @@ void main() {
       final puzzle = open4();
       at(tracker, puzzle, [0, 1], const Offset(1.9, .5));
       tracker.reset();
-      final v = at(tracker, puzzle, [0, 1], const Offset(1.5, .5), facing: 3);
-      expect(v.facing, 3);
+      final v = at(tracker, puzzle, [0, 1], const Offset(1.5, .5), facing: 1);
+      expect(v.facing, 1);
     });
 
     test('the resting tip faces the accepted direction', () {

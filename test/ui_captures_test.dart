@@ -269,7 +269,7 @@ Future<void> _screens(
     await tester.ensureVisible(find.text('Stop'));
     await tester.tap(find.text('Stop'));
     await shot('multiplier-stopped');
-    final watch = find.textContaining('Watch video for +');
+    final watch = find.textContaining('Watch ad for +');
     rewardAds.available = false;
     await tester.ensureVisible(watch);
     await tester.tap(watch);
@@ -301,7 +301,7 @@ Future<void> _screens(
     await reducedModel.open(const PuzzleId.level(1));
     complete(reducedModel);
     await shot('multiplier-reduced-motion');
-    expect(find.text('3× base level reward'), findsOneWidget);
+    expect(find.textContaining('3× bonus'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await reducedModel.flush();
     reducedModel.dispose();
