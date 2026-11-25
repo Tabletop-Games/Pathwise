@@ -1,6 +1,6 @@
 # Project context
 
-Pathwise is an online-first Android route puzzle using Flutter and Provider. The code adapts GPL-3.0 architecture from [shenmareparas/Chess](https://github.com/shenmareparas/Chess). Preserve attribution and the Bricolage Grotesque font notice.
+Pathwise is a local-first, offline-capable Android route puzzle using Flutter and Provider. The code adapts GPL-3.0 architecture from [shenmareparas/Chess](https://github.com/shenmareparas/Chess). Preserve attribution and the Bricolage Grotesque font notice.
 
 - [Architecture and persistence](../docs/architecture.md)
 - [Internet requirement and connection handling](../docs/connectivity.md)

@@ -592,9 +592,14 @@ class _Completion extends StatelessWidget {
                 DiscoveryRow(
                   discovery,
                   reveal: true,
-                  onClaimLater: next == null || !model.onlineReady
-                      ? () => Navigator.pop(context)
-                      : () => _openNextLevel(context, model, next),
+                  onSkip: () {
+                    model.skipLatestDiscovery();
+                    if (next == null) {
+                      Navigator.pop(context);
+                    } else {
+                      _openNextLevel(context, model, next);
+                    }
+                  },
                   key: ValueKey(discovery.number),
                 ),
               ] else ...[
@@ -648,31 +653,25 @@ class _Completion extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(GameTokens.cardRadius),
-                    gradient: model.onlineReady
-                        ? LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [palette.buttonTop, palette.buttonBottom],
-                          )
-                        : null,
-                    boxShadow: model.onlineReady
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(
-                                alpha: palette.dark ? .35 : .18,
-                              ),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [palette.buttonTop, palette.buttonBottom],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: palette.dark ? .35 : .18,
+                        ),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(54),
-                      backgroundColor: model.onlineReady
-                          ? Colors.transparent
-                          : null,
+                      backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(
@@ -680,9 +679,7 @@ class _Completion extends StatelessWidget {
                         ),
                       ),
                     ),
-                    onPressed: model.onlineReady
-                        ? () => _openNextLevel(context, model, next)
-                        : null,
+                    onPressed: () => _openNextLevel(context, model, next),
                     icon: const Icon(Icons.arrow_forward_rounded),
                     label: Text(
                       id.checkpoint == null ? 'Next level' : 'Next checkpoint',
@@ -693,11 +690,6 @@ class _Completion extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            if (next != null && !model.onlineReady)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
-                child: Text('Reconnect to play the next puzzle.'),
               ),
             const SizedBox(height: 6),
             AchievementCelebration(model),
@@ -894,15 +886,21 @@ class _HintAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onTap = model.canHint
-        ? model.hint
-        : model.hintsRemaining == 0 && !model.complete && !model.storageError
-        ? () => showHintShop(context, model)
-        : null;
+    final enabled = !model.complete && !model.storageError;
     return _ControlButton(
       icon: ControlGlyph.hint,
       label: 'Hint · ${model.hintsRemaining} left',
-      onPressed: onTap,
+      onPressed: enabled
+          ? () {
+              // Keep button visually stable while drawing; ignore tap safely.
+              if (model.isDrawing) return;
+              if (model.hintsRemaining > 0) {
+                if (model.canHint) model.hint();
+              } else {
+                showHintShop(context, model);
+              }
+            }
+          : null,
       primary: true,
     );
   }

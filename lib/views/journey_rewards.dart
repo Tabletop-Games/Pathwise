@@ -69,8 +69,7 @@ class _CompletionBonusState extends State<CompletionBonus>
   bool get _current =>
       mounted &&
       ModalRoute.isCurrentOf(context) == true &&
-      widget.model.canMultiplyCompletion &&
-      widget.model.onlineReady;
+      widget.model.canMultiplyCompletion;
 
   Future<void> _claim(AdService ads) async {
     final model = widget.model;
@@ -85,14 +84,14 @@ class _CompletionBonusState extends State<CompletionBonus>
     });
     var shown = false;
     try {
-      if (_current && !ads.videoReady) {
-        await ads.prepare(canPresent: () => _current);
+      if (model.onlineReady && _current && !ads.videoReady) {
+        await ads.prepare(canPresent: () => _current && model.onlineReady);
       }
-      if (_current && ads.videoReady) {
+      if (model.onlineReady && _current && ads.videoReady) {
         shown = await ads.watchVideo(
           reward,
           waitForReward: true,
-          canPresent: () => _current,
+          canPresent: () => _current && model.onlineReady,
         );
       }
     } finally {
@@ -485,25 +484,34 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = progress.clamp(0.0, 1.0);
-    final isTip = item.startsWith('tip/');
-    final isTheme = item.startsWith('theme/');
-    final tip = isTip ? PathTip.fromId(item.split('/').last) : null;
-    final theme = isTheme
-        ? PathwiseTheme.values
-              .where((t) => t.name == item.split('/').last)
-              .firstOrNull
-        : null;
+    final parsed = Discovery(0, item);
+    final tip = parsed.tip;
+    final theme = parsed.theme;
+    final boost = parsed.boost;
     final shadowColor = Color.lerp(palette.tile, palette.ink, .28)!;
     final (topFrac, bottomFrac) = tip != null
         ? (tipVisibleVerticalBounds[tip] ?? (0.02, 0.98))
-        : (0.02, 0.98);
+        : (0.04, 0.96);
     final Widget revealed = tip != null
         ? TipArtwork(tip: tip, palette: palette, scale: .5)
+        : boost != null
+        ? Image.asset(boostAssetPath(boost), fit: BoxFit.contain)
         : theme != null
-        ? LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!)
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.14),
+            child: LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!),
+          )
         : GameArt(ArtKind.coinStack3, palette: palette);
     final Widget silhouette = tip != null
         ? TipArtwork(tip: tip, palette: palette, scale: .5, concealed: true)
+        : theme != null
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(size * 0.14),
+            child: ColoredBox(
+              color: shadowColor,
+              child: const SizedBox.expand(),
+            ),
+          )
         : ColorFiltered(
             colorFilter: ColorFilter.mode(shadowColor, BlendMode.srcATop),
             child: revealed,
@@ -577,12 +585,12 @@ class DiscoveryRow extends StatefulWidget {
   const DiscoveryRow(
     this.discovery, {
     this.reveal = false,
-    this.onClaimLater,
+    this.onSkip,
     super.key,
   });
   final Discovery discovery;
   final bool reveal;
-  final VoidCallback? onClaimLater;
+  final VoidCallback? onSkip;
 
   @override
   State<DiscoveryRow> createState() => _DiscoveryRowState();
@@ -590,6 +598,7 @@ class DiscoveryRow extends StatefulWidget {
 
 class _DiscoveryRowState extends State<DiscoveryRow> {
   bool _busy = false;
+  bool _unavailable = false;
   Discovery? _claimed;
   bool _justApplied = false;
 
@@ -599,16 +608,11 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
     final ads = context.watch<AdService>();
     final billing = context.watch<BillingService>();
     final palette = BoardPalette.palettes[model.theme]!;
-    final pending = model.hasPendingDiscovery(widget.discovery.number);
     final discovery = _claimed ?? model.displayedDiscovery(widget.discovery);
-    final isClaimed = _claimed != null || !pending;
-    final fallback = discovery.item == Discovery.fallback;
-    final tip = discovery.isTip
-        ? PathTip.values.byName(discovery.cosmeticId)
-        : null;
-    final theme = !fallback && tip == null
-        ? PathwiseTheme.values.byName(discovery.cosmeticId)
-        : null;
+    final isClaimed = _claimed != null || model.latestDiscoveryClaimed;
+    final tip = discovery.tip;
+    final theme = discovery.theme;
+    final boost = discovery.boost;
     final equipped = tip != null
         ? model.equippedTip == tip
         : theme != null && model.theme == theme;
@@ -616,8 +620,15 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
       dimension: widget.reveal ? 156 : 52,
       child: tip != null
           ? TipArtwork(tip: tip, palette: palette)
+          : boost != null
+          ? Image.asset(boostAssetPath(boost), fit: BoxFit.contain)
           : theme != null
-          ? LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!)
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(widget.reveal ? 18 : 8),
+              child: LevelOneBoardPreview(
+                palette: BoardPalette.palettes[theme]!,
+              ),
+            )
           : GameArt(ArtKind.coinStack3, palette: palette),
     );
     return Padding(
@@ -647,7 +658,11 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                   : CrossAxisAlignment.start,
               children: [
                 Text(
-                  tip?.label ?? theme?.label ?? '$discoveryFallbackCoins coins',
+                  tip?.label ??
+                      theme?.label ??
+                      (boost != null
+                          ? '${boost.multiplier}× ${boost.title}'
+                          : '${discovery.coinAmount} coins'),
                   style: TextStyle(
                     color: palette.ink,
                     fontWeight: FontWeight.w800,
@@ -666,7 +681,11 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Unlocked!',
+                        discovery.isCoins
+                            ? '+${discovery.coinAmount} coins added!'
+                            : boost != null
+                            ? 'Added to Boosts!'
+                            : 'Unlocked!',
                         style: TextStyle(
                           color: palette.route,
                           fontWeight: FontWeight.w800,
@@ -675,7 +694,7 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                       ),
                     ],
                   ),
-                  if (!fallback) ...[
+                  if (tip != null || theme != null) ...[
                     const SizedBox(height: 6),
                     if (equipped)
                       ActionPill(
@@ -710,51 +729,60 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                   const SizedBox(height: 6),
                   ActionPill(
                     label: _busy
-                        ? 'Unlocking…'
-                        : ads.videoReady
-                        ? 'Watch to unlock'
-                        : 'Video temporarily unavailable',
+                        ? 'Loading video…'
+                        : !model.onlineReady
+                        ? 'Offline · tap to retry'
+                        : _unavailable
+                        ? 'Video unavailable · retry'
+                        : 'Watch to claim',
                     tone: ActionTone.primary,
-                    icon: _busy
-                        ? null
-                        : ads.videoReady
-                        ? Icons.play_circle_filled_rounded
-                        : null,
-                    onTap:
-                        !_busy &&
-                            !billing.buying &&
-                            ads.videoReady &&
-                            model.onlineReady &&
-                            !model.storageError
+                    icon: _busy ? null : Icons.play_circle_filled_rounded,
+                    onTap: !_busy && !billing.buying && !model.storageError
                         ? () async {
-                            setState(() => _busy = true);
-                            var claimed = false;
-                            await ads.watchVideo(
-                              (_) async {
-                                claimed = await model.claimDiscovery(
-                                  discovery.number,
+                            final callback = model.mysteryRewardCallback();
+                            if (callback == null) return;
+                            setState(() {
+                              _busy = true;
+                              _unavailable = false;
+                            });
+                            var shown = false;
+                            try {
+                              if (model.onlineReady && !ads.videoReady) {
+                                await ads.prepare(
+                                  canPresent: () =>
+                                      mounted &&
+                                      model.onlineReady &&
+                                      ModalRoute.isCurrentOf(context) == true,
                                 );
-                                return claimed;
-                              },
-                              waitForReward: true,
-                              canPresent: () =>
-                                  mounted &&
-                                  model.onlineReady &&
-                                  ModalRoute.isCurrentOf(context) == true,
-                            );
-                            if (mounted) {
-                              setState(() {
-                                _busy = false;
-                                _claimed = claimed ? discovery : null;
-                              });
+                              }
+                              if (model.onlineReady && ads.videoReady) {
+                                shown = await ads.watchVideo(
+                                  callback,
+                                  waitForReward: true,
+                                  canPresent: () =>
+                                      mounted &&
+                                      model.onlineReady &&
+                                      ModalRoute.isCurrentOf(context) == true,
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  _busy = false;
+                                  _unavailable = !shown;
+                                  if (shown && model.latestDiscoveryClaimed) {
+                                    _claimed = model.latestDiscovery;
+                                  }
+                                });
+                              }
                             }
                           }
                         : null,
                   ),
-                  if (widget.onClaimLater != null && !_busy)
+                  if (widget.onSkip != null && !_busy)
                     TextButton(
-                      onPressed: widget.onClaimLater,
-                      child: const Text('Claim later'),
+                      onPressed: widget.onSkip,
+                      child: const Text('Skip'),
                     ),
                 ],
               ],
@@ -773,7 +801,6 @@ class CollectionsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
     final palette = BoardPalette.palettes[model.theme]!;
-    final pending = model.pendingDiscoveries;
     final owned =
         PathTip.values.where(model.ownsTip).length + model.ownedThemes;
     return Scaffold(
@@ -807,7 +834,7 @@ class CollectionsView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Next discovery',
+                            'Next mystery reward',
                             style: TextStyle(
                               color: palette.ink,
                               fontWeight: FontWeight.w800,
@@ -829,24 +856,6 @@ class CollectionsView extends StatelessWidget {
                   ],
                 ),
               ),
-              if (pending.isNotEmpty)
-                ExpansionTile(
-                  initiallyExpanded: true,
-                  title: Text('Discoveries · ${pending.length}'),
-                  children: [
-                    for (final discovery in pending.take(3))
-                      DiscoveryRow(discovery, key: ValueKey(discovery.number)),
-                    if (pending.length > 3)
-                      TextButton(
-                        onPressed: () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(
-                            builder: (_) => const _PendingDiscoveries(),
-                          ),
-                        ),
-                        child: const Text('See all discoveries'),
-                      ),
-                  ],
-                ),
               _Album(
                 title: 'Path tips',
                 children: [
@@ -904,28 +913,6 @@ class CollectionsView extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PendingDiscoveries extends StatelessWidget {
-  const _PendingDiscoveries();
-
-  @override
-  Widget build(BuildContext context) {
-    final pending = context.watch<AppModel>().pendingDiscoveries;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Discoveries')),
-      body: SafeArea(
-        child: ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: pending.length,
-          itemBuilder: (context, index) => DiscoveryRow(
-            pending[index],
-            key: ValueKey(pending[index].number),
           ),
         ),
       ),

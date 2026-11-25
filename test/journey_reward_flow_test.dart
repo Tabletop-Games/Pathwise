@@ -143,7 +143,11 @@ void main() {
       clock = clock.add(const Duration(seconds: 20));
       await connectivity.check();
       await tester.pump();
-      expect(find.text('Reconnect to play the next puzzle.'), findsOneWidget);
+      await tester.pump();
+      expect(find.text('Reconnect to play the next puzzle.'), findsNothing);
+      expect(find.byKey(const ValueKey('pathwise-connection')), findsOneWidget);
+      await tester.tap(find.text('Continue playing'));
+      await tester.pump();
       expect(find.byKey(const ValueKey('pathwise-connection')), findsNothing);
       final pointer = find.byKey(const ValueKey('multiplier-pointer'));
       final initial = tester.getCenter(pointer);
@@ -155,7 +159,7 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      expect(next.onPressed, isNull);
+      expect(next.onPressed, isNotNull);
       await tester.ensureVisible(find.text('Stop'));
       await tester.tap(find.text('Stop'));
       await tester.pumpAndSettle();

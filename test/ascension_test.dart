@@ -44,6 +44,7 @@ void main() {
       final storage = MemoryStorage();
       final app = model(storage);
       expect(app.hintsRemaining, 3);
+      expect(await app.buyHint(), true);
       expect(await app.buyHint(), false);
       await app.applyVerifiedPurchase('funds', coins: 600, themes: false);
       for (var index = 0; index < 10; index++) {
@@ -54,17 +55,17 @@ void main() {
         expect(await app.grantHintAd('hint-$index'), false);
       }
       expect(await app.grantHintAd('sixth'), false);
-      expect(app.hintsRemaining, 18);
+      expect(app.hintsRemaining, 19);
       await app.open(const PuzzleId.level(1));
       for (var index = 0; index < 8; index++) {
         app.hint();
         app.clear();
       }
-      expect(app.hintsRemaining, 10);
+      expect(app.hintsRemaining, 11);
       await app.open(const PuzzleId.level(1), replay: true);
       await app.flush();
       final restored = model(storage, await storage.load());
-      expect(restored.hintsRemaining, 10);
+      expect(restored.hintsRemaining, 11);
       expect(restored.hintAdsToday, 5);
       app.dispose();
       restored.dispose();
@@ -100,10 +101,9 @@ void main() {
     () async {
       final storage = MemoryStorage();
       final app = model(storage);
-      expect(app.research(Research.magnet), false);
-      await app.applyVerifiedPurchase('test-pack', coins: 500, themes: false);
       expect(app.research(Research.magnet), true);
-      expect(app.progression.effect(Research.magnet), 2);
+      expect(app.progression.effect(Research.magnet), 1);
+      await app.applyVerifiedPurchase('test-pack', coins: 500, themes: false);
       expect(app.buyBoost(Boost.doubleTen), true);
       expect(app.buyBoost(Boost.tripleFifteen), true);
       expect(app.activateBoost(Boost.doubleTen), true);

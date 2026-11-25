@@ -934,6 +934,7 @@ class _BoardPainter extends CustomPainter {
   }) : visited = route.toSet(),
        super(
          repaint: Listenable.merge([
+           GameAssetCache.instance,
            if (rejection != null) rejection,
            if (trim != null) trim,
          ]),
@@ -1302,7 +1303,7 @@ class _RejectionPainter extends CustomPainter {
     required this.tipStyle,
     required this.direction,
     required this.reducedMotion,
-  }) : super(repaint: animation);
+  }) : super(repaint: Listenable.merge([animation, GameAssetCache.instance]));
   final Puzzle puzzle;
   final AnimationController animation;
   final RejectedMove? Function() issue;

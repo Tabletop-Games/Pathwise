@@ -18,6 +18,7 @@ import 'logic/play_games.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
 import 'model/user_preferences.dart';
+import 'ui/art/game_assets.dart';
 import 'views/cloud_save_section.dart';
 import 'views/components/brand_mark.dart';
 import 'views/connection_view.dart';
@@ -25,6 +26,7 @@ import 'views/main_menu_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(GameAssetCache.instance.preloadAll());
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'Pathwise',

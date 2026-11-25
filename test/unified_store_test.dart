@@ -22,7 +22,12 @@ void main() {
     expect(PathTip.values.length, 20);
     expect(PathTip.values.map((e) => e.name).toSet().length, 20);
     expect(PathTip.classic.price, 0);
-    expect(PathTip.values.skip(1).every((e) => e.price == 100), isTrue);
+    expect(
+      PathTip.values
+          .skip(1)
+          .every((e) => {120, 250, 500, 900}.contains(e.price)),
+      isTrue,
+    );
     expect(PathTip.fromId('invalid'), isNull);
   });
 
@@ -76,13 +81,13 @@ void main() {
         model.buyTip(PathTip.arrow),
       ]);
       expect(results.where((x) => x).length, 1);
-      expect(model.coinBalance, 100);
+      expect(model.coinBalance, 80);
       expect(model.ownsTip(PathTip.arrow), isTrue);
       expect(model.equippedTip, PathTip.classic);
       expect(await model.equipTip(PathTip.arrow), isTrue);
       final saved = await storage.load();
       final restored = AppModel(storage: storage, snapshot: saved);
-      expect(restored.coinBalance, 100);
+      expect(restored.coinBalance, 80);
       expect(restored.ownsTip(PathTip.arrow), isTrue);
       expect(restored.equippedTip, PathTip.arrow);
       model.dispose();
@@ -152,12 +157,12 @@ void main() {
       expect(await rich.buyTip(PathTip.arrow), isFalse);
       expect(rich.storageError, isTrue);
       expect(await rich.buyTip(PathTip.arrow), isFalse);
-      expect(rich.coinBalance, 50);
+      expect(rich.coinBalance, 30);
       store.fail = false;
       expect(await rich.flush(), isTrue);
       final restored = AppModel(storage: store, snapshot: await store.load());
       expect(restored.ownsTip(PathTip.arrow), isTrue);
-      expect(restored.coinBalance, 50);
+      expect(restored.coinBalance, 30);
       rich.dispose();
       restored.dispose();
     },

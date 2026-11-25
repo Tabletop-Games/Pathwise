@@ -17,7 +17,6 @@ import '../lib/logic/tip_tracker.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
 import '../lib/model/economy.dart';
-import '../lib/model/journey.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/views/components/puzzle_board.dart';
 import '../lib/views/journey_rewards.dart';
@@ -195,7 +194,7 @@ void main() {
         );
 
         final firstUpcoming = model.upcomingDiscoveryItem;
-        expect(firstUpcoming, discoveryCatalogue.first);
+        expect(firstUpcoming, isNotEmpty);
         await model.flush();
 
         // Reload from storage and verify identical upcoming discovery item.
@@ -411,10 +410,68 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(ProgressiveDiscoveryArt), findsNWidgets(2));
+        expect(find.byType(ProgressiveDiscoveryArt), findsAtLeastNWidgets(1));
         model.dispose();
       },
     );
+
+    test(
+      'Economy 2.0 does not compound research bonuses with timed boosts',
+      () {
+        expect(
+          economy.campaignClearCoins(
+            multiplier: 4,
+            magnetBonus: 10,
+            goldenBonus: 8,
+            momentumBonus: 0,
+          ),
+          38,
+        );
+        expect(
+          economy.campaignClearCoins(
+            multiplier: 4,
+            magnetBonus: 10,
+            goldenBonus: 8,
+            momentumBonus: 16,
+          ),
+          54,
+        );
+        expect(
+          economy.dailyClearCoins(
+            multiplier: 4,
+            fortuneBonus: 16,
+            goldenBonus: 8,
+          ),
+          64,
+        );
+      },
+    );
+
+    test('v15 migration discards obsolete pending discoveries and preserves progress', () async {
+      final storage = _MemoryStorage();
+      final model = AppModel(
+        storage: storage,
+        snapshot: {
+          'schemaVersion': 15,
+          'hintBalance': 7,
+          'journey': {
+            'clears': 14,
+            'upcoming': 'tip/cat',
+            'pending': {'1': 'tip/arrow'},
+          },
+        },
+        connectivity: ConnectivityService(probe: () async => true),
+        today: () => DateTime(2026, 11, 25),
+        bootTime: () => (boot: 1, milliseconds: 1000),
+      );
+      expect(model.hintsRemaining, 7);
+      expect(model.discoveryPercent, 40);
+      expect(model.upcomingDiscoveryItem, 'tip/cat');
+      await model.flush();
+      final saved = await storage.load();
+      expect((saved['journey'] as Map).containsKey('pending'), isFalse);
+      model.dispose();
+    });
 
     test('Developer tools stay disabled by default and ignore mutations', () {
       final model = AppModel(

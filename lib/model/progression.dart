@@ -4,37 +4,37 @@ import 'economy.dart';
 import 'time_attack.dart';
 
 enum Research {
-  magnet('Coin Magnet', 'Level coins', 55, 10, 2),
-  golden('Golden Route', 'Hint-free clear coins', 100, 8, 2),
-  fortune('Daily Fortune', 'Daily clear coins', 100, 8, 4),
-  mastery('Milestone Mastery', 'Achievement coins', 180, 6, 5),
-  hunter('Treasure Hunter', 'Crate interval reduction', 120, 8, 4),
+  magnet('Coin Magnet', 'Level coins', 40, 10, 1),
+  golden('Golden Route', 'Hint-free clear coins', 80, 8, 1),
+  fortune('Daily Fortune', 'Daily clear coins', 90, 8, 2),
+  mastery('Milestone Mastery', 'Achievement coins', 140, 6, 3),
+  hunter('Treasure Hunter', 'Crate interval reduction', 100, 8, 3),
   collector(
     'Crate Collector',
     'Extra seconds to catch flying crates',
-    90,
+    80,
     9,
     1,
   ),
-  efficiency('Boost Efficiency', 'Boost duration percent', 160, 8, 5),
-  savings('Smart Savings', 'Consumable discount percent', 140, 6, 3),
-  momentum('Momentum', 'Coins every fifth first clear', 150, 8, 4),
-  specialist('Daily Specialist', 'Seven-day streak coins', 210, 6, 8),
-  tuning('Boost Tuning', 'Boost duration percentage points', 190, 8, 4, true),
+  efficiency('Boost Efficiency', 'Boost duration percent', 140, 8, 2),
+  savings('Smart Savings', 'Consumable discount percent', 120, 6, 1),
+  momentum('Momentum', 'Coins every fifth first clear', 120, 8, 2),
+  specialist('Daily Specialist', 'Seven-day streak coins', 160, 6, 5),
+  tuning('Boost Tuning', 'Boost duration percentage points', 180, 8, 1, true),
   procurement(
     'Contract Supply',
     'Boost price discount percentage points',
     160,
     8,
-    2,
+    1,
     true,
   ),
   scout(
     'Supply Routes',
     'Seconds removed from crate cooldowns',
-    200,
+    180,
     8,
-    3,
+    2,
     true,
   );
 
@@ -55,8 +55,7 @@ enum Research {
         : rank > limit
         ? limit
         : rank;
-    final extra = owned > 8 ? 2 * (owned - 8) : 0;
-    return (owned + extra) * increment;
+    return owned * increment;
   }
 
   Research? get prerequisite => switch (this) {
@@ -68,19 +67,19 @@ enum Research {
   int price(int rank) {
     RangeError.checkValueInInterval(rank, 0, limit - 1);
     return advanced
-        ? base * [1, 3, 7, 16, 38, 80, 150, 260, 420, 600][rank]
+        ? base * [1, 2, 4, 7, 11, 16, 22, 30, 40, 52][rank]
         : base * (rank + 2) * (rank + 3) ~/ 6;
   }
 }
 
 enum Boost {
-  doubleTen('2× coins', 10, 20, 2),
-  doubleFifteen('2× coins', 15, 36, 2),
-  doubleThirty('2× coins', 30, 72, 2),
-  doubleSixty('2× coins', 60, 100, 2),
-  tripleFifteen('3× coins', 15, 60, 3),
-  quadrupleTen('4× coins', 10, 70, 4),
-  crateFrequency('Twice as many crate opportunities', 15, 28, 1);
+  doubleTen('Quick Charge', 5, 30, 2),
+  doubleFifteen('Surge 15', 15, 36, 2),
+  doubleThirty('Surge 30', 30, 72, 2),
+  doubleSixty('Endurance', 15, 80, 2),
+  tripleFifteen('Power Surge', 5, 65, 3),
+  quadrupleTen('Royal Rush', 3, 75, 4),
+  crateFrequency('Crate Radar', 15, 28, 1);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;
@@ -91,6 +90,14 @@ enum Boost {
       this == tripleFifteen ||
       this == quadrupleTen;
   String get slot => multiplier > 1 ? 'coins' : name;
+  String get subtitle => switch (this) {
+    doubleTen => 'Short 2× session sprint',
+    doubleSixty => 'Best 2× value for longer play',
+    tripleFifteen => 'High-yield 3× coin burst',
+    quadrupleTen => 'Peak 4× speed-clear rush',
+    crateFrequency => 'Twice as many crate drops',
+    _ => '$multiplier× base campaign & daily coins',
+  };
 }
 
 typedef Crate = ({String id, int coins});

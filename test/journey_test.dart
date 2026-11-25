@@ -68,7 +68,7 @@ void main() {
     });
   }
 
-  test('legacy clears stay prospective, discoveries survive restore and remain distinct', () async {
+  test('legacy clears stay prospective, mystery reward is deterministic and idempotent', () async {
     final storage = MemoryStorage();
     final model = journeyModel(storage, {
       'results': {
@@ -77,15 +77,16 @@ void main() {
       'themePass': true,
     });
     expect(model.discoveryPercent, 0);
-    for (var level = 1; level <= 20; level++) {
+    final cycle1Item = model.upcomingDiscoveryItem;
+    for (var level = 1; level <= 10; level++) {
       await clear(model, level);
       expect(model.discoveryPercent, level % 10 * 10);
     }
-    expect(model.pendingDiscoveries.map((d) => d.item), [
-      'tip/arrow',
-      'tip/crystal',
-    ]);
-    expect(model.ownsTip(PathTip.arrow), isFalse);
+    final offer1 = model.latestDiscovery;
+    expect(offer1, isNotNull);
+    expect(offer1!.item, cycle1Item);
+    expect(await model.claimMysteryReward(offer1), isTrue);
+    expect(await model.claimMysteryReward(offer1), isFalse);
     final wrapped = CloudEnvelope.wrap(
       await storage.load(),
       revision: 1,
@@ -95,11 +96,7 @@ void main() {
       storage,
       CloudEnvelope.decode(wrapped.encode()).payload,
     );
-    expect(restored.pendingDiscoveries.length, 2);
-    expect(await restored.claimDiscovery(1), isTrue);
-    expect(await restored.claimDiscovery(1), isFalse);
-    expect(restored.ownsTip(PathTip.arrow), isTrue);
-    expect(restored.equippedTip, PathTip.classic);
+    expect(await restored.claimMysteryReward(offer1), isFalse);
     model.dispose();
     restored.dispose();
   });
@@ -171,22 +168,25 @@ void main() {
     model.dispose();
   });
 
-  test('exhausted owned catalogue falls back to coins once', () async {
-    final model = journeyModel(MemoryStorage(), {
-      'themePass': true,
-      'ownedTips': PathTip.values.map((tip) => tip.name).toList(),
-      'journey': {'clears': 9},
-    });
-    await clear(model, 1);
-    expect(model.latestDiscovery?.item, Discovery.fallback);
-    for (var level = 2; level <= 11; level++) {
-      await clear(model, level);
-    }
-    expect(model.pendingDiscoveries.map((item) => item.number), [1]);
-    final before = model.coinBalance;
-    expect(await model.claimDiscovery(1), isTrue);
-    expect(await model.claimDiscovery(1), isFalse);
-    expect(model.coinBalance, before + discoveryFallbackCoins);
-    model.dispose();
-  });
+  test(
+    'exhausted owned catalogue falls back to coins or boosts and skip discards',
+    () async {
+      final model = journeyModel(MemoryStorage(), {
+        'themePass': true,
+        'ownedTips': PathTip.values.map((tip) => tip.name).toList(),
+        'journey': {
+          'clears': 9,
+          'pending': {'1': 'tip/arrow'},
+        },
+      });
+      await clear(model, 1);
+      final offer = model.latestDiscovery!;
+      expect(offer.isCoins || offer.isBoost, isTrue);
+      model.skipLatestDiscovery();
+      expect(model.latestDiscovery, isNull);
+      expect(await model.claimMysteryReward(offer), isTrue);
+      expect(await model.claimMysteryReward(offer), isFalse);
+      model.dispose();
+    },
+  );
 }

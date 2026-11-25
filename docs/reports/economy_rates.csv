@@ -1,0 +1,56 @@
+category,key,value,notes
+starter,coins,50,Welcome coins
+starter,hints,3,Welcome hints
+clear,campaign_base,5,Base first-clear
+clear,daily_base,10,Daily first-clear
+consumable,hint_price,40,Coin cost per hint
+consumable,freeze_price,150,Coin cost per streak freeze
+chapter,treasure_coins,25,Per 25 campaign levels
+chapter,treasure_hints,1,Per 25 campaign levels
+boost,doubleTen,30,Quick Charge (2x 5m)
+boost,doubleSixty,80,Endurance (2x 15m)
+boost,tripleFifteen,65,Power Surge (3x 5m)
+boost,quadrupleTen,75,Royal Rush (4x 3m)
+tip,classic,0,Starter
+tip,arrow,120,Common
+tip,crystal,120,Common
+tip,star,120,Common
+tip,cat,120,Common
+tip,dog,120,Common
+tip,rabbit,120,Common
+tip,fox,250,Uncommon
+tip,panda,250,Uncommon
+tip,frog,250,Uncommon
+tip,penguin,250,Uncommon
+tip,turtle,250,Uncommon
+tip,bee,250,Uncommon
+tip,ghost,500,Rare
+tip,robot,500,Rare
+tip,ufo,500,Rare
+tip,flame,500,Rare
+tip,rocket,500,Rare
+tip,dragon,900,Epic
+tip,phoenix,900,Epic
+theme,field,0,Theme
+theme,blackwater,0,Theme
+theme,terracotta,0,Theme
+theme,forestMint,90,Theme
+theme,midnightSlate,140,Theme
+theme,royalVelvet,220,Theme
+theme,warmWalnut,90,Theme
+theme,glacier,140,Theme
+theme,oceanicBreeze,220,Theme
+theme,chalk,500,Theme
+theme,amoledCarbon,500,Theme
+theme,canyon,4500,Theme
+theme,neon,30000,Theme
+theme,tidal,12000,Theme
+theme,parchment,500,Theme
+theme,violet,500,Theme
+theme,koi,1000,Theme
+theme,crt,1000,Theme
+theme,gilded,60000,Theme
+theme,signal,0,Theme
+theme,basinGold,1000,Theme
+theme,copperSky,4500,Theme
+theme,highPass,12000,Theme

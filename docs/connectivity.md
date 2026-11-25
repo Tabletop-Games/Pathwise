@@ -1,6 +1,13 @@
-# Internet requirement
+# Offline-first gameplay & connectivity
 
-Pathwise needs an internet connection to play. This applies to Levels, Daily Challenge, Time Attack, tutorials, the demo, rewards, purchases and the Fortune Wheel, for free and paid players alike.
+Pathwise is **local-first and offline-capable**. Campaign levels, Daily Challenge, Time Attack, tutorials, the demo, local coin purchases (research, boosts, hints, freezes, themes, tips), chapter treasures, and mystery reward progress all work without an internet connection.
+
+Only genuinely network-dependent features require connectivity:
+- Rewarded and interstitial advertisements (AdMob)
+- Real-money Google Play Billing purchases and restoration
+- Google Play Games authentication and Saved Games cloud sync
+
+When the device starts or goes offline, `ConnectionGate` (`lib/views/connection_view.dart`) shows a non-blocking, dismissible notification once per offline period (never interrupting an active drawing gesture), and Home displays a subtle `Offline` status chip. Local saves sync opportunistically when connectivity returns.
 
 ## How connectivity is checked
 

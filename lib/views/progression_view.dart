@@ -10,6 +10,7 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/progression.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/art/medallion_art.dart';
 import '../ui/art/research_art.dart';
 import '../ui/game_art.dart';
@@ -68,12 +69,20 @@ String _researchAssetPath(Research item) => switch (item) {
   Research.procurement => 'assets/art/resources/hint.png',
 };
 
-String _boostAssetPath(Boost boost) {
-  if (boost.multiplier == 1) return 'assets/art/resources/crate.png';
-  if (boost.multiplier >= 4) return 'assets/art/ui/boost_4x.png';
-  if (boost.multiplier == 3) return 'assets/art/ui/boost_3x.png';
-  if (boost.minutes >= 30) return 'assets/art/ui/boost_2x_long.png';
-  return 'assets/art/ui/boost_2x_fast.png';
+String _boostAssetPath(Boost boost) => boostAssetPath(boost);
+
+String _compactDuration(int ms) {
+  final totalSeconds = (ms / 1000).round();
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return minutes > 0 ? '${hours}h ${minutes}m' : '${hours}h';
+  }
+  if (minutes > 0) {
+    return seconds > 0 ? '${minutes}m ${seconds}s' : '${minutes}m';
+  }
+  return '${seconds}s';
 }
 
 class ProgressionView extends StatefulWidget {
@@ -237,24 +246,48 @@ class _ProgressionViewState extends State<ProgressionView> {
                             ),
                           LayoutBuilder(
                             builder: (context, constraints) {
+                              final allBoosts = [...multipliers, ...supplies];
                               final wide =
                                   constraints.maxWidth >= 350 &&
                                   MediaQuery.textScalerOf(context).scale(16) <=
                                       19;
-                              final width = wide
-                                  ? (constraints.maxWidth - 12) / 2
-                                  : constraints.maxWidth;
-                              return Wrap(
-                                spacing: 12,
-                                runSpacing: 8,
+                              if (!wide) {
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final boost in allBoosts)
+                                      _boost(model, boost, now),
+                                  ],
+                                );
+                              }
+                              return Column(
                                 children: [
-                                  for (final boost in [
-                                    ...multipliers,
-                                    ...supplies,
-                                  ])
-                                    SizedBox(
-                                      width: width,
-                                      child: _boost(model, boost, now),
+                                  for (var i = 0; i < allBoosts.length; i += 2)
+                                    IntrinsicHeight(
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Expanded(
+                                            child: _boost(
+                                              model,
+                                              allBoosts[i],
+                                              now,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: i + 1 < allBoosts.length
+                                                ? _boost(
+                                                    model,
+                                                    allBoosts[i + 1],
+                                                    now,
+                                                  )
+                                                : const SizedBox.shrink(),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                 ],
                               );
@@ -495,71 +528,69 @@ class _ProgressionViewState extends State<ProgressionView> {
       child: GameCard(
         key: ValueKey('research-${item.name}'),
         padding: const EdgeInsets.all(14),
-        child: Opacity(
-          opacity: unlocked ? 1 : .62,
-          child: Row(
-            children: [
-              _researchArtworkBadge(item, palette),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
+        child: Row(
+          children: [
+            _researchArtworkBadge(item, palette),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: unlocked ? palette.ink : palette.mutedInk,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.benefit,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: palette.mutedInk, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.benefit,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: palette.mutedInk, fontSize: 12),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    effect,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: unlocked ? palette.ink : palette.mutedInk,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      effect,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: palette.ink,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: GameBar(value: rank / item.limit)),
-                        const SizedBox(width: 8),
-                        Semantics(
-                          label: mastered
-                              ? 'Mastered'
-                              : 'Rank $rank of ${item.limit}',
-                          excludeSemantics: true,
-                          child: Text(
-                            '$rank/${item.limit}',
-                            style: TextStyle(
-                              color: palette.mutedInk,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: GameBar(value: rank / item.limit)),
+                      const SizedBox(width: 8),
+                      Semantics(
+                        label: mastered
+                            ? 'Mastered'
+                            : 'Rank $rank of ${item.limit}',
+                        excludeSemantics: true,
+                        child: Text(
+                          '$rank/${item.limit}',
+                          style: TextStyle(
+                            color: palette.mutedInk,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              action,
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            action,
+          ],
         ),
       ),
     );
@@ -578,47 +609,104 @@ class _ProgressionViewState extends State<ProgressionView> {
         (boost == Boost.doubleTen || boost == Boost.tripleFifteen) &&
         context.watch<AdService>().enabled;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: GameCard(
         key: ValueKey('boost-${boost.name}'),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _boostArtworkBadge(boost, palette, size: 50),
-                const SizedBox(width: 12),
+                _boostArtworkBadge(boost, palette, size: 54),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        multiplier ? '${boost.multiplier}×' : 'Supply relay',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: multiplier ? 26 : 18,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
-                        runSpacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Text(_duration(duration)),
-                          if (inventory > 0) Text('$inventory ready'),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.route.withValues(alpha: .16),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              multiplier ? '${boost.multiplier}×' : 'Crates',
+                              style: TextStyle(
+                                color: palette.route,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _compactDuration(duration),
+                            style: TextStyle(
+                              color: palette.mutedInk,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        boost.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        boost.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.mutedInk,
+                          fontSize: 11.5,
+                          height: 1.25,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
+            if (inventory > 0 && remaining <= 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$inventory owned · ready to activate',
+                style: TextStyle(
+                  color: palette.route,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
             if (remaining > 0) ...[
-              const SizedBox(height: 12),
-              Text('Active', style: TextStyle(color: palette.mutedInk)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
+              Text(
+                'Active · ${_duration(remaining)} left',
+                style: TextStyle(
+                  color: palette.route,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 5),
               GameBar(value: remaining / duration),
             ],
             const SizedBox(height: 10),
@@ -626,7 +714,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 6,
               children: [
                 if (watch)
                   ActionPill(
@@ -683,7 +771,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                         ? () {
                             if (model.activateBoost(boost)) {
                               _feedback(
-                                'Boost active for ${_duration(duration)}',
+                                'Boost active for ${_compactDuration(duration)}',
                               );
                             }
                           }

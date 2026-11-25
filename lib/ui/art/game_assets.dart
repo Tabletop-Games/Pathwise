@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../model/app_themes.dart';
 import '../../model/path_tips.dart';
+import '../../model/progression.dart';
 import '../../model/user_preferences.dart';
 
 enum BiomeKind { ocean, forest, winter, desert }
@@ -48,6 +49,14 @@ String tipAssetPath(PathTip tip) => tip == PathTip.classic
     ? 'assets/art/tips/robot.png'
     : 'assets/art/tips/${tip.name}.png';
 
+String boostAssetPath(Boost boost) => switch (boost) {
+  Boost.doubleTen || Boost.doubleFifteen => 'assets/art/ui/boost_2x_fast.png',
+  Boost.doubleThirty || Boost.doubleSixty => 'assets/art/ui/boost_2x_long.png',
+  Boost.tripleFifteen => 'assets/art/ui/boost_3x.png',
+  Boost.quadrupleTen => 'assets/art/ui/boost_4x.png',
+  Boost.crateFrequency => 'assets/art/resources/crate.png',
+};
+
 /// Normalized visible vertical bounds `(top, bottom)` inside each 192x192 tip
 /// PNG (excluding transparent padding) so bottom-to-top discovery reveals map
 /// directly to the visible collectible height.
@@ -89,6 +98,19 @@ final class GameAssetCache extends ChangeNotifier {
       unawaited(_load(assetPath));
     }
     return null;
+  }
+
+  /// Preloads all illustrated tip PNGs at startup so gameplay boards and
+  /// previews never briefly show fallback vector shapes.
+  Future<void> preloadAll() async {
+    final paths = <String>{
+      for (final tip in PathTip.values)
+        if (tip != PathTip.classic) tipAssetPath(tip),
+    };
+    await Future.wait([
+      for (final path in paths)
+        if (!_images.containsKey(path)) _load(path),
+    ]);
   }
 
   Future<void> _load(String assetPath) async {

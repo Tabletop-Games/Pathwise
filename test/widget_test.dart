@@ -387,7 +387,9 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(activate);
         await tester.pumpAndSettle();
-        expect(find.text('10 min left'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('5 min left'), -150);
+        await tester.pumpAndSettle();
+        expect(find.text('5 min left'), findsOneWidget);
         final problem = tester.takeException();
         if (problem != null) debugPrint('OVERFLOW-DETAIL: $problem');
         expect(problem, isNull);
@@ -502,7 +504,7 @@ void main() {
       final buy = tester.widget<PricePill>(
         find.byKey(const ValueKey('hint-buy')),
       );
-      expect(buy.price, 60);
+      expect(buy.price, 40);
       expect(buy.affordable, isFalse);
       expect(model.hintsRemaining, 0);
       await tester.pumpWidget(const SizedBox.shrink());

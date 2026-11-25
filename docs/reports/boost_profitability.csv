@@ -1,0 +1,29 @@
+boost_id,name,multiplier,base_min,max_research_min,base_price,max_discount_price,solve_speed_s,puzzles_in_base,puzzles_in_max_res,breakeven_puzzles,net_profit_base,net_profit_max_res
+doubleTen,Quick Charge,2,5,6.20,30,26,5,33,41,6,135,179
+doubleTen,Quick Charge,2,5,6.20,30,26,10,21,26,6,75,104
+doubleTen,Quick Charge,2,5,6.20,30,26,15,15,19,6,45,69
+doubleTen,Quick Charge,2,5,6.20,30,26,30,8,10,6,10,24
+doubleTen,Quick Charge,2,5,6.20,30,26,60,4,5,6,-10,-1
+doubleTen,Quick Charge,2,5,6.20,30,26,120,2,3,6,-20,-11
+doubleTen,Quick Charge,2,5,6.20,30,26,240,1,1,6,-25,-21
+doubleSixty,Endurance,2,15,18.60,80,69,5,100,124,16,420,551
+doubleSixty,Endurance,2,15,18.60,80,69,10,64,79,16,240,326
+doubleSixty,Endurance,2,15,18.60,80,69,15,47,58,16,155,221
+doubleSixty,Endurance,2,15,18.60,80,69,30,26,32,16,50,91
+doubleSixty,Endurance,2,15,18.60,80,69,60,14,17,16,-10,16
+doubleSixty,Endurance,2,15,18.60,80,69,120,7,9,16,-45,-24
+doubleSixty,Endurance,2,15,18.60,80,69,240,3,4,16,-65,-49
+tripleFifteen,Power Surge,3,5,6.20,65,56,5,33,41,7,265,354
+tripleFifteen,Power Surge,3,5,6.20,65,56,10,21,26,7,145,204
+tripleFifteen,Power Surge,3,5,6.20,65,56,15,15,19,7,85,134
+tripleFifteen,Power Surge,3,5,6.20,65,56,30,8,10,7,15,44
+tripleFifteen,Power Surge,3,5,6.20,65,56,60,4,5,7,-25,-6
+tripleFifteen,Power Surge,3,5,6.20,65,56,120,2,3,7,-45,-26
+tripleFifteen,Power Surge,3,5,6.20,65,56,240,1,1,7,-55,-46
+quadrupleTen,Royal Rush,4,3,3.72,75,65,5,20,24,5,225,295
+quadrupleTen,Royal Rush,4,3,3.72,75,65,10,12,15,5,105,160
+quadrupleTen,Royal Rush,4,3,3.72,75,65,15,9,11,5,60,100
+quadrupleTen,Royal Rush,4,3,3.72,75,65,30,5,6,5,0,25
+quadrupleTen,Royal Rush,4,3,3.72,75,65,60,2,3,5,-45,-20
+quadrupleTen,Royal Rush,4,3,3.72,75,65,120,1,1,5,-60,-50
+quadrupleTen,Royal Rush,4,3,3.72,75,65,240,0,0,5,-75,-65

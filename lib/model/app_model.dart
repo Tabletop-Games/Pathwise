@@ -203,21 +203,14 @@ class AppModel extends ChangeNotifier
       0,
       journey['clears'] is int ? journey['clears'] as int : 0,
     );
-    for (final entry in _map(journey['pending']).entries) {
-      final number = int.tryParse(entry.key);
-      final item = entry.value;
-      if (number != null &&
-          number > 0 &&
-          number <= _journeyClears ~/ discoveryInterval &&
-          item is String &&
-          (item == Discovery.fallback || discoveryCatalogue.contains(item))) {
-        _discoveries[number] = Discovery(number, item);
-      }
+    // Economy 2.0 migration: discard obsolete unclaimed discovery queues
+    // ('pending'), preserve claimed mystery IDs, and keep valid upcoming items.
+    final claimedMysteries = journey['claimedMysteries'];
+    if (claimedMysteries is List) {
+      _claimedMysteries.addAll(claimedMysteries.whereType<int>());
     }
     final upcoming = journey['upcoming'];
-    if (upcoming is String &&
-        (upcoming == Discovery.fallback ||
-            discoveryCatalogue.contains(upcoming))) {
+    if (upcoming is String && _isValidMysteryItem(upcoming)) {
       _upcomingDiscoveryItem = upcoming;
     }
     final adStamp = _map(snapshot['lastAutomaticAd']);
@@ -323,17 +316,12 @@ class AppModel extends ChangeNotifier
   /// Receives every snapshot written to the device save, for cloud sync.
   final void Function(Map<String, dynamic> snapshot)? onPersisted;
 
-  /// The internet requirement. Gameplay is paused and no puzzle can start
-  /// while the connection is down.
+  /// Whether network-dependent services (ads, billing, cloud sync) have
+  /// connectivity. Core gameplay and local economy operate offline-first.
   bool get onlineReady => connectivity == null || connectivity!.online;
 
   void _onConnectivityChanged() {
     if (_disposed) return;
-    if (!onlineReady) {
-      // Finish the stroke at its current length. The route stays on screen.
-      _game?.end();
-      unawaited(flush());
-    }
     _syncClock();
     _processCrates();
     notifyListeners();
@@ -517,11 +505,8 @@ class AppModel extends ChangeNotifier
   }
 
   void recordRewardedAdExit() {
-    final now = _bootTime();
-    if (now != null) {
-      _lastAutomaticAd = now;
-      unawaited(flush());
-    }
+    // Interstitial cooldown after rewarded ads is handled by AdFrequency.
+    // Do not overwrite _lastAutomaticAd with the 3-minute automaticAdGap.
   }
 
   final _hintAdDays = <String, String>{};
@@ -659,7 +644,6 @@ class AppModel extends ChangeNotifier
   int get hintsRemaining => _hintBalance;
 
   bool research(Research item) {
-    if (!onlineReady) return false;
     final rank = progression.rank(item);
     if (storageError ||
         rank >= item.limit ||
@@ -713,7 +697,6 @@ class AppModel extends ChangeNotifier
   }
 
   bool buyBoost(Boost item) {
-    if (!onlineReady) return false;
     if (storageError ||
         !item.availableToBuy ||
         !_wallet.add(
@@ -735,7 +718,6 @@ class AppModel extends ChangeNotifier
   }
 
   bool activateBoost(Boost item) {
-    if (!onlineReady) return false;
     final now = progressionTime;
     if (storageError || !progression.canActivate(item, now)) return false;
     progression.activate(item, now);
@@ -890,7 +872,6 @@ class AppModel extends ChangeNotifier
       hintAdsToday < economy.hintAdsPerDay;
 
   Future<bool> buyHint() async {
-    if (!onlineReady) return false;
     if (_disposed ||
         storageError ||
         !_wallet.add(
@@ -943,7 +924,7 @@ class AppModel extends ChangeNotifier
     return true;
   }
 
-  bool get _canPlay => onlineReady && _gameplayAllowed;
+  bool get _canPlay => _gameplayAllowed;
 
   bool get _gameplayAllowed {
     if (_pendingTutorials.isNotEmpty) return false;
@@ -1007,7 +988,6 @@ class AppModel extends ChangeNotifier
     if (_tipMutation ||
         _disposed ||
         storageError ||
-        !onlineReady ||
         ownsTip(tip) ||
         tip.price <= 0)
       return false;
@@ -1029,11 +1009,7 @@ class AppModel extends ChangeNotifier
   }
 
   Future<bool> equipTip(PathTip tip) async {
-    if (_tipMutation ||
-        _disposed ||
-        storageError ||
-        !onlineReady ||
-        !ownsTip(tip))
+    if (_tipMutation || _disposed || storageError || !ownsTip(tip))
       return false;
     _tipMutation = true;
     try {
@@ -1094,9 +1070,10 @@ class AppModel extends ChangeNotifier
   }
 
   int _journeyClears = 0;
-  final _discoveries = <int, Discovery>{};
+  final _claimedMysteries = <int>{};
   String? _upcomingDiscoveryItem;
   Discovery? latestDiscovery;
+  bool latestDiscoveryClaimed = false;
   int? discoveryStartPercent;
   bool chapterCompletedThisVisit = false;
   bool firstCampaignClear = false;
@@ -1109,32 +1086,44 @@ class AppModel extends ChangeNotifier
 
   int get discoveryPercent =>
       _journeyClears % discoveryInterval * 100 ~/ discoveryInterval;
-  List<Discovery> get pendingDiscoveries =>
-      List.unmodifiable(_discoveries.values);
-  bool hasPendingDiscovery(int number) => _discoveries.containsKey(number);
+  int get _currentMysteryCycle => (_journeyClears ~/ discoveryInterval) + 1;
 
-  String _nextEligibleDiscoveryItem() {
-    final reserved = _discoveries.values
-        .map((discovery) => discovery.item)
-        .toSet();
-    return discoveryCatalogue.firstWhere(
-      (item) => !reserved.contains(item) && !_ownsDiscoveryItem(item),
-      orElse: () => Discovery.fallback,
-    );
+  bool _isValidMysteryItem(String item) {
+    if (item == Discovery.fallback || item.startsWith('coins/')) return true;
+    if (item.startsWith('boost/')) {
+      return Boost.values.any((b) => 'boost/${b.name}' == item);
+    }
+    if (item.startsWith('tip/')) {
+      return PathTip.values.any((t) => 'tip/${t.name}' == item && t.price > 0);
+    }
+    if (item.startsWith('theme/')) {
+      return PathwiseTheme.values.any(
+        (th) => 'theme/${th.name}' == item && economy.themePrice(th) > 0,
+      );
+    }
+    return false;
   }
 
-  /// The persisted mystery collectible for the current 10-puzzle discovery
-  /// cycle. Reconciles deterministically if purchased before completion.
+  String _nextEligibleDiscoveryItem({required int cycle}) {
+    final chosen = selectMysteryReward(
+      cycle: cycle,
+      ownedTips: _ownedTips,
+      ownedThemes: _owned,
+      hasThemePass: hasThemePass,
+    );
+    return chosen.item;
+  }
+
+  /// The persisted mystery reward for the current 10-puzzle cycle.
+  /// Reconciles deterministically if a selected cosmetic was unlocked early.
   String get upcomingDiscoveryItem {
     final current = _upcomingDiscoveryItem;
     if (current != null &&
-        (current == Discovery.fallback ||
-            (discoveryCatalogue.contains(current) &&
-                !_ownsDiscoveryItem(current) &&
-                !_discoveries.values.any((d) => d.item == current)))) {
+        _isValidMysteryItem(current) &&
+        !_ownsDiscoveryItem(current)) {
       return current;
     }
-    final next = _nextEligibleDiscoveryItem();
+    final next = _nextEligibleDiscoveryItem(cycle: _currentMysteryCycle);
     _upcomingDiscoveryItem = next;
     return next;
   }
@@ -1145,14 +1134,23 @@ class AppModel extends ChangeNotifier
         (tip) => 'tip/${tip.name}' == item && ownsTip(tip),
       );
     }
-    return PathwiseTheme.values.any(
-      (theme) => 'theme/${theme.name}' == item && ownsTheme(theme),
-    );
+    if (item.startsWith('theme/')) {
+      return PathwiseTheme.values.any(
+        (theme) => 'theme/${theme.name}' == item && ownsTheme(theme),
+      );
+    }
+    return false;
   }
 
   Discovery displayedDiscovery(Discovery discovery) =>
       _ownsDiscoveryItem(discovery.item)
-      ? Discovery(discovery.number, Discovery.fallback)
+      ? selectMysteryReward(
+          cycle: discovery.number,
+          ownedTips: _ownedTips,
+          ownedThemes: _owned,
+          hasThemePass: hasThemePass,
+          salt: 97,
+        )
       : discovery;
 
   void _advanceJourney(int level) {
@@ -1166,23 +1164,16 @@ class AppModel extends ChangeNotifier
     final selectedItem = upcomingDiscoveryItem;
     _journeyClears++;
     if (_journeyClears % discoveryInterval != 0) return;
+    final cycle = _journeyClears ~/ discoveryInterval;
     final item =
-        selectedItem != Discovery.fallback &&
-            !_ownsDiscoveryItem(selectedItem) &&
-            !_discoveries.values.any((d) => d.item == selectedItem)
+        _isValidMysteryItem(selectedItem) && !_ownsDiscoveryItem(selectedItem)
         ? selectedItem
-        : _nextEligibleDiscoveryItem();
-    _upcomingDiscoveryItem = null;
-    if (item == Discovery.fallback &&
-        _discoveries.values.any(
-          (reward) => displayedDiscovery(reward).item == Discovery.fallback,
-        )) {
-      return;
-    }
-    final discovery = Discovery(_journeyClears ~/ discoveryInterval, item);
-    _discoveries[discovery.number] = discovery;
-    latestDiscovery = discovery;
-    _upcomingDiscoveryItem = _nextEligibleDiscoveryItem();
+        : _nextEligibleDiscoveryItem(cycle: cycle);
+    latestDiscovery = Discovery(cycle, item);
+    latestDiscoveryClaimed = false;
+    _upcomingDiscoveryItem = _nextEligibleDiscoveryItem(
+      cycle: _currentMysteryCycle,
+    );
   }
 
   bool get canMultiplyCompletion =>
@@ -1213,7 +1204,7 @@ class AppModel extends ChangeNotifier
           !_wallet.add(
             'journey/multiplier/$level',
             'Level $level video bonus',
-            economy.clearReward(PlayMode.levels) * (multiplier - 1),
+            economy.completionBonusCoins(multiplier),
             _today(),
           ))
         return false;
@@ -1222,26 +1213,52 @@ class AppModel extends ChangeNotifier
     };
   }
 
-  Future<bool> claimDiscovery(int number) async {
+  /// Captures the current completed mystery reward before launching a rewarded
+  /// ad so a legitimate SDK reward callback is never lost on interruption.
+  Future<bool> Function(String)? mysteryRewardCallback() {
+    final offer = latestDiscovery;
+    if (offer == null || latestDiscoveryClaimed || storageError) return null;
+    return (event) => claimMysteryReward(offer, eventId: event);
+  }
+
+  Future<bool> claimMysteryReward(Discovery offer, {String? eventId}) async {
     if (_disposed || storageError) return false;
-    final pending = _discoveries.remove(number);
-    if (pending == null) return false;
-    final discovery = displayedDiscovery(pending);
-    if (discovery.item == Discovery.fallback) {
-      _wallet.add(
-        'journey/discovery/$number',
-        'Discovery reward',
-        discoveryFallbackCoins,
-        _today(),
+    if (_claimedMysteries.contains(offer.number)) return false;
+    final resolved = displayedDiscovery(offer);
+    if (resolved.isCoins) {
+      final txId = 'journey/mystery/${resolved.number}';
+      if (!_wallet.add(txId, 'Mystery reward', resolved.coinAmount, _today())) {
+        return false;
+      }
+    } else if (resolved.boost case final boost?) {
+      progression.inventory.update(
+        boost.name,
+        (count) => count + 1,
+        ifAbsent: () => 1,
       );
-    } else if (discovery.isTip) {
-      _ownedTips.add(PathTip.values.byName(discovery.cosmeticId));
-    } else {
-      _owned.add(PathwiseTheme.values.byName(discovery.cosmeticId));
+    } else if (resolved.tip case final tip?) {
+      _ownedTips.add(tip);
+    } else if (resolved.theme case final theme?) {
+      _owned.add(theme);
       _awardAchievements();
+    } else {
+      return false;
+    }
+    _claimedMysteries.add(offer.number);
+    if (eventId != null) _hintEvents.add(eventId);
+    if (latestDiscovery?.number == offer.number) {
+      latestDiscovery = resolved;
+      latestDiscoveryClaimed = true;
     }
     notifyListeners();
     return flush();
+  }
+
+  void skipLatestDiscovery() {
+    if (latestDiscovery == null || latestDiscoveryClaimed) return;
+    latestDiscovery = null;
+    latestDiscoveryClaimed = false;
+    notifyListeners();
   }
 
   int lastReward = 0;
@@ -1401,7 +1418,6 @@ class AppModel extends ChangeNotifier
       id.startsWith('levels/') ? int.tryParse(id.substring(7)) : null;
 
   bool unlockTheme(PathwiseTheme theme) {
-    if (!onlineReady) return false;
     if (ownsTheme(theme) || storageError) return false;
     if (!_wallet.add(
       'theme/${theme.name}',
@@ -1499,7 +1515,6 @@ class AppModel extends ChangeNotifier
     FortuneCatalog catalog, {
     Random? random,
   }) async {
-    if (!onlineReady) return null;
     final clock = _bootTime();
     if (_disposed ||
         storageError ||
@@ -1737,7 +1752,6 @@ class AppModel extends ChangeNotifier
   }
 
   Future<bool> buyFreeze() async {
-    if (!onlineReady) return false;
     if (_disposed || storageError) return false;
     final before = streak.checkedThrough;
     streak.reconcile(todayKey);
@@ -1796,7 +1810,6 @@ class AppModel extends ChangeNotifier
   }
 
   Future<void> open(PuzzleId id, {bool replay = false}) async {
-    if (!onlineReady) return;
     if (id.mode == PlayMode.levels && !canPlayLevel(id.level)) return;
     if (_inPlay) _leave();
     final request = ++_request;
@@ -1811,6 +1824,7 @@ class AppModel extends ChangeNotifier
     lastReward = 0;
     completionCoins = 0;
     latestDiscovery = null;
+    latestDiscoveryClaimed = false;
     discoveryStartPercent = null;
     chapterCompletedThisVisit = false;
     firstCampaignClear = false;
@@ -2029,21 +2043,28 @@ class AppModel extends ChangeNotifier
           _advanceJourney(id.level);
           _highestUnlocked = max(_highestUnlocked, id.level + 1);
         }
+        final mult = progression.multiplier(progressionTime);
+        final goldenBonus = totalHints == 0
+            ? progression.effect(Research.golden)
+            : 0;
+        final coinsEarned = id.mode == PlayMode.levels
+            ? economy.campaignClearCoins(
+                multiplier: mult,
+                magnetBonus: progression.effect(Research.magnet),
+                goldenBonus: goldenBonus,
+                momentumBonus: _levelsSolved % 5 == 0
+                    ? progression.effect(Research.momentum)
+                    : 0,
+              )
+            : economy.dailyClearCoins(
+                multiplier: mult,
+                fortuneBonus: progression.effect(Research.fortune),
+                goldenBonus: goldenBonus,
+              );
         _wallet.add(
           'clear/${id.key}',
           'Completed ${id.title}',
-          (economy.clearReward(id.mode) +
-                  (id.mode == PlayMode.levels
-                      ? progression.effect(Research.magnet)
-                      : 0) +
-                  (id.mode == PlayMode.daily
-                      ? progression.effect(Research.fortune)
-                      : 0) +
-                  (totalHints == 0 ? progression.effect(Research.golden) : 0) +
-                  (id.mode == PlayMode.levels && _levelsSolved % 5 == 0
-                      ? progression.effect(Research.momentum)
-                      : 0)) *
-              progression.multiplier(progressionTime),
+          coinsEarned,
           _today(),
         );
         completionCoins = coinBalance - coinsBefore;
@@ -2083,10 +2104,12 @@ class AppModel extends ChangeNotifier
     _wallet.add(
       'clear/${id.key}',
       'Completed ${id.title}',
-      (economy.clearReward(id.mode) +
-              progression.effect(Research.magnet) +
-              progression.effect(Research.golden)) *
-          progression.multiplier(progressionTime),
+      economy.campaignClearCoins(
+        multiplier: progression.multiplier(progressionTime),
+        magnetBonus: progression.effect(Research.magnet),
+        goldenBonus: progression.effect(Research.golden),
+        momentumBonus: 0,
+      ),
       _today(),
     );
     _qualifyStreak();
@@ -2246,15 +2269,16 @@ class AppModel extends ChangeNotifier
 
   Map<String, dynamic> _snapshotMap() => {
     'schemaVersion': GameStateStorage.schemaVersion,
-    if (_journeyClears != 0 || _upcomingDiscoveryItem != null)
+    if (_journeyClears != 0 ||
+        _upcomingDiscoveryItem != null ||
+        _chapterChests.isNotEmpty ||
+        _claimedMysteries.isNotEmpty)
       'journey': {
         'clears': _journeyClears,
         if (_upcomingDiscoveryItem case final upcoming?) 'upcoming': upcoming,
         if (_chapterChests.isNotEmpty) 'chapterChests': pendingChapterChests,
-        'pending': {
-          for (final discovery in _discoveries.values)
-            '${discovery.number}': discovery.item,
-        },
+        if (_claimedMysteries.isNotEmpty)
+          'claimedMysteries': _claimedMysteries.toList()..sort(),
       },
     'levelOneDemoSeen': _levelOneDemoSeen,
     'mechanicTutorials': _tutorialStatus,

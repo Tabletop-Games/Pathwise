@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
-import '../model/game_state.dart';
 import '../ui/game_ui.dart';
 import 'components/brand_mark.dart';
 
@@ -15,27 +14,23 @@ import 'components/brand_mark.dart';
 }) {
   return switch (state) {
     ConnectivityState.checking => (
-      title: 'Connecting',
-      message: 'Checking your internet connection…',
+      title: 'Checking connection',
+      message: 'You can keep playing while we check your connection.',
       retry: false,
     ),
     ConnectivityState.online => (title: '', message: '', retry: false),
-    ConnectivityState.offline when inPlay => (
-      title: 'Connection lost',
-      message: 'Your puzzle is paused and your route is saved. It resumes as soon as you are back online.',
-      retry: true,
-    ),
     ConnectivityState.offline => (
-      title: 'No internet connection',
-      message: 'Pathwise needs an internet connection to play. Connect to Wi-Fi or mobile data, then try again.',
-      retry: true,
+      title: "You're offline",
+      message: 'You can keep playing! Your progress will be saved on this device and synced when you\'re back online.',
+      retry: false,
     ),
   };
 }
 
-/// Covers the whole app while there is no confirmed internet connection. It
-/// sits above the Navigator. A completed puzzle may keep its result visible.
-class ConnectionGate extends StatelessWidget {
+/// Non-blocking offline notification wrapper. Pathwise is local-first: gameplay
+/// continues uninterrupted offline, and this notice appears at most once per
+/// offline period when the player is not actively drawing.
+class ConnectionGate extends StatefulWidget {
   const ConnectionGate({
     required this.connectivity,
     required this.child,
@@ -46,36 +41,93 @@ class ConnectionGate extends StatelessWidget {
   final Widget? child;
 
   @override
+  State<ConnectionGate> createState() => _ConnectionGateState();
+}
+
+class _ConnectionGateState extends State<ConnectionGate> {
+  bool _shownForOfflinePeriod = false;
+  bool _visible = false;
+
+  @override
   Widget build(BuildContext context) {
     final state = context.select(
       (ConnectivityService service) => service.state,
     );
-    final inPlay = context.select((AppModel model) => model.activeId != null);
+    final isDrawing = context.select((AppModel model) => model.isDrawing);
     final theme = context.select((AppModel model) => model.theme);
-    final showingResult = context.select((AppModel model) {
-      final id = model.activeId;
-      return id != null && id.mode != PlayMode.attack && model.complete;
-    });
-    final blocked = state != ConnectivityState.online && !showingResult;
+
+    if (state == ConnectivityState.online) {
+      if (_shownForOfflinePeriod || _visible) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _shownForOfflinePeriod = false;
+            _visible = false;
+          });
+        });
+      }
+    } else if (state == ConnectivityState.offline &&
+        !_shownForOfflinePeriod &&
+        !isDrawing &&
+        !_visible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _shownForOfflinePeriod) return;
+        setState(() {
+          _shownForOfflinePeriod = true;
+          _visible = true;
+        });
+      });
+    }
+
+    final palette = BoardPalette.palettes[theme]!;
     return Stack(
       children: [
-        IgnorePointer(
-          ignoring: blocked,
-          child: ExcludeFocus(
-            excluding: blocked,
-            child: child ?? const SizedBox.shrink(),
-          ),
-        ),
-        if (blocked)
+        widget.child ?? const SizedBox.shrink(),
+        if (_visible)
           Positioned.fill(
             child: ConnectionPane(
-              state: state,
-              palette: BoardPalette.palettes[theme]!,
-              inPlay: inPlay,
-              onRetry: connectivity.retry,
+              state: ConnectivityState.offline,
+              palette: palette,
+              inPlay: false,
+              onRetry: widget.connectivity.retry,
+              onDismiss: () => setState(() => _visible = false),
             ),
           ),
       ],
+    );
+  }
+}
+
+class OfflineStatusChip extends StatelessWidget {
+  const OfflineStatusChip({required this.palette, super.key});
+
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('offline-status-chip'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: palette.quiet,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.cardEdge),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 15, color: palette.mutedInk),
+          const SizedBox(width: 5),
+          Text(
+            'Offline',
+            style: TextStyle(
+              color: palette.mutedInk,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -86,6 +138,7 @@ class ConnectionPane extends StatelessWidget {
     required this.palette,
     required this.inPlay,
     required this.onRetry,
+    this.onDismiss,
     super.key,
   });
 
@@ -93,66 +146,63 @@ class ConnectionPane extends StatelessWidget {
   final BoardPalette palette;
   final bool inPlay;
   final Future<void> Function() onRetry;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final copy = connectionCopy(state, inPlay: inPlay);
-    final checking = state == ConnectivityState.checking;
     return Material(
       key: const ValueKey('pathwise-connection'),
-      // Keep the board visible behind the overlay during play.
-      color: inPlay ? palette.canvas.withValues(alpha: 0.94) : palette.canvas,
+      color: palette.canvas.withValues(alpha: 0.72),
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
+            padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox.square(
-                    dimension: 72,
-                    child: BrandMark(
-                      background: palette.route,
-                      ink: palette.onRoute,
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: GameCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 56,
+                      child: BrandMark(
+                        background: palette.route,
+                        ink: palette.onRoute,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      copy.title,
+                    const SizedBox(height: 18),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        copy.title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: palette.ink,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      copy.message,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: palette.ink,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                        color: palette.mutedInk,
+                        fontSize: 15,
+                        height: 1.35,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    copy.message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: palette.mutedInk, fontSize: 16),
-                  ),
-                  const SizedBox(height: 28),
-                  if (checking)
-                    SizedBox.square(
-                      dimension: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: palette.route,
-                      ),
-                    ),
-                  if (copy.retry)
+                    const SizedBox(height: 20),
                     ActionPill(
-                      label: 'Retry',
+                      label: 'Continue playing',
                       tone: ActionTone.primary,
-                      onTap: () => onRetry(),
+                      onTap: onDismiss ?? () => onRetry(),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

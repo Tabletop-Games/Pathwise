@@ -119,7 +119,7 @@ void main() {
     });
   });
 
-  group('gameplay requires a connection', () {
+  group('offline-first gameplay works without a connection', () {
     late ConnectivityService connectivity;
     late bool reachable;
     late DateTime clock;
@@ -138,7 +138,16 @@ void main() {
       store = MemoryStorage();
       model = AppModel(
         storage: store,
-        snapshot: const {},
+        snapshot: {
+          'ledger': [
+            {
+              'id': 'starter',
+              'label': 'Welcome',
+              'amount': 200,
+              'at': '2026-11-22T00:00:00Z',
+            },
+          ],
+        },
         today: () => clock,
         loader: (_) async => fixture(),
         bootTime: () => (boot: 1, milliseconds: 100000),
@@ -163,57 +172,50 @@ void main() {
       await connectivity.check();
     }
 
-    test('no puzzle starts while the connection is unknown or down', () async {
+    test('puzzles start while connectivity is unknown or offline', () async {
       await model.open(const PuzzleId.level(1));
-      expect(model.activeId, isNull);
+      expect(model.activeId, const PuzzleId.level(1));
       await goOnline();
       await model.open(const PuzzleId.level(1));
       expect(model.activeId, const PuzzleId.level(1));
     });
 
-    test('losing the connection keeps the route, refuses input and resumes in place', () async {
-      await goOnline();
-      await model.open(const PuzzleId.level(1));
-      model.begin(0);
-      model.step(1);
-      model.step(2);
-      model.end();
-      expect(model.path, [0, 1, 2]);
+    test(
+      'losing the connection does not interrupt the route or gameplay',
+      () async {
+        await goOnline();
+        await model.open(const PuzzleId.level(1));
+        model.begin(0);
+        model.step(1);
+        model.step(2);
 
-      await goOffline();
-      expect(model.path, [0, 1, 2], reason: 'the route is kept');
-      expect(model.isDrawing, isFalse, reason: 'the stroke is finished');
-      expect(model.begin(2), isFalse);
-      model.step(5);
-      expect(model.path, [0, 1, 2]);
-      await model.open(const PuzzleId.level(2));
-      expect(model.activeId, const PuzzleId.level(1), reason: 'no new puzzle');
-
-      await goOnline();
-      expect(model.begin(2), isTrue);
-      model.step(5);
-      model.end();
-      expect(model.path, [0, 1, 2, 5]);
-    });
+        await goOffline();
+        expect(model.path, [0, 1, 2], reason: 'the route is kept');
+        expect(model.isDrawing, isTrue, reason: 'stroke is not interrupted');
+        model.step(5);
+        model.end();
+        expect(model.path, [0, 1, 2, 5]);
+      },
+    );
 
     test('the unfinished route is saved while offline', () async {
-      await goOnline();
+      await goOffline();
       await model.open(const PuzzleId.level(1));
       model.begin(0);
       model.step(1);
       model.end();
-      await goOffline();
       await model.flush();
       expect(store.value, contains('"path":[0,1]'));
     });
 
-    test('an offline player cannot buy or claim anything', () async {
-      await goOnline();
-      expect(model.coinBalance, 50);
+    test('an offline player can buy local items with coins but cannot claim ad bonuses', () async {
       await goOffline();
-      expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
-      expect(model.research(Research.magnet), isFalse);
-      expect(await model.buyHint(), isFalse);
+      expect(model.coinBalance, 200);
+      expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
+      expect(model.research(Research.magnet), isTrue);
+      expect(await model.buyHint(), isTrue);
+      expect(await model.grantAdBonus('ad-1'), isFalse);
+      expect(await model.grantHintAd('hint-ad-1'), isFalse);
     });
   });
 }

@@ -1,28 +1,28 @@
 import 'game_state.dart';
 import 'user_preferences.dart';
 
-/// Stable cosmetic identifiers. Prices are independent to allow future balancing.
+/// Stable cosmetic identifiers with rarity-tiered Economy 2.0 pricing.
 enum PathTip {
   classic('Classic', 0),
-  arrow('Arrow', 100),
-  crystal('Crystal', 100),
-  star('Star', 100),
-  cat('Cat', 100),
-  dog('Dog', 100),
-  rabbit('Rabbit', 100),
-  fox('Fox', 100),
-  panda('Panda', 100),
-  frog('Frog', 100),
-  penguin('Penguin', 100),
-  turtle('Turtle', 100),
-  bee('Bee', 100),
-  ghost('Ghost', 100),
-  robot('Robot', 100),
-  ufo('UFO', 100),
-  flame('Flame', 100),
-  dragon('Dragon', 100),
-  phoenix('Phoenix', 100),
-  rocket('Rocket', 100);
+  arrow('Arrow', 120),
+  crystal('Crystal', 120),
+  star('Star', 120),
+  cat('Cat', 120),
+  dog('Dog', 120),
+  rabbit('Rabbit', 120),
+  fox('Fox', 250),
+  panda('Panda', 250),
+  frog('Frog', 250),
+  penguin('Penguin', 250),
+  turtle('Turtle', 250),
+  bee('Bee', 250),
+  ghost('Ghost', 500),
+  robot('Robot', 500),
+  ufo('UFO', 500),
+  flame('Flame', 500),
+  rocket('Rocket', 500),
+  dragon('Dragon', 900),
+  phoenix('Phoenix', 900);
 
   const PathTip(this.label, this.price);
   final String label;
@@ -51,7 +51,7 @@ class EconomyRules {
   int get rewardedAdCoins => 20;
   int get rewardedAdsPerDay => 6;
   int get starterHints => 3;
-  int get hintPrice => 60;
+  int get hintPrice => 40;
   int get hintAdsPerDay => 5;
   int get coinAdMilestone => 4;
   int get coinAdMilestoneBonus => 40;
@@ -60,7 +60,7 @@ class EconomyRules {
   int get cratesPerWindow => 8;
   int attackReward(int solves) =>
       solves < 2 ? 0 : (solves < 8 ? solves : 8) * 3;
-  int get freezePrice => 250;
+  int get freezePrice => 150;
   int get maxFreezes => 2;
   static const milestones = <int, ({int coins, int hints})>{
     1: (coins: 20, hints: 0),
@@ -78,6 +78,40 @@ class EconomyRules {
     PlayMode.daily => 10,
     PlayMode.attack => 0,
   };
+
+  /// Centralized Economy 2.0 campaign first-clear payout:
+  /// timed boosts multiply only the base reward; research bonuses are additive.
+  int campaignClearCoins({
+    required int multiplier,
+    required int magnetBonus,
+    required int goldenBonus,
+    required int momentumBonus,
+  }) =>
+      clearReward(PlayMode.levels) * multiplier +
+      magnetBonus +
+      goldenBonus +
+      momentumBonus;
+
+  /// Centralized Economy 2.0 daily challenge first-clear payout:
+  /// timed boosts multiply only the base reward; research bonuses are additive.
+  int dailyClearCoins({
+    required int multiplier,
+    required int fortuneBonus,
+    required int goldenBonus,
+  }) => clearReward(PlayMode.daily) * multiplier + fortuneBonus + goldenBonus;
+
+  /// Post-completion rewarded video bonus on campaign first clears.
+  int completionBonusCoins(int multiplier) =>
+      clearReward(PlayMode.levels) * (multiplier - 1);
+
+  String tipRarity(PathTip tip) => switch (tip.price) {
+    <= 0 => 'Starter',
+    <= 120 => 'Common',
+    <= 250 => 'Uncommon',
+    <= 500 => 'Rare',
+    _ => 'Epic',
+  };
+
   int themePrice(PathwiseTheme theme) => switch (theme) {
     PathwiseTheme.field ||
     PathwiseTheme.blackwater ||

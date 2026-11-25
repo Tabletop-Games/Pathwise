@@ -16,6 +16,7 @@ import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'campaign_journey_view.dart';
+import 'connection_view.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
 import 'journey_rewards.dart';
@@ -98,7 +99,22 @@ class _MainMenuViewState extends State<MainMenuView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkLaunch());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLaunch();
+      if (!mounted) return;
+      final model = context.read<AppModel>();
+      if (!model.adFree && model.onlineReady) {
+        unawaited(
+          context.read<AdService>().prepare(
+            canPresent: () =>
+                mounted &&
+                !model.adFree &&
+                model.activeId == null &&
+                ModalRoute.isCurrentOf(context) == true,
+          ),
+        );
+      }
+    });
     _wheelTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && ModalRoute.isCurrentOf(context) == true) setState(() {});
     });
@@ -107,7 +123,22 @@ class _MainMenuViewState extends State<MainMenuView>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !_launchChecked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _checkLaunch());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkLaunch();
+        if (!mounted) return;
+        final model = context.read<AppModel>();
+        if (!model.adFree && model.onlineReady) {
+          unawaited(
+            context.read<AdService>().prepare(
+              canPresent: () =>
+                  mounted &&
+                  !model.adFree &&
+                  model.activeId == null &&
+                  ModalRoute.isCurrentOf(context) == true,
+            ),
+          );
+        }
+      });
     }
   }
 
@@ -288,6 +319,10 @@ class _MainMenuViewState extends State<MainMenuView>
                         label: '${model.hintsRemaining} hints. Get hints',
                         onTap: () => showHintShop(context, model),
                       ),
+                      if (!model.onlineReady) ...[
+                        const SizedBox(width: 8),
+                        OfflineStatusChip(palette: palette),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 10),

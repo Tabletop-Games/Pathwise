@@ -232,8 +232,8 @@ void main() {
       expect(progress.rank(item), item.limit);
       expect(() => item.price(item.limit), throwsRangeError);
     }
-    expect(progress.durationBonus, 72);
-    expect(progress.discount(100), 66);
+    expect(progress.durationBonus, 24);
+    expect(progress.discount(100), 86);
     progress.activate(Boost.quadrupleTen, 1);
     expect(progress.canActivate(Boost.doubleTen, 2), false);
     expect(progress.multiplier(2), 4);
