@@ -10,6 +10,7 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
+import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'store_view.dart';
@@ -261,16 +262,15 @@ class _FortuneViewState extends State<FortuneView> {
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
                           shape: const StadiumBorder(),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w800,
+                          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
                             fontSize: 17,
                           ),
                         ),
                         onPressed: canSpin ? () => _spin(catalog) : null,
-                        icon: GameArt(
-                          wait > 0 ? ArtKind.timer : ArtKind.wheel,
-                          palette: palette,
-                          size: 24,
+                        icon: PathIcon(
+                          wait > 0 ? ControlGlyph.timer : ControlGlyph.wheel,
+                          size: 22,
                         ),
                         label: Text(
                           wait > 0 ? fortuneCountdown(wait) : 'Free spin',
@@ -296,7 +296,7 @@ class _FortuneViewState extends State<FortuneView> {
                               ? null
                               : () => _spin(catalog, video: true),
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: Text('Spin · $remaining left'),
+                          label: Text('Spin · $remaining left', style: Theme.of(context).textTheme.labelLarge),
                         ),
                       ],
                     ],
