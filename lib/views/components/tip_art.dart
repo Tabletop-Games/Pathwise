@@ -97,6 +97,14 @@ void paintPathTip(
       radius * .57,
       Paint()..color = palette.accent,
     );
+    canvas.drawCircle(
+      Offset.zero,
+      radius * .75,
+      Paint()
+        ..color = palette.onRoute.withValues(alpha: .48)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * .09,
+    );
   } else {
     final (seed, silhouette, light, detail) =
         (catalogue ? null : _directionalArt[tip]) ?? _art[tip]!;

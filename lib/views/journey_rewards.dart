@@ -378,7 +378,11 @@ class CollectionsView extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: model.discoveryPercent / 100),
+            LinearProgressIndicator(
+              value: model.discoveryPercent / 100,
+              backgroundColor: palette.tile,
+              color: palette.route,
+            ),
             Text('Next discovery · ${model.discoveryPercent}%'),
             if (pending.isNotEmpty)
               ExpansionTile(

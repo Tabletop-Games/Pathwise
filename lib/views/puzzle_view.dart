@@ -450,6 +450,7 @@ class _Completion extends StatelessWidget {
         ? model.completionCoins
         : model.lastReward;
     final milestoneCoins = model.lastReward - levelCoins;
+    final bonusCoins = model.completionBonusCoins;
     final hints = result?.hints ?? model.hintsUsed;
     final duration = Duration(
       milliseconds: result?.milliseconds ?? model.elapsed.value.inMilliseconds,
@@ -480,8 +481,9 @@ class _Completion extends StatelessWidget {
             if (levelCoins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 14, bottom: 4),
-                child: RewardAmount(levelCoins, size: 46),
+                child: RewardAmount(levelCoins + bonusCoins, size: 46),
               ),
+            if (bonusCoins > 0) Text('Video bonus · +$bonusCoins coins'),
             if (milestoneCoins > 0) Text('+$milestoneCoins milestone coins'),
             if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
               const SizedBox(height: 10),

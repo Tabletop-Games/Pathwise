@@ -179,6 +179,7 @@ final class Wallet {
   int get balance => earned - spent;
   Iterable<CoinTransaction> get history => _history.values;
   bool contains(String id) => _history.containsKey(id);
+  int amountOf(String id) => _history[id]?.amount ?? 0;
 
   bool add(String id, String label, int amount, DateTime date) {
     if (contains(id) || balance + amount < 0 || amount == 0) return false;

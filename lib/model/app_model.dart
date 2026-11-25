@@ -1095,6 +1095,10 @@ class AppModel extends ChangeNotifier
   int completionCoins = 0;
   int? selectedMultiplier;
 
+  int get completionBonusCoins => firstCampaignClear
+      ? _wallet.amountOf('journey/multiplier/${activeId?.level}')
+      : 0;
+
   int get discoveryPercent =>
       _journeyClears % discoveryInterval * 100 ~/ discoveryInterval;
   List<Discovery> get pendingDiscoveries =>

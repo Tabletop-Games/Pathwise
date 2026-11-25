@@ -7,10 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../lib/cloud/cloud_save_provider.dart';
+import '../lib/cloud/cloud_sync_service.dart';
+import '../lib/cloud/key_value_store.dart';
 import '../lib/logic/ad_service.dart';
 import '../lib/logic/billing_service.dart';
 import '../lib/logic/connectivity_service.dart';
 import '../lib/logic/mechanic_tutorials.dart';
+import '../lib/logic/puzzle.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
@@ -47,10 +51,27 @@ import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 final _captureDir = Platform.environment['PATHWISE_CAPTURE_DIR'];
 
 class _PreviewAds extends AdService {
+  bool available = true;
+
   @override
   bool get enabled => true;
+
   @override
-  bool get videoReady => true;
+  bool get videoReady => available;
+
+  @override
+  Future<void> prepare({required bool Function() canPresent}) async {}
+
+  @override
+  Future<bool> watchVideo(
+    Future<bool> Function(String) reward, {
+    bool Function()? canPresent,
+    RewardPlacement placement = RewardPlacement.coins,
+    bool waitForReward = false,
+  }) async =>
+      available &&
+      canPresent?.call() != false &&
+      await reward('preview-reward');
 }
 
 const _themes = <String, PathwiseTheme>{
@@ -106,14 +127,16 @@ Widget _shell(
   AppModel model,
   AdService ads,
   BillingService billing,
-  Widget home,
-) => RepaintBoundary(
+  Widget home, {
+  CloudSyncService? cloud,
+}) => RepaintBoundary(
   key: key,
   child: MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: model),
       ChangeNotifierProvider.value(value: ads),
       ChangeNotifierProvider.value(value: billing),
+      if (cloud != null) ChangeNotifierProvider.value(value: cloud),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -246,9 +269,42 @@ Future<void> _screens(
     await tester.ensureVisible(find.text('Stop'));
     await tester.tap(find.text('Stop'));
     await shot('multiplier-stopped');
+    final watch = find.textContaining('Watch video for +');
+    rewardAds.available = false;
+    await tester.ensureVisible(watch);
+    await tester.tap(watch);
+    await shot('multiplier-unavailable');
+    expect(model.completionBonusCoins, 0);
+    rewardAds.available = true;
+    await tester.ensureVisible(watch);
+    await tester.tap(watch);
+    await shot('multiplier-rewarded');
+    expect(find.textContaining('Video bonus · +'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();
+    final reducedModel = _model(theme);
+    await tester.pumpWidget(
+      _shell(
+        key,
+        reducedModel,
+        rewardAds,
+        billing,
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: const PuzzleView(),
+          ),
+        ),
+      ),
+    );
+    await reducedModel.open(const PuzzleId.level(1));
+    complete(reducedModel);
+    await shot('multiplier-reduced-motion');
+    expect(find.text('3× base level reward'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await reducedModel.flush();
+    reducedModel.dispose();
     final discoveryModel = _model(theme, discoveryClears: 9);
     await tester.pumpWidget(
       _shell(key, discoveryModel, rewardAds, billing, const PuzzleView()),
@@ -285,6 +341,7 @@ Future<void> _screens(
       snapshot: {
         'preferences': {'theme': theme.name},
         'ownedThemes': [theme.name],
+        'highestUnlocked': 100000,
         'journey': {
           'chapterChests': [0],
         },
@@ -298,14 +355,27 @@ Future<void> _screens(
       _shell(key, model, ads, billing, const LevelsView()),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Treasures · 1'));
-    await tester.pumpAndSettle();
-    final treasure = find.descendant(
-      of: find.byType(BottomSheet),
-      matching: find.text('First Light'),
-    );
-    await tester.tap(treasure);
+    await shot('journey-high-level');
+    Future<void> jump(String level) async {
+      await tester.tap(find.byTooltip('Jump to level'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), level);
+      await tester.pump();
+      await tester.tap(find.text('Go'));
+      await tester.pumpAndSettle();
+    }
+
+    await jump('23');
+    expect(find.text('Treasure ready'), findsOneWidget);
+    await shot('journey-ready-chest');
+    await tester.tap(find.text('Treasure ready'));
     await shot('chapter-treasure');
+    await tester.tap(find.text('Claim treasure'));
+    await shot('journey-claimed-chest');
+    expect(find.text('Treasure claimed'), findsOneWidget);
+    await jump('48');
+    await shot('journey-locked-chest');
+    expect(find.text('25 puzzles to treasure'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   }
@@ -331,6 +401,36 @@ Future<void> _screens(
     },
   );
   await screen('settings', () => const SettingsView());
+  if (only == null) {
+    final model = _model(theme);
+    final storage = MemoryKeyValueStore();
+    final cloud = CloudSyncService(
+      provider: FakeCloudSaves(store: storage, key: 'preview'),
+      store: storage,
+      prefix: 'preview',
+      snapshot: model.snapshotMap,
+      apply: (_) async {},
+      isOnline: () => true,
+    );
+    await cloud.signIn();
+    await tester.pumpWidget(
+      _shell(key, model, ads, billing, const SettingsView(), cloud: cloud),
+    );
+    await shot('settings-cloud-entry');
+    await tester.tap(find.byKey(const ValueKey('cloud-save-entry')));
+    await shot('cloud-save');
+    final stopSync = find.text('Stop cloud sync on this device');
+    await tester.ensureVisible(stopSync);
+    await tester.tap(stopSync);
+    await shot('cloud-save-sign-out');
+    expect(cloud.signedIn, isTrue);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(cloud.signedIn, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    cloud.dispose();
+    model.dispose();
+  }
   await screen(
     'tutorial',
     () => MechanicTutorialView(
@@ -717,6 +817,57 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
       model.dispose();
+    }
+    for (final theme in [PathwiseTheme.field, PathwiseTheme.blackwater]) {
+      final palette = BoardPalette.palettes[theme]!;
+      for (final (direction, name) in ['right', 'down', 'left', 'up'].indexed) {
+        int rotate(int cell) {
+          for (var step = 0; step < direction; step++) {
+            cell = (cell % 3) * 3 + 2 - cell ~/ 3;
+          }
+          return cell;
+        }
+
+        final solution = [4, 5, 2, 1, 0, 3, 6, 7, 8].map(rotate).toList();
+        final board = Puzzle(
+          3,
+          [solution.first, solution.last],
+          walls: [(4, rotate(1)), (4, rotate(3)), (4, rotate(7))],
+        );
+        final model = AppModel(
+          storage: MemoryStorage(),
+          snapshot: {
+            'mechanicTutorials': {'walls': 'completed'},
+          },
+          loader: (_) async => VerifiedPuzzle(board, solution),
+        );
+        await model.open(const PuzzleId.level(1));
+        expect(model.canStep(solution[1]), isTrue);
+        await sheet(
+          'board-${theme.name}-rest-$name',
+          [
+            for (final tip in PathTip.values)
+              (
+                tip.label,
+                SizedBox.square(
+                  dimension: 216,
+                  child: PuzzleBoard(
+                    model: model,
+                    puzzle: board,
+                    palette: palette,
+                    tipStyle: tip,
+                  ),
+                ),
+              ),
+          ],
+          colors: palette,
+          columns: 5,
+          width: 224,
+          height: 216,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        model.dispose();
+      }
     }
   });
 }

@@ -10,11 +10,13 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
+import '../model/journey.dart';
 import '../model/user_preferences.dart';
 import '../ui/art/control_art.dart';
 import '../ui/art/medallion_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../ui/journey_art.dart';
 import 'cloud_save_section.dart';
 import 'components/brand_mark.dart';
 import 'level_one_demo.dart';
@@ -72,7 +74,7 @@ class SettingsView extends StatelessWidget {
                 ]),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 10),
-                  child: CloudSaveSection(),
+                  child: CloudSaveSection(compact: true),
                 ),
                 group([
                   ListTile(
@@ -150,7 +152,13 @@ class StatisticsView extends StatelessWidget {
     final palette = BoardPalette.palettes[model.theme]!;
     Widget tile(ArtKind art, String label, String value) =>
         _StatTile(art: art, label: label, value: value, palette: palette);
-    Widget grid(List<Widget> tiles) => Column(children: tiles);
+    Widget details(String title, List<Widget> items) => ExpansionTile(
+      title: Text(title),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+      children: items,
+    );
+    final chapter = chapterFor(model.highestUnlocked);
+    final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 56,
@@ -167,28 +175,55 @@ class StatisticsView extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
-                Text(
-                  'Your journey',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: JourneyArt(palette, chapter: chapter, height: 80),
                 ),
-                grid([
-                  tile(ArtKind.check, 'Puzzles solved', '${model.solved}'),
-                  tile(
-                    ArtKind.hint,
-                    'Solved without hints',
-                    '${model.unassisted}',
-                  ),
-                  tile(ArtKind.flame, 'Daily streak', '${model.dailyStreak}'),
+                const SizedBox(height: 12),
+                Text(chapterName(chapter), style: text.headlineSmall),
+                Text('Level ${model.highestUnlocked}', style: text.bodyMedium),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 24,
+                  runSpacing: 10,
+                  children: [
+                    for (final (value, label) in [
+                      (model.solved, 'Puzzles solved'),
+                      (model.unassisted, 'Hint-free'),
+                      (model.dailyStreak, 'Day streak'),
+                    ])
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('$value', style: text.headlineMedium),
+                          Text(label, style: text.bodyMedium),
+                        ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                details('Campaign and daily', [
                   tile(
                     ArtKind.trophy,
                     'Longest streak',
                     '${model.longestStreak}',
                   ),
-                  tile(
-                    ArtKind.levels,
-                    'Highest level unlocked',
-                    '${model.highestUnlocked}',
-                  ),
+                  for (final (mode, label, count) in [
+                    (PlayMode.levels, 'Levels', model.levelsSolved),
+                    (PlayMode.daily, 'Daily', model.dailySolved),
+                  ]) ...[
+                    tile(
+                      mode == PlayMode.levels
+                          ? ArtKind.levels
+                          : ArtKind.calendar,
+                      '$label solved',
+                      '$count',
+                    ),
+                    if (model.best(mode) case final best?)
+                      tile(ArtKind.timer, '$label best', formatTime(best)),
+                  ],
+                ]),
+                details('Lifetime activity', [
                   tile(
                     ArtKind.timer,
                     'Total gameplay time',
@@ -206,23 +241,6 @@ class StatisticsView extends StatelessWidget {
                     '${model.ownedThemes}/${PathwiseTheme.values.length}',
                   ),
                 ]),
-                const SizedBox(height: 10),
-                grid([
-                  for (final (mode, label, count) in [
-                    (PlayMode.levels, 'Levels', model.levelsSolved),
-                    (PlayMode.daily, 'Daily', model.dailySolved),
-                  ]) ...[
-                    tile(
-                      mode == PlayMode.levels
-                          ? ArtKind.levels
-                          : ArtKind.calendar,
-                      '$label solved',
-                      '$count',
-                    ),
-                    if (model.best(mode) case final best?)
-                      tile(ArtKind.timer, '$label best', formatTime(best)),
-                  ],
-                ]),
                 if (SharePromptPolicy.lastLevelMilestone(
                       model.highestUnlocked - 1,
                     )
@@ -239,7 +257,7 @@ class StatisticsView extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 10),
-                grid([
+                details('Time Attack', [
                   tile(
                     ArtKind.timer,
                     'Time Attack best score',
@@ -250,22 +268,12 @@ class StatisticsView extends StatelessWidget {
                     'Most puzzles in one run',
                     '${model.attackHighest}',
                   ),
-                ]),
-                if (model.attackHistory.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  GameCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        for (final run in model.attackHistory.reversed.take(5))
-                          _Stat(
-                            'Recent run · ${run.clears.length} solved',
-                            '${run.score} points',
-                          ),
-                      ],
+                  for (final run in model.attackHistory.reversed.take(5))
+                    _Stat(
+                      'Recent run · ${run.clears.length} solved',
+                      '${run.score} points',
                     ),
-                  ),
-                ],
+                ]),
                 const SizedBox(height: 18),
                 Row(
                   children: [

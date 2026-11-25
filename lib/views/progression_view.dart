@@ -108,6 +108,9 @@ class _ProgressionViewState extends State<ProgressionView> {
     final palette = BoardPalette.palettes[model.theme]!;
     final progression = model.progression;
     final now = model.progressionTime;
+    final active = Boost.values.where(
+      (boost) => progression.remaining(boost, now) > 0,
+    );
     final multipliers = Boost.values.where(
       (item) =>
           item.multiplier > 1 &&
@@ -159,6 +162,40 @@ class _ProgressionViewState extends State<ProgressionView> {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                         ),
+                        if (active.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                            child: GameCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Active boosts',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  for (final boost in active)
+                                    ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: BoostArtwork(
+                                        boost,
+                                        palette: palette,
+                                      ),
+                                      title: Text(
+                                        boost.multiplier > 1
+                                            ? '${boost.multiplier}× coins'
+                                            : boost.title,
+                                      ),
+                                      subtitle: Text(
+                                        '${_duration(progression.remaining(boost, now))} left',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final wide =
@@ -424,11 +461,7 @@ class _ProgressionViewState extends State<ProgressionView> {
             ),
             if (remaining > 0) ...[
               const SizedBox(height: 12),
-              Text('${boost.multiplier}× active'),
-              Text(
-                '${_duration(remaining)} left',
-                style: TextStyle(color: palette.mutedInk, fontSize: 13),
-              ),
+              Text('Active', style: TextStyle(color: palette.mutedInk)),
               const SizedBox(height: 6),
               GameBar(value: remaining / duration),
             ],

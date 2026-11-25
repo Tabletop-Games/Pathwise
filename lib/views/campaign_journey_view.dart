@@ -322,6 +322,11 @@ Future<void> _showChapterReward(BuildContext context, int chapter) =>
       builder: (context) {
         final model = context.watch<AppModel>();
         return AlertDialog(
+          icon: GameArt(
+            ArtKind.treasureOpen,
+            palette: BoardPalette.palettes[model.theme]!,
+            size: 62,
+          ),
           title: Text(chapterName(chapter)),
           content: const Text(
             '$chapterRewardCoins coins · $chapterRewardHints hint',

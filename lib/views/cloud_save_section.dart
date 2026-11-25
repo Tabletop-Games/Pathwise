@@ -37,12 +37,46 @@ String _statusLine(CloudSyncService cloud) => switch (cloud.status) {
 /// Settings → Cloud save. Shows status and offers sign-in, sync, restore and
 /// sign-out. It never shows identifiers, tokens or raw errors.
 class CloudSaveSection extends StatelessWidget {
-  const CloudSaveSection({super.key});
+  const CloudSaveSection({this.compact = false, super.key});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final cloud = context.watch<CloudSyncService?>();
     if (cloud == null) return const SizedBox.shrink();
+    if (compact) {
+      final status = switch (cloud.status) {
+        CloudSyncStatus.unsupported => 'Unavailable',
+        CloudSyncStatus.signedOut => 'Not signed in',
+        CloudSyncStatus.idle =>
+          cloud.signedIn ? _when(cloud.lastSynced) : 'Not signed in',
+        CloudSyncStatus.syncing => 'Syncing…',
+        CloudSyncStatus.waitingForNetwork => 'Waiting for connection',
+        CloudSyncStatus.conflict => 'Choose progress to keep',
+        CloudSyncStatus.damaged || CloudSyncStatus.error => 'Needs attention',
+      };
+      return ListTile(
+        key: const ValueKey('cloud-save-entry'),
+        leading: const PathIcon(ControlGlyph.cloud),
+        title: const Text('Cloud save'),
+        subtitle: Text(status),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(title: const Text('Cloud save')),
+              body: const SafeArea(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: CloudSaveSection(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final busy = cloud.status == CloudSyncStatus.syncing;
     final p = context.palette;
     final tiles = <Widget>[
@@ -83,9 +117,6 @@ class CloudSaveSection extends StatelessWidget {
           key: const ValueKey('cloud-restore'),
           leading: const Icon(Icons.cloud_download_outlined),
           title: const Text('Restore progress from cloud'),
-          subtitle: const Text(
-            'Replaces this device’s progress. A backup is kept on this device.',
-          ),
           enabled: !busy,
           onTap: busy ? null : () => _confirmRestore(context, cloud),
         ),
@@ -93,11 +124,8 @@ class CloudSaveSection extends StatelessWidget {
           key: const ValueKey('cloud-sign-out'),
           leading: const Icon(Icons.cloud_off_outlined),
           title: const Text('Stop cloud sync on this device'),
-          subtitle: const Text(
-            'Your progress stays on this device. Signing in again resumes syncing. Change the Google account in the device’s settings.',
-          ),
           enabled: !busy,
-          onTap: busy ? null : () => cloud.signOut(),
+          onTap: busy ? null : () => _confirmSignOut(context, cloud),
         ),
       ],
       if (cloud.hasBackup)
@@ -137,6 +165,19 @@ class CloudSaveSection extends StatelessWidget {
       action: 'Restore',
     );
     if (confirmed) await cloud.restoreFromCloud();
+  }
+
+  Future<void> _confirmSignOut(
+    BuildContext context,
+    CloudSyncService cloud,
+  ) async {
+    final confirmed = await _ask(
+      context,
+      title: 'Stop cloud sync?',
+      body: 'Your progress stays on this device. Sign in again to resume syncing. Change your Google account in the device settings.',
+      action: 'Stop syncing',
+    );
+    if (confirmed) await cloud.signOut();
   }
 
   Future<void> _confirmBackup(
