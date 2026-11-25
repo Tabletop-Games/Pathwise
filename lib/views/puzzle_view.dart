@@ -62,11 +62,14 @@ class PuzzleView extends StatelessWidget {
     return Scaffold(
       bottomNavigationBar: timed || model.complete ? null : const AdBanner(),
       appBar: AppBar(
-        title: Text(
-          id.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            id.title,
+            maxLines: 1,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
         actions: [
           if (kDebugMode && !timed && model.puzzle != null)
@@ -519,32 +522,16 @@ class _Completion extends StatelessWidget {
       liveRegion: true,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
         child: Column(
           children: [
             if (model.chapterCompletedThisVisit && id.mode == PlayMode.levels)
-              JourneyArt(palette, chapter: chapterFor(id.level), height: 90)
-            else
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      palette.accent.withValues(
-                        alpha: palette.dark ? .30 : .22,
-                      ),
-                      palette.route.withValues(alpha: palette.dark ? .14 : .08),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: palette.accent.withValues(alpha: .55),
-                    width: 1.5,
-                  ),
-                ),
-                child: Center(
-                  child: GameArt(ArtKind.check, palette: palette, size: 42),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: JourneyArt(
+                  palette,
+                  chapter: chapterFor(id.level),
+                  height: 84,
                 ),
               ),
             Text(
@@ -556,16 +543,41 @@ class _Completion extends StatelessWidget {
                   ? 'Level complete!'
                   : 'Daily complete!',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
-            Text('${formatTime(duration)} · $hints hints'),
+            const SizedBox(height: 2),
+            Text(
+              '${formatTime(duration)} · $hints hints',
+              style: TextStyle(
+                color: palette.mutedInk,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
             if (levelCoins > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 14, bottom: 4),
-                child: RewardAmount(levelCoins + bonusCoins, size: 46),
+                padding: const EdgeInsets.only(top: 10, bottom: 2),
+                child: RewardAmount(levelCoins + bonusCoins, size: 48),
               ),
-            if (bonusCoins > 0) Text('Video bonus · +$bonusCoins coins'),
-            if (milestoneCoins > 0) Text('+$milestoneCoins milestone coins'),
+            if (bonusCoins > 0)
+              Text(
+                'Video bonus · +$bonusCoins coins',
+                style: TextStyle(
+                  color: palette.route,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            if (milestoneCoins > 0)
+              Text(
+                '+$milestoneCoins milestone coins',
+                style: TextStyle(
+                  color: palette.mutedInk,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
             if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
               const SizedBox(height: 10),
               if (model.latestDiscovery case final discovery?) ...[
@@ -607,9 +619,9 @@ class _Completion extends StatelessWidget {
                         item: model.upcomingDiscoveryItem,
                         palette: palette,
                         progress: progress,
-                        size: 84,
+                        size: 156,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         'Mystery discovery · ${(progress * 100).round()}%',
                         style: TextStyle(
@@ -623,35 +635,71 @@ class _Completion extends StatelessWidget {
                 ),
               ],
             ],
+            if (model.firstCampaignClear &&
+                model.latestDiscovery == null &&
+                id.mode == PlayMode.levels) ...[
+              const SizedBox(height: 12),
+              CompletionBonus(model, key: ValueKey(id.level)),
+            ],
             const SizedBox(height: 14),
             if (next != null)
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        GameTokens.cardRadius,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(GameTokens.cardRadius),
+                    gradient: model.onlineReady
+                        ? LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [palette.buttonTop, palette.buttonBottom],
+                          )
+                        : null,
+                    boxShadow: model.onlineReady
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: palette.dark ? .35 : .18,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(54),
+                      backgroundColor: model.onlineReady
+                          ? Colors.transparent
+                          : null,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          GameTokens.cardRadius,
+                        ),
                       ),
                     ),
-                  ),
-                  onPressed: model.onlineReady
-                      ? () => _openNextLevel(context, model, next)
-                      : null,
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: Text(
-                    id.checkpoint == null ? 'Next level' : 'Next checkpoint',
+                    onPressed: model.onlineReady
+                        ? () => _openNextLevel(context, model, next)
+                        : null,
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: Text(
+                      id.checkpoint == null ? 'Next level' : 'Next checkpoint',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ),
               ),
             if (next != null && !model.onlineReady)
-              const Text('Reconnect to play the next puzzle.'),
-            const SizedBox(height: 8),
-            if (model.firstCampaignClear &&
-                model.latestDiscovery == null &&
-                id.mode == PlayMode.levels)
-              CompletionBonus(model, key: ValueKey(id.level)),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Reconnect to play the next puzzle.'),
+              ),
+            const SizedBox(height: 6),
             AchievementCelebration(model),
             Wrap(
               alignment: WrapAlignment.center,

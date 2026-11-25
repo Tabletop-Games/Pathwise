@@ -18,25 +18,60 @@ import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
 enum _ResearchBranch {
-  income('Coins', [
-    Research.magnet,
-    Research.golden,
-    Research.fortune,
-    Research.mastery,
-    Research.momentum,
-    Research.specialist,
-  ]),
-  supplies('Crates', [Research.hunter, Research.collector, Research.scout]),
-  efficiency('Efficiency', [
-    Research.efficiency,
-    Research.savings,
-    Research.tuning,
-    Research.procurement,
-  ]);
+  income(
+    'Coins',
+    'Permanent boosts to puzzle, streak, and milestone coin payouts.',
+    [
+      Research.magnet,
+      Research.golden,
+      Research.fortune,
+      Research.mastery,
+      Research.momentum,
+      Research.specialist,
+    ],
+  ),
+  supplies(
+    'Crates',
+    'Increase falling supply crate frequency and reward capacity.',
+    [Research.hunter, Research.collector, Research.scout],
+  ),
+  efficiency(
+    'Efficiency',
+    'Extend boost timers and reduce upgrade and boost costs.',
+    [
+      Research.efficiency,
+      Research.savings,
+      Research.tuning,
+      Research.procurement,
+    ],
+  );
 
-  const _ResearchBranch(this.title, this.items);
+  const _ResearchBranch(this.title, this.summary, this.items);
   final String title;
+  final String summary;
   final List<Research> items;
+}
+
+String _researchAssetPath(Research item) => switch (item) {
+  Research.magnet => 'assets/art/resources/coin.png',
+  Research.golden => 'assets/art/resources/coin_stack_2.png',
+  Research.fortune => 'assets/art/ui/wheel_ticket.png',
+  Research.mastery => 'assets/art/ui/achievement.png',
+  Research.momentum => 'assets/art/ui/flame.png',
+  Research.specialist => 'assets/art/resources/coin_stack_3.png',
+  Research.hunter => 'assets/art/resources/crate.png',
+  Research.collector => 'assets/art/resources/chest_open.png',
+  Research.scout => 'assets/art/ui/compass.png',
+  Research.efficiency => 'assets/art/ui/timer.png',
+  Research.savings => 'assets/art/resources/coin_stack_1.png',
+  Research.tuning => 'assets/art/ui/boost.png',
+  Research.procurement => 'assets/art/resources/hint.png',
+};
+
+String _boostAssetPath(Boost boost) {
+  if (boost.multiplier == 1) return 'assets/art/resources/crate.png';
+  if (boost.minutes >= 30) return 'assets/art/ui/timer.png';
+  return 'assets/art/ui/boost.png';
 }
 
 class ProgressionView extends StatefulWidget {
@@ -180,9 +215,10 @@ class _ProgressionViewState extends State<ProgressionView> {
                                     for (final boost in active)
                                       ListTile(
                                         contentPadding: EdgeInsets.zero,
-                                        leading: BoostArtwork(
+                                        leading: _boostArtworkBadge(
                                           boost,
-                                          palette: palette,
+                                          palette,
+                                          size: 42,
                                         ),
                                         title: Text(
                                           boost.multiplier > 1
@@ -249,6 +285,10 @@ class _ProgressionViewState extends State<ProgressionView> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                            child: _researchHeader(model, palette),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                             child: GameSegmented<_ResearchBranch>(
                               selected: _branch,
                               onChanged: (value) =>
@@ -278,6 +318,121 @@ class _ProgressionViewState extends State<ProgressionView> {
       ),
     );
   }
+
+  Widget _researchHeader(AppModel model, BoardPalette palette) {
+    final progress = model.progression;
+    var earnedRanks = 0;
+    var totalRanks = 0;
+    for (final item in _branch.items) {
+      earnedRanks += progress.rank(item);
+      totalRanks += item.limit;
+    }
+    return GameCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.quiet,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: palette.cardEdge),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: GameArt(ArtKind.research, palette: palette, size: 42),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '${_branch.title} lab',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    InfoChip(
+                      icon: GameArt(ArtKind.trophy, palette: palette, size: 14),
+                      label: '$earnedRanks of $totalRanks',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _branch.summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: palette.mutedInk, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _researchArtworkBadge(Research item, BoardPalette palette) =>
+      DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.quiet,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.cardEdge),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: SizedBox.square(
+            dimension: 38,
+            child: Image.asset(
+              _researchAssetPath(item),
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) =>
+                  ResearchArtwork(item, palette: palette),
+            ),
+          ),
+        ),
+      );
+
+  Widget _boostArtworkBadge(
+    Boost boost,
+    BoardPalette palette, {
+    double size = 46,
+  }) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: boost.multiplier >= 3
+          ? Color.lerp(palette.quiet, palette.accent, .16)
+          : palette.quiet,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: boost.multiplier >= 3
+            ? palette.accent.withValues(alpha: .5)
+            : palette.cardEdge,
+      ),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(6),
+      child: SizedBox.square(
+        dimension: size - 12,
+        child: Image.asset(
+          _boostAssetPath(boost),
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => boost.multiplier > 1
+              ? BoostArtwork(boost, palette: palette, size: size - 12)
+              : GameArt(ArtKind.crate, palette: palette, size: size - 12),
+        ),
+      ),
+    ),
+  );
 
   Widget _research(AppModel model, Research item) {
     final progress = model.progression;
@@ -342,7 +497,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           opacity: unlocked ? 1 : .62,
           child: Row(
             children: [
-              ResearchArtwork(item, palette: palette),
+              _researchArtworkBadge(item, palette),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -430,10 +585,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           children: [
             Row(
               children: [
-                if (multiplier)
-                  BoostArtwork(boost, palette: palette, size: 42)
-                else
-                  GameArt(ArtKind.crate, palette: palette, size: 42),
+                _boostArtworkBadge(boost, palette, size: 50),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

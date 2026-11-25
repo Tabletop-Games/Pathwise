@@ -12,6 +12,7 @@ import '../../model/app_themes.dart';
 import '../../model/game_state.dart';
 import '../../model/path_tips.dart';
 import '../../model/user_preferences.dart';
+import '../../ui/art/game_assets.dart';
 import '../../ui/game_ui.dart';
 import 'tip_art.dart';
 
@@ -1142,15 +1143,9 @@ class _BoardPainter extends CustomPainter {
 
 List<(Color, double)> _routeLayers(BoardPalette palette) {
   final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
-  final core = Color.lerp(
-    palette.route,
-    palette.onRoute,
-    highContrast ? .18 : .28,
-  )!;
   return [
-    (palette.route.withValues(alpha: highContrast ? .14 : .20), .34),
+    (palette.route.withValues(alpha: highContrast ? .10 : .16), .33),
     (palette.route, .25),
-    (core, .09),
   ];
 }
 
@@ -1160,12 +1155,9 @@ void _paintRoutePath(
   BoardPalette palette, {
   StrokeCap cap = StrokeCap.round,
 }) {
-  final layers = _routeLayers(palette);
-  for (var i = 0; i < layers.length; i++) {
-    final (color, width) = layers[i];
-    final target = i == 2 ? path.shift(const Offset(0, -.045)) : path;
+  for (final (color, width) in _routeLayers(palette)) {
     canvas.drawPath(
-      target,
+      path,
       Paint()
         ..color = color
         ..strokeWidth = width
@@ -1183,13 +1175,10 @@ void _paintRouteLine(
   BoardPalette palette, {
   StrokeCap cap = StrokeCap.round,
 }) {
-  final layers = _routeLayers(palette);
-  for (var i = 0; i < layers.length; i++) {
-    final (color, width) = layers[i];
-    final shift = i == 2 ? const Offset(0, -.045) : Offset.zero;
+  for (final (color, width) in _routeLayers(palette)) {
     canvas.drawLine(
-      start + shift,
-      end + shift,
+      start,
+      end,
       Paint()
         ..color = color
         ..strokeWidth = width
@@ -1254,7 +1243,13 @@ class _TipPainter extends CustomPainter {
     required this.restingFacing,
     required this.rejection,
     required this.reduced,
-  }) : super(repaint: Listenable.merge([visual, rejection]));
+  }) : super(
+         repaint: Listenable.merge([
+           visual,
+           rejection,
+           GameAssetCache.instance,
+         ]),
+       );
 
   final Puzzle puzzle;
   final BoardPalette palette;

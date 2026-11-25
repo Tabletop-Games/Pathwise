@@ -52,13 +52,15 @@ extension GameColors on BoardPalette {
   Color get track => Color.lerp(canvas, ink, dark ? .16 : .08)!;
   Color get mutedInk => Color.lerp(muted, ink, .2)!;
 
-  /// Atmospheric canvas gradient stops.
-  Color get canvasTop => _isSignal
+  /// Atmospheric canvas gradient stops. Starts at [canvas] so it blends
+  /// seamlessly with the AppBar background.
+  Color get canvasTop => canvas;
+  Color get canvasMid => _isSignal
       ? canvas
-      : Color.lerp(canvas, dark ? route : surface, dark ? .14 : .45)!;
+      : Color.lerp(canvas, dark ? route : surface, dark ? .08 : .25)!;
   Color get canvasBottom => _isSignal
       ? canvas
-      : Color.lerp(canvas, dark ? Colors.black : tile, dark ? .30 : .22)!;
+      : Color.lerp(canvas, dark ? Colors.black : tile, dark ? .28 : .20)!;
 
   /// Tactile primary button gradient stops.
   Color get buttonTop => _isSignal
@@ -97,8 +99,8 @@ class AtmosphericBackdrop extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [p.canvasTop, p.canvas, p.canvasBottom],
-          stops: const [0.0, 0.48, 1.0],
+          colors: [p.canvasTop, p.canvasMid, p.canvasBottom],
+          stops: const [0.0, 0.42, 1.0],
         ),
       ),
       child: Stack(
@@ -125,66 +127,36 @@ class _AtmospherePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Soft radial ambient glow near top-center.
+    // Soft radial ambient glow near upper-center.
     final glowRect = Rect.fromCircle(
-      center: Offset(size.width * .5, size.height * .16),
-      radius: size.width * .65,
+      center: Offset(size.width * .5, size.height * .22),
+      radius: size.width * .62,
     );
     canvas.drawRect(
       glowRect,
       Paint()
         ..shader = RadialGradient(
           colors: [
-            p.route.withValues(alpha: p.dark ? .14 : .07),
+            p.route.withValues(alpha: p.dark ? .12 : .06),
             Colors.transparent,
           ],
         ).createShader(glowRect),
     );
 
-    // Subtle organic foliage / ridge silhouettes in bottom corners.
-    final hillColor = Color.lerp(
-      p.canvasBottom,
-      p.route,
-      p.dark ? .22 : .12,
-    )!.withValues(alpha: p.dark ? .45 : .30);
-    final hillPaint = Paint()..color = hillColor;
-    final leftHill = Path()
-      ..moveTo(0, size.height)
-      ..lineTo(0, size.height * .87)
-      ..quadraticBezierTo(
-        size.width * .22,
-        size.height * .82,
-        size.width * .42,
-        size.height,
-      )
-      ..close();
-    final rightHill = Path()
-      ..moveTo(size.width, size.height)
-      ..lineTo(size.width, size.height * .85)
-      ..quadraticBezierTo(
-        size.width * .76,
-        size.height * .80,
-        size.width * .56,
-        size.height,
-      )
-      ..close();
-    canvas.drawPath(leftHill, hillPaint);
-    canvas.drawPath(rightHill, hillPaint);
-
-    // Sparse, calm ambient motes along the edges.
+    // Sparse, calm ambient motes along the edges (no generic giant hills).
     final motePaint = Paint()
-      ..color = p.particleColor.withValues(alpha: p.dark ? .35 : .24);
+      ..color = p.particleColor.withValues(alpha: p.dark ? .30 : .20);
     const motes = [
       Offset(.08, .18),
       Offset(.91, .22),
-      Offset(.14, .42),
+      Offset(.14, .44),
       Offset(.88, .48),
-      Offset(.07, .74),
+      Offset(.07, .76),
       Offset(.93, .72),
     ];
     for (var i = 0; i < motes.length; i++) {
       final pt = Offset(motes[i].dx * size.width, motes[i].dy * size.height);
-      canvas.drawCircle(pt, i.isEven ? 2.4 : 1.6, motePaint);
+      canvas.drawCircle(pt, i.isEven ? 2.2 : 1.5, motePaint);
     }
   }
 

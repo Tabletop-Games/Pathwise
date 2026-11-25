@@ -48,192 +48,198 @@ class StreakView extends StatelessWidget {
             const SizedBox(width: 8),
           ],
         ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                    child: Column(
-                      children: [
-                        GameArt(ArtKind.flame, palette: palette, size: 68),
-                        const SizedBox(height: 8),
-                        Semantics(
-                          label: '${streak.count} days',
-                          excludeSemantics: true,
-                          child: Text(
-                            '${streak.count}',
-                            style: TextStyle(
-                              color: palette.ink,
-                              fontSize: 56,
-                              fontWeight: FontWeight.w500,
-                              height: 1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Semantics(
-                          label: 'Longest: ${streak.longest} days',
-                          excludeSemantics: true,
-                          child: InfoChip(
-                            icon: GameArt(
-                              ArtKind.trophy,
-                              palette: palette,
-                              size: 16,
-                            ),
-                            label: '${streak.longest}',
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (var index = 6; index >= 0; index--)
-                                _Day(
-                                  day: today.subtract(Duration(days: index)),
-                                  status:
-                                      streak.days[dayKey(
-                                        today.subtract(Duration(days: index)),
-                                      )],
-                                  palette: palette,
-                                  today: index == 0,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (next != null) ...[
-                    const SizedBox(height: 10),
+        body: AtmosphericBackdrop(
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                  children: [
                     Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                      child: Column(
+                        children: [
+                          GameArt(ArtKind.flame, palette: palette, size: 84),
+                          const SizedBox(height: 8),
+                          Semantics(
+                            label: '${streak.count} days',
+                            excludeSemantics: true,
+                            child: Text(
+                              '${streak.count}',
+                              style: TextStyle(
+                                color: palette.ink,
+                                fontSize: 56,
+                                fontWeight: FontWeight.w500,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Semantics(
+                            label: 'Longest: ${streak.longest} days',
+                            excludeSemantics: true,
+                            child: InfoChip(
+                              icon: GameArt(
+                                ArtKind.trophy,
+                                palette: palette,
+                                size: 16,
+                              ),
+                              label: '${streak.longest}',
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (var index = 6; index >= 0; index--)
+                                  _Day(
+                                    day: today.subtract(Duration(days: index)),
+                                    status:
+                                        streak.days[dayKey(
+                                          today.subtract(Duration(days: index)),
+                                        )],
+                                    palette: palette,
+                                    today: index == 0,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (next != null) ...[
+                      const SizedBox(height: 10),
+                      GameCard(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            GameArt(
+                              ArtKind.treasure,
+                              palette: palette,
+                              size: 48,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Day ${next.key}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  GameBar(value: streak.count / next.key),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                RewardAmount(next.value.coins, size: 22),
+                                if (next.value.hints > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Semantics(
+                                      label: '${next.value.hints} hints',
+                                      excludeSemantics: true,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          GameArt(
+                                            ArtKind.hint,
+                                            palette: palette,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '+${next.value.hints}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    GameCard(
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         children: [
-                          GameArt(ArtKind.gift, palette: palette, size: 44),
+                          GameArt(ArtKind.freeze, palette: palette, size: 44),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Day ${next.key}',
-                                  style: const TextStyle(
+                                const Text(
+                                  'Streak Freeze',
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                GameBar(value: streak.count / next.key),
+                                const SizedBox(height: 4),
+                                Semantics(
+                                  label:
+                                      '${streak.freezes} of ${economy.maxFreezes} owned',
+                                  excludeSemantics: true,
+                                  child: ProgressPips(
+                                    done: streak.freezes,
+                                    total: economy.maxFreezes,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              RewardAmount(next.value.coins, size: 22),
-                              if (next.value.hints > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Semantics(
-                                    label: '${next.value.hints} hints',
-                                    excludeSemantics: true,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        GameArt(
-                                          ArtKind.hint,
-                                          palette: palette,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '+${next.value.hints}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                          const SizedBox(width: 8),
+                          if (freezeFull && !model.storageError)
+                            const ActionPill(
+                              label: 'Full',
+                              tone: ActionTone.selected,
+                            )
+                          else
+                            PricePill(
+                              price: economy.freezePrice,
+                              affordable:
+                                  model.coinBalance >= economy.freezePrice,
+                              semanticLabel:
+                                  'Buy Streak Freeze for ${economy.freezePrice} coins',
+                              onTap: freezeFull
+                                  ? null
+                                  : () {
+                                      if (model.coinBalance <
+                                          economy.freezePrice) {
+                                        showInsufficientCoins(
+                                          context,
+                                          itemName: 'Streak Freeze',
+                                          requiredCoins: economy.freezePrice,
+                                          currentBalance: model.coinBalance,
+                                        );
+                                      } else {
+                                        model.buyFreeze();
+                                      }
+                                    },
+                            ),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        GameArt(ArtKind.freeze, palette: palette, size: 44),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Streak Freeze',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Semantics(
-                                label:
-                                    '${streak.freezes} of ${economy.maxFreezes} owned',
-                                excludeSemantics: true,
-                                child: ProgressPips(
-                                  done: streak.freezes,
-                                  total: economy.maxFreezes,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (freezeFull && !model.storageError)
-                          const ActionPill(
-                            label: 'Full',
-                            tone: ActionTone.selected,
-                          )
-                        else
-                          PricePill(
-                            price: economy.freezePrice,
-                            affordable:
-                                model.coinBalance >= economy.freezePrice,
-                            semanticLabel:
-                                'Buy Streak Freeze for ${economy.freezePrice} coins',
-                            onTap: freezeFull
-                                ? null
-                                : () {
-                                    if (model.coinBalance <
-                                        economy.freezePrice) {
-                                      showInsufficientCoins(
-                                        context,
-                                        itemName: 'Streak Freeze',
-                                        requiredCoins: economy.freezePrice,
-                                        currentBalance: model.coinBalance,
-                                      );
-                                    } else {
-                                      model.buyFreeze();
-                                    }
-                                  },
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

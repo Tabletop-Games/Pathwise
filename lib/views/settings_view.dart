@@ -369,14 +369,42 @@ class _AchievementCard extends StatelessWidget {
   final bool earned;
   final BoardPalette palette;
 
+  String get _asset => switch (achievement) {
+    Achievement.trailhead ||
+    Achievement.trailblazer ||
+    Achievement.pathfinder => 'assets/art/ui/compass.png',
+    Achievement.dailyHabit ||
+    Achievement.weeklyRitual => 'assets/art/ui/flame.png',
+    Achievement.unaided => 'assets/art/resources/hint.png',
+    Achievement.collector => 'assets/art/tips/crystal.png',
+    Achievement.timeTrial => 'assets/art/ui/timer.png',
+    Achievement.researcher => 'assets/art/ui/research.png',
+    Achievement.legendaryCrate => 'assets/art/resources/crate.png',
+    _ => 'assets/art/ui/achievement.png',
+  };
+
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => GameCard(
     padding: const EdgeInsets.all(12),
+    selected: earned,
     child: Opacity(
-      opacity: earned ? 1 : .7,
+      opacity: earned ? 1 : .58,
       child: Row(
         children: [
-          AchievementEmblem(achievement, earned: earned, palette: palette),
+          SizedBox.square(
+            dimension: 46,
+            child: Image.asset(
+              _asset,
+              fit: BoxFit.contain,
+              color: earned ? null : palette.mutedInk,
+              colorBlendMode: earned ? null : BlendMode.saturation,
+              errorBuilder: (_, _, _) => AchievementEmblem(
+                achievement,
+                earned: earned,
+                palette: palette,
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

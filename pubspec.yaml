@@ -28,6 +28,10 @@ flutter:
     - LICENSE
     - assets/data/fortune-prizes.json
     - assets/fonts/OFL.txt
+    - assets/art/tips/
+    - assets/art/resources/
+    - assets/art/ui/
+    - assets/art/biomes/
   fonts:
     - family: Bricolage
       fonts:

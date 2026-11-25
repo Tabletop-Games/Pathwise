@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a production illustration library (`assets/art/`: 20 path tips + hero explorer, 8 resource illustrations, 8 UI emblems, and 4 biome landscapes) with `GameAssetCache` for decoded `Canvas` rendering.
+- Redesign Home (illustrated campaign hero, Daily Challenge, Time Attack, compact activity tiles), Infinite Campaign Journey (glowing winding trail, medallion nodes, biome headers, and illustrated treasure chests), Fortune Wheel (brass rim, hub medallion, faceted pointer), Completion (removed checkmark circle, unified multiplier track, large 156px bottom-to-top discovery centerpiece without crossing line), Store, Research, Boosts, Achievements, and Streak screens, and remove generic semicircular hills.
 - Upgrade visual art direction: add theme-aware `AtmosphericBackdrop` (gradient sky, distant silhouettes, sparse motes), tactile gradient primary buttons, dimensional `GameCard` surfaces, layered continuous route rendering with top-lit highlight and soft glow, dimensional shading and specular highlights on all 20 path tips and resource icons, and a glowing board tray, multiplier track, and progressive discovery aura.
 - Stabilize pointer tracking and directional cosmetic rendering: strictly validate cardinal directions against board bounds, walls, gates, arrows, and revisits; preserve the equipped cosmetic across resting, checkpoint, dead-end, and rejection states; add overhead directional silhouettes for `robot` and `ufo`.
 - Redesign the completion multiplier track with distinct segments, a game-style pointer, tap-to-stop on the track, and clear bonus coin wording.

@@ -130,8 +130,8 @@ class _CompletionBonusState extends State<CompletionBonus>
     final extra = economy.clearReward(PlayMode.levels) * (mult - 1);
     final total = model.completionCoins + extra;
     final buying = context.watch<BillingService>().buying;
-    return GameCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Column(
         children: [
           if (!_reduced) ...[
@@ -151,7 +151,7 @@ class _CompletionBonusState extends State<CompletionBonus>
               ),
             ),
             if (selected == null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               ActionPill(
                 label: 'Stop',
                 tone: ActionTone.primary,
@@ -161,7 +161,7 @@ class _CompletionBonusState extends State<CompletionBonus>
             ],
           ],
           if (selected != null || _reduced) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -223,123 +223,63 @@ class _MultiplierTrack extends StatelessWidget {
           constraints.maxWidth - 10.0,
         );
         return SizedBox(
-          height: 54,
+          height: 60,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               Positioned(
                 left: 0,
                 right: 0,
-                top: 14,
+                top: 15,
                 bottom: 0,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(12)),
-                  child: Row(
-                    children: [
-                      for (final (index, region) in multiplierRegions.indexed)
-                        Expanded(
-                          flex:
-                              ((region.$1 -
-                                          (index == 0
-                                              ? 0
-                                              : multiplierRegions[index - 1]
-                                                    .$1)) *
-                                      100)
-                                  .round(),
-                          child: Container(
-                            margin: EdgeInsets.only(
-                              right: index < multiplierRegions.length - 1
-                                  ? 2
-                                  : 0,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: stopped && index == activeIndex
-                                    ? (region.$2 == 4
-                                          ? [
-                                              Color.lerp(
-                                                palette.accent,
-                                                Colors.white,
-                                                .22,
-                                              )!,
-                                              palette.accent,
-                                            ]
-                                          : [
-                                              palette.buttonTop,
-                                              palette.buttonBottom,
-                                            ])
-                                    : region.$2 == 4
-                                    ? [
-                                        Color.lerp(
-                                          palette.surface,
-                                          palette.accent,
-                                          palette.dark ? .52 : .44,
-                                        )!,
-                                        Color.lerp(
-                                          palette.surface,
-                                          palette.accent,
-                                          palette.dark ? .34 : .26,
-                                        )!,
-                                      ]
-                                    : region.$2 == 3
-                                    ? [
-                                        Color.lerp(
-                                          palette.surface,
-                                          palette.route,
-                                          palette.dark ? .32 : .24,
-                                        )!,
-                                        Color.lerp(
-                                          palette.surface,
-                                          palette.route,
-                                          palette.dark ? .18 : .14,
-                                        )!,
-                                      ]
-                                    : [palette.cardTop, palette.quiet],
-                              ),
-                              border: stopped && index == activeIndex
-                                  ? Border.all(color: palette.ink, width: 2)
-                                  : Border.all(
-                                      color: palette.cardEdge.withValues(
-                                        alpha: .65,
-                                      ),
-                                      width: .75,
-                                    ),
-                            ),
-                            child: Center(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  '${region.$2}×',
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: stopped && index == activeIndex
-                                        ? (region.$2 == 4
-                                              ? palette.onAccent
-                                              : palette.onRoute)
-                                        : palette.ink,
-                                    fontWeight: region.$2 == 4
-                                        ? FontWeight.w900
-                                        : FontWeight.w800,
-                                    fontSize: region.$2 == 4 ? 16 : 14,
-                                  ),
-                                ),
-                              ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.all(Radius.circular(14)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: palette.dark ? .40 : .14,
+                        ),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.all(Radius.circular(14)),
+                    child: Row(
+                      children: [
+                        for (final (index, region) in multiplierRegions.indexed)
+                          Expanded(
+                            flex:
+                                ((region.$1 -
+                                            (index == 0
+                                                ? 0
+                                                : multiplierRegions[index - 1]
+                                                      .$1)) *
+                                        100)
+                                    .round(),
+                            child: _MultiplierSegment(
+                              multiplier: region.$2,
+                              active: index == activeIndex,
+                              stopped: stopped,
+                              isFirst: index == 0,
+                              isLast: index == multiplierRegions.length - 1,
+                              palette: palette,
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
               Positioned(
-                left: pointerX - 10,
+                left: pointerX - 11,
                 top: 0,
                 bottom: 0,
                 child: SizedBox(
                   key: const ValueKey('multiplier-pointer'),
-                  width: 20,
+                  width: 22,
                   child: CustomPaint(painter: _PointerPainter(palette)),
                 ),
               ),
@@ -347,6 +287,124 @@ class _MultiplierTrack extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _MultiplierSegment extends StatelessWidget {
+  const _MultiplierSegment({
+    required this.multiplier,
+    required this.active,
+    required this.stopped,
+    required this.isFirst,
+    required this.isLast,
+    required this.palette,
+  });
+
+  final int multiplier;
+  final bool active;
+  final bool stopped;
+  final bool isFirst;
+  final bool isLast;
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = stopped && active;
+    final isJackpot = multiplier == 4;
+    final colors = selected
+        ? (isJackpot
+              ? [Color.lerp(palette.accent, Colors.white, .26)!, palette.accent]
+              : [palette.buttonTop, palette.buttonBottom])
+        : isJackpot
+        ? [
+            Color.lerp(
+              palette.surface,
+              palette.accent,
+              palette.dark ? .60 : .52,
+            )!,
+            Color.lerp(
+              palette.surface,
+              palette.accent,
+              palette.dark ? .36 : .28,
+            )!,
+          ]
+        : multiplier == 3
+        ? [
+            Color.lerp(
+              palette.surface,
+              palette.route,
+              palette.dark ? .38 : .28,
+            )!,
+            Color.lerp(
+              palette.surface,
+              palette.route,
+              palette.dark ? .20 : .14,
+            )!,
+          ]
+        : [palette.cardTop, palette.quiet];
+    final labelColor = selected
+        ? (isJackpot ? palette.onAccent : palette.onRoute)
+        : palette.ink;
+    return Container(
+      margin: EdgeInsets.only(right: isLast ? 0 : 1.5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: colors,
+        ),
+        border: selected
+            ? Border.all(color: palette.ink, width: 2)
+            : Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(
+                    alpha: palette.dark ? .18 : .55,
+                  ),
+                  width: 1,
+                ),
+                bottom: BorderSide(
+                  color: Colors.black.withValues(
+                    alpha: palette.dark ? .40 : .16,
+                  ),
+                  width: 1.5,
+                ),
+                left: isFirst
+                    ? BorderSide(color: palette.cardEdge, width: 1)
+                    : BorderSide.none,
+                right: isLast
+                    ? BorderSide(color: palette.cardEdge, width: 1)
+                    : BorderSide.none,
+              ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (!stopped && active)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: (isJackpot ? palette.accent : palette.route).withValues(
+                  alpha: palette.dark ? .20 : .14,
+                ),
+              ),
+            ),
+          Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$multiplier×',
+                maxLines: 1,
+                style: TextStyle(
+                  color: labelColor,
+                  fontWeight: isJackpot ? FontWeight.w900 : FontWeight.w800,
+                  fontSize: isJackpot ? 18 : 15,
+                  letterSpacing: -.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -363,19 +421,26 @@ class _PointerPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
       ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = palette.accent
+    final goldCap = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.lerp(palette.accent, Colors.white, .32)!,
+          palette.accent,
+        ],
+      ).createShader(Rect.fromLTWH(cx - 9, 0, 18, 14))
       ..style = PaintingStyle.fill;
     final core = Paint()
       ..color = palette.ink
       ..style = PaintingStyle.fill;
     final head = Path()
-      ..moveTo(cx - 8, 1)
-      ..lineTo(cx + 8, 1)
-      ..lineTo(cx, 13)
+      ..moveTo(cx - 8.5, 1)
+      ..lineTo(cx + 8.5, 1)
+      ..lineTo(cx, 13.5)
       ..close();
     canvas.drawPath(head, halo);
-    canvas.drawPath(head, fill);
+    canvas.drawPath(head, goldCap);
     canvas.drawPath(
       head,
       Paint()
@@ -385,7 +450,7 @@ class _PointerPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round,
     );
     final bar = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 2, 13, 4, size.height - 13),
+      Rect.fromLTWH(cx - 2, 13.5, 4, size.height - 13.5),
       const Radius.circular(2),
     );
     canvas.drawRRect(bar, halo);
@@ -463,19 +528,6 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
                 child: revealed,
               ),
             ),
-          if (clamped > 0 && clamped < 1)
-            Positioned(
-              left: size * .12,
-              right: size * .12,
-              top: size * .08 + (size * .84) * (1.0 - clamped) - 1,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                  color: palette.accent.withValues(alpha: .85),
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -534,7 +586,7 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
         ? model.equippedTip == tip
         : theme != null && model.theme == theme;
     final art = SizedBox.square(
-      dimension: widget.reveal ? 112 : 52,
+      dimension: widget.reveal ? 156 : 52,
       child: tip != null
           ? TipArtwork(tip: tip, palette: palette)
           : theme != null

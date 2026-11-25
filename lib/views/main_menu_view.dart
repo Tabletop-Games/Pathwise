@@ -6,13 +6,15 @@ import 'package:provider/provider.dart';
 import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
+import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/progression.dart';
+import '../model/user_preferences.dart';
 import '../ui/art/control_art.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'campaign_journey_view.dart';
 import 'developer_view.dart';
 import 'fortune_view.dart';
@@ -153,6 +155,7 @@ class _MainMenuViewState extends State<MainMenuView>
     context.select(
       (AppModel model) => (
         model.theme,
+        model.equippedTip,
         model.streak.count,
         model.hintsRemaining,
         model.dailyCurrent(model.daily.value as String).key,
@@ -195,6 +198,8 @@ class _MainMenuViewState extends State<MainMenuView>
         : currentDaily.checkpoint == null
         ? dailyCheckpointCount - 1
         : currentDaily.checkpoint! - 1;
+    final attackRunning = model.attack != null && !model.attack!.finished;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -260,7 +265,7 @@ class _MainMenuViewState extends State<MainMenuView>
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 530),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   Row(
                     children: [
@@ -286,52 +291,29 @@ class _MainMenuViewState extends State<MainMenuView>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: const BorderRadius.all(Radius.circular(6)),
-                    child: JourneyArt(palette, chapter: chapter),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    chapterName(chapter),
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  Text('$chapterProgress / $chapterSize puzzles'),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: chapterProgress / chapterSize,
-                    backgroundColor: palette.tile,
-                    color: palette.route,
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          GameTokens.cardRadius,
-                        ),
-                      ),
-                    ),
-                    onPressed: () => openPuzzle(
+                  _CampaignHeroCard(
+                    palette: palette,
+                    theme: model.theme,
+                    equippedTip: model.equippedTip,
+                    chapterNameText: chapterName(chapter),
+                    chapterProgress: chapterProgress,
+                    playLabel: model.levelsSolved == 0
+                        ? 'Play level 1'
+                        : 'Continue · Level ${model.highestUnlocked}',
+                    onPlay: () => openPuzzle(
                       context,
                       PuzzleId.level(model.highestUnlocked),
                     ),
-                    icon: const PathIcon(ControlGlyph.play),
-                    label: Text(
-                      model.levelsSolved == 0
-                          ? 'Play level 1'
-                          : 'Continue · Level ${model.highestUnlocked}',
-                    ),
                   ),
-                  const SizedBox(height: 10),
-                  if (model.pendingChapterChests.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () => showChapterTreasures(context),
-                      icon: const Icon(Icons.card_giftcard_outlined),
-                      label: Text(
-                        'Chapter treasures · ${model.pendingChapterChests.length}',
-                      ),
+                  if (model.pendingChapterChests.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _PendingTreasureBanner(
+                      palette: palette,
+                      count: model.pendingChapterChests.length,
+                      onTap: () => showChapterTreasures(context),
                     ),
+                  ],
+                  const SizedBox(height: 10),
                   _DailyCard(
                     palette: palette,
                     done: dailyDone,
@@ -347,91 +329,107 @@ class _MainMenuViewState extends State<MainMenuView>
                         : 'Play daily',
                     onTap: () => openPuzzle(context, currentDaily),
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Explore',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  ListTile(
-                    leading: const PathIcon(ControlGlyph.collections),
-                    title: const Text('Collections'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push<void>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CollectionsView(),
+                  const SizedBox(height: 10),
+                  _ShortcutRow(
+                    children: [
+                      _ActivityTile(
+                        palette: palette,
+                        title: 'Levels',
+                        subtitle: '${model.levelsSolved} solved',
+                        icon: _UiArtIcon(
+                          assetPath: 'assets/art/ui/compass.png',
+                          fallback: GameArt(
+                            ArtKind.levels,
+                            palette: palette,
+                            size: 32,
+                          ),
+                          size: 32,
+                        ),
+                        onTap: () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LevelsView()),
+                        ),
                       ),
-                    ),
+                      _ActivityTile(
+                        palette: palette,
+                        title: 'Collections',
+                        subtitle: 'Themes & tips',
+                        icon: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: palette.route.withValues(alpha: .14),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.auto_awesome_mosaic_rounded,
+                            color: palette.route,
+                            size: 20,
+                          ),
+                        ),
+                        onTap: () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CollectionsView(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  _ModeTile(
+                  const SizedBox(height: 10),
+                  _TimeAttackCard(
                     palette: palette,
-                    art: ArtKind.levels,
-                    title: 'Levels',
-                    trailing: '${model.levelsSolved} solved',
-                    onTap: () => Navigator.push<void>(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LevelsView()),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _ModeTile(
-                    palette: palette,
-                    art: ArtKind.timer,
-                    title: 'Time Attack',
-                    trailing: model.attack != null && !model.attack!.finished
-                        ? 'Resume'
-                        : model.attackBest > 0
-                        ? 'Best ${model.attackBest}'
-                        : null,
+                    running: attackRunning,
+                    best: model.attackBest,
                     onTap: () => Navigator.of(context).push<void>(
                       MaterialPageRoute(builder: (_) => const _AttackSetup()),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   _StoreCard(
                     palette: palette,
                     onTap: () => Navigator.of(context).push<void>(
                       MaterialPageRoute(builder: (_) => const StoreView()),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _ModeTile(
+                  const SizedBox(height: 10),
+                  _WheelCard(
                     key: const ValueKey('wheel-tile'),
                     palette: palette,
-                    art: ArtKind.wheel,
-                    title: 'Fortune Wheel',
-                    featured: spinReady,
-                    trailing: spinReady
-                        ? 'Free spin'
-                        : model.fortuneWait > 0
-                        ? fortuneCountdown(model.fortuneWait)
-                        : null,
+                    spinReady: spinReady,
+                    waitSeconds: model.fortuneWait,
                     onTap: _openWheel,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   _ShortcutRow(
                     children: [
-                      _HomeShortcut(
-                        art: ArtKind.research,
+                      _ActivityTile(
                         palette: palette,
                         title: 'Research',
-                        badge: researched > 0 ? '$researched' : null,
+                        subtitle: researched > 0
+                            ? '$researched unlocked'
+                            : null,
+                        icon: GameArt(
+                          ArtKind.research,
+                          palette: palette,
+                          size: 30,
+                        ),
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (_) => const ProgressionView(),
                           ),
                         ),
                       ),
-                      _HomeShortcut(
-                        art: ArtKind.bolt,
+                      _ActivityTile(
                         palette: palette,
                         title: 'Boosts',
                         featured: active > 0,
-                        badge: active > 0
+                        subtitle: active > 0
                             ? '$active on'
                             : owned > 0
-                            ? '$owned'
+                            ? '$owned ready'
                             : null,
+                        icon: GameArt(ArtKind.bolt, palette: palette, size: 30),
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (_) => const ProgressionView(boosts: true),
@@ -440,7 +438,8 @@ class _MainMenuViewState extends State<MainMenuView>
                       ),
                     ],
                   ),
-                  if (model.developerMode)
+                  if (model.developerMode) ...[
+                    const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(
@@ -450,6 +449,7 @@ class _MainMenuViewState extends State<MainMenuView>
                       icon: const Icon(Icons.bug_report_outlined),
                       label: const Text('Developer dashboard'),
                     ),
+                  ],
                   if (model.storageError)
                     const Padding(
                       padding: EdgeInsets.only(top: 14),
@@ -465,6 +465,241 @@ class _MainMenuViewState extends State<MainMenuView>
   }
 }
 
+class _CampaignHeroCard extends StatelessWidget {
+  const _CampaignHeroCard({
+    required this.palette,
+    required this.theme,
+    required this.equippedTip,
+    required this.chapterNameText,
+    required this.chapterProgress,
+    required this.playLabel,
+    required this.onPlay,
+  });
+
+  final BoardPalette palette;
+  final PathwiseTheme theme;
+  final PathTip equippedTip;
+  final String chapterNameText;
+  final int chapterProgress;
+  final String playLabel;
+  final VoidCallback onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final tipPath = equippedTip == PathTip.classic
+        ? 'assets/art/tips/hero_robot.png'
+        : tipAssetPath(equippedTip);
+    final biomePath = biomeAssetPath(biomeForTheme(theme));
+    final scrimLeft = palette.surface.withValues(
+      alpha: palette.dark ? .92 : .94,
+    );
+    final scrimMid = palette.surface.withValues(
+      alpha: palette.dark ? .76 : .80,
+    );
+    final scrimRight = palette.surface.withValues(
+      alpha: palette.dark ? .26 : .30,
+    );
+
+    return Material(
+      color: palette.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GameTokens.cardRadius),
+        side: BorderSide(color: palette.cardEdge),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  biomePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          palette.route.withValues(alpha: .22),
+                          palette.surface,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [scrimLeft, scrimMid, scrimRight],
+                      stops: const [0.0, 0.56, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 14, 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chapterNameText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: palette.ink,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.12,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$chapterProgress / $chapterSize puzzles',
+                            style: TextStyle(
+                              color: palette.mutedInk,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              GameTokens.pillRadius,
+                            ),
+                            child: LinearProgressIndicator(
+                              minHeight: 8,
+                              value: (chapterProgress / chapterSize).clamp(
+                                0.0,
+                                1.0,
+                              ),
+                              backgroundColor: palette.track,
+                              color: palette.route,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 82,
+                      height: 82,
+                      child: Image.asset(
+                        tipPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: _TactilePlayButton(
+              palette: palette,
+              label: playLabel,
+              onPressed: onPlay,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TactilePlayButton extends StatelessWidget {
+  const _TactilePlayButton({
+    required this.palette,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final BoardPalette palette;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [palette.buttonTop, palette.buttonBottom],
+      ),
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: palette.route.withValues(alpha: palette.dark ? .28 : .22),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: FilledButton.icon(
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        foregroundColor: palette.onRoute,
+        minimumSize: const Size.fromHeight(54),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      onPressed: onPressed,
+      icon: const PathIcon(ControlGlyph.play),
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      ),
+    ),
+  );
+}
+
+class _PendingTreasureBanner extends StatelessWidget {
+  const _PendingTreasureBanner({
+    required this.palette,
+    required this.count,
+    required this.onTap,
+  });
+
+  final BoardPalette palette;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GameCard(
+    selected: true,
+    onTap: onTap,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    child: Row(
+      children: [
+        GameArt(ArtKind.treasure, palette: palette, size: 32),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Chapter treasures · $count',
+            style: TextStyle(
+              color: palette.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+        ),
+        ActionPill(label: 'Claim', tone: ActionTone.primary, onTap: onTap),
+      ],
+    ),
+  );
+}
+
 class _ShortcutRow extends StatelessWidget {
   const _ShortcutRow({required this.children});
 
@@ -476,9 +711,96 @@ class _ShortcutRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: children.first),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(child: children.last),
       ],
+    ),
+  );
+}
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({
+    required this.palette,
+    required this.title,
+    required this.icon,
+    required this.onTap,
+    this.subtitle,
+    this.featured = false,
+  });
+
+  final BoardPalette palette;
+  final String title;
+  final String? subtitle;
+  final Widget icon;
+  final bool featured;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GameCard(
+    selected: featured,
+    onTap: onTap,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    child: Row(
+      children: [
+        icon,
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: featured ? palette.route : palette.mutedInk,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _UiArtIcon extends StatelessWidget {
+  const _UiArtIcon({
+    required this.assetPath,
+    required this.fallback,
+    this.size = 32,
+  });
+
+  final String assetPath;
+  final Widget fallback;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: Image.asset(
+      assetPath,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => fallback,
     ),
   );
 }
@@ -543,40 +865,6 @@ class _CounterChip extends StatelessWidget {
   );
 }
 
-class _HomeShortcut extends StatelessWidget {
-  const _HomeShortcut({
-    required this.art,
-    required this.palette,
-    required this.title,
-    required this.onTap,
-    this.badge,
-    this.featured = false,
-  });
-
-  final ArtKind art;
-  final BoardPalette palette;
-  final String title;
-  final String? badge;
-  final VoidCallback onTap;
-  final bool featured;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-    onTap: onTap,
-    leading: GameArt(art, palette: palette, size: 24),
-    title: Text(title),
-    subtitle: badge == null
-        ? null
-        : Text(
-            badge!,
-            style: TextStyle(
-              color: featured ? palette.route : palette.mutedInk,
-            ),
-          ),
-  );
-}
-
 class _DailyCard extends StatelessWidget {
   const _DailyCard({
     required this.palette,
@@ -593,63 +881,75 @@ class _DailyCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
+  Widget build(BuildContext context) => GameCard(
+    onTap: onTap,
+    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.maxWidth < 280 &&
+            MediaQuery.textScalerOf(context).scale(1) > 1.2;
+        final info = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Daily challenge',
+              style: TextStyle(
+                color: palette.ink,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 4,
+              children: [
+                _OnRoutePips(done: done, palette: palette),
+                if (time != null)
+                  Text(
+                    time!,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        );
+        final pill = ActionPill(
+          label: action,
+          tone: done >= dailyCheckpointCount
+              ? ActionTone.selected
+              : ActionTone.primary,
+          onTap: onTap,
+        );
+        if (compact) {
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Daily challenge',
-                style: TextStyle(
-                  color: palette.ink,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                  height: 1.1,
-                ),
-              ),
+              info,
               const SizedBox(height: 8),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 10,
-                runSpacing: 4,
-                children: [
-                  _OnRoutePips(done: done, palette: palette),
-                  if (time != null) ...[
-                    Text(
-                      time!,
-                      style: TextStyle(
-                        color: palette.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              Align(alignment: Alignment.centerRight, child: pill),
             ],
-          ),
-        ),
-        TextButton(
-          onPressed: onTap,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(GameTokens.pillRadius),
-            ),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 104),
-            child: FittedBox(fit: BoxFit.scaleDown, child: Text(action)),
-          ),
-        ),
-      ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: info),
+            const SizedBox(width: 8),
+            pill,
+          ],
+        );
+      },
     ),
   );
 }
 
-/// Three stage pips drawn on the route-coloured daily card.
+/// Three stage pips drawn on the daily card.
 class _OnRoutePips extends StatelessWidget {
   const _OnRoutePips({required this.done, required this.palette});
   final int done;
@@ -684,58 +984,170 @@ class _OnRoutePips extends StatelessWidget {
   );
 }
 
-class _ModeTile extends StatelessWidget {
-  const _ModeTile({
+class _TimeAttackCard extends StatelessWidget {
+  const _TimeAttackCard({
     required this.palette,
-    required this.art,
-    required this.title,
+    required this.running,
+    required this.best,
     required this.onTap,
-    this.trailing,
-    this.featured = false,
-    super.key,
   });
 
   final BoardPalette palette;
-  final ArtKind art;
-  final String title;
-  final String? trailing;
-  final bool featured;
+  final bool running;
+  final int best;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+  Widget build(BuildContext context) => GameCard(
+    selected: running,
     onTap: onTap,
-    leading: GameArt(art, palette: palette, size: 28),
-    title: Text(title),
-    subtitle: trailing == null
-        ? null
-        : Text(
-            trailing!,
-            style: TextStyle(
-              color: featured ? palette.route : palette.mutedInk,
-            ),
+    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+    child: Row(
+      children: [
+        GameArt(ArtKind.timer, palette: palette, size: 36),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Time Attack',
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                running
+                    ? 'Run in progress'
+                    : best > 0
+                    ? 'Best $best'
+                    : '1 · 3 · 5 min rush',
+                style: TextStyle(
+                  color: running ? palette.route : palette.mutedInk,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
-    trailing: const Icon(Icons.chevron_right_rounded),
+        ),
+        ActionPill(
+          label: running ? 'Resume' : 'Start',
+          tone: running ? ActionTone.primary : ActionTone.quiet,
+          onTap: onTap,
+        ),
+      ],
+    ),
   );
 }
 
-/// The Store is a destination, not a settings entry: full width, illustrated
-/// and tinted with the theme accent.
+/// Full-width illustrated Store destination.
 class _StoreCard extends StatelessWidget {
   const _StoreCard({required this.palette, required this.onTap});
   final BoardPalette palette;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => ListTile(
+  Widget build(BuildContext context) => GameCard(
     key: const ValueKey('store-card'),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
     onTap: onTap,
-    leading: GameArt(ArtKind.store, palette: palette, size: 28),
-    title: const Text('Store'),
-    subtitle: const Text('Themes, tips & more'),
-    trailing: const Icon(Icons.chevron_right_rounded),
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    child: Row(
+      children: [
+        GameArt(ArtKind.store, palette: palette, size: 34),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Store',
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Themes, tips & more',
+                style: TextStyle(
+                  color: palette.mutedInk,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Icon(Icons.chevron_right_rounded, color: palette.mutedInk),
+      ],
+    ),
+  );
+}
+
+class _WheelCard extends StatelessWidget {
+  const _WheelCard({
+    required this.palette,
+    required this.spinReady,
+    required this.waitSeconds,
+    required this.onTap,
+    super.key,
+  });
+
+  final BoardPalette palette;
+  final bool spinReady;
+  final int waitSeconds;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GameCard(
+    selected: spinReady,
+    onTap: onTap,
+    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+    child: Row(
+      children: [
+        _UiArtIcon(
+          assetPath: 'assets/art/ui/wheel_ticket.png',
+          fallback: GameArt(ArtKind.wheel, palette: palette, size: 34),
+          size: 34,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Fortune Wheel',
+                style: TextStyle(
+                  color: palette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              if (!spinReady && waitSeconds > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  fortuneCountdown(waitSeconds),
+                  style: TextStyle(
+                    color: palette.mutedInk,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (spinReady)
+          ActionPill(label: 'Free spin', tone: ActionTone.primary, onTap: onTap)
+        else
+          Icon(Icons.chevron_right_rounded, color: palette.mutedInk),
+      ],
+    ),
   );
 }
 
@@ -758,6 +1170,39 @@ class _AttackSetup extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  GameCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        GameArt(ArtKind.timer, palette: palette, size: 48),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Beat the clock',
+                                style: TextStyle(
+                                  color: palette.ink,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Solve as many puzzles as you can before time runs out.',
+                                style: TextStyle(
+                                  color: palette.mutedInk,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   for (final minutes in [1, 3, 5])
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -800,22 +1245,14 @@ class _AttackSetup extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: 6),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          GameTokens.cardRadius,
-                        ),
-                      ),
-                    ),
+                  _TactilePlayButton(
+                    palette: palette,
+                    label: running ? 'Resume' : 'Play',
                     onPressed: () => openPuzzle(
                       context,
                       const PuzzleId.attack('start/0'),
                       timeAttack: true,
                     ),
-                    icon: const PathIcon(ControlGlyph.play),
-                    label: Text(running ? 'Resume' : 'Play'),
                   ),
                 ],
               ),

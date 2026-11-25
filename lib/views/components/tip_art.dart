@@ -6,6 +6,7 @@ import '../../model/app_themes.dart';
 import '../../model/path_tips.dart';
 import '../../model/user_preferences.dart';
 import '../../ui/art/directional_tip_shapes.dart';
+import '../../ui/art/game_assets.dart';
 import '../../ui/art/tip_shapes.dart';
 import '../../ui/art/vector_path.dart';
 
@@ -109,6 +110,16 @@ double _contrast(Color a, Color b) {
   );
 });
 
+bool _rotatesWithDirection(PathTip tip) => switch (tip) {
+  PathTip.arrow ||
+  PathTip.turtle ||
+  PathTip.bee ||
+  PathTip.dragon ||
+  PathTip.phoenix ||
+  PathTip.rocket => true,
+  _ => false,
+};
+
 /// A single vector is shared by the active tip, the catalogue and the album.
 /// Rotation uses the existing cardinal direction without changing its radius.
 void paintPathTip(
@@ -122,6 +133,41 @@ void paintPathTip(
   bool catalogue = false,
 }) {
   final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
+  if (tip != PathTip.classic && !concealed && !highContrast) {
+    final raster = GameAssetCache.instance.imageFor(tipAssetPath(tip));
+    if (raster != null) {
+      final drawRadius = radius * (tip == PathTip.classic ? 1.25 : 1.18);
+      if (!catalogue) {
+        canvas.drawCircle(
+          center.translate(radius * .05, radius * .09),
+          drawRadius * .92,
+          Paint()
+            ..color = Colors.black.withValues(alpha: palette.dark ? .40 : .22)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * .12),
+        );
+      }
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      if (_rotatesWithDirection(tip)) {
+        canvas.rotate((quarterTurns - 3) * math.pi / 2);
+      }
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        raster.width.toDouble(),
+        raster.height.toDouble(),
+      );
+      final dst = Rect.fromCircle(center: Offset.zero, radius: drawRadius);
+      canvas.drawImageRect(
+        raster,
+        src,
+        dst,
+        Paint()..filterQuality = FilterQuality.high,
+      );
+      canvas.restore();
+      return;
+    }
+  }
   if (tip == PathTip.classic) {
     canvas.save();
     canvas.translate(center.dx, center.dy);
@@ -294,16 +340,33 @@ class TipArtwork extends StatelessWidget {
   final double scale;
   final bool concealed;
   @override
-  Widget build(BuildContext context) => Semantics(
-    image: true,
-    label: concealed ? 'Undiscovered' : '${tip.label} path tip',
-    child: AspectRatio(
-      aspectRatio: 1,
-      child: CustomPaint(
-        painter: _TipArtPainter(tip, palette, quarterTurns, scale, concealed),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
+    final Widget fallback = CustomPaint(
+      painter: _TipArtPainter(tip, palette, quarterTurns, scale, concealed),
+    );
+    final Widget art = highContrast || tip == PathTip.classic
+        ? fallback
+        : FractionallySizedBox(
+            widthFactor: (scale * 2.0).clamp(0.6, 1.0),
+            heightFactor: (scale * 2.0).clamp(0.6, 1.0),
+            child: Image.asset(
+              tipAssetPath(tip),
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              color: concealed
+                  ? Color.lerp(palette.tile, palette.ink, .24)
+                  : null,
+              colorBlendMode: concealed ? BlendMode.srcIn : null,
+              errorBuilder: (_, _, _) => fallback,
+            ),
+          );
+    return Semantics(
+      image: true,
+      label: concealed ? 'Undiscovered' : '${tip.label} path tip',
+      child: AspectRatio(aspectRatio: 1, child: art),
+    );
+  }
 }
 
 class _TipArtPainter extends CustomPainter {

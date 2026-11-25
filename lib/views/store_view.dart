@@ -143,16 +143,17 @@ class _StoreViewState extends State<StoreView> {
           crossAxisCount: 3,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          mainAxisExtent: width + 88 + (textScale > 1.2 ? 28 : 0),
+          mainAxisExtent: width + 96 + (textScale > 1.2 ? 28 : 0),
         ),
         itemBuilder: (context, index) {
           final theme = PathwiseTheme.values[index];
           final candidate = BoardPalette.palettes[theme]!;
           final owned = model.ownsTheme(theme);
           final equipped = model.theme == theme;
-          return Padding(
+          return GameCard(
             key: ValueKey('theme-card-${theme.name}'),
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+            selected: equipped,
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
             child: Column(
               children: [
                 Expanded(
@@ -176,6 +177,7 @@ class _StoreViewState extends State<StoreView> {
                     fontSize: 13,
                   ),
                 ),
+                const SizedBox(height: 2),
                 _cosmeticAction(
                   equipped: equipped,
                   owned: owned,
@@ -254,14 +256,15 @@ class _StoreViewState extends State<StoreView> {
           crossAxisCount: columns,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
-          mainAxisExtent: width + 74 + (large ? 28 : 0),
+          mainAxisExtent: width + 84 + (large ? 28 : 0),
         ),
         itemBuilder: (context, index) {
           final tip = PathTip.values[index];
           final equipped = model.equippedTip == tip;
-          return Padding(
+          return GameCard(
             key: ValueKey('tip-card-${tip.name}'),
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+            selected: equipped,
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
             child: Column(
               children: [
                 Expanded(
@@ -277,12 +280,12 @@ class _StoreViewState extends State<StoreView> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(2),
+                          padding: const EdgeInsets.all(4),
                           child: Center(
                             child: TipArtwork(
                               tip: tip,
                               palette: palette,
-                              scale: .43,
+                              scale: .54,
                             ),
                           ),
                         ),
@@ -290,7 +293,7 @@ class _StoreViewState extends State<StoreView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   tip.label,
                   maxLines: 1,
@@ -300,6 +303,7 @@ class _StoreViewState extends State<StoreView> {
                     fontSize: 13,
                   ),
                 ),
+                const SizedBox(height: 2),
                 _cosmeticAction(
                   equipped: equipped,
                   owned: model.ownsTip(tip),
@@ -1011,12 +1015,27 @@ class _PackCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final details = product;
+    final artSize = switch (art) {
+      ArtKind.coinStack1 => 50.0,
+      ArtKind.coinStack2 => 58.0,
+      ArtKind.coinStack3 => 66.0,
+      ArtKind.coinStack4 => 74.0,
+      ArtKind.coinStack5 => 82.0,
+      _ => 64.0,
+    };
     return GameCard(
       padding: const EdgeInsets.all(10),
       selected: highlight,
       child: Column(
         children: [
-          Expanded(child: GameArt(art, palette: p, size: 64)),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: GameArt(art, palette: p, size: artSize),
+              ),
+            ),
+          ),
           Text(
             '$coins',
             style: TextStyle(
