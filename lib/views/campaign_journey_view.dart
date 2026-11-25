@@ -83,103 +83,109 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (model.pendingChapterChests.isNotEmpty)
-              TextButton.icon(
-                icon: const Icon(Icons.card_giftcard_outlined),
-                label: Text('Treasures · ${model.pendingChapterChests.length}'),
-                onPressed: () => showChapterTreasures(context),
-              ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: ListView.builder(
-                    key: const PageStorageKey('campaign-journey'),
-                    reverse: true,
-                    itemExtent: _extent,
-                    controller: _scroll,
-                    itemBuilder: (context, index) {
-                      final chapter = index ~/ (chapterSize + 1);
-                      final position = index % (chapterSize + 1);
-                      if (position == chapterSize) {
-                        return _ChestStop(chapter, palette);
-                      }
-                      final level = chapter * chapterSize + position + 1;
-                      final id = PuzzleId.level(level);
-                      final result = model.result(id);
-                      final playable = model.canPlayLevel(level);
-                      final current = level == model.highestUnlocked;
-                      return CustomPaint(
-                        painter: _JourneyLine(index, palette),
-                        child: Align(
-                          alignment: Alignment(_nodeX(index), 0),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Semantics(
-                              button: playable,
-                              label: 'Level $level',
-                              child: OutlinedButton.icon(
-                                key: ValueKey('journey-level-$level'),
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: current
-                                      ? palette.route
-                                      : palette.surface,
-                                  disabledForegroundColor: palette.mutedInk,
-                                  disabledBackgroundColor: palette.surface,
-                                  foregroundColor: current
-                                      ? palette.onRoute
-                                      : palette.ink,
-                                  minimumSize: const Size(84, 50),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 9,
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: Column(
+            children: [
+              if (model.pendingChapterChests.isNotEmpty)
+                TextButton.icon(
+                  icon: const Icon(Icons.card_giftcard_outlined),
+                  label: Text(
+                    'Treasures · ${model.pendingChapterChests.length}',
+                  ),
+                  onPressed: () => showChapterTreasures(context),
+                ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: ListView.builder(
+                      key: const PageStorageKey('campaign-journey'),
+                      reverse: true,
+                      itemExtent: _extent,
+                      controller: _scroll,
+                      itemBuilder: (context, index) {
+                        final chapter = index ~/ (chapterSize + 1);
+                        final position = index % (chapterSize + 1);
+                        if (position == chapterSize) {
+                          return _ChestStop(chapter, palette);
+                        }
+                        final level = chapter * chapterSize + position + 1;
+                        final id = PuzzleId.level(level);
+                        final result = model.result(id);
+                        final playable = model.canPlayLevel(level);
+                        final current = level == model.highestUnlocked;
+                        return CustomPaint(
+                          painter: _JourneyLine(index, palette),
+                          child: Align(
+                            alignment: Alignment(_nodeX(index), 0),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Semantics(
+                                button: playable,
+                                label: 'Level $level',
+                                child: OutlinedButton.icon(
+                                  key: ValueKey('journey-level-$level'),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: current
+                                        ? palette.route
+                                        : palette.surface,
+                                    disabledForegroundColor: palette.mutedInk,
+                                    disabledBackgroundColor: palette.surface,
+                                    foregroundColor: current
+                                        ? palette.onRoute
+                                        : palette.ink,
+                                    minimumSize: const Size(84, 50),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 9,
+                                    ),
                                   ),
-                                ),
-                                onPressed: playable
-                                    ? () => openPuzzle(
-                                        context,
-                                        id,
-                                        replay:
-                                            result != null &&
-                                            !model.hasAttempt(id),
-                                      )
-                                    : null,
-                                icon: Icon(
-                                  result != null
-                                      ? Icons.replay_rounded
-                                      : playable
-                                      ? Icons.play_arrow_rounded
-                                      : Icons.lock_outline,
-                                  size: 19,
-                                ),
-                                label: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('$level'),
-                                    if (result != null)
-                                      Text(
-                                        formatTime(
-                                          Duration(
-                                            milliseconds: result.milliseconds,
+                                  onPressed: playable
+                                      ? () => openPuzzle(
+                                          context,
+                                          id,
+                                          replay:
+                                              result != null &&
+                                              !model.hasAttempt(id),
+                                        )
+                                      : null,
+                                  icon: Icon(
+                                    result != null
+                                        ? Icons.replay_rounded
+                                        : playable
+                                        ? Icons.play_arrow_rounded
+                                        : Icons.lock_outline,
+                                    size: 19,
+                                  ),
+                                  label: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('$level'),
+                                      if (result != null)
+                                        Text(
+                                          formatTime(
+                                            Duration(
+                                              milliseconds: result.milliseconds,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

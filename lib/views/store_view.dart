@@ -87,38 +87,40 @@ class _StoreViewState extends State<StoreView> {
             const SizedBox(width: 8),
           ],
         ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-                    child: GameSegmented<int>(
-                      selected: _category,
-                      onChanged: (value) => setState(() => _category = value),
-                      segments: const [
-                        (value: 0, label: 'Themes'),
-                        (value: 1, label: 'Tips'),
-                        (value: 2, label: 'Coins'),
-                        (value: 3, label: 'Upgrades'),
-                      ],
+        body: AtmosphericBackdrop(
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                      child: GameSegmented<int>(
+                        selected: _category,
+                        onChanged: (value) => setState(() => _category = value),
+                        segments: const [
+                          (value: 0, label: 'Themes'),
+                          (value: 1, label: 'Tips'),
+                          (value: 2, label: 'Coins'),
+                          (value: 3, label: 'Upgrades'),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: IndexedStack(
-                      index: _category,
-                      children: [
-                        _themesGrid(model),
-                        _tipsGrid(model, palette),
-                        _coinsTab(model, billing, ads, palette),
-                        _upgradesTab(model, billing, palette),
-                      ],
+                    Expanded(
+                      child: IndexedStack(
+                        index: _category,
+                        children: [
+                          _themesGrid(model),
+                          _tipsGrid(model, palette),
+                          _coinsTab(model, billing, ads, palette),
+                          _upgradesTab(model, billing, palette),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../model/app_themes.dart';
+import '../model/user_preferences.dart';
 import 'game_art.dart';
 
 /// Spacing, radii and timings used across the whole app.
@@ -34,17 +35,161 @@ extension PaletteLookup on BuildContext {
 
 /// Semantic surface colours derived from the palette.
 extension GameColors on BoardPalette {
+  bool get _isSignal =>
+      canvas == const Color(0xff000000) && accent == const Color(0xffffe066) ||
+      this == BoardPalette.palettes[PathwiseTheme.signal];
+
   /// Flat card surface. Slightly separated from the canvas on every theme.
   Color get card => Color.lerp(surface, canvas, dark ? .0 : .0)!;
-  Color get cardEdge => Color.lerp(surface, ink, dark ? .16 : .09)!;
+  Color get cardTop => _isSignal
+      ? surface
+      : Color.lerp(surface, dark ? ink : Colors.white, dark ? .05 : .35)!;
+  Color get cardBottom => _isSignal
+      ? surface
+      : Color.lerp(surface, dark ? canvas : tile, dark ? .22 : .12)!;
+  Color get cardEdge => Color.lerp(surface, ink, dark ? .18 : .10)!;
   Color get quiet => Color.lerp(tile, surface, .45)!;
   Color get track => Color.lerp(canvas, ink, dark ? .16 : .08)!;
   Color get mutedInk => Color.lerp(muted, ink, .2)!;
+
+  /// Atmospheric canvas gradient stops.
+  Color get canvasTop => _isSignal
+      ? canvas
+      : Color.lerp(canvas, dark ? route : surface, dark ? .14 : .45)!;
+  Color get canvasBottom => _isSignal
+      ? canvas
+      : Color.lerp(canvas, dark ? Colors.black : tile, dark ? .30 : .22)!;
+
+  /// Tactile primary button gradient stops.
+  Color get buttonTop => _isSignal
+      ? route
+      : Color.lerp(route, dark ? Colors.white : surface, .18)!;
+  Color get buttonBottom =>
+      _isSignal ? route : Color.lerp(route, Colors.black, .16)!;
+
+  /// Subtle atmospheric particle tint.
+  Color get particleColor => Color.lerp(route, accent, .45)!;
 
   /// Foreground that is readable on [background].
   Color onColor(Color background) => background.computeLuminance() > .42
       ? const Color(0xff161616)
       : const Color(0xfffafafa);
+}
+
+/// Atmospheric background with theme-aware gradient, soft distant silhouettes,
+/// and sparse particles kept outside interactive puzzle areas.
+class AtmosphericBackdrop extends StatelessWidget {
+  const AtmosphericBackdrop({
+    required this.child,
+    this.showSilhouettes = true,
+    super.key,
+  });
+
+  final Widget child;
+  final bool showSilhouettes;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final highContrast = p == BoardPalette.palettes[PathwiseTheme.signal];
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [p.canvasTop, p.canvas, p.canvasBottom],
+          stops: const [0.0, 0.48, 1.0],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (!highContrast && showSilhouettes)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(painter: _AtmospherePainter(p)),
+                ),
+              ),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AtmospherePainter extends CustomPainter {
+  const _AtmospherePainter(this.p);
+  final BoardPalette p;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Soft radial ambient glow near top-center.
+    final glowRect = Rect.fromCircle(
+      center: Offset(size.width * .5, size.height * .16),
+      radius: size.width * .65,
+    );
+    canvas.drawRect(
+      glowRect,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            p.route.withValues(alpha: p.dark ? .14 : .07),
+            Colors.transparent,
+          ],
+        ).createShader(glowRect),
+    );
+
+    // Subtle organic foliage / ridge silhouettes in bottom corners.
+    final hillColor = Color.lerp(
+      p.canvasBottom,
+      p.route,
+      p.dark ? .22 : .12,
+    )!.withValues(alpha: p.dark ? .45 : .30);
+    final hillPaint = Paint()..color = hillColor;
+    final leftHill = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, size.height * .87)
+      ..quadraticBezierTo(
+        size.width * .22,
+        size.height * .82,
+        size.width * .42,
+        size.height,
+      )
+      ..close();
+    final rightHill = Path()
+      ..moveTo(size.width, size.height)
+      ..lineTo(size.width, size.height * .85)
+      ..quadraticBezierTo(
+        size.width * .76,
+        size.height * .80,
+        size.width * .56,
+        size.height,
+      )
+      ..close();
+    canvas.drawPath(leftHill, hillPaint);
+    canvas.drawPath(rightHill, hillPaint);
+
+    // Sparse, calm ambient motes along the edges.
+    final motePaint = Paint()
+      ..color = p.particleColor.withValues(alpha: p.dark ? .35 : .24);
+    const motes = [
+      Offset(.08, .18),
+      Offset(.91, .22),
+      Offset(.14, .42),
+      Offset(.88, .48),
+      Offset(.07, .74),
+      Offset(.93, .72),
+    ];
+    for (var i = 0; i < motes.length; i++) {
+      final pt = Offset(motes[i].dx * size.width, motes[i].dy * size.height);
+      canvas.drawCircle(pt, i.isEven ? 2.4 : 1.6, motePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AtmospherePainter old) => old.p != p;
 }
 
 /// Flat card with a hairline edge in place of Material elevation.
@@ -69,8 +214,9 @@ class GameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final customColor = color;
     final body = Material(
-      color: color ?? p.card,
+      color: customColor ?? p.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GameTokens.cardRadius),
         side: BorderSide(
@@ -79,12 +225,23 @@ class GameCard extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: onTap == null
-          ? Padding(padding: padding, child: child)
-          : InkWell(
-              onTap: onTap,
-              child: Padding(padding: padding, child: child),
-            ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: customColor == null
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [p.cardTop, p.cardBottom],
+                )
+              : null,
+        ),
+        child: onTap == null
+            ? Padding(padding: padding, child: child)
+            : InkWell(
+                onTap: onTap,
+                child: Padding(padding: padding, child: child),
+              ),
+      ),
     );
     if (semanticLabel == null) return body;
     return Semantics(
@@ -130,6 +287,13 @@ class PricePill extends StatelessWidget {
       onTap: onTap,
       semanticLabel: semanticLabel ?? '$price coins',
       fill: fill,
+      gradient: affordable
+          ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [p.buttonTop, p.buttonBottom],
+            )
+          : null,
       border: affordable ? null : p.cardEdge,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -188,6 +352,13 @@ class ActionPill extends StatelessWidget {
       onTap: onTap,
       semanticLabel: semanticLabel ?? label,
       fill: disabled ? p.quiet : fill,
+      gradient: !disabled && tone == ActionTone.primary
+          ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [p.buttonTop, p.buttonBottom],
+            )
+          : null,
       border: border,
       selected: tone == ActionTone.selected,
       child: Row(
@@ -220,12 +391,14 @@ class _PillFrame extends StatelessWidget {
     required this.semanticLabel,
     this.onTap,
     this.border,
+    this.gradient,
     this.selected = false,
   });
 
   final Widget child;
   final Color fill;
   final Color? border;
+  final Gradient? gradient;
   final VoidCallback? onTap;
   final String semanticLabel;
   final bool selected;
@@ -237,9 +410,19 @@ class _PillFrame extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 56),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: fill,
+        color: gradient == null ? fill : null,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(GameTokens.pillRadius),
         border: border == null ? null : Border.all(color: border!),
+        boxShadow: gradient != null
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .16),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
       ),
       child: Align(
         widthFactor: 1,

@@ -52,89 +52,93 @@ class SettingsView extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 530),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-              children: [
-                group([
-                  SwitchListTile(
-                    secondary: const PathIcon(ControlGlyph.haptics),
-                    title: const Text('Haptic feedback'),
-                    value: model.haptics,
-                    onChanged: model.setHaptics,
-                  ),
-                  SwitchListTile(
-                    title: const Text('Suggest sharing achievements'),
-                    value: model.suggestSharing,
-                    onChanged: model.setSharingSuggestions,
-                  ),
-                ]),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: CloudSaveSection(compact: true),
-                ),
-                group([
-                  ListTile(
-                    leading: GameArt(ArtKind.levels, palette: p, size: 28),
-                    title: const Text('Demo'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => openLevelOneDemo(context),
-                  ),
-                  ListTile(
-                    leading: GameArt(ArtKind.trophy, palette: p, size: 28),
-                    title: const Text('Google Play Achievements'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PlayGamesView()),
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 530),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                children: [
+                  group([
+                    SwitchListTile(
+                      secondary: const PathIcon(ControlGlyph.haptics),
+                      title: const Text('Haptic feedback'),
+                      value: model.haptics,
+                      onChanged: model.setHaptics,
                     ),
+                    SwitchListTile(
+                      title: const Text('Suggest sharing achievements'),
+                      value: model.suggestSharing,
+                      onChanged: model.setSharingSuggestions,
+                    ),
+                  ]),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: CloudSaveSection(compact: true),
                   ),
-                  if (ads.canManagePrivacy)
+                  group([
                     ListTile(
-                      title: const Text('Ad privacy'),
+                      leading: GameArt(ArtKind.levels, palette: p, size: 28),
+                      title: const Text('Demo'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () async {
-                        if (!ads.privacyRequired) {
-                          await ads.prepare(
-                            canPresent: () =>
-                                context.mounted &&
-                                ModalRoute.isCurrentOf(context) == true,
-                          );
-                        }
-                        if (context.mounted &&
-                            ModalRoute.isCurrentOf(context) == true &&
-                            ads.privacyRequired) {
-                          await ads.privacyOptions();
-                        }
-                      },
+                      onTap: () => openLevelOneDemo(context),
                     ),
-                  if (defaultTargetPlatform == TargetPlatform.android)
-                    const _CheckForUpdates(),
-                  AboutListTile(
-                    applicationName: 'Pathwise',
-                    applicationVersion: '1.0.0',
-                    icon: const Icon(Icons.info_outline_rounded),
-                    applicationIcon: BrandMark(
-                      background: Theme.of(context).colorScheme.primary,
-                      ink: Theme.of(context).colorScheme.onPrimary,
+                    ListTile(
+                      leading: GameArt(ArtKind.trophy, palette: p, size: 28),
+                      title: const Text('Google Play Achievements'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PlayGamesView(),
+                        ),
+                      ),
                     ),
-                    aboutBoxChildren: const [
-                      Text(
-                        'A route puzzle by Tabletop Games. Draw one continuous '
-                        'path through every tile, visiting checkpoints in order.',
+                    if (ads.canManagePrivacy)
+                      ListTile(
+                        title: const Text('Ad privacy'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          if (!ads.privacyRequired) {
+                            await ads.prepare(
+                              canPresent: () =>
+                                  context.mounted &&
+                                  ModalRoute.isCurrentOf(context) == true,
+                            );
+                          }
+                          if (context.mounted &&
+                              ModalRoute.isCurrentOf(context) == true &&
+                              ads.privacyRequired) {
+                            await ads.privacyOptions();
+                          }
+                        },
                       ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Play an endless campaign, a three-puzzle Daily Challenge, '
-                        'or race the clock in Time Attack.',
+                    if (defaultTargetPlatform == TargetPlatform.android)
+                      const _CheckForUpdates(),
+                    AboutListTile(
+                      applicationName: 'Pathwise',
+                      applicationVersion: '1.0.0',
+                      icon: const Icon(Icons.info_outline_rounded),
+                      applicationIcon: BrandMark(
+                        background: Theme.of(context).colorScheme.primary,
+                        ink: Theme.of(context).colorScheme.onPrimary,
                       ),
-                    ],
-                  ),
-                ]),
-              ],
+                      aboutBoxChildren: const [
+                        Text(
+                          'A route puzzle by Tabletop Games. Draw one continuous '
+                          'path through every tile, visiting checkpoints in order.',
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Play an endless campaign, a three-puzzle Daily Challenge, '
+                          'or race the clock in Time Attack.',
+                        ),
+                      ],
+                    ),
+                  ]),
+                ],
+              ),
             ),
           ),
         ),
@@ -168,148 +172,153 @@ class StatisticsView extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 530),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: JourneyArt(palette, chapter: chapter, height: 80),
-                ),
-                const SizedBox(height: 12),
-                Text(chapterName(chapter), style: text.headlineSmall),
-                Text('Level ${model.highestUnlocked}', style: text.bodyMedium),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 10,
-                  children: [
-                    for (final (value, label) in [
-                      (model.solved, 'Puzzles solved'),
-                      (model.unassisted, 'Hint-free'),
-                      (model.dailyStreak, 'Day streak'),
-                    ])
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('$value', style: text.headlineMedium),
-                          Text(label, style: text.bodyMedium),
-                        ],
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                details('Campaign and daily', [
-                  tile(
-                    ArtKind.trophy,
-                    'Longest streak',
-                    '${model.longestStreak}',
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 530),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: JourneyArt(palette, chapter: chapter, height: 80),
                   ),
-                  for (final (mode, label, count) in [
-                    (PlayMode.levels, 'Levels', model.levelsSolved),
-                    (PlayMode.daily, 'Daily', model.dailySolved),
-                  ]) ...[
+                  const SizedBox(height: 12),
+                  Text(chapterName(chapter), style: text.headlineSmall),
+                  Text(
+                    'Level ${model.highestUnlocked}',
+                    style: text.bodyMedium,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 24,
+                    runSpacing: 10,
+                    children: [
+                      for (final (value, label) in [
+                        (model.solved, 'Puzzles solved'),
+                        (model.unassisted, 'Hint-free'),
+                        (model.dailyStreak, 'Day streak'),
+                      ])
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$value', style: text.headlineMedium),
+                            Text(label, style: text.bodyMedium),
+                          ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  details('Campaign and daily', [
                     tile(
-                      mode == PlayMode.levels
-                          ? ArtKind.levels
-                          : ArtKind.calendar,
-                      '$label solved',
-                      '$count',
+                      ArtKind.trophy,
+                      'Longest streak',
+                      '${model.longestStreak}',
                     ),
-                    if (model.best(mode) case final best?)
-                      tile(ArtKind.timer, '$label best', formatTime(best)),
-                  ],
-                ]),
-                details('Lifetime activity', [
-                  tile(
-                    ArtKind.timer,
-                    'Total gameplay time',
-                    formatTime(model.playTime),
-                  ),
-                  tile(
-                    ArtKind.coinStack2,
-                    'Coins earned',
-                    '${model.coinsEarned}',
-                  ),
-                  tile(ArtKind.coin, 'Coins spent', '${model.coinsSpent}'),
-                  tile(
-                    ArtKind.brush,
-                    'Themes owned',
-                    '${model.ownedThemes}/${PathwiseTheme.values.length}',
-                  ),
-                ]),
-                if (SharePromptPolicy.lastLevelMilestone(
-                      model.highestUnlocked - 1,
-                    )
-                    case final level?
-                    when model.result(PuzzleId.level(level)) != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: ShareResultButton(
-                      result: ShareResult.level(
-                        level: level,
-                        total: model.levelsSolved,
+                    for (final (mode, label, count) in [
+                      (PlayMode.levels, 'Levels', model.levelsSolved),
+                      (PlayMode.daily, 'Daily', model.dailySolved),
+                    ]) ...[
+                      tile(
+                        mode == PlayMode.levels
+                            ? ArtKind.levels
+                            : ArtKind.calendar,
+                        '$label solved',
+                        '$count',
                       ),
-                      label: 'Share Level Milestone',
+                      if (model.best(mode) case final best?)
+                        tile(ArtKind.timer, '$label best', formatTime(best)),
+                    ],
+                  ]),
+                  details('Lifetime activity', [
+                    tile(
+                      ArtKind.timer,
+                      'Total gameplay time',
+                      formatTime(model.playTime),
                     ),
-                  ),
-                const SizedBox(height: 10),
-                details('Time Attack', [
-                  tile(
-                    ArtKind.timer,
-                    'Time Attack best score',
-                    '${model.attackBest}',
-                  ),
-                  tile(
-                    ArtKind.levels,
-                    'Most puzzles in one run',
-                    '${model.attackHighest}',
-                  ),
-                  for (final run in model.attackHistory.reversed.take(5))
-                    _Stat(
-                      'Recent run · ${run.clears.length} solved',
-                      '${run.score} points',
+                    tile(
+                      ArtKind.coinStack2,
+                      'Coins earned',
+                      '${model.coinsEarned}',
                     ),
-                ]),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Pathwise Achievements',
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 20,
+                    tile(ArtKind.coin, 'Coins spent', '${model.coinsSpent}'),
+                    tile(
+                      ArtKind.brush,
+                      'Themes owned',
+                      '${model.ownedThemes}/${PathwiseTheme.values.length}',
+                    ),
+                  ]),
+                  if (SharePromptPolicy.lastLevelMilestone(
+                        model.highestUnlocked - 1,
+                      )
+                      case final level?
+                      when model.result(PuzzleId.level(level)) != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: ShareResultButton(
+                        result: ShareResult.level(
+                          level: level,
+                          total: model.levelsSolved,
+                        ),
+                        label: 'Share Level Milestone',
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  details('Time Attack', [
+                    tile(
+                      ArtKind.timer,
+                      'Time Attack best score',
+                      '${model.attackBest}',
+                    ),
+                    tile(
+                      ArtKind.levels,
+                      'Most puzzles in one run',
+                      '${model.attackHighest}',
+                    ),
+                    for (final run in model.attackHistory.reversed.take(5))
+                      _Stat(
+                        'Recent run · ${run.clears.length} solved',
+                        '${run.score} points',
+                      ),
+                  ]),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Pathwise Achievements',
+                          style: TextStyle(
+                            color: palette.ink,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20,
+                          ),
                         ),
                       ),
-                    ),
-                    ActionPill(
-                      label: 'Play Games',
-                      icon: Icons.emoji_events_outlined,
-                      semanticLabel: 'Google Play Achievements',
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const PlayGamesView(),
+                      ActionPill(
+                        label: 'Play Games',
+                        icon: Icons.emoji_events_outlined,
+                        semanticLabel: 'Google Play Achievements',
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const PlayGamesView(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                for (final achievement in Achievement.values)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _AchievementCard(
-                      achievement: achievement,
-                      earned: model.hasAchievement(achievement),
-                      palette: palette,
-                    ),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 8),
+                  for (final achievement in Achievement.values)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _AchievementCard(
+                        achievement: achievement,
+                        earned: model.hasAchievement(achievement),
+                        palette: palette,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

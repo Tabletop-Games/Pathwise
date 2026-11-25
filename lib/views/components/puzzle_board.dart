@@ -11,6 +11,7 @@ import '../../logic/tip_tracker.dart';
 import '../../model/app_themes.dart';
 import '../../model/game_state.dart';
 import '../../model/path_tips.dart';
+import '../../model/user_preferences.dart';
 import '../../ui/game_ui.dart';
 import 'tip_art.dart';
 
@@ -566,13 +567,50 @@ void _paintTile(
     _TileMark.ice => dark ? const Color(0xff93d4ff) : const Color(0xff2469a5),
     _TileMark.arrow => palette.ink,
   };
+  final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
+  final topColor = Color.lerp(
+    base,
+    Colors.white,
+    highContrast ? .04 : (palette.dark ? .065 : .14),
+  )!;
+  final bottomColor = Color.lerp(
+    base,
+    Colors.black,
+    highContrast ? .06 : (palette.dark ? .14 : .065),
+  )!;
   final tile = RRect.fromRectAndRadius(
     Rect.fromCenter(center: center, width: .94, height: .94),
     const Radius.circular(.17),
   );
   canvas.save();
   canvas.clipRRect(tile);
-  canvas.drawRect(tile.outerRect, Paint()..color = base);
+  canvas.drawRect(
+    tile.outerRect,
+    Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [topColor, base, bottomColor],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(tile.outerRect),
+  );
+  canvas.drawRRect(
+    tile.deflate(.0125),
+    Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(
+            alpha: highContrast ? .14 : (palette.dark ? .11 : .34),
+          ),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.45],
+      ).createShader(tile.outerRect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .025,
+  );
   for (final (index, mark) in marks.indexed) {
     final color = hue(mark.kind);
     final single = marks.length == 1;
@@ -688,6 +726,17 @@ void _paintTile(
     canvas.restore();
   }
   canvas.restore();
+  canvas.drawRRect(
+    tile.deflate(.008),
+    Paint()
+      ..color = Color.lerp(
+        base,
+        palette.ink,
+        palette.dark ? .18 : .14,
+      )!.withValues(alpha: highContrast ? .55 : .42)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .02,
+  );
 }
 
 void _paintWall(
@@ -1008,15 +1057,7 @@ class _BoardPainter extends CustomPainter {
         stroke.lineTo(point.dx, point.dy);
       }
     }
-    canvas.drawPath(
-      stroke,
-      Paint()
-        ..color = palette.route
-        ..strokeWidth = .25
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke,
-    );
+    _paintRoutePath(canvas, stroke, palette);
     if (hint case final cell?) {
       final point = _center(cell);
       final ring = Paint()
@@ -1099,6 +1140,64 @@ class _BoardPainter extends CustomPainter {
       !identical(oldDelegate.route, route);
 }
 
+List<(Color, double)> _routeLayers(BoardPalette palette) {
+  final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
+  final core = Color.lerp(
+    palette.route,
+    palette.onRoute,
+    highContrast ? .18 : .28,
+  )!;
+  return [
+    (palette.route.withValues(alpha: highContrast ? .14 : .20), .34),
+    (palette.route, .25),
+    (core, .09),
+  ];
+}
+
+void _paintRoutePath(
+  Canvas canvas,
+  Path path,
+  BoardPalette palette, {
+  StrokeCap cap = StrokeCap.round,
+}) {
+  final layers = _routeLayers(palette);
+  for (var i = 0; i < layers.length; i++) {
+    final (color, width) = layers[i];
+    final target = i == 2 ? path.shift(const Offset(0, -.045)) : path;
+    canvas.drawPath(
+      target,
+      Paint()
+        ..color = color
+        ..strokeWidth = width
+        ..strokeCap = cap
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke,
+    );
+  }
+}
+
+void _paintRouteLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  BoardPalette palette, {
+  StrokeCap cap = StrokeCap.round,
+}) {
+  final layers = _routeLayers(palette);
+  for (var i = 0; i < layers.length; i++) {
+    final (color, width) = layers[i];
+    final shift = i == 2 ? const Offset(0, -.045) : Offset.zero;
+    canvas.drawLine(
+      start + shift,
+      end + shift,
+      Paint()
+        ..color = color
+        ..strokeWidth = width
+        ..strokeCap = cap,
+    );
+  }
+}
+
 /// How far ahead of a checkpoint centre a cosmetic tip rests. Classic keeps
 /// its highlighted-disc treatment and needs no lead.
 double tipLead(PathTip style) => style == PathTip.classic ? 0 : .42;
@@ -1126,13 +1225,12 @@ void paintTip(
     final unit = dir / dir.distance;
     // On a checkpoint start at the rim so the number is never covered.
     final start = checkpoint ? v.center + unit * .275 : v.center;
-    canvas.drawLine(
+    _paintRouteLine(
+      canvas,
       start,
       v.tip,
-      Paint()
-        ..color = palette.route
-        ..strokeWidth = .25
-        ..strokeCap = checkpoint ? StrokeCap.butt : StrokeCap.round,
+      palette,
+      cap: checkpoint ? StrokeCap.butt : StrokeCap.round,
     );
   }
   paintPathTip(
@@ -1256,14 +1354,16 @@ class _RejectionPainter extends CustomPainter {
     final endPoint = Offset.lerp(from, to, travel)!;
     final rim = checkpoint ? .275 : 0.0;
     if (travel > rim && !(classic && checkpoint && end <= .275)) {
-      canvas.drawLine(
-        Offset.lerp(from, to, rim)!,
-        endPoint,
-        Paint()
-          ..color = routeColor
-          ..strokeWidth = side * .25
-          ..strokeCap = checkpoint ? StrokeCap.butt : StrokeCap.round,
+      canvas.save();
+      canvas.scale(side);
+      _paintRouteLine(
+        canvas,
+        Offset.lerp(from, to, rim)! / side,
+        endPoint / side,
+        palette,
+        cap: checkpoint ? StrokeCap.butt : StrokeCap.round,
       );
+      canvas.restore();
     }
     if (classic && checkpoint && end <= .275) return;
     canvas.save();

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Upgrade visual art direction: add theme-aware `AtmosphericBackdrop` (gradient sky, distant silhouettes, sparse motes), tactile gradient primary buttons, dimensional `GameCard` surfaces, layered continuous route rendering with top-lit highlight and soft glow, dimensional shading and specular highlights on all 20 path tips and resource icons, and a glowing board tray, multiplier track, and progressive discovery aura.
 - Stabilize pointer tracking and directional cosmetic rendering: strictly validate cardinal directions against board bounds, walls, gates, arrows, and revisits; preserve the equipped cosmetic across resting, checkpoint, dead-end, and rejection states; add overhead directional silhouettes for `robot` and `ufo`.
 - Redesign the completion multiplier track with distinct segments, a game-style pointer, tap-to-stop on the track, and clear bonus coin wording.
 - Replace the generic discovery progress bar with `ProgressiveDiscoveryArt` (persisted upcoming collectible identity, bottom-to-top reveal at 10% increments, and clean `Watch to unlock` → `Unlocked!` → `Apply` → `Applied`/`Equipped` transitions).

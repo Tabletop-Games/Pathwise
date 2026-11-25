@@ -124,218 +124,247 @@ class PuzzleView extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        top: false,
-        child: switch ((model.loading, model.loadError, puzzle)) {
-          (true, _, _) => const Center(
-            child: CircularProgressIndicator(
-              semanticsLabel: 'Preparing puzzle',
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          top: false,
+          child: switch ((model.loading, model.loadError, puzzle)) {
+            (true, _, _) => const Center(
+              child: CircularProgressIndicator(
+                semanticsLabel: 'Preparing puzzle',
+              ),
             ),
-          ),
-          (_, final String message, _) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            (_, final String message, _) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(message),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () => model.open(id),
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+            (_, _, null) => const SizedBox.shrink(),
+            (_, _, final board?) => Stack(
+              fit: StackFit.expand,
               children: [
-                Text(message),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => model.open(id),
-                  child: const Text('Try again'),
-                ),
-              ],
-            ),
-          ),
-          (_, _, null) => const SizedBox.shrink(),
-          (_, _, final board?) => Stack(
-            fit: StackFit.expand,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final extraHeader =
-                      (timed ? 28.0 : 0.0) +
-                      (id.layoutLabel != null ? 22.0 : 0.0) +
-                      (id.mode == PlayMode.daily && id.checkpoint == null
-                          ? 26.0
-                          : 0.0);
-                  final reservedVertical = 176.0 + extraHeader;
-                  final side = math.min(
-                    math.min(constraints.maxWidth - 32, 490.0),
-                    math.max(200.0, constraints.maxHeight - reservedVertical),
-                  );
-                  final verticalSpace =
-                      constraints.maxHeight - side - reservedVertical;
-                  final topInset = verticalSpace > 0
-                      ? (verticalSpace * .22).clamp(8.0, 36.0)
-                      : 8.0;
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(16, topInset, 16, 18),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 490),
-                        child: Column(
-                          children: [
-                            if (timed)
-                              Text(
-                                '${model.attack!.clears.length} solved · ${model.attack!.score} points',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            if (id.layoutLabel case final label?)
-                              Text(
-                                label,
-                                style: TextStyle(color: palette.muted),
-                              ),
-                            if (id.mode == PlayMode.daily &&
-                                id.checkpoint == null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '${id.value}',
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final extraHeader =
+                        (timed ? 28.0 : 0.0) +
+                        (id.layoutLabel != null ? 22.0 : 0.0) +
+                        (id.mode == PlayMode.daily && id.checkpoint == null
+                            ? 26.0
+                            : 0.0);
+                    final reservedVertical = 176.0 + extraHeader;
+                    final side = math.min(
+                      math.min(constraints.maxWidth - 32, 490.0),
+                      math.max(200.0, constraints.maxHeight - reservedVertical),
+                    );
+                    final verticalSpace =
+                        constraints.maxHeight - side - reservedVertical;
+                    final topInset = verticalSpace > 0
+                        ? (verticalSpace * .22).clamp(8.0, 36.0)
+                        : 8.0;
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(16, topInset, 16, 18),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 490),
+                          child: Column(
+                            children: [
+                              if (timed)
+                                Text(
+                                  '${model.attack!.clears.length} solved · ${model.attack!.score} points',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              if (id.layoutLabel case final label?)
+                                Text(
+                                  label,
                                   style: TextStyle(color: palette.muted),
                                 ),
-                              ),
-                            _BoardProgress(
-                              checkpoint: model.complete
-                                  ? board.checkpoints.length
-                                  : model.nextCheckpoint,
-                              checkpoints: board.checkpoints.length,
-                              tiles: model.path.length,
-                              area: board.area,
-                              palette: palette,
-                            ),
-                            const SizedBox(height: 14),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _ControlButton(
-                                    icon: ControlGlyph.undo,
-                                    label: 'Undo',
-                                    onPressed: model.canUndo
-                                        ? model.undo
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _ControlButton(
-                                    icon: ControlGlyph.clear,
-                                    label: 'Clear',
-                                    onPressed: model.canClear
-                                        ? model.clear
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _HintAction(model: model),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: side,
-                              height: side,
-                              child: PuzzleBoard(
-                                key: ObjectKey(board),
-                                model: model,
-                                puzzle: board,
-                                palette: palette,
-                                tipStyle: model.equippedTip,
-                              ),
-                            ),
-                            if (model.hintCell != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Semantics(
-                                  liveRegion: true,
+                              if (id.mode == PlayMode.daily &&
+                                  id.checkpoint == null)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
                                   child: Text(
-                                    model.correctedByHint
-                                        ? 'Route corrected'
-                                        : 'Follow the highlight',
-                                    style: TextStyle(
-                                      color: palette.mutedInk,
-                                      fontWeight: FontWeight.w600,
+                                    '${id.value}',
+                                    style: TextStyle(color: palette.muted),
+                                  ),
+                                ),
+                              _BoardProgress(
+                                checkpoint: model.complete
+                                    ? board.checkpoints.length
+                                    : model.nextCheckpoint,
+                                checkpoints: board.checkpoints.length,
+                                tiles: model.path.length,
+                                area: board.area,
+                                palette: palette,
+                              ),
+                              const SizedBox(height: 14),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _ControlButton(
+                                      icon: ControlGlyph.undo,
+                                      label: 'Undo',
+                                      onPressed: model.canUndo
+                                          ? model.undo
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _ControlButton(
+                                      icon: ControlGlyph.clear,
+                                      label: 'Clear',
+                                      onPressed: model.canClear
+                                          ? model.clear
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _HintAction(model: model),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color.lerp(
+                                    palette.surface,
+                                    palette.canvas,
+                                    .45,
+                                  ),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(color: palette.cardEdge),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: palette.dark ? .30 : .10,
+                                      ),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: SizedBox(
+                                    width: side - 12,
+                                    height: side - 12,
+                                    child: PuzzleBoard(
+                                      key: ObjectKey(board),
+                                      model: model,
+                                      puzzle: board,
+                                      palette: palette,
+                                      tipStyle: model.equippedTip,
                                     ),
                                   ),
                                 ),
-                              )
-                            else
-                              const SizedBox(height: 8),
-                            BoardRulesButton(puzzle: board, palette: palette),
-                            if (model.endedEarly)
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 12,
-                                children: [
-                                  Text(
-                                    '${board.area - model.path.length} tiles left!',
-                                  ),
-                                  FilledButton(
-                                    onPressed: model.canClear
-                                        ? model.clear
-                                        : null,
-                                    child: const Text('Reset board'),
-                                  ),
-                                ],
                               ),
-                            if (model.storageError)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 12),
-                                child: Text('Progress couldn’t be saved.'),
-                              ),
-                          ],
+                              if (model.hintCell != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Semantics(
+                                    liveRegion: true,
+                                    child: Text(
+                                      model.correctedByHint
+                                          ? 'Route corrected'
+                                          : 'Follow the highlight',
+                                      style: TextStyle(
+                                        color: palette.mutedInk,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                const SizedBox(height: 8),
+                              BoardRulesButton(puzzle: board, palette: palette),
+                              if (model.endedEarly)
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 12,
+                                  children: [
+                                    Text(
+                                      '${board.area - model.path.length} tiles left!',
+                                    ),
+                                    FilledButton(
+                                      onPressed: model.canClear
+                                          ? model.clear
+                                          : null,
+                                      child: const Text('Reset board'),
+                                    ),
+                                  ],
+                                ),
+                              if (model.storageError)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 12),
+                                  child: Text('Progress couldn’t be saved.'),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              if (attackFinished) ...[
-                const Positioned.fill(
-                  child: ModalBarrier(color: Colors.black54),
+                    );
+                  },
                 ),
-                BlockSemantics(child: _AttackResults(model: model)),
-              ],
-              if (model.complete && !timed) ...[
-                Positioned.fill(child: ModalBarrier(color: palette.canvas)),
-                if (model.completedThisVisit &&
-                    !MediaQuery.disableAnimationsOf(context))
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 680),
-                        builder: (_, phase, _) => CustomPaint(
-                          painter: _CompletionBurst(phase, palette),
+                if (attackFinished) ...[
+                  const Positioned.fill(
+                    child: ModalBarrier(color: Colors.black54),
+                  ),
+                  BlockSemantics(child: _AttackResults(model: model)),
+                ],
+                if (model.complete && !timed) ...[
+                  const Positioned.fill(
+                    child: AtmosphericBackdrop(child: SizedBox.expand()),
+                  ),
+                  if (model.completedThisVisit &&
+                      !MediaQuery.disableAnimationsOf(context))
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 680),
+                          builder: (_, phase, _) => CustomPaint(
+                            painter: _CompletionBurst(phase, palette),
+                          ),
+                        ),
+                      ),
+                    ),
+                  BlockSemantics(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 430),
+                          child: _Completion(
+                            model: model,
+                            id: id,
+                            palette: palette,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                BlockSemantics(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 430),
-                        child: _Completion(
-                          model: model,
-                          id: id,
-                          palette: palette,
-                        ),
-                      ),
+                ],
+                if (!timed)
+                  if (model.fallingCrate case final crate?)
+                    Positioned.fill(
+                      key: ValueKey(crate.id),
+                      child: FallingCrate(crate: crate),
                     ),
-                  ),
-                ),
               ],
-              if (!timed)
-                if (model.fallingCrate case final crate?)
-                  Positioned.fill(
-                    key: ValueKey(crate.id),
-                    child: FallingCrate(crate: crate),
-                  ),
-            ],
-          ),
-        },
+            ),
+          },
+        ),
       ),
     );
   }
@@ -496,7 +525,28 @@ class _Completion extends StatelessWidget {
             if (model.chapterCompletedThisVisit && id.mode == PlayMode.levels)
               JourneyArt(palette, chapter: chapterFor(id.level), height: 90)
             else
-              GameArt(ArtKind.check, palette: palette, size: 42),
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      palette.accent.withValues(
+                        alpha: palette.dark ? .30 : .22,
+                      ),
+                      palette.route.withValues(alpha: palette.dark ? .14 : .08),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: palette.accent.withValues(alpha: .55),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: GameArt(ArtKind.check, palette: palette, size: 42),
+                ),
+              ),
             Text(
               model.chapterCompletedThisVisit && id.mode == PlayMode.levels
                   ? '${chapterName(chapterFor(id.level))} complete'
@@ -851,11 +901,27 @@ class _ControlButton extends StatelessWidget {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: fill,
+                color: primary && enabled ? null : fill,
+                gradient: primary && enabled
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [p.buttonTop, p.buttonBottom],
+                      )
+                    : null,
                 borderRadius: BorderRadius.circular(GameTokens.pillRadius),
                 border: primary && enabled
                     ? null
                     : Border.all(color: p.cardEdge),
+                boxShadow: primary && enabled
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .16),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

@@ -146,130 +146,132 @@ class _ProgressionViewState extends State<ProgressionView> {
             const SizedBox(width: 8),
           ],
         ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: widget.boosts
-                  ? ListView(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Temporary coin multipliers',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                        if (active.isNotEmpty)
+        body: AtmosphericBackdrop(
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: widget.boosts
+                    ? ListView(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                        children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-                            child: GameCard(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Active boosts',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                  for (final boost in active)
-                                    ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: BoostArtwork(
-                                        boost,
-                                        palette: palette,
-                                      ),
-                                      title: Text(
-                                        boost.multiplier > 1
-                                            ? '${boost.multiplier}× coins'
-                                            : boost.title,
-                                      ),
-                                      subtitle: Text(
-                                        '${_duration(progression.remaining(boost, now))} left',
-                                      ),
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              'Temporary coin multipliers',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
+                          if (active.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                              child: GameCard(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Active boosts',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
+                                    for (final boost in active)
+                                      ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: BoostArtwork(
+                                          boost,
+                                          palette: palette,
+                                        ),
+                                        title: Text(
+                                          boost.multiplier > 1
+                                              ? '${boost.multiplier}× coins'
+                                              : boost.title,
+                                        ),
+                                        subtitle: Text(
+                                          '${_duration(progression.remaining(boost, now))} left',
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final wide =
+                                  constraints.maxWidth >= 350 &&
+                                  MediaQuery.textScalerOf(context).scale(16) <=
+                                      19;
+                              final width = wide
+                                  ? (constraints.maxWidth - 12) / 2
+                                  : constraints.maxWidth;
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  for (final boost in [
+                                    ...multipliers,
+                                    ...supplies,
+                                  ])
+                                    SizedBox(
+                                      width: width,
+                                      child: _boost(model, boost, now),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                          if (multipliers.isEmpty && supplies.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 48),
+                              child: Column(
+                                children: [
+                                  GameArt(
+                                    ArtKind.bolt,
+                                    palette: palette,
+                                    size: 72,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No boosts yet',
+                                    style: TextStyle(
+                                      color: palette.mutedInk,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final wide =
-                                constraints.maxWidth >= 350 &&
-                                MediaQuery.textScalerOf(context).scale(16) <=
-                                    19;
-                            final width = wide
-                                ? (constraints.maxWidth - 12) / 2
-                                : constraints.maxWidth;
-                            return Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: [
-                                for (final boost in [
-                                  ...multipliers,
-                                  ...supplies,
-                                ])
-                                  SizedBox(
-                                    width: width,
-                                    child: _boost(model, boost, now),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                        if (multipliers.isEmpty && supplies.isEmpty)
+                        ],
+                      )
+                    : Column(
+                        children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 48),
-                            child: Column(
-                              children: [
-                                GameArt(
-                                  ArtKind.bolt,
-                                  palette: palette,
-                                  size: 72,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'No boosts yet',
-                                  style: TextStyle(
-                                    color: palette.mutedInk,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                            child: GameSegmented<_ResearchBranch>(
+                              selected: _branch,
+                              onChanged: (value) =>
+                                  setState(() => _branch = value),
+                              segments: [
+                                for (final branch in _ResearchBranch.values)
+                                  (value: branch, label: branch.title),
                               ],
                             ),
                           ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-                          child: GameSegmented<_ResearchBranch>(
-                            selected: _branch,
-                            onChanged: (value) =>
-                                setState(() => _branch = value),
-                            segments: [
-                              for (final branch in _ResearchBranch.values)
-                                (value: branch, label: branch.title),
-                            ],
+                          Expanded(
+                            child: ListView(
+                              key: PageStorageKey('research-${_branch.name}'),
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                              children: [
+                                for (final item in _branch.items)
+                                  _research(model, item),
+                              ],
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: ListView(
-                            key: PageStorageKey('research-${_branch.name}'),
-                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                            children: [
-                              for (final item in _branch.items)
-                                _research(model, item),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),

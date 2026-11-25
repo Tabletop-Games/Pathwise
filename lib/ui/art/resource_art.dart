@@ -98,70 +98,109 @@ Color _base(BoardPalette p, ResourceForm form) => switch (form) {
 void paintResource(Canvas canvas, BoardPalette palette, ResourceForm form) {
   final (base, light, detail) = _vectors[form]!;
   final color = _base(palette, form);
+  final highlight = Color.lerp(
+    color,
+    palette.dark ? palette.ink : palette.surface,
+    .54,
+  )!;
+  final shadow = Color.lerp(
+    color,
+    palette.dark ? palette.canvas : palette.ink,
+    .52,
+  )!;
   canvas.save();
   canvas.scale(1 / 12);
   canvas.translate(-12, -12);
-  canvas.drawPath(base, Paint()..color = color);
+  const bounds = Rect.fromLTWH(0, 0, 24, 24);
   canvas.drawPath(
-    light,
+    base,
     Paint()
-      ..color = Color.lerp(
-        color,
-        palette.dark ? palette.ink : palette.surface,
-        .5,
-      )!,
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color.lerp(color, highlight, .32)!,
+          color,
+          Color.lerp(color, shadow, .22)!,
+        ],
+      ).createShader(bounds),
   );
+  canvas.drawPath(light, Paint()..color = highlight);
+  canvas.drawPath(detail, Paint()..color = shadow);
   canvas.drawPath(
-    detail,
+    base,
     Paint()
-      ..color = Color.lerp(
-        color,
-        palette.dark ? palette.canvas : palette.ink,
-        .5,
-      )!,
+      ..color = shadow.withValues(alpha: .35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .65
+      ..strokeJoin = StrokeJoin.round,
   );
   canvas.restore();
 }
 
 void paintCoins(Canvas canvas, BoardPalette palette, int count) {
-  final face = Color.lerp(const Color(0xffd6bc8a), palette.accent, .31)!;
+  final face = Color.lerp(const Color(0xffe6c15a), palette.accent, .28)!;
+  final bright = Color.lerp(face, const Color(0xfffff4c2), .52)!;
+  final deep = Color.lerp(face, const Color(0xff7d5812), .48)!;
   final rim = palette.dark ? palette.canvas : palette.ink;
-  final edge = Color.lerp(face, rim, .58)!;
+  final edge = Color.lerp(deep, rim, .42)!;
   void coin(Offset center, double radius) {
+    final rect = Rect.fromCircle(center: center, radius: radius * .94);
+    // Dimensional bottom lip
     canvas.drawCircle(
-      center.translate(0, radius * .09),
+      center.translate(0, radius * .10),
       radius,
       Paint()..color = edge,
     );
-    canvas.drawCircle(center, radius * .94, Paint()..color = face);
+    // Radial metallic gold face
     canvas.drawCircle(
       center,
       radius * .94,
       Paint()
-        ..color = rim.withValues(alpha: .55)
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.35),
+          radius: 1.1,
+          colors: [bright, face, deep],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(rect),
+    );
+    // Crisp outer rim for contrast on any button or surface
+    canvas.drawCircle(
+      center,
+      radius * .94,
+      Paint()
+        ..color = rim.withValues(alpha: .60)
         ..style = PaintingStyle.stroke
         ..strokeWidth = radius * .09,
     );
+    // Embossed inner ring
     canvas.drawCircle(
       center,
-      radius * .73,
+      radius * .72,
       Paint()
-        ..color = edge
+        ..color = edge.withValues(alpha: .85)
         ..style = PaintingStyle.stroke
         ..strokeWidth = radius * .08,
     );
+    // Pathwise route emblem
     canvas.drawPath(
       Path()
-        ..moveTo(center.dx - radius * .47, center.dy + radius * .24)
-        ..relativeLineTo(radius * .37, 0)
+        ..moveTo(center.dx - radius * .45, center.dy + radius * .24)
+        ..relativeLineTo(radius * .35, 0)
         ..relativeLineTo(0, -radius * .44)
-        ..relativeLineTo(radius * .53, 0),
+        ..relativeLineTo(radius * .52, 0),
       Paint()
         ..color = edge
-        ..strokeWidth = radius * .11
+        ..strokeWidth = radius * .12
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
+    );
+    // Specular glint
+    canvas.drawCircle(
+      center.translate(-radius * .34, -radius * .34),
+      radius * .12,
+      Paint()..color = Colors.white.withValues(alpha: .45),
     );
   }
 

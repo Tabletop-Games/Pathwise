@@ -253,199 +253,210 @@ class _MainMenuViewState extends State<MainMenuView>
           ),
         ),
       ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 530),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-              children: [
-                Row(
-                  children: [
-                    _CounterChip(
-                      key: const ValueKey('streak-chip'),
-                      art: ArtKind.flame,
-                      palette: palette,
-                      value: '${model.streak.count}',
-                      label: '${model.streak.count}-day streak',
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(builder: (_) => const StreakView()),
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 530),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                children: [
+                  Row(
+                    children: [
+                      _CounterChip(
+                        key: const ValueKey('streak-chip'),
+                        art: ArtKind.flame,
+                        palette: palette,
+                        value: '${model.streak.count}',
+                        label: '${model.streak.count}-day streak',
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(builder: (_) => const StreakView()),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _CounterChip(
+                        key: const ValueKey('hint-chip'),
+                        art: ArtKind.hint,
+                        palette: palette,
+                        value: '${model.hintsRemaining}',
+                        label: '${model.hintsRemaining} hints. Get hints',
+                        onTap: () => showHintShop(context, model),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.all(Radius.circular(6)),
+                    child: JourneyArt(palette, chapter: chapter),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    chapterName(chapter),
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  Text('$chapterProgress / $chapterSize puzzles'),
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: chapterProgress / chapterSize,
+                    backgroundColor: palette.tile,
+                    color: palette.route,
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          GameTokens.cardRadius,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _CounterChip(
-                      key: const ValueKey('hint-chip'),
-                      art: ArtKind.hint,
-                      palette: palette,
-                      value: '${model.hintsRemaining}',
-                      label: '${model.hintsRemaining} hints. Get hints',
-                      onTap: () => showHintShop(context, model),
+                    onPressed: () => openPuzzle(
+                      context,
+                      PuzzleId.level(model.highestUnlocked),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(6)),
-                  child: JourneyArt(palette, chapter: chapter),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  chapterName(chapter),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                Text('$chapterProgress / $chapterSize puzzles'),
-                const SizedBox(height: 6),
-                LinearProgressIndicator(
-                  value: chapterProgress / chapterSize,
-                  backgroundColor: palette.tile,
-                  color: palette.route,
-                ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        GameTokens.cardRadius,
-                      ),
-                    ),
-                  ),
-                  onPressed: () => openPuzzle(
-                    context,
-                    PuzzleId.level(model.highestUnlocked),
-                  ),
-                  icon: const PathIcon(ControlGlyph.play),
-                  label: Text(
-                    model.levelsSolved == 0
-                        ? 'Play level 1'
-                        : 'Continue · Level ${model.highestUnlocked}',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (model.pendingChapterChests.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () => showChapterTreasures(context),
-                    icon: const Icon(Icons.card_giftcard_outlined),
+                    icon: const PathIcon(ControlGlyph.play),
                     label: Text(
-                      'Chapter treasures · ${model.pendingChapterChests.length}',
+                      model.levelsSolved == 0
+                          ? 'Play level 1'
+                          : 'Continue · Level ${model.highestUnlocked}',
                     ),
                   ),
-                _DailyCard(
-                  palette: palette,
-                  done: dailyDone,
-                  time: result == null
-                      ? null
-                      : formatTime(Duration(milliseconds: result.milliseconds)),
-                  action: result != null
-                      ? 'View result'
-                      : model.hasAttempt(currentDaily)
-                      ? 'Resume'
-                      : 'Play daily',
-                  onTap: () => openPuzzle(context, currentDaily),
-                ),
-                const SizedBox(height: 14),
-                Text('Explore', style: Theme.of(context).textTheme.titleLarge),
-                ListTile(
-                  leading: const PathIcon(ControlGlyph.collections),
-                  title: const Text('Collections'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push<void>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CollectionsView()),
-                  ),
-                ),
-                _ModeTile(
-                  palette: palette,
-                  art: ArtKind.levels,
-                  title: 'Levels',
-                  trailing: '${model.levelsSolved} solved',
-                  onTap: () => Navigator.push<void>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LevelsView()),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _ModeTile(
-                  palette: palette,
-                  art: ArtKind.timer,
-                  title: 'Time Attack',
-                  trailing: model.attack != null && !model.attack!.finished
-                      ? 'Resume'
-                      : model.attackBest > 0
-                      ? 'Best ${model.attackBest}'
-                      : null,
-                  onTap: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(builder: (_) => const _AttackSetup()),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _StoreCard(
-                  palette: palette,
-                  onTap: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(builder: (_) => const StoreView()),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _ModeTile(
-                  key: const ValueKey('wheel-tile'),
-                  palette: palette,
-                  art: ArtKind.wheel,
-                  title: 'Fortune Wheel',
-                  featured: spinReady,
-                  trailing: spinReady
-                      ? 'Free spin'
-                      : model.fortuneWait > 0
-                      ? fortuneCountdown(model.fortuneWait)
-                      : null,
-                  onTap: _openWheel,
-                ),
-                const SizedBox(height: 8),
-                _ShortcutRow(
-                  children: [
-                    _HomeShortcut(
-                      art: ArtKind.research,
-                      palette: palette,
-                      title: 'Research',
-                      badge: researched > 0 ? '$researched' : null,
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const ProgressionView(),
-                        ),
+                  const SizedBox(height: 10),
+                  if (model.pendingChapterChests.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => showChapterTreasures(context),
+                      icon: const Icon(Icons.card_giftcard_outlined),
+                      label: Text(
+                        'Chapter treasures · ${model.pendingChapterChests.length}',
                       ),
                     ),
-                    _HomeShortcut(
-                      art: ArtKind.bolt,
-                      palette: palette,
-                      title: 'Boosts',
-                      featured: active > 0,
-                      badge: active > 0
-                          ? '$active on'
-                          : owned > 0
-                          ? '$owned'
-                          : null,
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const ProgressionView(boosts: true),
-                        ),
+                  _DailyCard(
+                    palette: palette,
+                    done: dailyDone,
+                    time: result == null
+                        ? null
+                        : formatTime(
+                            Duration(milliseconds: result.milliseconds),
+                          ),
+                    action: result != null
+                        ? 'View result'
+                        : model.hasAttempt(currentDaily)
+                        ? 'Resume'
+                        : 'Play daily',
+                    onTap: () => openPuzzle(context, currentDaily),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Explore',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  ListTile(
+                    leading: const PathIcon(ControlGlyph.collections),
+                    title: const Text('Collections'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CollectionsView(),
                       ),
                     ),
-                  ],
-                ),
-                if (model.developerMode)
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute(builder: (_) => const DeveloperView()),
+                  ),
+                  _ModeTile(
+                    palette: palette,
+                    art: ArtKind.levels,
+                    title: 'Levels',
+                    trailing: '${model.levelsSolved} solved',
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LevelsView()),
                     ),
-                    icon: const Icon(Icons.bug_report_outlined),
-                    label: const Text('Developer dashboard'),
                   ),
-                if (model.storageError)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 14),
-                    child: Text('Local progress is temporarily unavailable.'),
+                  const SizedBox(height: 8),
+                  _ModeTile(
+                    palette: palette,
+                    art: ArtKind.timer,
+                    title: 'Time Attack',
+                    trailing: model.attack != null && !model.attack!.finished
+                        ? 'Resume'
+                        : model.attackBest > 0
+                        ? 'Best ${model.attackBest}'
+                        : null,
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const _AttackSetup()),
+                    ),
                   ),
-              ],
+                  const SizedBox(height: 8),
+                  _StoreCard(
+                    palette: palette,
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(builder: (_) => const StoreView()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ModeTile(
+                    key: const ValueKey('wheel-tile'),
+                    palette: palette,
+                    art: ArtKind.wheel,
+                    title: 'Fortune Wheel',
+                    featured: spinReady,
+                    trailing: spinReady
+                        ? 'Free spin'
+                        : model.fortuneWait > 0
+                        ? fortuneCountdown(model.fortuneWait)
+                        : null,
+                    onTap: _openWheel,
+                  ),
+                  const SizedBox(height: 8),
+                  _ShortcutRow(
+                    children: [
+                      _HomeShortcut(
+                        art: ArtKind.research,
+                        palette: palette,
+                        title: 'Research',
+                        badge: researched > 0 ? '$researched' : null,
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const ProgressionView(),
+                          ),
+                        ),
+                      ),
+                      _HomeShortcut(
+                        art: ArtKind.bolt,
+                        palette: palette,
+                        title: 'Boosts',
+                        featured: active > 0,
+                        badge: active > 0
+                            ? '$active on'
+                            : owned > 0
+                            ? '$owned'
+                            : null,
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const ProgressionView(boosts: true),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (model.developerMode)
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const DeveloperView(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.bug_report_outlined),
+                      label: const Text('Developer dashboard'),
+                    ),
+                  if (model.storageError)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 14),
+                      child: Text('Local progress is temporarily unavailable.'),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -738,74 +749,76 @@ class _AttackSetup extends StatelessWidget {
     final running = model.attack?.finished == false;
     return Scaffold(
       appBar: AppBar(title: const Text('Time Attack')),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (final minutes in [1, 3, 5])
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: GameCard(
-                      selected: model.attackMinutes == minutes,
-                      onTap: running
-                          ? null
-                          : () => model.selectAttackMinutes(minutes),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      semanticLabel:
-                          '$minutes minutes. Best ${model.attackBestFor(minutes)} points',
-                      child: Row(
-                        children: [
-                          GameArt(ArtKind.timer, palette: palette, size: 34),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Text(
-                              '$minutes min',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  for (final minutes in [1, 3, 5])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: GameCard(
+                        selected: model.attackMinutes == minutes,
+                        onTap: running
+                            ? null
+                            : () => model.selectAttackMinutes(minutes),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        semanticLabel:
+                            '$minutes minutes. Best ${model.attackBestFor(minutes)} points',
+                        child: Row(
+                          children: [
+                            GameArt(ArtKind.timer, palette: palette, size: 34),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                '$minutes min',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 22,
+                                ),
                               ),
                             ),
-                          ),
-                          GameArt(ArtKind.trophy, palette: palette, size: 22),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${model.attackBestFor(minutes)}',
-                            style: TextStyle(
-                              color: palette.mutedInk,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
+                            GameArt(ArtKind.trophy, palette: palette, size: 22),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${model.attackBestFor(minutes)}',
+                              style: TextStyle(
+                                color: palette.mutedInk,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 18,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                const SizedBox(height: 6),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        GameTokens.cardRadius,
+                  const SizedBox(height: 6),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          GameTokens.cardRadius,
+                        ),
                       ),
                     ),
+                    onPressed: () => openPuzzle(
+                      context,
+                      const PuzzleId.attack('start/0'),
+                      timeAttack: true,
+                    ),
+                    icon: const PathIcon(ControlGlyph.play),
+                    label: Text(running ? 'Resume' : 'Play'),
                   ),
-                  onPressed: () => openPuzzle(
-                    context,
-                    const PuzzleId.attack('start/0'),
-                    timeAttack: true,
-                  ),
-                  icon: const PathIcon(ControlGlyph.play),
-                  label: Text(running ? 'Resume' : 'Play'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

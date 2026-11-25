@@ -253,26 +253,59 @@ class _MultiplierTrack extends StatelessWidget {
                                   : 0,
                             ),
                             decoration: BoxDecoration(
-                              color: stopped && index == activeIndex
-                                  ? (region.$2 == 4
-                                        ? palette.accent
-                                        : palette.route)
-                                  : region.$2 == 4
-                                  ? Color.lerp(
-                                      palette.surface,
-                                      palette.accent,
-                                      palette.dark ? .42 : .34,
-                                    )!
-                                  : region.$2 == 3
-                                  ? Color.lerp(
-                                      palette.surface,
-                                      palette.route,
-                                      palette.dark ? .26 : .20,
-                                    )!
-                                  : palette.quiet,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: stopped && index == activeIndex
+                                    ? (region.$2 == 4
+                                          ? [
+                                              Color.lerp(
+                                                palette.accent,
+                                                Colors.white,
+                                                .22,
+                                              )!,
+                                              palette.accent,
+                                            ]
+                                          : [
+                                              palette.buttonTop,
+                                              palette.buttonBottom,
+                                            ])
+                                    : region.$2 == 4
+                                    ? [
+                                        Color.lerp(
+                                          palette.surface,
+                                          palette.accent,
+                                          palette.dark ? .52 : .44,
+                                        )!,
+                                        Color.lerp(
+                                          palette.surface,
+                                          palette.accent,
+                                          palette.dark ? .34 : .26,
+                                        )!,
+                                      ]
+                                    : region.$2 == 3
+                                    ? [
+                                        Color.lerp(
+                                          palette.surface,
+                                          palette.route,
+                                          palette.dark ? .32 : .24,
+                                        )!,
+                                        Color.lerp(
+                                          palette.surface,
+                                          palette.route,
+                                          palette.dark ? .18 : .14,
+                                        )!,
+                                      ]
+                                    : [palette.cardTop, palette.quiet],
+                              ),
                               border: stopped && index == activeIndex
                                   ? Border.all(color: palette.ink, width: 2)
-                                  : null,
+                                  : Border.all(
+                                      color: palette.cardEdge.withValues(
+                                        alpha: .65,
+                                      ),
+                                      width: .75,
+                                    ),
                             ),
                             child: Center(
                               child: FittedBox(
@@ -331,21 +364,32 @@ class _PointerPainter extends CustomPainter {
       ..strokeWidth = 3.5
       ..strokeJoin = StrokeJoin.round;
     final fill = Paint()
+      ..color = palette.accent
+      ..style = PaintingStyle.fill;
+    final core = Paint()
       ..color = palette.ink
       ..style = PaintingStyle.fill;
     final head = Path()
-      ..moveTo(cx - 7, 2)
-      ..lineTo(cx + 7, 2)
-      ..lineTo(cx, 12)
+      ..moveTo(cx - 8, 1)
+      ..lineTo(cx + 8, 1)
+      ..lineTo(cx, 13)
       ..close();
     canvas.drawPath(head, halo);
     canvas.drawPath(head, fill);
+    canvas.drawPath(
+      head,
+      Paint()
+        ..color = palette.ink
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..strokeJoin = StrokeJoin.round,
+    );
     final bar = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 2, 12, 4, size.height - 12),
+      Rect.fromLTWH(cx - 2, 13, 4, size.height - 13),
       const Radius.circular(2),
     );
     canvas.drawRRect(bar, halo);
-    canvas.drawRRect(bar, fill);
+    canvas.drawRRect(bar, core);
   }
 
   @override
@@ -395,9 +439,43 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          silhouette,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  (clamped >= 1 ? palette.accent : palette.route).withValues(
+                    alpha: clamped >= 1
+                        ? (palette.dark ? .34 : .24)
+                        : (palette.dark ? .20 : .12),
+                  ),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          Padding(padding: EdgeInsets.all(size * .08), child: silhouette),
           if (clamped > 0)
-            ClipRect(clipper: _BottomUpClipper(clamped), child: revealed),
+            Padding(
+              padding: EdgeInsets.all(size * .08),
+              child: ClipRect(
+                clipper: _BottomUpClipper(clamped),
+                child: revealed,
+              ),
+            ),
+          if (clamped > 0 && clamped < 1)
+            Positioned(
+              left: size * .12,
+              right: size * .12,
+              top: size * .08 + (size * .84) * (1.0 - clamped) - 1,
+              child: Container(
+                height: 2,
+                decoration: BoxDecoration(
+                  color: palette.accent.withValues(alpha: .85),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -621,102 +699,104 @@ class CollectionsView extends StatelessWidget {
         PathTip.values.where(model.ownsTip).length + model.ownedThemes;
     return Scaffold(
       appBar: AppBar(title: const Text('Collections')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(
-              '$owned of ${PathTip.values.length + PathwiseTheme.values.length} collected',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                ProgressiveDiscoveryArt(
-                  item: model.upcomingDiscoveryItem,
-                  palette: palette,
-                  progress: model.discoveryPercent / 100,
-                  size: 56,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Next discovery · ${model.discoveryPercent}%',
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      LinearProgressIndicator(
-                        value: model.discoveryPercent / 100,
-                        backgroundColor: palette.tile,
-                        color: palette.route,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (pending.isNotEmpty)
-              ExpansionTile(
-                initiallyExpanded: true,
-                title: Text('Discoveries · ${pending.length}'),
+      body: AtmosphericBackdrop(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(
+                '$owned of ${PathTip.values.length + PathwiseTheme.values.length} collected',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 10),
+              Row(
                 children: [
-                  for (final discovery in pending.take(3))
-                    DiscoveryRow(discovery, key: ValueKey(discovery.number)),
-                  if (pending.length > 3)
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (_) => const _PendingDiscoveries(),
+                  ProgressiveDiscoveryArt(
+                    item: model.upcomingDiscoveryItem,
+                    palette: palette,
+                    progress: model.discoveryPercent / 100,
+                    size: 56,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Next discovery · ${model.discoveryPercent}%',
+                          style: TextStyle(
+                            color: palette.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(
+                          value: model.discoveryPercent / 100,
+                          backgroundColor: palette.tile,
+                          color: palette.route,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (pending.isNotEmpty)
+                ExpansionTile(
+                  initiallyExpanded: true,
+                  title: Text('Discoveries · ${pending.length}'),
+                  children: [
+                    for (final discovery in pending.take(3))
+                      DiscoveryRow(discovery, key: ValueKey(discovery.number)),
+                    if (pending.length > 3)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const _PendingDiscoveries(),
+                          ),
+                        ),
+                        child: const Text('See all discoveries'),
                       ),
-                      child: const Text('See all discoveries'),
+                  ],
+                ),
+              _Album(
+                title: 'Path tips',
+                children: [
+                  for (final tip in PathTip.values)
+                    _AlbumItem(
+                      label: tip.label,
+                      silhouette: TipArtwork(
+                        tip: tip,
+                        palette: palette,
+                        concealed: true,
+                      ),
+                      owned: model.ownsTip(tip),
+                      artwork: TipArtwork(tip: tip, palette: palette),
+                      apply: tip == model.equippedTip
+                          ? null
+                          : () => model.equipTip(tip),
                     ),
                 ],
               ),
-            _Album(
-              title: 'Path tips',
-              children: [
-                for (final tip in PathTip.values)
-                  _AlbumItem(
-                    label: tip.label,
-                    silhouette: TipArtwork(
-                      tip: tip,
-                      palette: palette,
-                      concealed: true,
+              _Album(
+                title: 'Themes',
+                children: [
+                  for (final theme in PathwiseTheme.values)
+                    _AlbumItem(
+                      label: theme.label,
+                      silhouette: _ThemeSilhouette(theme.index),
+                      owned: model.ownsTheme(theme),
+                      artwork: LevelOneBoardPreview(
+                        palette: BoardPalette.palettes[theme]!,
+                        tip: model.equippedTip,
+                      ),
+                      apply: theme == model.theme
+                          ? null
+                          : () => model.setTheme(theme),
                     ),
-                    owned: model.ownsTip(tip),
-                    artwork: TipArtwork(tip: tip, palette: palette),
-                    apply: tip == model.equippedTip
-                        ? null
-                        : () => model.equipTip(tip),
-                  ),
-              ],
-            ),
-            _Album(
-              title: 'Themes',
-              children: [
-                for (final theme in PathwiseTheme.values)
-                  _AlbumItem(
-                    label: theme.label,
-                    silhouette: _ThemeSilhouette(theme.index),
-                    owned: model.ownsTheme(theme),
-                    artwork: LevelOneBoardPreview(
-                      palette: BoardPalette.palettes[theme]!,
-                      tip: model.equippedTip,
-                    ),
-                    apply: theme == model.theme
-                        ? null
-                        : () => model.setTheme(theme),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
