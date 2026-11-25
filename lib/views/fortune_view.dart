@@ -262,10 +262,11 @@ class _FortuneViewState extends State<FortuneView> {
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
                           shape: const StadiumBorder(),
-                          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 17,
-                          ),
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 17,
+                              ),
                         ),
                         onPressed: canSpin ? () => _spin(catalog) : null,
                         icon: PathIcon(
@@ -296,7 +297,10 @@ class _FortuneViewState extends State<FortuneView> {
                               ? null
                               : () => _spin(catalog, video: true),
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: Text('Spin · $remaining left', style: Theme.of(context).textTheme.labelLarge),
+                          label: Text(
+                            'Spin · $remaining left',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
                         ),
                       ],
                     ],
