@@ -9,6 +9,7 @@ import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/user_preferences.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'components/puzzle_board.dart';
@@ -488,13 +489,16 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
               .firstOrNull
         : null;
     final shadowColor = Color.lerp(palette.tile, palette.ink, .28)!;
+    final (topFrac, bottomFrac) = tip != null
+        ? (tipVisibleVerticalBounds[tip] ?? (0.02, 0.98))
+        : (0.02, 0.98);
     final Widget revealed = tip != null
-        ? TipArtwork(tip: tip, palette: palette)
+        ? TipArtwork(tip: tip, palette: palette, scale: .5)
         : theme != null
         ? LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!)
         : GameArt(ArtKind.coinStack3, palette: palette);
     final Widget silhouette = tip != null
-        ? TipArtwork(tip: tip, palette: palette, concealed: true)
+        ? TipArtwork(tip: tip, palette: palette, scale: .5, concealed: true)
         : ColorFiltered(
             colorFilter: ColorFilter.mode(shadowColor, BlendMode.srcATop),
             child: revealed,
@@ -524,7 +528,11 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
             Padding(
               padding: EdgeInsets.all(size * .08),
               child: ClipRect(
-                clipper: _BottomUpClipper(clamped),
+                clipper: _BottomUpClipper(
+                  clamped,
+                  topFraction: topFrac,
+                  bottomFraction: bottomFrac,
+                ),
                 child: revealed,
               ),
             ),
@@ -535,15 +543,29 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
 }
 
 class _BottomUpClipper extends CustomClipper<Rect> {
-  const _BottomUpClipper(this.fraction);
+  const _BottomUpClipper(
+    this.fraction, {
+    this.topFraction = 0.0,
+    this.bottomFraction = 1.0,
+  });
   final double fraction;
+  final double topFraction;
+  final double bottomFraction;
 
   @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(0, size.height * (1.0 - fraction), size.width, size.height);
+  Rect getClip(Size size) {
+    if (fraction <= 0) return Rect.zero;
+    if (fraction >= 1) return Rect.fromLTWH(0, 0, size.width, size.height);
+    final visibleHeight = (bottomFraction - topFraction) * size.height;
+    final revealTop = bottomFraction * size.height - visibleHeight * fraction;
+    return Rect.fromLTRB(0, revealTop, size.width, size.height);
+  }
 
   @override
-  bool shouldReclip(_BottomUpClipper old) => old.fraction != fraction;
+  bool shouldReclip(_BottomUpClipper old) =>
+      old.fraction != fraction ||
+      old.topFraction != topFraction ||
+      old.bottomFraction != bottomFraction;
 }
 
 class DiscoveryRow extends StatefulWidget {
@@ -760,37 +782,47 @@ class CollectionsView extends StatelessWidget {
                 '$owned of ${PathTip.values.length + PathwiseTheme.values.length} collected',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  ProgressiveDiscoveryArt(
-                    item: model.upcomingDiscoveryItem,
-                    palette: palette,
-                    progress: model.discoveryPercent / 100,
-                    size: 56,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Next discovery · ${model.discoveryPercent}%',
-                          style: TextStyle(
-                            color: palette.ink,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        LinearProgressIndicator(
-                          value: model.discoveryPercent / 100,
-                          backgroundColor: palette.tile,
-                          color: palette.route,
-                        ),
-                      ],
+              const SizedBox(height: 12),
+              GameCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    ProgressiveDiscoveryArt(
+                      item: model.upcomingDiscoveryItem,
+                      palette: palette,
+                      progress: model.discoveryPercent / 100,
+                      size: 108,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Next discovery',
+                            style: TextStyle(
+                              color: palette.ink,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${model.discoveryPercent}% revealed',
+                            style: TextStyle(
+                              color: palette.route,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (pending.isNotEmpty)
                 ExpansionTile(

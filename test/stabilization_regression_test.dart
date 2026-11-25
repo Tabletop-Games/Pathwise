@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 import '../lib/logic/ad_frequency.dart';
+import '../lib/logic/ad_service.dart';
+import '../lib/logic/billing_service.dart';
 import '../lib/logic/connectivity_service.dart';
 import '../lib/logic/game_controller.dart';
 import '../lib/logic/game_state_storage.dart';
@@ -212,25 +217,109 @@ void main() {
     testWidgets('ProgressiveDiscoveryArt renders at every 10% increment', (
       tester,
     ) async {
-      final palette = BoardPalette.palettes[PathwiseTheme.field]!;
-      for (final pct in [0, 10, 30, 50, 90, 100]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Center(
-                child: ProgressiveDiscoveryArt(
-                  item: 'tip/cat',
-                  palette: palette,
-                  progress: pct / 100,
-                  size: 84,
+      final light = BoardPalette.palettes[PathwiseTheme.field]!;
+      final dark = BoardPalette.palettes[PathwiseTheme.blackwater]!;
+      for (final palette in [light, dark]) {
+        for (final tip in PathTip.values) {
+          if (tip == PathTip.classic) continue;
+          for (final pct in [0, 10, 20, 50, 90, 100]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: Center(
+                    child: ProgressiveDiscoveryArt(
+                      item: 'tip/${tip.name}',
+                      palette: palette,
+                      progress: pct / 100,
+                      size: 108,
+                    ),
+                  ),
                 ),
               ),
+            );
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'failed for ${tip.name} at $pct%',
+            );
+          }
+        }
+      }
+    });
+
+    testWidgets(
+      'CollectionsView renders prominent ProgressiveDiscoveryArt at 20% without progress bar',
+      (tester) async {
+        final storage = _MemoryStorage();
+        final model = AppModel(
+          storage: storage,
+          snapshot: const {
+            'journey': {'clears': 2, 'upcoming': 'tip/arrow'},
+          },
+          connectivity: ConnectivityService(probe: () async => true),
+          today: () => DateTime(2026, 11, 25),
+          bootTime: () => (boot: 1, milliseconds: 1000),
+        );
+        final ads = AdService();
+        final billing = BillingService(persist: (_) async => true);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AppModel>.value(value: model),
+              ChangeNotifierProvider<AdService>.value(value: ads),
+              ChangeNotifierProvider<BillingService>.value(value: billing),
+            ],
+            child: MaterialApp(
+              theme: BoardPalette.palettes[PathwiseTheme.blackwater]!.theme,
+              home: const CollectionsView(),
             ),
           ),
         );
-        expect(tester.takeException(), isNull, reason: 'failed at $pct%');
-      }
-    });
+        expect(find.byType(ProgressiveDiscoveryArt), findsOneWidget);
+        expect(find.text('20% revealed'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        model.dispose();
+        ads.dispose();
+        billing.dispose();
+      },
+    );
+
+    test(
+      'all 20 tip PNGs have zero residual alpha in outer 2px border',
+      () async {
+        final dir = Directory('assets/art/tips');
+        final files = dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.png'))
+            .toList();
+        expect(files.length, 20);
+        for (final file in files) {
+          final bytes = await file.readAsBytes();
+          final codec = await ui.instantiateImageCodec(bytes);
+          final frame = await codec.getNextFrame();
+          final img = frame.image;
+          final raw = (await img.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          for (var y = 0; y < img.height; y++) {
+            for (var x = 0; x < img.width; x++) {
+              if (x < 2 || x >= img.width - 2 || y < 2 || y >= img.height - 2) {
+                final alpha = raw.getUint8((y * img.width + x) * 4 + 3);
+                expect(
+                  alpha,
+                  0,
+                  reason: '${file.path} has residual alpha $alpha at ($x, $y)',
+                );
+              }
+            }
+          }
+          img.dispose();
+          codec.dispose();
+        }
+      },
+    );
   });
 
   group('P1 interstitial frequency', () {

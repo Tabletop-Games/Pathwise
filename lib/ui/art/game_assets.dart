@@ -48,6 +48,31 @@ String tipAssetPath(PathTip tip) => tip == PathTip.classic
     ? 'assets/art/tips/robot.png'
     : 'assets/art/tips/${tip.name}.png';
 
+/// Normalized visible vertical bounds `(top, bottom)` inside each 192x192 tip
+/// PNG (excluding transparent padding) so bottom-to-top discovery reveals map
+/// directly to the visible collectible height.
+const tipVisibleVerticalBounds = <PathTip, (double, double)>{
+  PathTip.arrow: (0.047, 0.953),
+  PathTip.bee: (0.010, 0.990),
+  PathTip.cat: (0.104, 0.896),
+  PathTip.crystal: (0.010, 0.990),
+  PathTip.dog: (0.135, 0.865),
+  PathTip.dragon: (0.042, 0.958),
+  PathTip.flame: (0.010, 0.990),
+  PathTip.fox: (0.052, 0.948),
+  PathTip.frog: (0.047, 0.953),
+  PathTip.ghost: (0.010, 0.990),
+  PathTip.panda: (0.073, 0.927),
+  PathTip.penguin: (0.036, 0.964),
+  PathTip.phoenix: (0.010, 0.990),
+  PathTip.rabbit: (0.010, 0.990),
+  PathTip.robot: (0.057, 0.943),
+  PathTip.rocket: (0.010, 0.990),
+  PathTip.star: (0.010, 0.990),
+  PathTip.turtle: (0.010, 0.990),
+  PathTip.ufo: (0.083, 0.917),
+};
+
 /// Asynchronous decoded [ui.Image] cache for high-frequency [CustomPainter]s
 /// such as the live gameplay board tip layer.
 final class GameAssetCache extends ChangeNotifier {
