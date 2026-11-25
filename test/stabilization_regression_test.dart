@@ -275,7 +275,7 @@ void main() {
             ),
           ),
         );
-        expect(find.byType(ProgressiveDiscoveryArt), findsOneWidget);
+        expect(find.byType(ProgressiveDiscoveryArt), findsNWidgets(2));
         expect(find.text('20% revealed'), findsOneWidget);
         expect(find.byType(LinearProgressIndicator), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
@@ -346,6 +346,90 @@ void main() {
       freq.rewardedClosed(const Duration(minutes: 8));
       expect(freq.eligible(const Duration(minutes: 8, seconds: 30)), isFalse);
       expect(freq.eligible(const Duration(minutes: 9)), isTrue);
+    });
+  });
+
+  group('Final visual refinement & release guards', () {
+    test(
+      'UI and resource PNGs have zero residual alpha in outer 2px border',
+      () async {
+        for (final dirPath in ['assets/art/ui', 'assets/art/resources']) {
+          final files = Directory(dirPath)
+              .listSync()
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.png'))
+              .toList();
+          expect(files.isNotEmpty, isTrue);
+          for (final file in files) {
+            final bytes = await file.readAsBytes();
+            final codec = await ui.instantiateImageCodec(bytes);
+            final frame = await codec.getNextFrame();
+            final img = frame.image;
+            final data = await img.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            expect(data, isNotNull);
+            final rgba = data!.buffer.asUint8List();
+            final w = img.width;
+            final h = img.height;
+            for (var y = 0; y < h; y++) {
+              for (var x = 0; x < w; x++) {
+                if (x < 2 || x >= w - 2 || y < 2 || y >= h - 2) {
+                  final alpha = rgba[(y * w + x) * 4 + 3];
+                  expect(
+                    alpha,
+                    0,
+                    reason:
+                        '${file.path} has residual alpha $alpha at ($x, $y)',
+                  );
+                }
+              }
+            }
+            img.dispose();
+            codec.dispose();
+          }
+        }
+      },
+    );
+
+    testWidgets(
+      'CollectionsView renders ProgressiveDiscoveryArt in both header and upcoming catalogue tile',
+      (tester) async {
+        final storage = _MemoryStorage();
+        final model = AppModel(
+          storage: storage,
+          snapshot: const {},
+          connectivity: ConnectivityService(probe: () async => true),
+          today: () => DateTime(2026, 11, 25),
+          bootTime: () => (boot: 1, milliseconds: 1000),
+        );
+        await tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: model,
+            child: const MaterialApp(home: CollectionsView()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ProgressiveDiscoveryArt), findsNWidgets(2));
+        model.dispose();
+      },
+    );
+
+    test('Developer tools stay disabled by default and ignore mutations', () {
+      final model = AppModel(
+        storage: _MemoryStorage(),
+        snapshot: const {},
+        connectivity: ConnectivityService(probe: () async => true),
+        today: () => DateTime(2026, 11, 25),
+        bootTime: () => (boot: 1, milliseconds: 1000),
+      );
+      expect(model.developerMode, isFalse);
+      final coinsBefore = model.coinBalance;
+      model.setDebugResources(coins: 999999, hints: 99);
+      model.advanceDebugDay(qualify: true);
+      expect(model.coinBalance, coinsBefore);
+      model.dispose();
     });
   });
 }

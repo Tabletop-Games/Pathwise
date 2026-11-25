@@ -13,10 +13,10 @@ import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/user_preferences.dart';
 import '../ui/art/control_art.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/art/medallion_art.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'cloud_save_section.dart';
 import 'components/brand_mark.dart';
 import 'level_one_demo.dart';
@@ -181,8 +181,47 @@ class StatisticsView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: JourneyArt(palette, chapter: chapter, height: 80),
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 88,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            biomeAssetPath(biomeForTheme(model.theme)),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [palette.cardTop, palette.cardBottom],
+                                ),
+                              ),
+                            ),
+                          ),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  palette.surface.withValues(
+                                    alpha: palette.dark ? .20 : .14,
+                                  ),
+                                  palette.surface.withValues(
+                                    alpha: palette.dark ? .52 : .42,
+                                  ),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: palette.cardEdge.withValues(alpha: .7),
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(chapterName(chapter), style: text.headlineSmall),
@@ -198,7 +237,7 @@ class StatisticsView extends StatelessWidget {
                       for (final (value, label) in [
                         (model.solved, 'Puzzles solved'),
                         (model.unassisted, 'Hint-free'),
-                        (model.dailyStreak, 'Day streak'),
+                        (model.streak.count, 'Day streak'),
                       ])
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,6 +250,11 @@ class StatisticsView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   details('Campaign and daily', [
+                    tile(
+                      ArtKind.flame,
+                      'Daily challenge streak',
+                      '${model.dailyStreak}',
+                    ),
                     tile(
                       ArtKind.trophy,
                       'Longest streak',
@@ -383,6 +427,41 @@ class _AchievementCard extends StatelessWidget {
     _ => 'assets/art/ui/achievement.png',
   };
 
+  Widget _achievementIcon() {
+    final img = Image.asset(
+      _asset,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) =>
+          AchievementEmblem(achievement, earned: earned, palette: palette),
+    );
+    if (earned) return img;
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+      ]),
+      child: img,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => GameCard(
     padding: const EdgeInsets.all(12),
@@ -391,20 +470,7 @@ class _AchievementCard extends StatelessWidget {
       opacity: earned ? 1 : .58,
       child: Row(
         children: [
-          SizedBox.square(
-            dimension: 46,
-            child: Image.asset(
-              _asset,
-              fit: BoxFit.contain,
-              color: earned ? null : palette.mutedInk,
-              colorBlendMode: earned ? null : BlendMode.saturation,
-              errorBuilder: (_, _, _) => AchievementEmblem(
-                achievement,
-                earned: earned,
-                palette: palette,
-              ),
-            ),
-          ),
+          SizedBox.square(dimension: 46, child: _achievementIcon()),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

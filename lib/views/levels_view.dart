@@ -5,9 +5,9 @@ import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../ui/journey_art.dart';
 import 'campaign_journey_view.dart';
 import 'components/ad_banner.dart';
 import 'main_menu_view.dart';
@@ -146,11 +146,55 @@ class _LevelsViewState extends State<LevelsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      JourneyArt(
-                        palette,
-                        chapter: chapterFor(first),
-                        height: 60,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: SizedBox(
+                          height: 64,
+                          width: double.infinity,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.asset(
+                                biomeAssetPath(biomeForTheme(model.theme)),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        palette.cardTop,
+                                        palette.cardBottom,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      palette.surface.withValues(
+                                        alpha: palette.dark ? .20 : .14,
+                                      ),
+                                      palette.surface.withValues(
+                                        alpha: palette.dark ? .52 : .42,
+                                      ),
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color: palette.cardEdge.withValues(
+                                      alpha: .7,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 6),
                       Text(
                         chapterName(chapterFor(first)),
                         style: Theme.of(context).textTheme.titleLarge,

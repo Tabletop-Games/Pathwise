@@ -11,6 +11,7 @@ import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
 import '../model/fortune.dart';
 import '../ui/art/control_art.dart';
+import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'store_view.dart';
@@ -233,8 +234,8 @@ class _FortuneViewState extends State<FortuneView> {
                                     Align(
                                       alignment: Alignment.topCenter,
                                       child: SizedBox(
-                                        width: 34,
-                                        height: 30,
+                                        width: 38,
+                                        height: 36,
                                         child: CustomPaint(
                                           painter: _PointerPainter(palette),
                                         ),
@@ -337,52 +338,80 @@ class _WheelHubMedallion extends StatelessWidget {
     final brassLight = Color.lerp(
       palette.accent,
       const Color(0xFFFFE58F),
-      .45,
+      .50,
     )!;
-    final brassDark = Color.lerp(palette.accent, const Color(0xFF7A5610), .45)!;
+    final brassDark = Color.lerp(palette.accent, const Color(0xFF7A5610), .50)!;
+    final gemHighlight = Color.lerp(palette.ink, palette.accent, .26)!;
     return Container(
-      width: 56,
-      height: 56,
-      padding: const EdgeInsets.all(4),
+      width: 60,
+      height: 60,
+      padding: const EdgeInsets.all(4.5),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [brassLight, palette.accent, brassDark],
+          colors: [brassLight, palette.accent, brassDark, palette.accent],
+          stops: const [0.0, 0.35, 0.72, 1.0],
         ),
-        border: Border.all(color: palette.ink, width: 2),
+        border: Border.all(color: palette.ink, width: 2.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .28),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: .36),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: palette.ink,
-          border: Border.all(color: brassLight.withValues(alpha: .7), width: 1),
+          gradient: RadialGradient(
+            center: const Alignment(-0.32, -0.36),
+            radius: 0.95,
+            colors: [gemHighlight, palette.ink],
+          ),
+          border: Border.all(
+            color: brassLight.withValues(alpha: .85),
+            width: 1.2,
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Image.asset(
-            'assets/art/ui/wheel_ticket.png',
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
-            errorBuilder: (_, _, _) => Center(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: const Alignment(-0.45, -0.55),
               child: Container(
-                width: 14,
-                height: 14,
+                width: 16,
+                height: 8,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.accent,
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withValues(alpha: .16),
                 ),
               ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.all(7.5),
+              child: Image.asset(
+                'assets/art/ui/wheel_ticket.png',
+                fit: BoxFit.contain,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => Center(
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        center: const Alignment(-0.3, -0.3),
+                        colors: [brassLight, palette.accent],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -390,7 +419,8 @@ class _WheelHubMedallion extends StatelessWidget {
 }
 
 class _WheelPainter extends CustomPainter {
-  _WheelPainter(this.catalog, this.turns, this.palette);
+  _WheelPainter(this.catalog, this.turns, this.palette)
+    : super(repaint: GameAssetCache.instance);
   final FortuneCatalog catalog;
   final double turns;
   final BoardPalette palette;
@@ -398,7 +428,13 @@ class _WheelPainter extends CustomPainter {
   /// Segment fills come from the equipped theme. The top prize uses the accent.
   List<Color> get _segments => [
     for (var i = 0; i < 5; i++)
-      Color.lerp(palette.route, palette.ink, i.isEven ? .10 : .36)!,
+      i.isEven
+          ? Color.lerp(
+              palette.route,
+              palette.surface,
+              palette.dark ? .08 : .14,
+            )!
+          : Color.lerp(palette.route, palette.ink, .44)!,
     palette.accent,
   ];
   Color get _navy => palette.ink;
@@ -412,16 +448,19 @@ class _WheelPainter extends CustomPainter {
     final radius = size.shortestSide / 2 - 12;
     final rect = Rect.fromCircle(center: center, radius: radius);
     final rimOuter = radius + 10;
-    final brassLight = Color.lerp(_gold, const Color(0xFFFFE58F), .48)!;
-    final brassDark = Color.lerp(_gold, const Color(0xFF7A5610), .48)!;
+    final brassLight = Color.lerp(_gold, const Color(0xFFFFE58F), .50)!;
+    final brassDark = Color.lerp(_gold, const Color(0xFF7A5610), .50)!;
+    final coinImage = GameAssetCache.instance.imageFor(
+      'assets/art/resources/coin.png',
+    );
 
     // Soft drop shadow behind the wheel.
     canvas.drawCircle(
-      center.translate(0, 3),
+      center.translate(0, 4),
       rimOuter,
       Paint()
-        ..color = Colors.black.withValues(alpha: palette.dark ? .45 : .22)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+        ..color = Colors.black.withValues(alpha: palette.dark ? .48 : .24)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
 
     // Dimensional golden/brass outer rim.
@@ -447,75 +486,125 @@ class _WheelPainter extends CustomPainter {
     );
     canvas.drawCircle(
       center,
-      rimOuter - 1.5,
+      rimOuter - 1.8,
       Paint()
-        ..color = brassLight.withValues(alpha: .55)
+        ..color = brassLight.withValues(alpha: .65)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0,
     );
 
-    // Static warm decorative bulb dots around the brass perimeter.
+    // Recessed rim studs / warm jewel bulbs around the brass perimeter.
     const bulbCount = 18;
     final bulbRadius = radius + 5.2;
+    final bulbSocket = Paint()..color = _navy.withValues(alpha: .72);
     final bulbGlow = Paint()
-      ..color = const Color(0xFFFFF4C2).withValues(alpha: .38);
+      ..color = const Color(0xFFFFF4C2).withValues(alpha: .42);
     final bulbCore = Paint()..color = const Color(0xFFFFF9E2);
-    final bulbRim = Paint()
-      ..color = brassDark.withValues(alpha: .75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .8;
+    final bulbSpec = Paint()..color = Colors.white.withValues(alpha: .9);
     for (var i = 0; i < bulbCount; i++) {
       final angle = -math.pi / 2 + (i / bulbCount) * full;
       final pt = center + Offset(math.cos(angle), math.sin(angle)) * bulbRadius;
-      canvas.drawCircle(pt, 3.3, bulbGlow);
+      canvas.drawCircle(pt, 3.6, bulbGlow);
+      canvas.drawCircle(pt, 2.7, bulbSocket);
       canvas.drawCircle(pt, 2.0, bulbCore);
-      canvas.drawCircle(pt, 2.0, bulbRim);
+      canvas.drawCircle(pt.translate(-0.6, -0.6), 0.7, bulbSpec);
     }
 
     // Radial/gradient segments.
-    final paint = Paint()..isAntiAlias = true;
+    final dividerShadow = Paint()
+      ..color = _navy.withValues(alpha: .45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4;
+    final dividerGold = Paint()
+      ..color = brassLight.withValues(alpha: .88)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final imagePaint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high;
+    final fallbackPaint = Paint()..isAntiAlias = true;
+
     for (final (index, prize) in catalog.prizes.indexed) {
       final start = -math.pi / 2 + ((turns % 1) * full) + index * sweep;
       final base = _segments[index];
-      final innerTone = Color.lerp(base, _navy, .22)!;
+      final innerTone = Color.lerp(base, _navy, .26)!;
       final outerTone = Color.lerp(
         base,
         Colors.white,
-        palette.dark ? .08 : .14,
+        palette.dark ? .12 : .20,
       )!;
       final segPaint = Paint()
         ..isAntiAlias = true
         ..shader = RadialGradient(
           colors: [innerTone, base, outerTone],
-          stops: const [0.0, 0.52, 1.0],
+          stops: const [0.0, 0.56, 1.0],
         ).createShader(rect);
       canvas.drawArc(rect, start, sweep, true, segPaint);
-      canvas.drawLine(
-        center,
-        center + Offset(math.cos(start), math.sin(start)) * radius,
-        paint
-          ..shader = null
-          ..color = brassLight.withValues(alpha: .75)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6,
-      );
-      paint.style = PaintingStyle.fill;
+
+      final edgeEnd =
+          center + Offset(math.cos(start), math.sin(start)) * radius;
+      canvas.drawLine(center, edgeEnd, dividerShadow);
+      canvas.drawLine(center, edgeEnd, dividerGold);
 
       final angle = start + sweep / 2;
       final spot =
-          center + Offset(math.cos(angle), math.sin(angle)) * (radius * .68);
+          center + Offset(math.cos(angle), math.sin(angle)) * (radius * .66);
       final ink = palette.onColor(base);
-      final coin = spot.translate(0, -radius * .09);
-      final iconSize = radius * .07;
-      canvas.drawCircle(coin, iconSize, paint..color = ink);
-      canvas.drawCircle(coin, iconSize * .66, paint..color = base);
-      canvas.drawLine(
-        coin.translate(-iconSize * .3, 0),
-        coin.translate(iconSize * .3, 0),
-        paint
-          ..color = ink
-          ..strokeWidth = 1.2,
+      final coinCenter = spot.translate(0, -radius * .11);
+      final coinRadius = radius * .115;
+
+      // Soft shadow behind the wedge coin.
+      canvas.drawCircle(
+        coinCenter.translate(0, 1.5),
+        coinRadius * .92,
+        fallbackPaint
+          ..color = Colors.black.withValues(alpha: palette.dark ? .42 : .24)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2),
       );
+      fallbackPaint.maskFilter = null;
+
+      if (coinImage != null) {
+        final src = Rect.fromLTWH(
+          0,
+          0,
+          coinImage.width.toDouble(),
+          coinImage.height.toDouble(),
+        );
+        final dst = Rect.fromCircle(center: coinCenter, radius: coinRadius);
+        canvas.drawImageRect(coinImage, src, dst, imagePaint);
+      } else {
+        final coinRect = Rect.fromCircle(
+          center: coinCenter,
+          radius: coinRadius,
+        );
+        canvas.drawCircle(
+          coinCenter,
+          coinRadius,
+          fallbackPaint
+            ..shader = RadialGradient(
+              center: const Alignment(-0.35, -0.35),
+              colors: [brassLight, _gold, brassDark],
+            ).createShader(coinRect),
+        );
+        fallbackPaint.shader = null;
+        canvas.drawCircle(
+          coinCenter,
+          coinRadius,
+          Paint()
+            ..color = _navy.withValues(alpha: .6)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
+        canvas.drawCircle(
+          coinCenter,
+          coinRadius * .68,
+          Paint()
+            ..color = brassLight.withValues(alpha: .75)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0,
+        );
+      }
+
       final label = TextPainter(
         text: TextSpan(
           text: '${prize.coins}',
@@ -523,27 +612,51 @@ class _WheelPainter extends CustomPainter {
             color: ink,
             fontFamily: 'Bricolage',
             fontWeight: FontWeight.w800,
-            fontSize: radius * .148,
+            fontSize: radius * .152,
+            shadows: [
+              Shadow(
+                color: Colors.black.withValues(alpha: palette.dark ? .45 : .20),
+                offset: const Offset(0, 1),
+                blurRadius: 2,
+              ),
+            ],
           ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      label.paint(canvas, spot.translate(-label.width / 2, 1));
+      label.paint(canvas, spot.translate(-label.width / 2, radius * .015));
       label.dispose();
     }
+
+    // Subtle top-left lighting sheen across the wheel face.
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: palette.dark ? .08 : .14),
+            Colors.transparent,
+            Colors.black.withValues(alpha: palette.dark ? .16 : .06),
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(rect),
+    );
 
     // Inner bezel shadow & gold ring.
     canvas.drawCircle(
       center,
       radius,
       Paint()
-        ..color = _navy.withValues(alpha: .45)
+        ..color = _navy.withValues(alpha: .52)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5,
+        ..strokeWidth = 2.6,
     );
     canvas.drawCircle(
       center,
-      radius + 1,
+      radius + 1.2,
       Paint()
         ..color = brassLight
         ..style = PaintingStyle.stroke
@@ -551,14 +664,14 @@ class _WheelPainter extends CustomPainter {
     );
 
     // Hub collar beneath the central medallion widget.
-    canvas.drawCircle(center, radius * .21, Paint()..color = _navy);
+    canvas.drawCircle(center, radius * .22, Paint()..color = _navy);
     canvas.drawCircle(
       center,
-      radius * .21,
+      radius * .22,
       Paint()
         ..color = brassLight
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8,
+        ..strokeWidth = 2.0,
     );
   }
 
@@ -574,38 +687,49 @@ class _PointerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gold = palette.accent;
-    final brassLight = Color.lerp(gold, const Color(0xFFFFE58F), .5)!;
-    final brassDark = Color.lerp(gold, const Color(0xFF7A5610), .45)!;
+    final brassLight = Color.lerp(gold, const Color(0xFFFFE58F), .55)!;
+    final brassDark = Color.lerp(gold, const Color(0xFF7A5610), .48)!;
     final cx = size.width / 2;
     final pointer = Path()
-      ..moveTo(4, 3)
-      ..quadraticBezierTo(cx, 0, size.width - 4, 3)
+      ..moveTo(4, 5)
+      ..quadraticBezierTo(cx, 0, size.width - 4, 5)
+      ..lineTo(size.width - 6, 13)
       ..lineTo(cx, size.height - 2)
+      ..lineTo(6, 13)
       ..close();
 
     // Soft drop shadow.
     canvas.drawPath(
-      pointer.shift(const Offset(0, 2)),
+      pointer.shift(const Offset(0, 2.5)),
       Paint()
-        ..color = Colors.black.withValues(alpha: .3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+        ..color = Colors.black.withValues(alpha: .38)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
     );
 
     // Dimensional left/right facets.
     final leftFacet = Path()
-      ..moveTo(4, 3)
-      ..quadraticBezierTo(cx, 0, cx, 1.5)
+      ..moveTo(4, 5)
+      ..quadraticBezierTo(cx, 0, cx, 2.0)
       ..lineTo(cx, size.height - 2)
+      ..lineTo(6, 13)
       ..close();
     final rightFacet = Path()
-      ..moveTo(cx, 1.5)
-      ..quadraticBezierTo(cx, 0, size.width - 4, 3)
+      ..moveTo(cx, 2.0)
+      ..quadraticBezierTo(cx, 0, size.width - 4, 5)
+      ..lineTo(size.width - 6, 13)
       ..lineTo(cx, size.height - 2)
       ..close();
     canvas.drawPath(leftFacet, Paint()..color = brassLight);
     canvas.drawPath(rightFacet, Paint()..color = brassDark);
 
-    // Crisp outline and top brass rivet.
+    // Center ridge highlight and crisp outline.
+    canvas.drawLine(
+      Offset(cx, 12),
+      Offset(cx, size.height - 4),
+      Paint()
+        ..color = Colors.white.withValues(alpha: .45)
+        ..strokeWidth = 1.2,
+    );
     canvas.drawPath(
       pointer,
       Paint()
@@ -614,8 +738,19 @@ class _PointerPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..strokeWidth = 2.2,
     );
-    canvas.drawCircle(Offset(cx, 7.5), 3.0, Paint()..color = palette.ink);
-    canvas.drawCircle(Offset(cx, 7.5), 1.6, Paint()..color = brassLight);
+
+    // Top jewel rivet.
+    final rivetCenter = Offset(cx, 9.0);
+    canvas.drawCircle(rivetCenter, 4.0, Paint()..color = palette.ink);
+    canvas.drawCircle(
+      rivetCenter,
+      2.6,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.35),
+          colors: [Colors.white, brassLight, gold],
+        ).createShader(Rect.fromCircle(center: rivetCenter, radius: 2.6)),
+    );
   }
 
   @override

@@ -70,8 +70,10 @@ String _researchAssetPath(Research item) => switch (item) {
 
 String _boostAssetPath(Boost boost) {
   if (boost.multiplier == 1) return 'assets/art/resources/crate.png';
-  if (boost.minutes >= 30) return 'assets/art/ui/timer.png';
-  return 'assets/art/ui/boost.png';
+  if (boost.multiplier >= 4) return 'assets/art/ui/boost_4x.png';
+  if (boost.multiplier == 3) return 'assets/art/ui/boost_3x.png';
+  if (boost.minutes >= 30) return 'assets/art/ui/boost_2x_long.png';
+  return 'assets/art/ui/boost_2x_fast.png';
 }
 
 class ProgressionView extends StatefulWidget {

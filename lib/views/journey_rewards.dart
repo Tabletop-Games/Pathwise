@@ -275,12 +275,12 @@ class _MultiplierTrack extends StatelessWidget {
                 ),
               ),
               Positioned(
-                left: pointerX - 11,
+                left: pointerX - 12,
                 top: 0,
-                bottom: 0,
+                height: 18,
                 child: SizedBox(
                   key: const ValueKey('multiplier-pointer'),
-                  width: 22,
+                  width: 24,
                   child: CustomPaint(painter: _PointerPainter(palette)),
                 ),
               ),
@@ -313,40 +313,44 @@ class _MultiplierSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = stopped && active;
     final isJackpot = multiplier == 4;
+    final jackpotGold = Color.lerp(
+      palette.accent,
+      const Color(0xFFFFC247),
+      palette.dark ? .55 : .42,
+    )!;
     final colors = selected
         ? (isJackpot
-              ? [Color.lerp(palette.accent, Colors.white, .26)!, palette.accent]
+              ? [Color.lerp(jackpotGold, Colors.white, .22)!, jackpotGold]
               : [palette.buttonTop, palette.buttonBottom])
         : isJackpot
         ? [
-            Color.lerp(
-              palette.surface,
-              palette.accent,
-              palette.dark ? .60 : .52,
-            )!,
-            Color.lerp(
-              palette.surface,
-              palette.accent,
-              palette.dark ? .36 : .28,
-            )!,
+            Color.lerp(palette.surface, jackpotGold, palette.dark ? .72 : .68)!,
+            Color.lerp(palette.surface, jackpotGold, palette.dark ? .48 : .44)!,
           ]
         : multiplier == 3
         ? [
             Color.lerp(
               palette.surface,
               palette.route,
-              palette.dark ? .38 : .28,
+              palette.dark ? .44 : .34,
             )!,
             Color.lerp(
               palette.surface,
               palette.route,
-              palette.dark ? .20 : .14,
+              palette.dark ? .24 : .18,
             )!,
           ]
-        : [palette.cardTop, palette.quiet];
+        : [
+            Color.lerp(palette.cardTop, palette.ink, palette.dark ? .06 : .04)!,
+            Color.lerp(palette.quiet, palette.ink, palette.dark ? .08 : .06)!,
+          ];
+    final jackpotInk =
+        ThemeData.estimateBrightnessForColor(jackpotGold) == Brightness.dark
+        ? Colors.white
+        : const Color(0xFF2B1A04);
     final labelColor = selected
-        ? (isJackpot ? palette.onAccent : palette.onRoute)
-        : palette.ink;
+        ? (isJackpot ? jackpotInk : palette.onRoute)
+        : (isJackpot ? jackpotInk : palette.ink);
     return Container(
       margin: EdgeInsets.only(right: isLast ? 0 : 1.5),
       decoration: BoxDecoration(
@@ -356,17 +360,27 @@ class _MultiplierSegment extends StatelessWidget {
           colors: colors,
         ),
         border: selected
-            ? Border.all(color: palette.ink, width: 2)
+            ? Border.all(
+                color: isJackpot ? palette.ink : palette.accent,
+                width: 2.2,
+              )
+            : (!stopped && active)
+            ? Border.all(
+                color: (isJackpot ? jackpotGold : palette.route).withValues(
+                  alpha: .85,
+                ),
+                width: 1.5,
+              )
             : Border(
                 top: BorderSide(
                   color: Colors.white.withValues(
-                    alpha: palette.dark ? .18 : .55,
+                    alpha: palette.dark ? .22 : .65,
                   ),
                   width: 1,
                 ),
                 bottom: BorderSide(
                   color: Colors.black.withValues(
-                    alpha: palette.dark ? .40 : .16,
+                    alpha: palette.dark ? .42 : .18,
                   ),
                   width: 1.5,
                 ),
@@ -384,8 +398,8 @@ class _MultiplierSegment extends StatelessWidget {
           if (!stopped && active)
             DecoratedBox(
               decoration: BoxDecoration(
-                color: (isJackpot ? palette.accent : palette.route).withValues(
-                  alpha: palette.dark ? .20 : .14,
+                color: (isJackpot ? jackpotGold : palette.route).withValues(
+                  alpha: palette.dark ? .22 : .16,
                 ),
               ),
             ),
@@ -427,18 +441,15 @@ class _PointerPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color.lerp(palette.accent, Colors.white, .32)!,
+          Color.lerp(palette.accent, Colors.white, .34)!,
           palette.accent,
         ],
-      ).createShader(Rect.fromLTWH(cx - 9, 0, 18, 14))
-      ..style = PaintingStyle.fill;
-    final core = Paint()
-      ..color = palette.ink
+      ).createShader(Rect.fromLTWH(cx - 10, 0, 20, 17))
       ..style = PaintingStyle.fill;
     final head = Path()
-      ..moveTo(cx - 8.5, 1)
-      ..lineTo(cx + 8.5, 1)
-      ..lineTo(cx, 13.5)
+      ..moveTo(cx - 9.5, 1.5)
+      ..lineTo(cx + 9.5, 1.5)
+      ..lineTo(cx, 16.5)
       ..close();
     canvas.drawPath(head, halo);
     canvas.drawPath(head, goldCap);
@@ -447,15 +458,9 @@ class _PointerPainter extends CustomPainter {
       Paint()
         ..color = palette.ink
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
+        ..strokeWidth = 1.6
         ..strokeJoin = StrokeJoin.round,
     );
-    final bar = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 2, 13.5, 4, size.height - 13.5),
-      const Radius.circular(2),
-    );
-    canvas.drawRRect(bar, halo);
-    canvas.drawRRect(bar, core);
   }
 
   @override
@@ -848,11 +853,20 @@ class CollectionsView extends StatelessWidget {
                   for (final tip in PathTip.values)
                     _AlbumItem(
                       label: tip.label,
-                      silhouette: TipArtwork(
-                        tip: tip,
-                        palette: palette,
-                        concealed: true,
-                      ),
+                      silhouette:
+                          !model.ownsTip(tip) &&
+                              model.upcomingDiscoveryItem == 'tip/${tip.name}'
+                          ? ProgressiveDiscoveryArt(
+                              item: model.upcomingDiscoveryItem,
+                              palette: palette,
+                              progress: model.discoveryPercent / 100,
+                              size: 62,
+                            )
+                          : TipArtwork(
+                              tip: tip,
+                              palette: palette,
+                              concealed: true,
+                            ),
                       owned: model.ownsTip(tip),
                       artwork: TipArtwork(tip: tip, palette: palette),
                       apply: tip == model.equippedTip
@@ -867,7 +881,17 @@ class CollectionsView extends StatelessWidget {
                   for (final theme in PathwiseTheme.values)
                     _AlbumItem(
                       label: theme.label,
-                      silhouette: _ThemeSilhouette(theme.index),
+                      silhouette:
+                          !model.ownsTheme(theme) &&
+                              model.upcomingDiscoveryItem ==
+                                  'theme/${theme.name}'
+                          ? ProgressiveDiscoveryArt(
+                              item: model.upcomingDiscoveryItem,
+                              palette: palette,
+                              progress: model.discoveryPercent / 100,
+                              size: 62,
+                            )
+                          : _ThemeSilhouette(theme.index),
                       owned: model.ownsTheme(theme),
                       artwork: LevelOneBoardPreview(
                         palette: BoardPalette.palettes[theme]!,
