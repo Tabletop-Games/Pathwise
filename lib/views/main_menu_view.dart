@@ -15,6 +15,7 @@ import '../ui/art/control_art.dart';
 import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../viewmodels/home_viewmodel.dart';
 import 'campaign_journey_view.dart';
 import 'connection_view.dart';
 import 'developer_view.dart';
@@ -34,12 +35,11 @@ Future<void> openPuzzle(
   bool timeAttack = false,
 }) async {
   final model = context.read<AppModel>();
-  if (model.activeId != null ||
-      (id.mode == PlayMode.levels && !model.canPlayLevel(id.level)))
-    return;
   final ads = context.read<AdService>();
+  final vm = HomeViewModel(model: model, ads: ads);
+  if (!vm.canOpenPuzzle(id)) return;
   if (timeAttack) {
-    final started = await model.openAttack();
+    final started = await vm.preparePuzzle(id);
     if (!context.mounted) return;
     if (!started) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,12 +52,24 @@ Future<void> openPuzzle(
       return;
     }
   } else {
-    unawaited(model.open(id, replay: replay));
+    unawaited(vm.preparePuzzle(id, replay: replay));
   }
   await Navigator.of(context)
       .push<void>(MaterialPageRoute(builder: (_) => const PuzzleView()));
   final finished = model.completedThisVisit;
-  model.close();
+  await vm.handlePuzzleExit(
+    completedBeforeExit: !timeAttack && finished,
+    canPresentAd:
+        context.mounted &&
+        ModalRoute.isCurrentOf(context) == true &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    stillPresent: () =>
+        context.mounted &&
+        !model.adFree &&
+        model.activeId == null &&
+        ModalRoute.isCurrentOf(context) == true &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+  );
   if (!timeAttack && finished && !model.adFree && context.mounted) {
     bool canPresent() =>
         context.mounted &&
@@ -65,12 +77,6 @@ Future<void> openPuzzle(
         model.activeId == null &&
         ModalRoute.isCurrentOf(context) == true &&
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
-    unawaited(
-      ads.afterCompletedExit(
-        canPresent: canPresent(),
-        stillPresent: canPresent,
-      ),
-    );
     if (canPresent()) unawaited(ads.prepare(canPresent: canPresent));
   }
 }
@@ -91,7 +97,6 @@ class MainMenuView extends StatefulWidget {
 
 class _MainMenuViewState extends State<MainMenuView>
     with WidgetsBindingObserver {
-  Timer? _wheelTicker;
   bool _launchChecked = false;
 
   @override
@@ -113,9 +118,6 @@ class _MainMenuViewState extends State<MainMenuView>
           ),
         );
       }
-    });
-    _wheelTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && ModalRoute.isCurrentOf(context) == true) setState(() {});
     });
   }
 
@@ -175,7 +177,6 @@ class _MainMenuViewState extends State<MainMenuView>
 
   @override
   void dispose() {
-    _wheelTicker?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -1125,7 +1126,7 @@ class _StoreCard extends StatelessWidget {
   );
 }
 
-class _WheelCard extends StatelessWidget {
+class _WheelCard extends StatefulWidget {
   const _WheelCard({
     required this.palette,
     required this.spinReady,
@@ -1140,51 +1141,98 @@ class _WheelCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GameCard(
-    selected: spinReady,
-    onTap: onTap,
-    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-    child: Row(
-      children: [
-        _UiArtIcon(
-          assetPath: 'assets/art/ui/wheel_ticket.webp',
-          fallback: GameArt(ArtKind.wheel, palette: palette, size: 34),
-          size: 34,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Fortune Wheel',
-                style: TextStyle(
-                  color: palette.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 17,
-                ),
-              ),
-              if (!spinReady && waitSeconds > 0) ...[
-                const SizedBox(height: 2),
+  State<_WheelCard> createState() => _WheelCardState();
+}
+
+class _WheelCardState extends State<_WheelCard> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WheelCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.waitSeconds != widget.waitSeconds ||
+        oldWidget.spinReady != widget.spinReady) {
+      _syncTimer();
+    }
+  }
+
+  void _syncTimer() {
+    if (!widget.spinReady && widget.waitSeconds > 0) {
+      _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wait = context.read<AppModel>().fortuneWait;
+    final ready = widget.spinReady || wait == 0;
+    return GameCard(
+      selected: ready,
+      onTap: widget.onTap,
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Row(
+        children: [
+          _UiArtIcon(
+            assetPath: 'assets/art/ui/wheel_ticket.webp',
+            fallback: GameArt(ArtKind.wheel, palette: widget.palette, size: 34),
+            size: 34,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  fortuneCountdown(waitSeconds),
+                  'Fortune Wheel',
                   style: TextStyle(
-                    color: palette.mutedInk,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    color: widget.palette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
                   ),
                 ),
+                if (!ready && wait > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    fortuneCountdown(wait),
+                    style: TextStyle(
+                      color: widget.palette.mutedInk,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        if (spinReady)
-          ActionPill(label: 'Free spin', tone: ActionTone.primary, onTap: onTap)
-        else
-          Icon(Icons.chevron_right_rounded, color: palette.mutedInk),
-      ],
-    ),
-  );
+          if (ready)
+            ActionPill(
+              label: 'Free spin',
+              tone: ActionTone.primary,
+              onTap: widget.onTap,
+            )
+          else
+            Icon(Icons.chevron_right_rounded, color: widget.palette.mutedInk),
+        ],
+      ),
+    );
+  }
 }
 
 class _AttackSetup extends StatelessWidget {

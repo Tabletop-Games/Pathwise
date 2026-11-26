@@ -106,7 +106,9 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
       _ => null,
     };
     if (expected != null && issue?.reason == expected && !rejected) {
-      setState(() => rejected = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !rejected) setState(() => rejected = true);
+      });
     }
     return issue;
   }

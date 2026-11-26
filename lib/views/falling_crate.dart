@@ -9,6 +9,7 @@ import '../model/app_model.dart';
 import '../model/progression.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../viewmodels/crate_viewmodel.dart';
 
 class FallingCrate extends StatefulWidget {
   const FallingCrate({required this.crate, super.key});
@@ -129,38 +130,28 @@ class _CrateRewardState extends State<_CrateReward> {
     if (_busy) return;
     final ads = context.read<AdService>();
     final model = context.read<AppModel>();
+    final vm = CrateViewModel(model: model, ads: ads);
     setState(() {
       _busy = true;
       _error = null;
     });
-    if (!ads.readyFor(RewardPlacement.crate)) {
-      await ads.prepare(canPresent: _current);
+    var result = (shown: false, claimed: false);
+    try {
+      result = await vm.claimWithVideo(widget.crate, canPresent: _current);
+    } finally {
+      if (mounted && !result.claimed && model.fallingCrate == widget.crate) {
+        setState(() {
+          _busy = false;
+          _error = result.shown
+              ? 'Video ended without a reward. Try again.'
+              : 'Video unavailable. Try again.';
+        });
+      }
     }
-    if (!_current()) return;
-    var accepting = true;
-    var credited = false;
-    final shown = await ads.watchVideo(
-      (receipt) async {
-        if (!accepting || !_current()) return false;
-        credited = await model.claimVerifiedCrate(widget.crate, receipt);
-        return credited;
-      },
-      placement: RewardPlacement.crate,
-      canPresent: _current,
-      waitForReward: true,
-    );
-    accepting = false;
-    if (!_current()) return;
-    if (credited || model.fallingCrate != widget.crate) {
+    if (!mounted) return;
+    if (result.claimed || model.fallingCrate != widget.crate) {
       Navigator.of(context).pop();
-      return;
     }
-    setState(() {
-      _busy = false;
-      _error = shown
-          ? 'Video ended without a reward. Try again.'
-          : 'Video unavailable. Try again.';
-    });
   }
 
   @override

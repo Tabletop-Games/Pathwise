@@ -119,7 +119,7 @@ CloudSaveProvider cloudProviderFor(KeyValueStore store) {
   if (defaultTargetPlatform != TargetPlatform.android) {
     return const UnsupportedCloudSaves();
   }
-  if (PlayGames.enabled) return PlayGamesCloudSaves();
+  if (PlayGames.enabled) return PlayGamesCloudSaves(enabled: PlayGames.enabled);
   if (kReleaseMode) return const UnsupportedCloudSaves();
   return FakeCloudSaves(store: store, key: 'pathwise.debug.fakecloud.v1');
 }
@@ -140,16 +140,21 @@ class AppSession extends ChangeNotifier {
   }
 
   /// Replaces the device save with [payload] and rebuilds the app on it.
-  Future<void> replaceModel(Map<String, dynamic> payload) async {
+  Future<bool> replaceModel(Map<String, dynamic> payload) async {
     final old = _model;
     final next = buildModel(payload);
+    final saved = await next.flush();
+    if (!saved) {
+      next.dispose();
+      return false;
+    }
     _model = next;
     generation++;
-    await next.flush();
     notifyListeners();
     if (old != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     }
+    return true;
   }
 }
 
@@ -348,8 +353,11 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _model = context.read<AppModel>();
-    _achievements = AchievementSync(_model);
     final connectivity = widget.connectivity;
+    _achievements = AchievementSync(
+      _model,
+      isConnected: connectivity == null ? null : () => connectivity.online,
+    );
     _ads = AdService(
       reserveInterstitial: _model.reserveAutomaticAd,
       onRewardedClosed: _model.recordRewardedAdExit,

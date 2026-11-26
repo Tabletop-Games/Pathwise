@@ -57,10 +57,13 @@ class _ConnectionGateState extends State<ConnectionGate> {
     final theme = context.select((AppModel model) => model.theme);
 
     if (state == ConnectivityState.online) {
-      if (_visible) {
+      if (_visible || _shownForOfflinePeriod) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          setState(() => _visible = false);
+          setState(() {
+            _visible = false;
+            _shownForOfflinePeriod = false;
+          });
         });
       }
     } else if (state == ConnectivityState.offline &&

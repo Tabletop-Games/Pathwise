@@ -146,7 +146,10 @@ final class GameAssetCache extends ChangeNotifier {
 
   /// Evicts Journey-specific terrain and prop textures when leaving the Journey
   /// screen so decoded bitmaps do not remain pinned across other views.
+  int _journeyGeneration = 0;
+
   void evictJourneyAssets() {
+    _journeyGeneration++;
     final keys = <String>[
       for (final biome in BiomeKind.values) journeyTerrainPath(biome),
       ...journeyPropPaths,
@@ -157,11 +160,16 @@ final class GameAssetCache extends ChangeNotifier {
     }
   }
 
+  static bool _isJourneyAsset(String assetPath) =>
+      assetPath.startsWith('assets/art/biomes/') ||
+      assetPath.startsWith('assets/art/journey/');
+
   Future<void> _load(
     String assetPath, {
     int? targetWidth,
     int? targetHeight,
   }) async {
+    final generation = _isJourneyAsset(assetPath) ? _journeyGeneration : -1;
     try {
       final data = await rootBundle.load(assetPath);
       final codec = await ui.instantiateImageCodec(
@@ -170,8 +178,12 @@ final class GameAssetCache extends ChangeNotifier {
         targetHeight: targetHeight,
       );
       final frame = await codec.getNextFrame();
-      _images[assetPath] = frame.image;
       codec.dispose();
+      if (generation != -1 && generation != _journeyGeneration) {
+        frame.image.dispose();
+        return;
+      }
+      _images[assetPath] = frame.image;
       notifyListeners();
     } catch (_) {
       // Headless unit tests without asset bundle fall back to vector painters.

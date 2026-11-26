@@ -1,17 +1,185 @@
-# Architecture
+# Pathwise Architecture
 
-The Flutter app uses Provider over an application state model. `Puzzle` defines the grid and enabled movement rules. `GameController` owns route edits, stroke grouping, completion and hint highlighting. `puzzle_solver.dart` independently certifies uniqueness. Generation runs in an isolate. Views delegate progression and accounting to `AppModel`. Path drawing repaints the board without rebuilding the progression screens for each pointer update.
+Pathwise is a local-first, offline-capable Android route-drawing puzzle built with Flutter and `Provider`. This document describes the target MVVM architecture, dependency boundaries, state ownership, transaction integrity, persistence/cloud sync, and practical development rules.
 
-`AppModel` coordinates Levels, Daily Challenge and Time Attack play. Daily uses local calendar dates and saves gates between three boards. Time Attack uses native elapsed time and boot identity, which includes time in the background. A different boot expires a resumed run.
+For the repository-wide baseline audit and itemized findings, see [architecture-audit.md](architecture-audit.md).
 
-The app is online-first. `ConnectivityService` (`lib/logic/connectivity_service.dart`) reports whether a Google connectivity endpoint answers, and `ConnectionGate` covers the app while it does not. `AppModel` pauses play and refuses new puzzles while offline. See [connectivity](connectivity.md).
+---
 
-The device save (`pathwise.save.v1`, schema 13) is the working copy: route, results, ledger, unlocks, timer state, boosts, crate eligibility, hint state and achievement progress are written together by a queued snapshot writer. Each completed write is also offered to `CloudSyncService`, which keeps the Play Games Saved Game in step. The cloud copy is versioned, digest-checked and compared with the last agreed state before anything is replaced. See [cloud saves](cloud-saves.md). Debug builds use `.debug` keys.
+## 1. Overall Architecture
 
-`BoardPalette` supplies app and board roles. Themes lets players preview a palette without buying or equipping it. The Store owns localized purchases and rewarded coin offers; Wallet owns the balance and transaction history; Settings owns privacy and consent controls. The 23 themes share system controls, gameplay feedback and progress layouts.
+Pathwise is organized into five strict layers:
 
-The schema 9 migration keeps wallet balances, purchased themes, completed levels, Daily and Time Attack history, the historical hint tank, and lifetime counters from removed modes. Retired Research and unused boost purchases are refunded once from recorded ledger prices. Historical reward credits remain part of the balance. Obsolete run data is ignored.
+1. **Views (`lib/views/`, `lib/ui/`)**: Declarative Flutter widgets, `CustomPainter`s, gesture collection, animations, accessibility, and palette application. Views delegate user intentions to ViewModels and observe state via `Provider` (`context.select`, `ValueListenableBuilder`, scoped tickers).
+2. **ViewModels (`lib/viewmodels/`)**: Presentation-ready, widget-free coordinators (`StoreViewModel`, `ProgressionViewModel`, `FortuneViewModel`, `JourneyViewModel`, `StreakViewModel`, `GameplayViewModel`, `HomeViewModel`, `CrateViewModel`) that process user intentions, format presentation state, and coordinate `AppModel` with external services.
+3. **Application State & Persistence Coordinator (`lib/model/app_model.dart`)**: Single coherent source of truth for shared player state (`Wallet`, `Progression`, `PlayStreak`, `UserPreferences`, `AchievementLedger`, results, unlocks, cosmetics, entitlements) and atomic snapshot persistence (`flush()`).
+4. **Domain & Pure Logic (`lib/model/`, `lib/logic/puzzle*.dart`, `lib/logic/game_controller.dart`, `lib/logic/star_rating.dart`, `lib/logic/mechanic_tutorials.dart`, `lib/logic/ad_frequency.dart`, `lib/cloud/cloud_save_format.dart`)**: Pure Dart rules for puzzle generation/solving, route validation, Economy 2.0 payouts, star ratings, and cloud sync planning.
+5. **Repositories & Infrastructure Services (`lib/logic/game_state_storage.dart`, `lib/cloud/`, `lib/logic/ad_service.dart`, `lib/logic/billing_service.dart`, `lib/logic/connectivity_service.dart`, `lib/logic/achievement_sync.dart`, `lib/logic/attack_clock.dart`, `lib/logic/play_games.dart`, `lib/logic/update_service.dart`)**: Local storage, Play Games Saved Games, AdMob, Google Play Billing, connectivity probing, native elapsed clock, and Play In-App Updates.
 
-Schema 11 moves hints into a single wallet, keeps existing coin transactions and entitlements, and records new streak data and placement quotas. Debug builds use a separate preference key.
+```mermaid
+flowchart TD
+    V["Views & Painters (lib/views, lib/ui)"] --> VM["Feature ViewModels (lib/viewmodels)"]
+    VM --> AM["AppModel (Shared Player State & Snapshot Writer)"]
+    VM --> SVC["Infrastructure Services (Ads, Billing, Connectivity, PlayGames, Updates)"]
+    AM --> DOM["Pure Domain & Rules (lib/model, Puzzle, Solver, Generator)"]
+    AM --> REPO["Persistence & Sync (GameStateStorage, CloudSyncService)"]
+    REPO --> PLAT["Android Platform Channels & Plugins"]
+    SVC --> PLAT
+```
 
-Advanced Levels add walls and value-bearing tile rules. The solver uses the same movement predicate as gesture handling. Restored older attempts retain their original board seeds and rules.
+---
+
+## 2. Dependency Direction
+
+- **Inward-only dependencies**: Views depend on ViewModels, `AppModel`, and UI helpers; ViewModels depend on `AppModel` and service interfaces; `AppModel` depends on domain models and storage/connectivity abstractions; pure domain models and `cloud_save_format.dart` have **zero** Flutter UI or platform dependencies.
+- **No upward dependencies**: `lib/logic/` never imports `lib/views/`, `lib/ui/`, or `AppModel` (e.g., `AchievementSync` depends on `AchievementSyncTarget`, not `AppModel`). `lib/cloud/` never imports `lib/logic/` or `lib/model/`.
+- **Automated enforcement**: `test/architecture_boundaries_test.dart` verifies import boundaries on every CI run.
+
+```mermaid
+flowchart LR
+    Views["lib/views"] --> ViewModels["lib/viewmodels"]
+    Views --> UI["lib/ui"]
+    ViewModels --> AppModel["lib/model/app_model.dart"]
+    ViewModels --> Services["lib/logic/*_service.dart"]
+    AppModel --> Domain["Pure Domain (lib/model, puzzle*)"]
+    AppModel --> Storage["GameStateStorage"]
+    CloudSync["lib/cloud/cloud_sync_service.dart"] --> CloudFmt["cloud_save_format.dart"]
+    CloudSync --> CloudProv["cloud_save_provider.dart"]
+    Services --> Domain
+```
+
+---
+
+## 3. State Ownership & Initialization
+
+- **Application Initialization (`lib/main.dart`)**:
+  - `main()` configures `PaintingBinding.instance.imageCache` (48 MiB / 200 entries), registers licenses, constructs `GameStateStorage`, `AttackClock`, `ConnectivityService`, `PreferencesKeyValueStore`, and `AppSession` (owning `CloudSyncService` and `AppModel`).
+  - On Android, native launch screen stays visible while `initialize()` syncs `AttackClock` and loads `pathwise.save.v1` (schema 16).
+  - `PathwiseRoot` provides `AppModel`, `ConnectivityService`, and `CloudSyncService`, and `PathwiseApp` provides `BillingService`, `AdService`, and `AchievementSync`.
+- **Single Source of Truth**:
+  - `AppModel` owns the authoritative in-memory `Wallet`, `Progression`, `PlayStreak`, hints, cosmetics, entitlements, and puzzle results. ViewModels never duplicate mutable balances or entitlements.
+  - `AppSession.replaceModel(payload)` flushes the restored snapshot first and only swaps the active `AppModel` if `flush()` succeeds, disposing the previous `AppModel` post-frame.
+
+---
+
+## 4. Gameplay Completion & Reward Flow
+
+`Puzzle` defines grid topology and movement rules; `GameController` owns route edits, undo history, and hint highlights; `puzzle_solver.dart` certifies uniqueness in an isolate (`compute`). `PuzzleBoard` separates rendering into `board-layer`, `pointer-layer` (`_TipPainter` driven by `TipTracker` without `rejection` repaints), and `rejection-layer`.
+
+```mermaid
+sequenceDiagram
+    participant U as Player
+    participant PB as PuzzleBoard (View)
+    participant AM as AppModel
+    participant GC as GameController
+    participant ST as GameStateStorage
+    participant CS as CloudSyncService
+
+    U->>PB: Drag / Tap tile
+    PB->>AM: begin(cell) / step(cell)
+    AM->>GC: step(cell)
+    GC-->>AM: RouteEdit.advance (complete == true)
+    AM->>AM: Rate stars, compute Economy 2.0 coins, advance Journey/Streak
+    AM->>AM: _wallet.add('clear/...') + _awardAchievements()
+    AM->>ST: flush() -> atomic JSON snapshot save
+    ST-->>AM: saved == true
+    AM-->>CS: onPersisted(decodedSnapshotCopy)
+    AM-->>PB: notifyListeners()
+```
+
+---
+
+## 5. Purchase & Transaction Flow
+
+All coin debits, ad rewards, and Google Play purchases use stable, idempotent ledger IDs (`purchase/<sha256>`, `ad/<id>`, `crate-ad/<receipt>`, `journey/multiplier/<level>`, `tip/<name>`, `theme/<name>`). Async ad/purchase mutations roll back in-memory state if `flush()` fails, and `applyVerifiedPurchase` rejects mutations when `storageError` is active.
+
+```mermaid
+sequenceDiagram
+    participant V as StoreView
+    participant VM as StoreViewModel
+    participant BS as BillingService
+    participant CS as CloudSyncService
+    participant AM as AppModel
+
+    V->>VM: buyPack(product)
+    VM->>BS: buy(product)
+    BS->>CS: readyForConsumable() -> prepareForPurchase()
+    CS-->>BS: signedIn & synced
+    BS->>BS: Google Play sheet + RSA verifyPlayPurchase()
+    BS->>AM: applyVerifiedPurchase(grant, coins, entitlements)
+    AM->>AM: flush() (rollback if storage fails)
+    AM-->>BS: persisted == true
+    BS->>CS: beforeConsume() -> syncNow()
+    BS->>BS: consumePurchase() / completePurchase()
+```
+
+---
+
+## 6. Local Persistence & Cloud Synchronization
+
+The device save (`pathwise.save.v1`, schema 16) is authoritative for offline gameplay. `CloudSyncService` runs serialized passes (`_lock`), compares `economyDigest` and `payloadDigest` against `CloudBase`, merges only `progressKeys` automatically, and prompts the player via `CloudChoiceWatcher` when both devices modified economy.
+
+```mermaid
+flowchart TD
+    L["Local Mutation (AppModel.flush)"] --> S["GameStateStorage.save (SharedPreferencesAsync)"]
+    S -->|success| P["onPersisted(decodedCopy)"]
+    P --> CS["CloudSyncService.localChanged"]
+    CS -->|economy changed| U["2s Urgent Sync"]
+    CS -->|progress only| D["20s Debounced Sync"]
+    U --> PASS["Serialized Sync Pass (_lock)"]
+    D --> PASS
+    PASS --> PLAN{"planSync(base, local, remote)"}
+    PLAN -->|PlanNone| IDLE["Mark Synced & Idle"]
+    PLAN -->|PlanUpload| UP["Write CloudEnvelope v5"]
+    PLAN -->|PlanApply| APP["Backup Local -> AppSession.replaceModel"]
+    PLAN -->|PlanAskUser| CONF["CloudSyncStatus.conflict -> Player Choice"]
+```
+
+---
+
+## 7. View-to-ViewModel Interaction
+
+Views forward user actions to feature ViewModels and render typed results without embedding economy formulas or SDK calls. High-frequency timers (e.g., Fortune Wheel cooldown, active boost countdowns) are isolated to leaf `StatefulWidget`s (`_WheelCard`, `_WheelSpinButton`, `_ActiveBoostTicker`).
+
+```mermaid
+sequenceDiagram
+    participant V as StoreView / ProgressionView / FortuneView
+    participant VM as Feature ViewModel
+    participant AM as AppModel
+    participant AD as AdService
+
+    V->>VM: User intent (e.g. buyTheme / watchCoinVideo / spinRewarded)
+    alt Coin Purchase
+        VM->>AM: Check balance & execute domain mutation
+        AM-->>VM: bool success
+        VM-->>V: Typed Result (Success / InsufficientCoins / Failed)
+    else Rewarded Video
+        VM->>AD: prepare() / watchVideo(rewardCallback)
+        AD->>AM: rewardCallback(receipt) -> flush()
+        AM-->>AD: bool persisted
+        AD-->>VM: bool granted && persisted
+        VM-->>V: Typed Result -> Snackbar / Dialog
+    end
+```
+
+---
+
+## 8. Navigation, Lifecycle & Performance Boundaries
+
+- **Lifecycle**: `PathwiseRoot` observes `AppLifecycleState` to pause/resume `ConnectivityService` and trigger `cloud.syncNow()` on backgrounding. `PathwiseApp` manages `AttackClock` sync, `AchievementSync.foreground`, and midnight `dayCheck`.
+- **Android-only**: Dormant iOS/StoreKit code is prohibited (`test/architecture_boundaries_test.dart` enforces this).
+- **Performance**:
+  - `PuzzleBoard` isolates pointer motion in `_TipPainter` and rejection flashes in `_RejectionPainter`.
+  - `GameAssetCache` bounds image memory and guards Journey evictions with a generation counter so late in-flight decodes cannot leak back into cache.
+  - Journey node sprites use `cacheWidth` to cap decoded bitmap memory.
+
+---
+
+## 9. Practical Rules for Future Development
+
+1. **Never put business rules, shortfall math, or SDK orchestration in `lib/views/`**. Add methods to the appropriate `lib/viewmodels/*_viewmodel.dart` and keep ViewModels `BuildContext`-free.
+2. **Never add Flutter UI or `AppModel` imports to `lib/model/` (except `app_model.dart`/`app_themes.dart`), `lib/cloud/`, or `lib/logic/`**. Run `flutter test test/architecture_boundaries_test.dart` to verify.
+3. **Preserve `AppModel` as the single source of truth** for balances, inventory, cosmetics, and entitlements. Never copy mutable balances into ViewModels.
+4. **Keep async transactions atomic**: any new `AppModel` reward or purchase persisted via `flush()` must guard against `storageError` and roll back in-memory mutations if `flush()` fails.
+5. **Scope timers and `context.select` to leaf widgets** so countdowns and pointer updates never rebuild entire screens.
+6. **Guard every `await` in `State` classes** with `if (!mounted) return;` and reset `_busy` flags in `try/finally`.

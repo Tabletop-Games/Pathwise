@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../logic/achievement_sync.dart';
 import '../logic/connectivity_service.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
@@ -29,7 +30,7 @@ typedef PuzzleLoader = Future<VerifiedPuzzle> Function(
 );
 
 class AppModel extends ChangeNotifier
-    implements BoardControls, RejectionControls {
+    implements BoardControls, RejectionControls, AchievementSyncTarget {
   AppModel({
     required this.storage,
     required Map<String, dynamic> snapshot,
@@ -690,15 +691,34 @@ class AppModel extends ChangeNotifier
   Future<bool> grantBoostAd(Boost item, String event) async {
     if (!onlineReady) return false;
     if (!canEarnBoostAd(item) || !_hintEvents.add(event)) return false;
-    _boostAdDays['${item.name}/$event'] = todayKey;
+    final key = '${item.name}/$event';
+    final prevDay = _boostAdDays[key];
+    final prevLastDay = _lastRewardedDay;
+    final prevCount = progression.inventory[item.name];
+    _boostAdDays[key] = todayKey;
     _markRewardDay(todayKey);
     progression.inventory.update(
       item.name,
       (count) => count + 1,
       ifAbsent: () => 1,
     );
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _hintEvents.remove(event);
+      if (prevDay == null) {
+        _boostAdDays.remove(key);
+      } else {
+        _boostAdDays[key] = prevDay;
+      }
+      _lastRewardedDay = prevLastDay;
+      if (prevCount == null) {
+        progression.inventory.remove(item.name);
+      } else {
+        progression.inventory[item.name] = prevCount;
+      }
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   bool buyBoost(Boost item) {
@@ -780,6 +800,7 @@ class AppModel extends ChangeNotifier
 
   Future<bool> claimVerifiedCrate(Crate crate, String receipt) async {
     if (!onlineReady) return false;
+    final walletSnap = _wallet.snapshot();
     if (_disposed ||
         !_crateRevealed ||
         _fallingCrate != crate ||
@@ -793,6 +814,8 @@ class AppModel extends ChangeNotifier
         )) {
       return false;
     }
+    final prevLegendary = progression.legendary;
+    final prevAchRev = achievementRevision;
     _fallingCrate = null;
     _crateRevealed = false;
     activity.event(EconomyEvent.crateCollected, coinBalance);
@@ -803,11 +826,19 @@ class AppModel extends ChangeNotifier
     _awardAchievements();
     _processCrates();
     final saved = await flush();
+    if (!saved) {
+      _wallet.restore(walletSnap);
+      progression.legendary = prevLegendary;
+      achievementRevision = prevAchRev;
+      _fallingCrate = crate;
+      _crateRevealed = true;
+      return false;
+    }
     if (!_disposed) {
-      if (saved) haptic.complete();
+      haptic.complete();
       notifyListeners();
     }
-    return saved;
+    return true;
   }
 
   void _progressionChanged() {
@@ -877,29 +908,48 @@ class AppModel extends ChangeNotifier
       hintAdsToday < economy.hintAdsPerDay;
 
   Future<bool> buyHint() async {
-    if (_disposed ||
-        storageError ||
-        !_wallet.add(
-          'hint/purchase/$_hintPurchaseSerial',
-          'Hint',
-          -economy.hintPrice,
-          _today(),
-        ))
+    if (_disposed || storageError) return false;
+    final walletSnap = _wallet.snapshot();
+    if (!_wallet.add(
+      'hint/purchase/$_hintPurchaseSerial',
+      'Hint',
+      -economy.hintPrice,
+      _today(),
+    ))
       return false;
     _hintPurchaseSerial++;
     _hintBalance++;
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _wallet.restore(walletSnap);
+      _hintPurchaseSerial--;
+      _hintBalance--;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   Future<bool> grantHintAd(String event) async {
     if (!onlineReady) return false;
     if (!canEarnHintAd || !_hintEvents.add(event)) return false;
+    final prevDay = _hintAdDays[event];
+    final prevLastDay = _lastRewardedDay;
     _hintAdDays[event] = todayKey;
     _markRewardDay(todayKey);
     _hintBalance++;
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _hintEvents.remove(event);
+      if (prevDay == null) {
+        _hintAdDays.remove(event);
+      } else {
+        _hintAdDays[event] = prevDay;
+      }
+      _lastRewardedDay = prevLastDay;
+      _hintBalance--;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   final Map<String, String> _tutorialStatus = {};
@@ -1061,6 +1111,7 @@ class AppModel extends ChangeNotifier
 
   Future<bool> claimChapter(int chapter) async {
     if (_disposed || storageError || !chapterReady(chapter)) return false;
+    final walletSnap = _wallet.snapshot();
     if (!_wallet.add(
       'journey/chapter/$chapter',
       'Chapter treasure',
@@ -1070,8 +1121,14 @@ class AppModel extends ChangeNotifier
       return false;
     _chapterChests.remove(chapter);
     _hintBalance += chapterRewardHints;
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _wallet.restore(walletSnap);
+      _chapterChests.add(chapter);
+      _hintBalance -= chapterRewardHints;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   int _journeyClears = 0;
@@ -1233,6 +1290,12 @@ class AppModel extends ChangeNotifier
     if (_disposed || storageError) return false;
     if (_claimedMysteries.contains(offer.number)) return false;
     final resolved = displayedDiscovery(offer);
+    final walletSnap = _wallet.snapshot();
+    final prevBoostCount = resolved.boost != null
+        ? progression.inventory[resolved.boost!.name]
+        : null;
+    final prevLatest = latestDiscovery;
+    final prevClaimed = latestDiscoveryClaimed;
     if (resolved.isCoins) {
       final txId = 'journey/mystery/${resolved.number}';
       if (!_wallet.add(txId, 'Mystery reward', resolved.coinAmount, _today())) {
@@ -1253,13 +1316,32 @@ class AppModel extends ChangeNotifier
       return false;
     }
     _claimedMysteries.add(offer.number);
-    if (eventId != null) _hintEvents.add(eventId);
+    final addedEvent = eventId != null && _hintEvents.add(eventId);
     if (latestDiscovery?.number == offer.number) {
       latestDiscovery = resolved;
       latestDiscoveryClaimed = true;
     }
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _wallet.restore(walletSnap);
+      if (resolved.boost case final boost?) {
+        if (prevBoostCount == null) {
+          progression.inventory.remove(boost.name);
+        } else {
+          progression.inventory[boost.name] = prevBoostCount;
+        }
+      } else if (resolved.tip case final tip?) {
+        _ownedTips.remove(tip);
+      } else if (resolved.theme case final theme?) {
+        _owned.remove(theme);
+      }
+      _claimedMysteries.remove(offer.number);
+      if (addedEvent) _hintEvents.remove(eventId);
+      latestDiscovery = prevLatest;
+      latestDiscoveryClaimed = prevClaimed;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   void skipLatestDiscovery() {
@@ -1537,13 +1619,22 @@ class AppModel extends ChangeNotifier
         !_hintEvents.add(id)) {
       return null;
     }
+    final prevVideos = List<BootTime>.of(_wheelVideos);
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
     _pendingFortune = (id: id, prize: prize);
     _wheelVideos.removeWhere((stamp) => !_activeWheelVideo(stamp, now));
     _wheelVideos.add(now);
     final saved = await flush();
+    if (!saved) {
+      _hintEvents.remove(id);
+      _pendingFortune = null;
+      _wheelVideos
+        ..clear()
+        ..addAll(prevVideos);
+      return null;
+    }
     if (!_disposed) notifyListeners();
-    return saved ? prize : null;
+    return prize;
   }
 
   Future<FortunePrize?> spinFreeFortune(
@@ -1646,9 +1737,11 @@ class AppModel extends ChangeNotifier
     if (!onlineReady) return false;
     if (_disposed || !canEarnAdBonus) return false;
     final now = _today();
-    final milestone = 'ad-milestone/${dayKey(now)}';
+    final day = dayKey(now);
+    final milestone = 'ad-milestone/$day';
     final earnsMilestone =
         adsToday + 1 == economy.coinAdMilestone && !_wallet.contains(milestone);
+    final walletSnap = _wallet.snapshot();
     if (!_wallet.add(
       'ad/$id',
       'Optional video bonus',
@@ -1657,8 +1750,10 @@ class AppModel extends ChangeNotifier
     )) {
       return false;
     }
-    _coinAdDays[id] = dayKey(now);
-    _markRewardDay(dayKey(now));
+    final prevDay = _coinAdDays[id];
+    final prevLastDay = _lastRewardedDay;
+    _coinAdDays[id] = day;
+    _markRewardDay(day);
     if (earnsMilestone) {
       _wallet.add(
         milestone,
@@ -1667,8 +1762,18 @@ class AppModel extends ChangeNotifier
         now,
       );
     }
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _wallet.restore(walletSnap);
+      if (prevDay == null) {
+        _coinAdDays.remove(id);
+      } else {
+        _coinAdDays[id] = prevDay;
+      }
+      _lastRewardedDay = prevLastDay;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   Future<String?> billingProfile() async {
@@ -1688,8 +1793,15 @@ class AppModel extends ChangeNotifier
     bool removeAds = false,
     bool bundle = false,
   }) async {
-    if (_disposed || (coins <= 0 && !themes && !removeAds && !bundle))
+    if (_disposed ||
+        storageError ||
+        (coins <= 0 && !themes && !removeAds && !bundle)) {
       return false;
+    }
+    final prevThemePass = _themePass;
+    final prevRemoveAds = _removeAds;
+    final prevPremium = _premium;
+    final walletSnap = _wallet.snapshot();
     if (themes) _themePass = true;
     if (removeAds) _removeAds = true;
     if (bundle) {
@@ -1704,8 +1816,15 @@ class AppModel extends ChangeNotifier
     if (coins > 0)
       _wallet.add('purchase/$grant', 'Google Play coin pack', coins, _today());
     _awardAchievements();
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _themePass = prevThemePass;
+      _removeAds = prevRemoveAds;
+      _premium = prevPremium;
+      _wallet.restore(walletSnap);
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   void _awardAchievements() {
@@ -1790,6 +1909,7 @@ class AppModel extends ChangeNotifier
     if (_disposed || storageError) return false;
     final before = streak.checkedThrough;
     streak.reconcile(todayKey);
+    final walletSnap = _wallet.snapshot();
     if (streak.freezes >= economy.maxFreezes ||
         !_wallet.add(
           'freeze/$_freezeSerial',
@@ -1805,8 +1925,14 @@ class AppModel extends ChangeNotifier
     }
     _freezeSerial++;
     streak.freezes++;
-    notifyListeners();
-    return flush();
+    if (!await flush()) {
+      _wallet.restore(walletSnap);
+      _freezeSerial--;
+      streak.freezes--;
+      return false;
+    }
+    if (!_disposed) notifyListeners();
+    return true;
   }
 
   int get dailyStreak {
@@ -2313,7 +2439,7 @@ class AppModel extends ChangeNotifier
     _pendingWrite = _pendingWrite.then((_) async {
       try {
         await storage.save(payload);
-        onPersisted?.call(snapshot);
+        onPersisted?.call(jsonDecode(payload) as Map<String, dynamic>);
         if (storageError && !_disposed) {
           storageError = false;
           notifyListeners();

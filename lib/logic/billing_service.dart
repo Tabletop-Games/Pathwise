@@ -73,7 +73,6 @@ class BillingService extends ChangeNotifier {
     'PATHWISE_PLAY_BILLING_PUBLIC_KEY',
   );
   bool get _android => defaultTargetPlatform == TargetPlatform.android;
-  String get _storeName => _android ? 'Google Play' : 'the App Store';
   final _retry = <String, PurchaseDetails>{};
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   Future<void> _queue = Future.value();
@@ -84,8 +83,8 @@ class BillingService extends ChangeNotifier {
 
   bool get enabled =>
       const bool.fromEnvironment('PATHWISE_BILLING_ENABLED') &&
-      ((_android && _playKey.isNotEmpty) ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      _android &&
+      _playKey.isNotEmpty;
   bool get buying => _buying;
 
   Future<void> start() async {
@@ -96,7 +95,7 @@ class BillingService extends ChangeNotifier {
       _receive,
       onError: (Object _) {
         _buying = false;
-        _report('$_storeName is temporarily unavailable.');
+        _report('Google Play is temporarily unavailable.');
       },
     );
     await refreshCatalog();
@@ -139,7 +138,7 @@ class BillingService extends ChangeNotifier {
     try {
       final store = InAppPurchase.instance;
       if (!await store.isAvailable()) {
-        _report('$_storeName is unavailable on this device.');
+        _report('Google Play is unavailable on this device.');
         return;
       }
       final response = await store.queryProductDetails(
@@ -159,31 +158,41 @@ class BillingService extends ChangeNotifier {
   }
 
   Future<void> buy(ProductDetails product) async {
-    if (!enabled || buying || !products.contains(product)) return;
+    if (!enabled || buying || _disposed || !products.contains(product)) return;
     if (canPurchase != null && !canPurchase!()) {
       _report('Connect to the internet to buy.');
       return;
     }
+    _buying = true;
     if (consumable(product.id) && readyForConsumable != null) {
-      final ready = await readyForConsumable!();
-      if (!ready) {
+      try {
+        final ready = await readyForConsumable!();
+        if (_disposed) {
+          _buying = false;
+          return;
+        }
+        if (!ready) {
+          _buying = false;
+          _report(
+            'Sign in to Google Play Games and sync your progress before buying coins. Your purchases are then protected.',
+          );
+          return;
+        }
+      } catch (_) {
+        _buying = false;
         _report(
           'Sign in to Google Play Games and sync your progress before buying coins. Your purchases are then protected.',
         );
         return;
       }
     }
-    _buying = true;
-    _report('Opening $_storeName…');
+    _report('Opening Google Play…');
     try {
       final param = PurchaseParam(productDetails: product);
       final store = InAppPurchase.instance;
       final sent = !consumable(product.id)
           ? await store.buyNonConsumable(purchaseParam: param)
-          : await store.buyConsumable(
-              purchaseParam: param,
-              autoConsume: !_android,
-            );
+          : await store.buyConsumable(purchaseParam: param, autoConsume: false);
       if (!sent) throw StateError('Purchase sheet unavailable');
     } catch (_) {
       _buying = false;
@@ -193,13 +202,14 @@ class BillingService extends ChangeNotifier {
 
   Future<void> restore() async {
     if (!enabled || _disposed || buying) return;
-    _report('Checking purchases with $_storeName…');
+    _report('Checking purchases with Google Play…');
     try {
       for (final purchase in _retry.values.toList()) {
         _receive([purchase]);
       }
       await InAppPurchase.instance.restorePurchases();
-      if (message == 'Checking purchases with $_storeName…') {
+      await reconcileEntitlements();
+      if (message == 'Checking purchases with Google Play…') {
         _report('Restore requested. Verified purchases will appear here.');
       }
     } catch (_) {
@@ -209,90 +219,88 @@ class BillingService extends ChangeNotifier {
 
   void _receive(List<PurchaseDetails> purchases) {
     for (final purchase in purchases) {
-      _queue = _queue.then((_) => _handle(purchase));
+      _queue = _queue.then((_) => _handle(purchase)).catchError((Object _) {
+        _buying = false;
+      });
     }
   }
 
   Future<void> _handle(PurchaseDetails purchase) async {
-    if (_disposed || !storeProducts.containsKey(purchase.productID)) return;
-    final token = _android
-        ? purchase.verificationData.serverVerificationData
-        : (purchase.purchaseID ?? '');
-    final outcome = await processPurchase(
-      status: purchase.status,
-      verify: () => _verify(purchase, token),
-      persist: persist,
-      finalize: () async {
-        final store = InAppPurchase.instance;
-        if (_android && consumable(purchase.productID)) {
-          try {
-            await beforeConsume?.call();
-          } catch (_) {
-            // Sync is retried later. The local grant is already saved.
-          }
-          final result = await store
-              .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
-              .consumePurchase(purchase);
-          if (result.responseCode != BillingResponse.ok &&
-              result.responseCode != BillingResponse.itemNotOwned) {
-            throw StateError('Google Play could not consume the purchase');
-          }
-        } else if (purchase.pendingCompletePurchase) {
-          await store.completePurchase(purchase);
-        }
-      },
-    );
-    _buying = false;
-    if (outcome == BillingOutcome.retry && token.isNotEmpty) {
-      _retry[token] = purchase;
-    } else {
-      _retry.remove(token);
+    if (_disposed) return;
+    if (!storeProducts.containsKey(purchase.productID)) {
+      _buying = false;
+      notifyListeners();
+      return;
     }
-    _report(switch (outcome) {
-      BillingOutcome.pending => 'Payment is pending in $_storeName.',
-      BillingOutcome.canceled => 'Purchase canceled.',
-      BillingOutcome.rejected => 'The store could not verify this purchase.',
-      BillingOutcome.retry => 'Purchase is awaiting verification or delivery. Use Restore purchases to retry.',
-      BillingOutcome.complete => 'Verified purchase applied.',
-    });
+    final token = purchase.verificationData.serverVerificationData;
+    try {
+      final outcome = await processPurchase(
+        status: purchase.status,
+        verify: () => _verify(purchase, token),
+        persist: persist,
+        finalize: () async {
+          final store = InAppPurchase.instance;
+          if (consumable(purchase.productID)) {
+            try {
+              await beforeConsume?.call();
+            } catch (_) {
+              // Sync is retried later. The local grant is already saved.
+            }
+            final result = await store
+                .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
+                .consumePurchase(purchase);
+            if (result.responseCode != BillingResponse.ok &&
+                result.responseCode != BillingResponse.itemNotOwned) {
+              throw StateError('Google Play could not consume the purchase');
+            }
+          } else if (purchase.pendingCompletePurchase) {
+            await store.completePurchase(purchase);
+          }
+        },
+      );
+      _buying = false;
+      if (outcome == BillingOutcome.retry && token.isNotEmpty) {
+        _retry[token] = purchase;
+      } else {
+        _retry.remove(token);
+      }
+      _report(switch (outcome) {
+        BillingOutcome.pending => 'Payment is pending in Google Play.',
+        BillingOutcome.canceled => 'Purchase canceled.',
+        BillingOutcome.rejected => 'The store could not verify this purchase.',
+        BillingOutcome.retry => 'Purchase is awaiting verification or delivery. Use Restore purchases to retry.',
+        BillingOutcome.complete => 'Verified purchase applied.',
+      });
+    } finally {
+      _buying = false;
+    }
   }
 
   Future<VerifiedGrant?> _verify(PurchaseDetails purchase, String token) async {
     if (_disposed || token.isEmpty) return null;
     final product = purchase.productID;
     const package = 'com.shenmareparas.pathwise';
-    final bool? valid;
-    if (_android && purchase is GooglePlayPurchaseDetails) {
-      final data = purchase.billingClientPurchase;
-      if (data.purchaseState != PurchaseStateWrapper.purchased ||
-          data.packageName != package ||
-          data.purchaseToken != token ||
-          data.products.length != 1 ||
-          data.products.single != product) {
-        return null;
-      }
-      valid = await _commerce
-          .invokeMethod<bool>('verifyPlayPurchase', {
-            'key': _playKey,
-            'data': data.originalJson,
-            'signature': data.signature,
-          })
-          .timeout(const Duration(seconds: 5));
-    } else if (!_android) {
-      valid = await _commerce
-          .invokeMethod<bool>('verifyStoreKitPurchase', {
-            'transaction': token,
-            'product': product,
-          })
-          .timeout(const Duration(seconds: 30));
-    } else {
+    if (!_android || purchase is! GooglePlayPurchaseDetails) {
       return null;
     }
+    final data = purchase.billingClientPurchase;
+    if (data.purchaseState != PurchaseStateWrapper.purchased ||
+        data.packageName != package ||
+        data.purchaseToken != token ||
+        data.products.length != 1 ||
+        data.products.single != product) {
+      return null;
+    }
+    final valid = await _commerce
+        .invokeMethod<bool>('verifyPlayPurchase', {
+          'key': _playKey,
+          'data': data.originalJson,
+          'signature': data.signature,
+        })
+        .timeout(const Duration(seconds: 5));
     if (valid != true) return null;
     // Keep the Android key identical to the retired verifier's ledger key.
-    final identity = _android
-        ? '$package\u0000$token'
-        : 'storekit/$package/$token';
+    final identity = '$package\u0000$token';
     return (
       id: sha256.convert(utf8.encode(identity)).toString(),
       product: product,

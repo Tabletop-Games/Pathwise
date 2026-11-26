@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../logic/play_games.dart';
 import 'key_value_store.dart';
 
 /// The Play Games account or the service is unavailable right now. Sync keeps
@@ -79,17 +78,22 @@ abstract interface class CloudSaveProvider {
 /// `CloudSaveChannel.java`. Only Android is supported; iOS uses
 /// [UnsupportedCloudSaves].
 class PlayGamesCloudSaves implements CloudSaveProvider {
-  PlayGamesCloudSaves({MethodChannel? channel, Duration? timeout})
-    : _channel =
-          channel ?? const MethodChannel('games.tabletop.pathwise/cloud'),
-      _timeout = timeout ?? const Duration(seconds: 25);
+  PlayGamesCloudSaves({
+    MethodChannel? channel,
+    Duration? timeout,
+    bool enabled = false,
+  }) : _channel =
+           channel ?? const MethodChannel('games.tabletop.pathwise/cloud'),
+       _timeout = timeout ?? const Duration(seconds: 25),
+       _enabled = enabled;
 
   final MethodChannel _channel;
   final Duration _timeout;
+  final bool _enabled;
 
   @override
   bool get supported =>
-      defaultTargetPlatform == TargetPlatform.android && PlayGames.enabled;
+      defaultTargetPlatform == TargetPlatform.android && _enabled;
 
   Future<Map<Object?, Object?>> _call(
     String method, [

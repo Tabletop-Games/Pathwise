@@ -68,6 +68,7 @@ class ConnectivityService extends ChangeNotifier {
   int _retries = 0;
   bool _foreground = true;
   bool _checking = false;
+  bool _pendingRetry = false;
   bool _disposed = false;
   Timer? _timer;
 
@@ -77,7 +78,8 @@ class ConnectivityService extends ChangeNotifier {
     await check();
   }
 
-  /// Runs one probe and updates [state]. Concurrent calls are ignored.
+  /// Runs one probe and updates [state]. Concurrent calls are ignored unless
+  /// queued via [retry].
   Future<void> check() async {
     if (_checking || _disposed) return;
     _checking = true;
@@ -90,6 +92,11 @@ class ConnectivityService extends ChangeNotifier {
     _checking = false;
     if (_disposed) return;
     _record(reachable);
+    if (_pendingRetry) {
+      _pendingRetry = false;
+      await check();
+      return;
+    }
     _schedule();
   }
 
@@ -97,6 +104,10 @@ class ConnectivityService extends ChangeNotifier {
   Future<void> retry() {
     _retries = 0;
     _timer?.cancel();
+    if (_checking) {
+      _pendingRetry = true;
+      return Future.value();
+    }
     return check();
   }
 

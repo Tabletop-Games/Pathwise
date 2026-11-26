@@ -1493,7 +1493,6 @@ class _TipPainter extends CustomPainter {
          repaint: Listenable.merge([
            visual,
            animatedVisual,
-           rejection,
            GameAssetCache.instance,
          ]),
        );

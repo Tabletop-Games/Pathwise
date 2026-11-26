@@ -179,9 +179,12 @@ final class Progression {
         remaining(boost, now) > 0 ? max(value, boost.multiplier) : value,
   );
 
+  int boostDurationMs(Boost boost) =>
+      boost.minutes * 600 * (100 + durationBonus);
+
   void activate(Boost boost, int now) {
     inventory[boost.name] = inventory[boost.name]! - 1;
-    active[boost.name] = now + boost.minutes * 600 * (100 + durationBonus);
+    active[boost.name] = now + boostDurationMs(boost);
   }
 
   Crate? considerCrate(BootTime now, int Function() roll) {

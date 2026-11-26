@@ -24,12 +24,18 @@ class _PlayGamesViewState extends State<PlayGamesView> {
 
   Future<void> _run(Future<String> Function() action) async {
     setState(() => _busy = true);
-    final message = await action();
-    if (mounted) {
-      setState(() {
-        _message = message;
-        _busy = false;
-      });
+    var message = '';
+    try {
+      message = await action();
+    } catch (_) {
+      message = 'Google Play is unavailable right now.';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _message = message;
+          _busy = false;
+        });
+      }
     }
   }
 
@@ -78,14 +84,11 @@ class _PlayGamesViewState extends State<PlayGamesView> {
                   onPressed: _busy
                       ? null
                       : () => _run(() async {
-                          if (await PlayGames.call<bool>('status') != true &&
-                              await PlayGames.call<bool>('signIn') != true) {
+                          if (!await PlayGames.isSignedIn() &&
+                              !await PlayGames.signIn()) {
                             return 'Sign in to Play Games to view this leaderboard.';
                           }
-                          return await PlayGames.call<bool>('leaderboard', {
-                                    'id': board.value,
-                                  }) ==
-                                  true
+                          return await PlayGames.openLeaderboard(board.value)
                               ? ''
                               : 'Leaderboard unavailable.';
                         }),

@@ -799,7 +799,9 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                                     .read<ConnectivityService?>()
                                     ?.retry();
                               }
-                              if (model.onlineReady && !ads.videoReady) {
+                              if (mounted &&
+                                  model.onlineReady &&
+                                  !ads.videoReady) {
                                 await ads.prepare(
                                   canPresent: () =>
                                       mounted &&
@@ -807,7 +809,9 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                                       ModalRoute.isCurrentOf(context) == true,
                                 );
                               }
-                              if (model.onlineReady && ads.videoReady) {
+                              if (mounted &&
+                                  model.onlineReady &&
+                                  ads.videoReady) {
                                 shown = await ads.watchVideo(
                                   callback,
                                   waitForReward: true,

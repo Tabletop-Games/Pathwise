@@ -60,6 +60,7 @@ class Device {
       apply: (payload) async {
         applied.add(payload);
         local = payload;
+        return true;
       },
       isOnline: () => _online,
       now: () => DateTime.utc(2026, 11, 24, 12),
@@ -422,7 +423,7 @@ void main() {
         store: MemoryKeyValueStore(),
         prefix: 'unsupported',
         snapshot: () => save(),
-        apply: (_) async {},
+        apply: (_) async => true,
         isOnline: () => true,
       );
       addTearDown(unsupported.dispose);

@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:in_app_update_flutter/in_app_update_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../cloud/cloud_sync_service.dart';
 import '../logic/ad_service.dart';
 import '../logic/social_sharing.dart';
+import '../logic/update_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -580,39 +579,23 @@ class _CheckForUpdates extends StatefulWidget {
 
 class _CheckForUpdatesState extends State<_CheckForUpdates> {
   bool _busy = false;
+  static const _updates = UpdateService();
 
   Future<void> _check() async {
     setState(() => _busy = true);
-    var message = 'Unable to check for updates. Try again later.';
-    try {
-      final updates = InAppUpdateFlutter();
-      final info = await updates.checkUpdateAndroid();
-      if (info.installStatus == InstallStatusAndroid.downloaded) {
-        await updates.completeUpdateAndroid();
-        message = 'Installing update.';
-      } else if (info.updateAvailability ==
-              UpdateAvailabilityAndroid.updateAvailable &&
-          info.isImmediateUpdateAllowed) {
-        final result = await updates.startImmediateUpdateAndroid();
-        message = result == UpdateResultAndroid.success
-            ? 'Update started.'
-            : 'Update was not completed.';
-      } else if (info.updateAvailability ==
-          UpdateAvailabilityAndroid.updateNotAvailable) {
-        message = 'Pathwise is up to date.';
-      } else {
-        message = 'No update is currently available.';
-      }
-    } on PlatformException {
-      // Play services can be unavailable for offline or sideloaded installs.
-    } on MissingPluginException {
-      // Unsupported installations remain fully playable.
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
-      }
+    final outcome = await _updates.checkAndApply();
+    final message = switch (outcome) {
+      AppUpdateOutcome.downloaded => 'Installing update.',
+      AppUpdateOutcome.started => 'Update started.',
+      AppUpdateOutcome.notCompleted => 'Update was not completed.',
+      AppUpdateOutcome.upToDate => 'Pathwise is up to date.',
+      AppUpdateOutcome.unsupported || AppUpdateOutcome.unavailable =>
+        'Unable to check for updates. Try again later.',
+    };
+    if (mounted) {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 

@@ -11,6 +11,7 @@ import '../model/user_preferences.dart';
 import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../viewmodels/journey_viewmodel.dart';
 import 'main_menu_view.dart';
 
 part 'journey_landscape.dart';
@@ -39,7 +40,10 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
 
   // Keep subpixel precision in the scroll offset, including at large text sizes.
   static int _maxLevelForExtent(double extent) =>
-      (1 << 49) ~/ extent ~/ _slotsPerChapter * chapterSize;
+      JourneyViewModel.maxLevelForExtent(
+        extent,
+        slotsPerChapter: _slotsPerChapter,
+      );
 
   static int _slotForLevel(int level) => level + chapterFor(level) * 2;
 
@@ -506,6 +510,7 @@ class _JourneyNode extends StatelessWidget {
                       Image.asset(
                         platformAsset,
                         fit: BoxFit.fill,
+                        cacheWidth: 256,
                         filterQuality: FilterQuality.medium,
                         errorBuilder: (_, _, _) => CustomPaint(
                           painter: _IsoPlatformPainter(

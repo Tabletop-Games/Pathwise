@@ -37,4 +37,18 @@ class PlayGames {
       return null;
     }
   }
+
+  static Future<bool> isSignedIn() async => await call<bool>('status') == true;
+
+  static Future<bool> signIn() async => await call<bool>('signIn') == true;
+
+  static Future<bool> openLeaderboard(String boardId) async =>
+      await call<bool>('leaderboard', {'id': boardId}) == true;
+
+  static Future<bool> submitTimeAttackScore(int minutes, int score) async {
+    final board = timeAttackBoard(minutes);
+    if (board == null || !enabled) return false;
+    return await call<bool>('submitScore', {'id': board, 'score': '$score'}) ==
+        true;
+  }
 }

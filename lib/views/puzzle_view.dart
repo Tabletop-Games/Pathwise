@@ -970,7 +970,7 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
                             unavailable = false;
                           });
                           if (!ads.readyFor(RewardPlacement.hint) &&
-                              await ads.isOnline() &&
+                              model.onlineReady &&
                               current()) {
                             await ads.prepare(canPresent: current);
                           }
@@ -1328,7 +1328,7 @@ class _AttackResults extends StatelessWidget {
                 ),
                 AchievementCelebration(model),
                 if (run.canRank && PlayGames.enabled)
-                  if (PlayGames.timeAttackBoard(run.minutes) case final board?)
+                  if (PlayGames.timeAttackBoard(run.minutes) != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Center(
@@ -1337,15 +1337,14 @@ class _AttackResults extends StatelessWidget {
                           icon: Icons.leaderboard_outlined,
                           onTap: () async {
                             final signedIn =
-                                await PlayGames.call<bool>('status') == true ||
-                                await PlayGames.call<bool>('signIn') == true;
+                                await PlayGames.isSignedIn() ||
+                                await PlayGames.signIn();
                             final posted =
                                 signedIn &&
-                                await PlayGames.call<bool>('submitScore', {
-                                      'id': board,
-                                      'score': '${run.score}',
-                                    }) ==
-                                    true;
+                                await PlayGames.submitTimeAttackScore(
+                                  run.minutes,
+                                  run.score,
+                                );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

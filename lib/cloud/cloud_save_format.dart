@@ -262,6 +262,18 @@ Map<String, dynamic> combine(
 ) {
   final result = Map<String, dynamic>.from(economyFrom);
   for (final key in progressKeys) {
+    if (key == 'schemaVersion') {
+      final econVer = economyFrom['schemaVersion'];
+      final progVer = progressFrom['schemaVersion'];
+      if (econVer is int && progVer is int) {
+        result['schemaVersion'] = econVer >= progVer ? econVer : progVer;
+      } else if (econVer != null) {
+        result['schemaVersion'] = econVer;
+      } else if (progVer != null) {
+        result['schemaVersion'] = progVer;
+      }
+      continue;
+    }
     if (progressFrom.containsKey(key)) result[key] = progressFrom[key];
   }
   return result;

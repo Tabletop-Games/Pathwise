@@ -263,14 +263,19 @@ class _CloudChoiceWatcherState extends State<CloudChoiceWatcher> {
   void _changed() {
     final cloud = widget.cloud;
     if (cloud == null || cloud.choice == null || _showing) return;
-    final context = widget.navigatorKey.currentContext;
-    if (context == null) return;
     _showing = true;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialog) => _ConflictDialog(cloud: cloud),
-    ).whenComplete(() => _showing = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = widget.navigatorKey.currentContext;
+      if (!mounted || context == null || cloud.choice == null) {
+        _showing = false;
+        return;
+      }
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialog) => _ConflictDialog(cloud: cloud),
+      ).whenComplete(() => _showing = false);
+    });
   }
 
   @override

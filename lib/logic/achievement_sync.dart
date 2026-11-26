@@ -4,9 +4,18 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
-import '../model/app_model.dart';
 import '../model/native_achievements.dart';
 import 'play_games.dart';
+
+abstract interface class AchievementSyncTarget implements Listenable {
+  Map<AchievementMetric, int> get achievementCounters;
+  int get achievementRevision;
+  bool get isDrawing;
+  bool get achievementProgressNeedsOwner;
+  bool achievementsBelongToOtherAccount(String account);
+  Future<bool> bindAchievementProgress(String account);
+  Future<bool> confirmAchievements(String account, Map<String, int> progress);
+}
 
 typedef RemoteAchievement = ({int steps, int total, bool unlocked});
 typedef RemoteAchievementState = ({
@@ -75,6 +84,7 @@ class AchievementSync extends ChangeNotifier {
     PlayAchievementGateway gateway = const PlayAchievementGateway(),
     Map<String, String>? ids,
     bool enabled = PlayGames.enabled,
+    this.isConnected,
   }) : _gateway = gateway,
        ids = _validateIds(ids ?? PlayGames.achievements),
        status = enabled
@@ -101,9 +111,10 @@ class AchievementSync extends ChangeNotifier {
     });
   }
 
-  final AppModel model;
+  final AchievementSyncTarget model;
   final Map<String, String> ids;
   final PlayAchievementGateway _gateway;
+  final bool Function()? isConnected;
   AchievementSyncStatus status;
   Map<String, int> _confirmed = const {};
   Map<String, int> _seen = const {};
@@ -171,7 +182,13 @@ class AchievementSync extends ChangeNotifier {
   }
 
   Future<void> refresh({bool accountMayHaveChanged = false}) async {
-    if (_disposed || !_active || ids.isEmpty || model.isDrawing) return;
+    if (_disposed ||
+        !_active ||
+        ids.isEmpty ||
+        model.isDrawing ||
+        isConnected?.call() == false) {
+      return;
+    }
     if (accountMayHaveChanged) {
       _generation++;
       _confirmed = const {};
@@ -241,11 +258,12 @@ class AchievementSync extends ChangeNotifier {
     final needsBinding =
         model.achievementProgressNeedsOwner &&
         supported.keys.any((item) => (desired[item.id] ?? 0) > 0);
+    final bound = !needsBinding || await model.bindAchievementProgress(account);
     final ready =
         !accountMismatch &&
         !model.isDrawing &&
-        (needsBinding || changes.isNotEmpty) &&
-        await model.bindAchievementProgress(account);
+        bound &&
+        (needsBinding || changes.isNotEmpty);
     var verified = remote;
     if (changes.isNotEmpty &&
         ready &&

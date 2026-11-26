@@ -174,6 +174,14 @@ final class CoinTransaction {
   };
 }
 
+typedef WalletSnapshot = ({
+  Map<String, CoinTransaction> history,
+  int earned,
+  int spent,
+  int archivedCoins,
+  List<String> recentRewardIds,
+});
+
 /// Stable event IDs make retries idempotent. Archived credits remain part of the balance.
 final class Wallet {
   Wallet(Object? saved, DateTime now, {int archivedCoins = 0})
@@ -237,6 +245,26 @@ final class Wallet {
       _spent -= amount;
     }
     return true;
+  }
+
+  WalletSnapshot snapshot() => (
+    history: Map<String, CoinTransaction>.of(_history),
+    earned: _earned,
+    spent: _spent,
+    archivedCoins: _archivedCoins,
+    recentRewardIds: List<String>.of(_recentRewardIds),
+  );
+
+  void restore(WalletSnapshot snap) {
+    _history
+      ..clear()
+      ..addAll(snap.history);
+    _earned = snap.earned;
+    _spent = snap.spent;
+    _archivedCoins = snap.archivedCoins;
+    _recentRewardIds
+      ..clear()
+      ..addAll(snap.recentRewardIds);
   }
 
   List<Map<String, Object>> toJson() => [

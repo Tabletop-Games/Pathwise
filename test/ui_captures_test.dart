@@ -439,7 +439,7 @@ Future<void> _screens(
       store: storage,
       prefix: 'preview',
       snapshot: model.snapshotMap,
-      apply: (_) async {},
+      apply: (_) async => true,
       isOnline: () => true,
     );
     await cloud.signIn();

@@ -32,7 +32,7 @@ final class SyncChoice {
 }
 
 typedef SnapshotSource = Map<String, dynamic> Function();
-typedef ApplySnapshot = Future<void> Function(Map<String, dynamic> payload);
+typedef ApplySnapshot = Future<bool> Function(Map<String, dynamic> payload);
 
 /// Keeps the device save and the Play Games saved game in step.
 ///
@@ -128,7 +128,7 @@ class CloudSyncService extends ChangeNotifier {
       _lastSynced != null &&
       _choice == null;
 
-  Future<void> start() async {
+  Future<void> start() => _lock(() async {
     _base = await _loadBase();
     _lastSynced = await _loadSynced();
     _hasBackup = (await _store.getString(_backupKey)) != null;
@@ -149,29 +149,37 @@ class CloudSyncService extends ChangeNotifier {
     }
     _set(_signedIn ? CloudSyncStatus.idle : CloudSyncStatus.signedOut);
     if (_signedIn) scheduleSync(urgent: true);
-  }
+  });
 
   /// Called after every persisted local change. Economy changes sync quickly;
   /// progress such as an unfinished route waits for the debounce window.
   void localChanged(Map<String, dynamic> payload) {
-    if (_disposed || !_provider.supported || !_signedIn || _optedOut) return;
+    if (_disposed ||
+        !_provider.supported ||
+        !_signedIn ||
+        _optedOut ||
+        _choice != null ||
+        _status == CloudSyncStatus.damaged) {
+      return;
+    }
     final economyChanged =
         _base == null || economyDigest(payload) != _base!.economy;
     scheduleSync(urgent: economyChanged);
   }
 
   void scheduleSync({required bool urgent}) {
-    if (_disposed || !_provider.supported) return;
+    if (_disposed ||
+        !_provider.supported ||
+        _choice != null ||
+        _status == CloudSyncStatus.damaged) {
+      return;
+    }
     _timer?.cancel();
     _timer = Timer(urgent ? urgentDelay : debounce, () => unawaited(syncNow()));
   }
 
   /// Runs one serialized pass. Returns true when the device and cloud agree.
-  Future<bool> syncNow() {
-    final result = _lane.then((_) => _run());
-    _lane = result.then<void>((_) {}, onError: (Object _) {});
-    return result;
-  }
+  Future<bool> syncNow() => _lock(_run);
 
   /// Required before a consumable purchase: sign in, then sync successfully.
   Future<bool> prepareForPurchase() async {
@@ -180,8 +188,8 @@ class CloudSyncService extends ChangeNotifier {
     return synced && _choice == null;
   }
 
-  Future<void> signIn() async {
-    if (!_provider.supported) return;
+  Future<void> signIn() => _lock(() async {
+    if (!_provider.supported || _disposed) return;
     _optedOut = false;
     await _store.remove(_optOutKey);
     _set(CloudSyncStatus.syncing);
@@ -194,7 +202,7 @@ class CloudSyncService extends ChangeNotifier {
         return;
       }
       _message = null;
-      await syncNow();
+      await _run();
     } on CloudAuthFailed {
       _message = 'Google Play Games sign-in did not complete. Try again.';
       _set(CloudSyncStatus.error);
@@ -202,11 +210,11 @@ class CloudSyncService extends ChangeNotifier {
       _message = 'Google Play Games is unavailable right now.';
       _set(CloudSyncStatus.error);
     }
-  }
+  });
 
   /// Stops syncing on this device. The device copy stays. The next sign-in
   /// compares it with that account's cloud save and asks before replacing it.
-  Future<void> signOut() async {
+  Future<void> signOut() => _lock(() async {
     _timer?.cancel();
     _optedOut = true;
     await _store.setString(_optOutKey, '1');
@@ -217,41 +225,97 @@ class CloudSyncService extends ChangeNotifier {
     _base = null;
     await _store.remove(_baseKey);
     _set(CloudSyncStatus.signedOut);
-  }
+  });
 
   /// Applies the player's choice after a conflict.
   Future<void> resolveChoice({required bool keepDevice}) async {
     final choice = _choice;
     if (choice == null) return;
     await _lock(() async {
-      if (keepDevice) {
-        // The cloud copy is about to be overwritten. Keep it on the device.
-        await _backup(choice.remote.encode());
-        final rev = _nextRevision(choice.remote);
-        final committed = await _writeCloud(_snapshot(), rev);
-        if (committed) {
-          _choice = null;
-          _markSynced(rev, _snapshot(), await _accountKey());
+      try {
+        if (keepDevice) {
+          // The cloud copy is about to be overwritten. Keep it on the device.
+          await _backup(choice.remote.encode());
+          final local = _snapshot();
+          final rev = _nextRevision(choice.remote);
+          final committed = await _writeCloud(local, rev);
+          if (committed) {
+            _choice = null;
+            await _markSynced(rev, local, await _accountKey());
+            _finish();
+          } else if (_status != CloudSyncStatus.error) {
+            _message = 'Cloud sync is busy. It will try again.';
+            _set(CloudSyncStatus.error);
+          }
+        } else {
+          final applied = await _adoptRemote(choice.remote);
+          if (applied) {
+            _choice = null;
+            _finish();
+          } else {
+            _message = 'Could not save restored progress on this device.';
+            _set(CloudSyncStatus.error);
+          }
         }
-      } else {
-        await _adoptRemote(choice.remote);
-        _choice = null;
+      } on CloudAuthFailed {
+        _message =
+            'Sign in to Google Play Games again to keep your progress synced.';
+        _signedIn = false;
+        _set(CloudSyncStatus.error);
+      } on CloudUnavailable {
+        _message = 'Cloud sync failed. Your progress is saved on this device.';
+        _set(
+          _isOnline()
+              ? CloudSyncStatus.error
+              : CloudSyncStatus.waitingForNetwork,
+        );
       }
-      _set(CloudSyncStatus.idle);
     });
   }
 
   /// Replaces this device's save with the cloud save, after backing up.
   Future<void> restoreFromCloud() => _lock(() async {
-    final fetch = await _provider.fetch(saveName);
-    final remote = _decodeOrNull(fetch.bytes);
-    if (remote == null) {
-      _message = 'There is no cloud save for this account yet.';
-      _set(CloudSyncStatus.idle);
-      return;
+    try {
+      CloudFetch fetch = await _provider.fetch(saveName);
+      for (var attempt = 0; attempt < 3 && fetch.conflict; attempt++) {
+        await _backup(fetch.conflictLocal ?? const []);
+        await _provider.resolve(
+          fetch.conflictId!,
+          fetch.conflictRemote ?? const [],
+        );
+        fetch = await _provider.fetch(saveName);
+      }
+      if (fetch.conflict) {
+        _message = 'Cloud sync is busy. It will try again.';
+        _set(CloudSyncStatus.error);
+        return;
+      }
+      final remote = _decodeOrNull(fetch.bytes);
+      if (remote == null) {
+        _message = 'There is no cloud save for this account yet.';
+        _set(CloudSyncStatus.idle);
+        return;
+      }
+      if (await _adoptRemote(remote)) {
+        _finish();
+      } else {
+        _message = 'Could not save restored progress on this device.';
+        _set(CloudSyncStatus.error);
+      }
+    } on CorruptSave {
+      _message = 'Your cloud save could not be read. Your device copy is safe.';
+      _set(CloudSyncStatus.damaged);
+    } on CloudAuthFailed {
+      _message =
+          'Sign in to Google Play Games again to keep your progress synced.';
+      _signedIn = false;
+      _set(CloudSyncStatus.error);
+    } on CloudUnavailable {
+      _message = 'Cloud sync failed. Your progress is saved on this device.';
+      _set(
+        _isOnline() ? CloudSyncStatus.error : CloudSyncStatus.waitingForNetwork,
+      );
     }
-    await _adoptRemote(remote);
-    _set(CloudSyncStatus.idle);
   });
 
   /// Restores the device copy that the last replacement backed up.
@@ -259,7 +323,11 @@ class CloudSyncService extends ChangeNotifier {
     final text = await _store.getString(_backupKey);
     if (text == null) return;
     final envelope = CloudEnvelope.decode(base64Decode(text));
-    await _apply(envelope.payload);
+    if (!await _apply(envelope.payload)) {
+      _message = 'Could not save restored progress on this device.';
+      _set(CloudSyncStatus.error);
+      return;
+    }
     _hasBackup = false;
     await _store.remove(_backupKey);
     scheduleSync(urgent: true);
@@ -268,10 +336,11 @@ class CloudSyncService extends ChangeNotifier {
   /// Used only after the cloud save could not be read. Writes this device's
   /// save over the unreadable one.
   Future<void> replaceDamagedCloudSave() => _lock(() async {
+    final local = _snapshot();
     final rev = (_base?.revision ?? 0) + 1;
-    if (await _writeCloud(_snapshot(), rev)) {
-      _markSynced(rev, _snapshot(), await _accountKey());
-      _set(CloudSyncStatus.idle);
+    if (await _writeCloud(local, rev)) {
+      await _markSynced(rev, local, await _accountKey());
+      _finish();
     }
   });
 
@@ -283,6 +352,11 @@ class CloudSyncService extends ChangeNotifier {
 
   Future<bool> _run() async {
     if (_disposed || !_provider.supported) return false;
+    if (_choice != null) {
+      _set(CloudSyncStatus.conflict);
+      return false;
+    }
+    if (_status == CloudSyncStatus.damaged) return false;
     if (_optedOut) {
       _set(CloudSyncStatus.signedOut);
       return false;
@@ -331,28 +405,32 @@ class CloudSyncService extends ChangeNotifier {
         final plan = planSync(base: _base, local: local, remote: remote);
         switch (plan) {
           case PlanNone():
-            _markSynced(_base!.revision, local, accountKey);
+            await _markSynced(_base!.revision, local, accountKey);
             return _finish();
           case PlanUpload(:final payload):
             final rev = _nextRevision(remote);
             if (await _writeCloud(payload, rev)) {
-              _markSynced(rev, payload, accountKey);
+              await _markSynced(rev, payload, accountKey);
               return _finish();
             }
           case PlanApply(:final payload, :final upload):
             if (!_sameSave(local, payload)) {
               await _backupIfReplacing(local, payload);
-              await _apply(payload);
+              if (!await _apply(payload)) {
+                _message = 'Could not save synced progress on this device.';
+                _set(CloudSyncStatus.error);
+                return false;
+              }
             }
             final after = _snapshot();
             if (upload) {
               final rev = _nextRevision(remote);
               if (await _writeCloud(after, rev)) {
-                _markSynced(rev, after, accountKey);
+                await _markSynced(rev, after, accountKey);
                 return _finish();
               }
             } else if (remote != null) {
-              _markSynced(remote.revision, after, accountKey);
+              await _markSynced(remote.revision, after, accountKey);
               return _finish();
             }
           case PlanAskUser():
@@ -427,13 +505,14 @@ class CloudSyncService extends ChangeNotifier {
     return false;
   }
 
-  Future<void> _adoptRemote(CloudEnvelope remote) async {
+  Future<bool> _adoptRemote(CloudEnvelope remote) async {
     final local = _snapshot();
     if (!_sameSave(local, remote.payload)) {
       await _backupIfReplacing(local, remote.payload);
-      await _apply(remote.payload);
+      if (!await _apply(remote.payload)) return false;
     }
-    _markSynced(remote.revision, _snapshot(), await _accountKey());
+    await _markSynced(remote.revision, _snapshot(), await _accountKey());
+    return true;
   }
 
   Future<void> _backupIfReplacing(
@@ -464,7 +543,11 @@ class CloudSyncService extends ChangeNotifier {
   bool _sameSave(Map<String, dynamic> a, Map<String, dynamic> b) =>
       digestOf(a) == digestOf(b);
 
-  void _markSynced(int revision, Map<String, dynamic> payload, String account) {
+  Future<void> _markSynced(
+    int revision,
+    Map<String, dynamic> payload,
+    String account,
+  ) async {
     final base = CloudBase(
       revision: revision,
       economy: economyDigest(payload),
@@ -473,12 +556,10 @@ class CloudSyncService extends ChangeNotifier {
     );
     _base = base;
     _lastSynced = _now();
-    unawaited(_store.setString(_baseKey, jsonEncode(base.toJson())));
-    unawaited(
-      _store.setString(
-        _syncedKey,
-        _lastSynced!.millisecondsSinceEpoch.toString(),
-      ),
+    await _store.setString(_baseKey, jsonEncode(base.toJson()));
+    await _store.setString(
+      _syncedKey,
+      _lastSynced!.millisecondsSinceEpoch.toString(),
     );
   }
 

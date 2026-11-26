@@ -3,9 +3,12 @@ import '../model/economy.dart';
 class AdFrequency {
   AdFrequency({
     this.minimumGap = EconomyRules.automaticAdGap,
-    this.rewardedGap = const Duration(minutes: 1),
-    this.exitsPerInterstitial = 5,
-  }) : assert(minimumGap >= const Duration(seconds: 60));
+    Duration? rewardedGap,
+    int? exitsPerInterstitial,
+  }) : rewardedGap = rewardedGap ?? economy.afterRewardedGap,
+       exitsPerInterstitial =
+           exitsPerInterstitial ?? economy.exitsPerInterstitial,
+       assert(minimumGap >= const Duration(seconds: 60));
 
   final Duration minimumGap;
   final Duration rewardedGap;

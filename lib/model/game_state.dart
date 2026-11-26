@@ -85,12 +85,11 @@ final class PuzzleId {
         clues: baseline - reduction,
       );
     }
-    final difficulty = mode == PlayMode.levels ? ((value as int) - 1) % 9 : 5;
-    final targets = [0, 0, 0, 0, 7, 10, 14, 18];
+    const targets = [0, 0, 0, 0, 7, 10, 14, 18];
     return (
       size: size,
       seed: puzzleSeed('pathwise-v1/$key'),
-      clues: targets[size] + (difficulty < 3 ? 2 : (difficulty >= 7 ? -2 : 0)),
+      clues: targets[size],
     );
   }
 }

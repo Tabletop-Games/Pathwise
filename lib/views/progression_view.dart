@@ -143,7 +143,6 @@ class ProgressionView extends StatefulWidget {
 }
 
 class _ProgressionViewState extends State<ProgressionView> {
-  Timer? _tick;
   late _ProgressionTab _tab;
   var _branch = _ResearchBranch.income;
   var _recordedResearchActivity = false;
@@ -152,23 +151,9 @@ class _ProgressionViewState extends State<ProgressionView> {
   void initState() {
     super.initState();
     _tab = widget.boosts ? _ProgressionTab.boosts : _ProgressionTab.research;
-    if (_tab == _ProgressionTab.boosts) {
-      _startTick();
-    } else {
+    if (_tab == _ProgressionTab.research) {
       _scheduleResearchActivity();
     }
-  }
-
-  void _startTick() {
-    _tick ??= Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => setState(() {}),
-    );
-  }
-
-  void _stopTick() {
-    _tick?.cancel();
-    _tick = null;
   }
 
   void _scheduleResearchActivity() {
@@ -199,18 +184,9 @@ class _ProgressionViewState extends State<ProgressionView> {
   void _selectTab(_ProgressionTab tab) {
     if (_tab == tab) return;
     setState(() => _tab = tab);
-    if (tab == _ProgressionTab.boosts) {
-      _startTick();
-    } else {
-      _stopTick();
+    if (tab == _ProgressionTab.research) {
       _scheduleResearchActivity();
     }
-  }
-
-  @override
-  void dispose() {
-    _stopTick();
-    super.dispose();
   }
 
   String _duration(int milliseconds) {
@@ -358,60 +334,75 @@ class _ProgressionViewState extends State<ProgressionView> {
     List<Boost> active,
     int now,
   ) {
-    final progress = model.progression;
-    final owned = Boost.values
-        .where((boost) => (progress.inventory[boost.name] ?? 0) > 0)
-        .toList();
-    final adsEnabled = context.watch<AdService>().enabled;
+    Widget buildList(BuildContext context) {
+      final progress = model.progression;
+      final currentNow = model.progressionTime;
+      final currentActive = [
+        for (final boost in Boost.values)
+          if (progress.remaining(boost, currentNow) > 0) boost,
+      ];
+      final owned = Boost.values
+          .where((boost) => (progress.inventory[boost.name] ?? 0) > 0)
+          .toList();
+      final adsEnabled = context.watch<AdService>().enabled;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 2, 12, 24),
-      children: [
-        if (active.isNotEmpty) _activeBoostStrip(model, palette, active, now),
-        _boostSectionHeader('Your inventory', palette),
-        if (owned.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-            child: Text(
-              'No boosts in your inventory',
-              style: TextStyle(color: palette.mutedInk, fontSize: 13),
-            ),
-          ),
-        for (final boost in owned)
-          _boostRow(
-            key: ValueKey('boost-inventory-${boost.name}'),
-            boost: boost,
-            palette: palette,
-            details: _boostDetails(progress, boost),
-            quantity: progress.inventory[boost.name],
-            actions: [
-              ActionPill(
-                label: 'Activate',
-                semanticLabel: 'Activate ${boost.title}',
-                tone: ActionTone.primary,
-                onTap: !model.storageError && progress.canActivate(boost, now)
-                    ? () => model.activateBoost(boost)
-                    : null,
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 24),
+        children: [
+          if (currentActive.isNotEmpty)
+            _activeBoostStrip(model, palette, currentActive, currentNow),
+          _boostSectionHeader('Your inventory', palette),
+          if (owned.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+              child: Text(
+                'No boosts in your inventory',
+                style: TextStyle(color: palette.mutedInk, fontSize: 13),
               ),
-            ],
-          ),
-        const SizedBox(height: 10),
-        _boostSectionHeader('Boost Shop', palette),
-        for (final boost in Boost.values.where((boost) => boost.availableToBuy))
-          _boostRow(
-            key: ValueKey('boost-shop-${boost.name}'),
-            boost: boost,
-            palette: palette,
-            details: _boostDetails(progress, boost),
-            actions: [
-              if (adsEnabled &&
-                  (boost == Boost.doubleTen || boost == Boost.tripleFifteen))
-                _boostVideoAction(model, boost),
-              _boostPurchaseAction(model, boost),
-            ],
-          ),
-      ],
-    );
+            ),
+          for (final boost in owned)
+            _boostRow(
+              key: ValueKey('boost-inventory-${boost.name}'),
+              boost: boost,
+              palette: palette,
+              details: _boostDetails(progress, boost),
+              quantity: progress.inventory[boost.name],
+              actions: [
+                ActionPill(
+                  label: 'Activate',
+                  semanticLabel: 'Activate ${boost.title}',
+                  tone: ActionTone.primary,
+                  onTap:
+                      !model.storageError &&
+                          progress.canActivate(boost, currentNow)
+                      ? () => model.activateBoost(boost)
+                      : null,
+                ),
+              ],
+            ),
+          const SizedBox(height: 10),
+          _boostSectionHeader('Boost Shop', palette),
+          for (final boost in Boost.values.where(
+            (boost) => boost.availableToBuy,
+          ))
+            _boostRow(
+              key: ValueKey('boost-shop-${boost.name}'),
+              boost: boost,
+              palette: palette,
+              details: _boostDetails(progress, boost),
+              actions: [
+                if (adsEnabled &&
+                    (boost == Boost.doubleTen || boost == Boost.tripleFifteen))
+                  _boostVideoAction(model, boost),
+                _boostPurchaseAction(model, boost),
+              ],
+            ),
+        ],
+      );
+    }
+
+    if (active.isEmpty) return buildList(context);
+    return _ActiveBoostTicker(builder: buildList);
   }
 
   Widget _boostSectionHeader(String title, BoardPalette palette) => Padding(
@@ -468,8 +459,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               Builder(
                 builder: (context) {
                   final remaining = progress.remaining(boost, now);
-                  final totalDuration =
-                      boost.minutes * 600 * (100 + progress.durationBonus);
+                  final totalDuration = progress.boostDurationMs(boost);
                   return Row(
                     children: [
                       _boostArtworkBadge(boost, palette, size: 34),
@@ -820,7 +810,7 @@ class _ProgressionViewState extends State<ProgressionView> {
   }
 
   String _boostDetails(Progression progress, Boost boost) {
-    final duration = boost.minutes * 600 * (100 + progress.durationBonus);
+    final duration = progress.boostDurationMs(boost);
     final effect = boost == Boost.crateFrequency
         ? '2× crate drop rate'
         : '${boost.multiplier}×';
@@ -978,4 +968,33 @@ class _ProgressionViewState extends State<ProgressionView> {
           : null,
     );
   }
+}
+
+class _ActiveBoostTicker extends StatefulWidget {
+  const _ActiveBoostTicker({required this.builder});
+  final WidgetBuilder builder;
+
+  @override
+  State<_ActiveBoostTicker> createState() => _ActiveBoostTickerState();
+}
+
+class _ActiveBoostTickerState extends State<_ActiveBoostTicker> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
 }

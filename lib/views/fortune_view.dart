@@ -29,16 +29,14 @@ class _FortuneViewState extends State<FortuneView> {
   FortunePrize? _reveal, _pending;
   double _rotation = 0;
   bool _working = false, _checkingVideos = false;
-  int _availabilityTicks = 0;
 
   @override
   void initState() {
     super.initState();
     _catalog = loadFortuneCatalog();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
-      setState(() {});
-      if (++_availabilityTicks % 30 == 0) unawaited(_refreshVideos());
+      unawaited(_refreshVideos());
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_current()) return;
@@ -288,25 +286,10 @@ class _FortuneViewState extends State<FortuneView> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        FilledButton.icon(
-                          key: const ValueKey('wheel-spin'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(56),
-                            shape: const StadiumBorder(),
-                            textStyle: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 17,
-                                ),
-                          ),
-                          onPressed: canSpin ? () => _spin(catalog) : null,
-                          icon: PathIcon(
-                            wait > 0 ? ControlGlyph.timer : ControlGlyph.wheel,
-                            size: 22,
-                          ),
-                          label: Text(
-                            wait > 0 ? fortuneCountdown(wait) : 'Free spin',
-                          ),
+                        _WheelSpinButton(
+                          wait: wait,
+                          canSpin: canSpin,
+                          onSpin: () => _spin(catalog),
                         ),
                         if (wait < 0)
                           const Padding(
@@ -454,6 +437,75 @@ class _WheelHubMedallion extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WheelSpinButton extends StatefulWidget {
+  const _WheelSpinButton({
+    required this.wait,
+    required this.canSpin,
+    required this.onSpin,
+  });
+
+  final int wait;
+  final bool canSpin;
+  final VoidCallback onSpin;
+
+  @override
+  State<_WheelSpinButton> createState() => _WheelSpinButtonState();
+}
+
+class _WheelSpinButtonState extends State<_WheelSpinButton> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WheelSpinButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.wait != widget.wait) _sync();
+  }
+
+  void _sync() {
+    if (widget.wait > 0) {
+      _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wait = context.read<AppModel>().fortuneWait;
+    final canSpin = widget.canSpin || (wait == 0 && widget.wait > 0);
+    return FilledButton.icon(
+      key: const ValueKey('wheel-spin'),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(56),
+        shape: const StadiumBorder(),
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(fontWeight: FontWeight.w700, fontSize: 17),
+      ),
+      onPressed: canSpin ? widget.onSpin : null,
+      icon: PathIcon(
+        wait > 0 ? ControlGlyph.timer : ControlGlyph.wheel,
+        size: 22,
+      ),
+      label: Text(wait > 0 ? fortuneCountdown(wait) : 'Free spin'),
     );
   }
 }

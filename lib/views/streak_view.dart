@@ -9,6 +9,7 @@ import '../model/game_state.dart';
 import '../model/play_streak.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
+import '../viewmodels/streak_viewmodel.dart';
 import 'components/economy_navigation.dart';
 import 'store_view.dart';
 
@@ -18,14 +19,14 @@ class StreakView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = context.watch<AppModel>();
+    final vm = StreakViewModel(model);
     final palette = BoardPalette.palettes[model.theme]!;
     final streak = model.streak;
     final next = EconomyRules.milestones.entries
-        .where((entry) => entry.key > streak.count)
+        .where((entry) => entry.key > vm.count)
         .firstOrNull;
     final today = PlayStreak.calendarDate(model.todayKey);
-    final freezeFull =
-        model.storageError || streak.freezes >= economy.maxFreezes;
+    final freezeFull = model.storageError || vm.freezeFull;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayFor(palette),
       child: Scaffold(
@@ -289,41 +290,51 @@ class StreakView extends StatelessWidget {
                             )
                           else
                             PricePill(
-                              price: economy.freezePrice,
-                              affordable:
-                                  model.coinBalance >= economy.freezePrice,
+                              price: vm.freezePrice,
+                              affordable: model.coinBalance >= vm.freezePrice,
                               semanticLabel:
-                                  'Buy Streak Freeze for ${economy.freezePrice} coins',
+                                  'Buy Streak Freeze for ${vm.freezePrice} coins',
                               onTap: freezeFull
                                   ? null
                                   : () async {
-                                      if (model.coinBalance <
-                                          economy.freezePrice) {
-                                        await showInsufficientCoins(
-                                          context,
-                                          itemName: 'Streak Freeze',
-                                          requiredCoins: economy.freezePrice,
-                                          currentBalance: model.coinBalance,
-                                        );
-                                      } else {
-                                        final messenger = ScaffoldMessenger.of(
-                                          context,
-                                        );
-                                        final bought = await model.buyFreeze();
-                                        if (messenger.mounted) {
-                                          messenger.showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                bought
-                                                    ? 'Streak Freeze added.'
-                                                    : 'Couldn’t buy Streak Freeze. Try again.',
-                                              ),
-                                              duration: const Duration(
-                                                seconds: 2,
-                                              ),
-                                            ),
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
+                                      );
+                                      final outcome = await vm.buyFreeze();
+                                      if (!context.mounted) return;
+                                      switch (outcome) {
+                                        case FreezeInsufficientCoins(
+                                          :final shortfall,
+                                        ):
+                                          await showInsufficientCoins(
+                                            context,
+                                            itemName: 'Streak Freeze',
+                                            requiredCoins:
+                                                model.coinBalance + shortfall,
+                                            currentBalance: model.coinBalance,
                                           );
-                                        }
+                                        case FreezePurchased():
+                                          if (messenger.mounted) {
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Streak Freeze added.',
+                                                ),
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        case FreezePurchaseUnavailable():
+                                          if (messenger.mounted) {
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Couldn’t buy Streak Freeze. Try again.',
+                                                ),
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
                                       }
                                     },
                             ),
