@@ -26,6 +26,8 @@ import 'views/main_menu_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;
+  PaintingBinding.instance.imageCache.maximumSize = 200;
   unawaited(GameAssetCache.instance.preloadAll());
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([

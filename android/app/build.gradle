@@ -59,6 +59,16 @@ android {
         abortOnError = false
     }
 
+    packaging {
+        resources {
+            excludes += [
+                "DebugProbesKt.bin",
+                "kotlin-tooling-metadata.json",
+                "META-INF/version-control-info.textproto",
+            ]
+        }
+    }
+
     defaultConfig {
         applicationId = "com.shenmareparas.pathwise"
         minSdk = flutter.minSdkVersion

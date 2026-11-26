@@ -70,6 +70,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
   @override
   void dispose() {
     _scroll?.dispose();
+    GameAssetCache.instance.evictJourneyAssets();
     super.dispose();
   }
 
@@ -579,7 +580,7 @@ class _ChapterHeaderStop extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
-                'assets/art/journey/prop_signpost.png',
+                'assets/art/journey/prop_signpost.webp',
                 width: 28,
                 height: 28,
                 fit: BoxFit.contain,
@@ -632,7 +633,7 @@ class _ChestStop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final model = context.watch<AppModel>();
+    final model = context.read<AppModel>();
     final claimed = model.chapterClaimed(chapter);
     final ready = model.chapterReady(chapter);
     final clears = model.chapterClears(chapter);

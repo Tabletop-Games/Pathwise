@@ -433,7 +433,7 @@ class _WheelHubMedallion extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(7.5),
               child: Image.asset(
-                'assets/art/ui/wheel_ticket.png',
+                'assets/art/ui/wheel_ticket.webp',
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
                 errorBuilder: (_, _, _) => Center(
@@ -491,7 +491,7 @@ class _WheelPainter extends CustomPainter {
     final brassLight = Color.lerp(_gold, const Color(0xFFFFE58F), .50)!;
     final brassDark = Color.lerp(_gold, const Color(0xFF7A5610), .50)!;
     final coinImage = GameAssetCache.instance.imageFor(
-      'assets/art/resources/coin.png',
+      'assets/art/resources/coin.webp',
     );
 
     // Soft drop shadow behind the wheel.

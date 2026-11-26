@@ -38,38 +38,37 @@ BiomeKind biomeForTheme(PathwiseTheme theme) => switch (theme) {
 };
 
 String biomeAssetPath(BiomeKind biome) => switch (biome) {
-  BiomeKind.ocean => 'assets/art/biomes/ocean.png',
-  BiomeKind.forest => 'assets/art/biomes/forest.png',
-  BiomeKind.winter => 'assets/art/biomes/winter.png',
-  BiomeKind.desert => 'assets/art/biomes/desert.png',
+  BiomeKind.ocean => 'assets/art/biomes/ocean.webp',
+  BiomeKind.forest => 'assets/art/biomes/forest.webp',
+  BiomeKind.winter => 'assets/art/biomes/winter.webp',
+  BiomeKind.desert => 'assets/art/biomes/desert.webp',
 };
 
 String journeyTerrainPath(BiomeKind biome) => switch (biome) {
-  BiomeKind.ocean => 'assets/art/journey/ocean_terrain.png',
-  BiomeKind.forest => 'assets/art/journey/forest_terrain.png',
-  BiomeKind.winter => 'assets/art/journey/winter_terrain.png',
-  BiomeKind.desert => 'assets/art/journey/desert_terrain.png',
+  BiomeKind.ocean => 'assets/art/journey/ocean_terrain.webp',
+  BiomeKind.forest => 'assets/art/journey/forest_terrain.webp',
+  BiomeKind.winter => 'assets/art/journey/winter_terrain.webp',
+  BiomeKind.desert => 'assets/art/journey/desert_terrain.webp',
 };
 
 const journeyPropPaths = <String>[
-  'assets/art/journey/prop_forest_trees.png',
-  'assets/art/journey/prop_forest_rocks.png',
-  'assets/art/journey/prop_winter_pine.png',
-  'assets/art/journey/prop_winter_ice.png',
-  'assets/art/journey/prop_ocean_palm.png',
-  'assets/art/journey/prop_desert_cactus.png',
-  'assets/art/journey/prop_signpost.png',
-  'assets/art/journey/prop_bridge.png',
+  'assets/art/journey/prop_forest_trees.webp',
+  'assets/art/journey/prop_forest_rocks.webp',
+  'assets/art/journey/prop_winter_pine.webp',
+  'assets/art/journey/prop_winter_ice.webp',
+  'assets/art/journey/prop_ocean_palm.webp',
+  'assets/art/journey/prop_desert_cactus.webp',
+  'assets/art/journey/prop_signpost.webp',
 ];
 
-String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.png';
+String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.webp';
 
 String boostAssetPath(Boost boost) => switch (boost) {
-  Boost.doubleTen || Boost.doubleFifteen => 'assets/art/ui/boost_2x_fast.png',
-  Boost.doubleThirty || Boost.doubleSixty => 'assets/art/ui/boost_2x_long.png',
-  Boost.tripleFifteen => 'assets/art/ui/boost_3x.png',
-  Boost.quadrupleTen => 'assets/art/ui/boost_4x.png',
-  Boost.crateFrequency => 'assets/art/resources/crate.png',
+  Boost.doubleTen || Boost.doubleFifteen => 'assets/art/ui/boost_2x_fast.webp',
+  Boost.doubleThirty || Boost.doubleSixty => 'assets/art/ui/boost_2x_long.webp',
+  Boost.tripleFifteen => 'assets/art/ui/boost_3x.webp',
+  Boost.quadrupleTen => 'assets/art/ui/boost_4x.webp',
+  Boost.crateFrequency => 'assets/art/resources/crate.webp',
 };
 
 /// Normalized visible vertical bounds `(top, bottom)` inside each 192x192 tip
@@ -116,35 +115,50 @@ final class GameAssetCache extends ChangeNotifier {
     return null;
   }
 
-  /// Preloads all illustrated tip PNGs at startup so gameplay boards and
-  /// previews never briefly show fallback vector shapes.
+  /// Preloads lightweight shared coin art at startup; tip art loads lazily on
+  /// demand so unused tip textures do not occupy startup CPU/memory.
   Future<void> preloadAll() async {
-    final paths = <String>{
-      for (final tip in PathTip.values) tipAssetPath(tip),
-      'assets/art/resources/coin.png',
-    };
-    await Future.wait([
-      for (final path in paths)
-        if (!_images.containsKey(path)) _load(path),
-    ]);
+    const coinPath = 'assets/art/resources/coin.webp';
+    if (!_images.containsKey(coinPath)) {
+      await _load(coinPath, targetWidth: 96, targetHeight: 96);
+    }
   }
 
-  /// Decodes the shared Journey paintings, terrains, and props ahead of rendering.
+  /// Decodes the shared Journey terrains and props ahead of rendering.
   Future<void> preloadBiomes() => Future.wait([
-    for (final biome in BiomeKind.values) ...[
-      if (!_images.containsKey(biomeAssetPath(biome)))
-        _load(biomeAssetPath(biome)),
+    for (final biome in BiomeKind.values)
       if (!_images.containsKey(journeyTerrainPath(biome)))
         _load(journeyTerrainPath(biome)),
-    ],
     for (final prop in journeyPropPaths)
-      if (!_images.containsKey(prop)) _load(prop),
+      if (!_images.containsKey(prop))
+        _load(prop, targetWidth: 132, targetHeight: 132),
   ]);
 
-  Future<void> _load(String assetPath) async {
+  /// Evicts Journey-specific terrain and prop textures when leaving the Journey
+  /// screen so decoded bitmaps do not remain pinned across other views.
+  void evictJourneyAssets() {
+    final keys = <String>[
+      for (final biome in BiomeKind.values) journeyTerrainPath(biome),
+      ...journeyPropPaths,
+    ];
+    for (final key in keys) {
+      final image = _images.remove(key);
+      image?.dispose();
+    }
+  }
+
+  Future<void> _load(
+    String assetPath, {
+    int? targetWidth,
+    int? targetHeight,
+  }) async {
     try {
       final data = await rootBundle.load(assetPath);
-      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetWidth: targetWidth,
+        targetHeight: targetHeight,
+      );
       final frame = await codec.getNextFrame();
       _images[assetPath] = frame.image;
       codec.dispose();

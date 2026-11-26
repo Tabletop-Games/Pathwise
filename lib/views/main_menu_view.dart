@@ -371,7 +371,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         title: 'Journey',
                         subtitle: '${model.levelsSolved} solved',
                         icon: _UiArtIcon(
-                          assetPath: 'assets/art/ui/compass.png',
+                          assetPath: 'assets/art/ui/compass.webp',
                           fallback: GameArt(
                             ArtKind.levels,
                             palette: palette,
@@ -391,7 +391,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         title: 'Collections',
                         subtitle: 'Themes & tips',
                         icon: Image.asset(
-                          'assets/art/ui/collections.png',
+                          'assets/art/ui/collections.webp',
                           width: 34,
                           height: 34,
                           fit: BoxFit.contain,
@@ -517,7 +517,7 @@ class _CampaignHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tipPath = equippedTip == PathTip.classic
-        ? 'assets/art/tips/hero_robot.png'
+        ? 'assets/art/tips/hero_robot.webp'
         : tipAssetPath(equippedTip);
     final biomePath = biomeAssetPath(biomeForTheme(theme));
     final scrimLeft = palette.surface.withValues(
@@ -1149,7 +1149,7 @@ class _WheelCard extends StatelessWidget {
     child: Row(
       children: [
         _UiArtIcon(
-          assetPath: 'assets/art/ui/wheel_ticket.png',
+          assetPath: 'assets/art/ui/wheel_ticket.webp',
           fallback: GameArt(ArtKind.wheel, palette: palette, size: 34),
           size: 34,
         ),

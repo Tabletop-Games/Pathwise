@@ -291,7 +291,7 @@ void main() {
         final files = dir
             .listSync()
             .whereType<File>()
-            .where((f) => f.path.endsWith('.png'))
+            .where((f) => f.path.endsWith('.webp'))
             .toList();
         expect(files.length, 21);
         for (final file in files) {
@@ -356,7 +356,7 @@ void main() {
           final files = Directory(dirPath)
               .listSync()
               .whereType<File>()
-              .where((f) => f.path.endsWith('.png'))
+              .where((f) => f.path.endsWith('.webp'))
               .toList();
           expect(files.isNotEmpty, isTrue);
           for (final file in files) {

@@ -466,15 +466,15 @@ class _AchievementCard extends StatelessWidget {
   String get _asset => switch (achievement) {
     Achievement.trailhead ||
     Achievement.trailblazer ||
-    Achievement.pathfinder => 'assets/art/ui/compass.png',
+    Achievement.pathfinder => 'assets/art/ui/compass.webp',
     Achievement.dailyHabit ||
-    Achievement.weeklyRitual => 'assets/art/ui/flame.png',
-    Achievement.unaided => 'assets/art/resources/hint.png',
-    Achievement.collector => 'assets/art/tips/crystal.png',
-    Achievement.timeTrial => 'assets/art/ui/timer.png',
-    Achievement.researcher => 'assets/art/ui/research.png',
-    Achievement.legendaryCrate => 'assets/art/resources/crate.png',
-    _ => 'assets/art/ui/achievement.png',
+    Achievement.weeklyRitual => 'assets/art/ui/flame.webp',
+    Achievement.unaided => 'assets/art/resources/hint.webp',
+    Achievement.collector => 'assets/art/tips/crystal.webp',
+    Achievement.timeTrial => 'assets/art/ui/timer.webp',
+    Achievement.researcher => 'assets/art/ui/research.webp',
+    Achievement.legendaryCrate => 'assets/art/resources/crate.webp',
+    _ => 'assets/art/ui/achievement.webp',
   };
 
   Widget _achievementIcon() {

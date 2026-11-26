@@ -111,7 +111,7 @@ Future<void> _snap(WidgetTester tester, GlobalKey key, String name) async {
   await tester.runAsync(() async {
     final image = await boundary.toImage();
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    File('$dir/$name.png')
+    File('$dir/$name.webp')
       ..createSync(recursive: true)
       ..writeAsBytesSync(data!.buffer.asUint8List());
     image.dispose();
@@ -164,7 +164,7 @@ Future<void> _screens(
     final cache = GameAssetCache.instance;
     await tester.runAsync(cache.preloadBiomes);
     for (final biome in BiomeKind.values) {
-      expect(cache.imageFor(biomeAssetPath(biome)), isNotNull);
+      expect(cache.imageFor(journeyTerrainPath(biome)), isNotNull);
     }
   }
   final ads = AdService();
@@ -177,14 +177,14 @@ Future<void> _screens(
     // widgets build so a settled animation frame also has its illustrations.
     final assets = <String>{
       if (only == null || only.contains('journey')) ...{
-        'assets/art/resources/chest_closed.png',
-        'assets/art/resources/chest_open.png',
-        'assets/art/resources/coin.png',
-        'assets/art/resources/hint.png',
+        'assets/art/resources/chest_closed.webp',
+        'assets/art/resources/chest_open.webp',
+        'assets/art/resources/coin.webp',
+        'assets/art/resources/hint.webp',
       },
       if (only == null || only.contains('boosts')) ...{
         for (final boost in Boost.values) boostAssetPath(boost),
-        'assets/art/ui/boost.png',
+        'assets/art/ui/boost.webp',
       },
     };
     await tester.pumpWidget(MaterialApp(home: SizedBox(key: key)));

@@ -273,8 +273,9 @@ class _JourneyLandscape extends CustomPainter {
     }
 
     if (position != 0 || chapter != 0) {
-      final belowBiome =
-          position == 0 && chapter > 0 ? _biomeForChapter(chapter - 1) : biome;
+      final belowBiome = position == 0 && chapter > 0
+          ? _biomeForChapter(chapter - 1)
+          : biome;
       draw(section(globalSlot, size.height / 2), pathBelowReached, belowBiome);
     }
     draw(section(globalSlot + 1, -size.height / 2), pathAboveReached, biome);
@@ -323,20 +324,20 @@ class _JourneyLandscape extends CustomPainter {
     final propPath = switch (biome) {
       BiomeKind.forest =>
         hash.isEven
-            ? 'assets/art/journey/prop_forest_trees.png'
-            : 'assets/art/journey/prop_forest_rocks.png',
+            ? 'assets/art/journey/prop_forest_trees.webp'
+            : 'assets/art/journey/prop_forest_rocks.webp',
       BiomeKind.winter =>
         hash.isEven
-            ? 'assets/art/journey/prop_winter_pine.png'
-            : 'assets/art/journey/prop_winter_ice.png',
+            ? 'assets/art/journey/prop_winter_pine.webp'
+            : 'assets/art/journey/prop_winter_ice.webp',
       BiomeKind.ocean =>
         hash.isEven
-            ? 'assets/art/journey/prop_ocean_palm.png'
-            : 'assets/art/journey/prop_forest_rocks.png',
+            ? 'assets/art/journey/prop_ocean_palm.webp'
+            : 'assets/art/journey/prop_forest_rocks.webp',
       BiomeKind.desert =>
         hash.isEven
-            ? 'assets/art/journey/prop_desert_cactus.png'
-            : 'assets/art/journey/prop_forest_rocks.png',
+            ? 'assets/art/journey/prop_desert_cactus.webp'
+            : 'assets/art/journey/prop_forest_rocks.webp',
     };
     drawProp(propPath, Offset(propX, propY), 44);
   }

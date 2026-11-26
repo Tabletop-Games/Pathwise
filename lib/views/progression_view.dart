@@ -29,7 +29,7 @@ enum _ResearchBranch {
   income(
     'Coins',
     'Permanent boosts to puzzle, streak, and milestone coin payouts.',
-    'assets/art/resources/coin_stack_2.png',
+    'assets/art/resources/coin_stack_2.webp',
     ArtKind.coinStack2,
     [
       Research.magnet,
@@ -43,14 +43,14 @@ enum _ResearchBranch {
   supplies(
     'Crates',
     'Increase falling supply crate frequency and reward capacity.',
-    'assets/art/resources/crate.png',
+    'assets/art/resources/crate.webp',
     ArtKind.crate,
     [Research.hunter, Research.collector, Research.scout],
   ),
   efficiency(
     'Efficiency',
     'Extend boost timers and reduce upgrade and boost costs.',
-    'assets/art/ui/boost.png',
+    'assets/art/ui/boost.webp',
     ArtKind.bolt,
     [
       Research.efficiency,
@@ -75,19 +75,19 @@ enum _ResearchBranch {
 }
 
 String _researchAssetPath(Research item) => switch (item) {
-  Research.magnet => 'assets/art/resources/coin.png',
-  Research.golden => 'assets/art/resources/coin_stack_2.png',
-  Research.fortune => 'assets/art/ui/wheel_ticket.png',
-  Research.mastery => 'assets/art/ui/achievement.png',
-  Research.momentum => 'assets/art/ui/flame.png',
-  Research.specialist => 'assets/art/resources/coin_stack_3.png',
-  Research.hunter => 'assets/art/resources/crate.png',
-  Research.collector => 'assets/art/resources/chest_open.png',
-  Research.scout => 'assets/art/ui/compass.png',
-  Research.efficiency => 'assets/art/ui/timer.png',
-  Research.savings => 'assets/art/resources/coin_stack_1.png',
-  Research.tuning => 'assets/art/ui/boost.png',
-  Research.procurement => 'assets/art/resources/hint.png',
+  Research.magnet => 'assets/art/resources/coin.webp',
+  Research.golden => 'assets/art/resources/coin_stack_2.webp',
+  Research.fortune => 'assets/art/ui/wheel_ticket.webp',
+  Research.mastery => 'assets/art/ui/achievement.webp',
+  Research.momentum => 'assets/art/ui/flame.webp',
+  Research.specialist => 'assets/art/resources/coin_stack_3.webp',
+  Research.hunter => 'assets/art/resources/crate.webp',
+  Research.collector => 'assets/art/resources/chest_open.webp',
+  Research.scout => 'assets/art/ui/compass.webp',
+  Research.efficiency => 'assets/art/ui/timer.webp',
+  Research.savings => 'assets/art/resources/coin_stack_1.webp',
+  Research.tuning => 'assets/art/ui/boost.webp',
+  Research.procurement => 'assets/art/resources/hint.webp',
 };
 
 String _compactDuration(int ms) {
