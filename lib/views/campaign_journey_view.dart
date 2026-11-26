@@ -407,10 +407,10 @@ class _JourneyNode extends StatelessWidget {
         palette == BoardPalette.palettes[PathwiseTheme.signal] ||
         palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
     final platformAsset = current
-        ? 'assets/art/journey/iso_platform_current.webp'
+        ? 'assets/art/journey/iso_platform_current.png'
         : !playable
-        ? 'assets/art/journey/iso_platform_locked.webp'
-        : 'assets/art/journey/iso_platform_completed.webp';
+        ? 'assets/art/journey/iso_platform_locked.png'
+        : 'assets/art/journey/iso_platform_completed.png';
     final numberInk = highContrast
         ? ink
         : current
@@ -830,7 +830,7 @@ class _ChestStop extends StatelessWidget {
                           Positioned(
                             bottom: 0,
                             child: Image.asset(
-                              'assets/art/journey/iso_pedestal.webp',
+                              'assets/art/journey/iso_pedestal.png',
                               width: 46,
                               height: 36,
                               fit: BoxFit.contain,

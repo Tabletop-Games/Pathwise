@@ -300,96 +300,131 @@ class _JourneyLandscape extends CustomPainter {
 
   void _paintIsometricTerrain(Canvas canvas, Size size) {
     const slotsPerChapter = chapterSize + 2;
-    final colors = _biomeColors(biome);
-    final template = _templateForChapter(chapter);
+    const rowsPerScene = 9;
+    final overlap = size.height * .85;
     final bounds = Offset.zero & size;
-    canvas.drawRect(bounds, Paint()..color = colors.ground);
+    final sceneStart = position ~/ rowsPerScene * rowsPerScene;
+    final sceneEnd = math.min(sceneStart + rowsPerScene, slotsPerChapter);
 
-    if (highContrast) return;
+    void drawScene(int sceneChapter, int sceneRow) {
+      final scene = sceneRow ~/ rowsPerScene;
+      final firstRow = scene * rowsPerScene;
+      final endRow = math.min(firstRow + rowsPerScene, slotsPerChapter);
+      final relativeRow = (chapter - sceneChapter) * slotsPerChapter + position;
+      final frame = Rect.fromLTWH(
+        0,
+        size.height * (relativeRow - endRow + 1) - overlap,
+        size.width,
+        size.height * (endRow - firstRow) + overlap * 2,
+      );
+      final sceneBiome = _biomeForChapter(sceneChapter);
+      final colors = _biomeColors(sceneBiome);
+      canvas.drawRect(bounds, Paint()..color = colors.ground);
+      if (highContrast) return;
+      final image = GameAssetCache.instance.imageFor(
+        journeyTerrainPath(sceneBiome),
+      );
+      if (image == null) return;
+      final cropBounds = Rect.fromLTWH(
+        0,
+        0,
+        image.width.toDouble(),
+        image.height.toDouble(),
+      );
+      final crop = applyBoxFit(
+        BoxFit.cover,
+        cropBounds.size,
+        frame.size,
+      ).source;
+      final alignment = Alignment(
+        const [-.35, .35, .0][(sceneChapter + scene) % 3],
+        0,
+      );
+      canvas.drawImageRect(
+        image,
+        alignment.inscribe(crop, cropBounds),
+        frame,
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..color = colors.ground.withValues(alpha: palette.dark ? .24 : .08),
+      );
+    }
 
-    // Continuous diagonal isometric terrace planes that align across row edges.
-    final slope = size.height * .48;
-    final bandPaint = Paint()..color = colors.ridge.withValues(alpha: .26);
-    final hiPaint = Paint()..color = colors.highlight.withValues(alpha: .16);
-    final phase = ((chapter * slotsPerChapter + position) % 6) / 6.0;
-    final xShift = (phase - 0.5) * size.width * 0.18;
+    void blendScenes({
+      required int lowerChapter,
+      required int lowerRow,
+      required int upperChapter,
+      required int upperRow,
+      required double boundary,
+    }) {
+      drawScene(lowerChapter, lowerRow);
+      canvas.saveLayer(bounds, Paint());
+      drawScene(upperChapter, upperRow);
+      final blend = Rect.fromLTRB(
+        0,
+        boundary - overlap,
+        size.width,
+        boundary + overlap,
+      );
+      canvas.drawRect(
+        bounds,
+        Paint()
+          ..blendMode = BlendMode.dstIn
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              Colors.white,
+              Colors.transparent,
+              Colors.transparent,
+            ],
+            stops: [0, .17, .83, 1],
+          ).createShader(blend),
+      );
+      canvas.restore();
+    }
 
-    final leftTerrace = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width * .32 + xShift, 0)
-      ..lineTo(size.width * .18 + xShift, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(leftTerrace, bandPaint);
+    if (position == sceneEnd - 1) {
+      final chapterBoundary = sceneEnd == slotsPerChapter;
+      blendScenes(
+        lowerChapter: chapter,
+        lowerRow: position,
+        upperChapter: chapterBoundary ? chapter + 1 : chapter,
+        upperRow: chapterBoundary ? 0 : sceneEnd,
+        boundary: 0,
+      );
+    } else if (position == sceneStart && (position != 0 || chapter != 0)) {
+      final chapterBoundary = sceneStart == 0;
+      blendScenes(
+        lowerChapter: chapterBoundary ? chapter - 1 : chapter,
+        lowerRow: chapterBoundary ? slotsPerChapter - 1 : sceneStart - 1,
+        upperChapter: chapter,
+        upperRow: position,
+        boundary: size.height,
+      );
+    } else {
+      drawScene(chapter, position);
+    }
 
-    final rightTerrace = Path()
-      ..moveTo(size.width * .72 - xShift, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(size.width * .84 - xShift, size.height)
-      ..close();
-    canvas.drawPath(rightTerrace, hiPaint);
-
-    // Water channel / lagoon band on bridge rows.
-    if (_isWaterBand(template, position)) {
+    // Illustrated shoreline/stream crossing on bridge rows.
+    final template = _templateForChapter(chapter);
+    if (!highContrast && _isWaterBand(template, position)) {
+      final colors = _biomeColors(biome);
       final waterRect = Rect.fromLTWH(
         0,
-        size.height * .16,
+        size.height * .08,
         size.width,
-        size.height * .68,
+        size.height * .84,
       );
-      canvas.drawRect(waterRect, Paint()..color = colors.water);
-      canvas.drawLine(
-        Offset(0, waterRect.top),
-        Offset(size.width, waterRect.top),
-        Paint()
-          ..color = Colors.white.withValues(alpha: .22)
-          ..strokeWidth = 2.5,
-      );
-      canvas.drawLine(
-        Offset(0, waterRect.bottom),
-        Offset(size.width, waterRect.bottom),
-        Paint()
-          ..color = colors.ridge.withValues(alpha: .55)
-          ..strokeWidth = 3.0,
+      canvas.drawRect(
+        waterRect,
+        Paint()..color = colors.water.withValues(alpha: .88),
       );
     }
-
-    // Natural diagonal isometric biome transition at chapter entry/exit.
-    if (position == 0 && chapter > 0) {
-      final prevColors = _biomeColors(_biomeForChapter(chapter - 1));
-      final wedge = Path()
-        ..moveTo(0, size.height * .65)
-        ..lineTo(size.width, size.height * .95)
-        ..lineTo(size.width, size.height)
-        ..lineTo(0, size.height)
-        ..close();
-      canvas.drawPath(wedge, Paint()..color = prevColors.ground);
-      canvas.drawLine(
-        Offset(0, size.height * .65),
-        Offset(size.width, size.height * .95),
-        Paint()
-          ..color = colors.highlight.withValues(alpha: .50)
-          ..strokeWidth = 3,
-      );
-    } else if (position == slotsPerChapter - 1) {
-      final nextColors = _biomeColors(_biomeForChapter(chapter + 1));
-      final wedge = Path()
-        ..moveTo(0, 0)
-        ..lineTo(size.width, 0)
-        ..lineTo(size.width, size.height * .28)
-        ..lineTo(0, size.height * .04)
-        ..close();
-      canvas.drawPath(wedge, Paint()..color = nextColors.ground);
-      canvas.drawLine(
-        Offset(0, size.height * .04),
-        Offset(size.width, size.height * .28),
-        Paint()
-          ..color = nextColors.highlight.withValues(alpha: .50)
-          ..strokeWidth = 3,
-      );
-    }
-    if (slope < 0) return;
   }
 
   void _paintTrail(Canvas canvas, Size size) {
@@ -560,17 +595,30 @@ class _JourneyLandscape extends CustomPainter {
     final stopX = _routeX(globalSlot);
     final routeCenterX = stopX * size.width;
 
-    // Illustrated isometric bridge across water channels / canyon gaps.
+    // Illustrated isometric bridge spanning the water crossing on the route.
     if (_isBridgeSlot(template, position)) {
       final bridgePath =
           template == _ChapterTemplate.shorelineCove ||
               template == _ChapterTemplate.forestClearing
-          ? 'assets/art/journey/iso_bridge_wood.webp'
-          : 'assets/art/journey/iso_bridge_stone.webp';
+          ? 'assets/art/journey/iso_bridge_wood.png'
+          : 'assets/art/journey/iso_bridge_stone.png';
       drawSprite(
         bridgePath,
-        Offset(routeCenterX, size.height * .52),
-        96,
+        Offset(routeCenterX, size.height * .50),
+        104,
+        shadow: false,
+      );
+      return;
+    }
+
+    // Illustrated stairway placed directly on the route for elevation climbs.
+    if ((template == _ChapterTemplate.steppedRidge ||
+            template == _ChapterTemplate.canyonPass) &&
+        (position == 8 || position == 18)) {
+      drawSprite(
+        'assets/art/journey/iso_stairway.png',
+        Offset(routeCenterX, size.height * .50),
+        88,
         shadow: false,
       );
       return;
@@ -583,24 +631,23 @@ class _JourneyLandscape extends CustomPainter {
     // Major biome-specific isometric landmarks on hero rows.
     if (position == 5 || position == 16 || position == 22) {
       final landmarkPath = switch (biome) {
-        BiomeKind.ocean => 'assets/art/journey/iso_ocean_cove.webp',
-        BiomeKind.forest => 'assets/art/journey/iso_forest_grove.webp',
-        BiomeKind.winter => 'assets/art/journey/iso_winter_glacier.webp',
-        BiomeKind.desert => 'assets/art/journey/iso_desert_mesa.webp',
+        BiomeKind.ocean => 'assets/art/journey/iso_ocean_cove.png',
+        BiomeKind.forest => 'assets/art/journey/iso_forest_grove.png',
+        BiomeKind.winter => 'assets/art/journey/iso_winter_glacier.png',
+        BiomeKind.desert => 'assets/art/journey/iso_desert_mesa.png',
       };
-      drawSprite(landmarkPath, Offset(sideX, size.height * .48), 112);
+      drawSprite(landmarkPath, Offset(sideX, size.height * .48), 116);
       return;
     }
 
-    // Architectural isometric structures (ruin terraces & stairways) spaced
-    // away from hero landmarks so adjacent rows never overlap.
-    if ((template == _ChapterTemplate.ruinTerrace ||
-            template == _ChapterTemplate.steppedRidge) &&
+    // Architectural isometric ruin terrace spaced away from hero landmarks.
+    if (template == _ChapterTemplate.ruinTerrace &&
         (position == 10 || position == 20)) {
-      final structPath = position.isEven
-          ? 'assets/art/journey/iso_ruin_terrace.webp'
-          : 'assets/art/journey/iso_stairway.webp';
-      drawSprite(structPath, Offset(sideX, size.height * .50), 92);
+      drawSprite(
+        'assets/art/journey/iso_ruin_terrace.png',
+        Offset(sideX, size.height * .50),
+        96,
+      );
       return;
     }
 
