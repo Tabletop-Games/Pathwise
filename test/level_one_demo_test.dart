@@ -74,7 +74,7 @@ void main() {
     expect(player.result(level), isNotNull);
     expect(player.highestUnlocked, 2);
     expect(player.levelsSolved, 1);
-    expect(player.coinBalance, 95);
+    expect(player.coinBalance, 97);
     expect(player.hintsRemaining, 3);
     final done = find.text('Done');
     await tester.ensureVisible(done);

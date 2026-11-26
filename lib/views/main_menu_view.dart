@@ -516,9 +516,7 @@ class _CampaignHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tipPath = equippedTip == PathTip.classic
-        ? 'assets/art/tips/hero_robot.webp'
-        : tipAssetPath(equippedTip);
+    final tipPath = tipAssetPath(equippedTip);
     final biomePath = biomeAssetPath(biomeForTheme(theme));
     final scrimLeft = palette.surface.withValues(
       alpha: palette.dark ? .92 : .94,

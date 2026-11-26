@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import '../lib/logic/star_rating.dart';
 import '../lib/model/economy.dart';
 import '../lib/model/fortune.dart';
 import '../lib/model/game_state.dart';
@@ -464,23 +465,54 @@ class SimPlayer {
       } else {
         level++;
         journeyClears++;
+        final puzzleSize = level <= 30
+            ? 4
+            : level <= 100
+            ? 5
+            : level <= 300
+            ? 6
+            : 7;
+        final diffScale = switch (puzzleSize) {
+          4 => 1.0 + (random.nextDouble() < 0.3 ? 0.25 : 0.0),
+          5 => 1.5 + (random.nextDouble() < 0.5 ? 0.25 : 0.0),
+          6 => 2.25 + (random.nextDouble() < 0.5 ? 0.50 : 0.0),
+          _ => 3.0 + (random.nextDouble() < 0.5 ? 0.75 : 0.0),
+        };
+        final solveMs = max(3000, (stepSec - navOverheadSeconds) * 1000);
+        final thresholds = StarThresholds(
+          threeStarMs: (baselineThreeStarMs * diffScale).round(),
+          twoStarMs: (baselineTwoStarMs * diffScale).round(),
+          oneStarMs: (baselineOneStarMs * diffScale).round(),
+          multiplier: diffScale,
+        );
+        final stars = thresholds.rate(solveMs);
+        final activeMult = progression.multiplier(nowMs);
         final momentumBonus = level % 5 == 0
             ? progression.effect(Research.momentum)
             : 0;
         credit(
           'levels',
           economy.campaignClearCoins(
-            multiplier: progression.multiplier(nowMs),
+            multiplier: activeMult,
             magnetBonus: progression.effect(Research.magnet),
             goldenBonus: goldenBonus,
             momentumBonus: momentumBonus,
+            stars: stars,
           ),
         );
 
-        // Post-completion ad multiplier (~25% take rate for video viewers)
+        // Occasional replay improvement (+1 star on ~8% of sub-3-star clears)
+        if (stars < 3 && profile.strategic && random.nextDouble() < 0.08) {
+          credit('star_replays', activeMult);
+        }
+
+        // Post-completion ad multiplier (~20% take rate for video viewers)
         if (online && videos > 0 && random.nextDouble() < 0.20) {
           final mult = random.nextDouble() < 0.25 ? 4 : 3;
-          credit('completion_ads', economy.completionBonusCoins(mult));
+          credit(
+            'completion_ads',
+            economy.completionBonusCoins(mult, stars: stars),
+          );
         }
 
         // Chapter treasure every 25 levels

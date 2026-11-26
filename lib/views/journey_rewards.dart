@@ -7,7 +7,6 @@ import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
-import '../model/game_state.dart';
 import '../model/journey.dart';
 import '../model/user_preferences.dart';
 import '../ui/art/game_assets.dart';
@@ -130,7 +129,7 @@ class _CompletionBonusState extends State<CompletionBonus>
     final palette = context.palette;
     final selected = model.selectedMultiplier;
     final mult = selected ?? accessibleMultiplier;
-    final extra = economy.clearReward(PlayMode.levels) * (mult - 1);
+    final extra = economy.completionBonusCoins(mult, stars: model.attemptStars);
     final total = model.completionCoins + extra;
     final buying = context.watch<BillingService>().buying;
     return Padding(

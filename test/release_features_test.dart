@@ -76,18 +76,18 @@ void main() {
     await model.open(const PuzzleId.level(1));
     complete(model);
     expect(model.highestUnlocked, 2);
-    expect(model.lastReward, 45);
-    expect(model.coinBalance, 95);
+    expect(model.lastReward, 48);
+    expect(model.coinBalance, 98);
     expect(model.hasAchievement(Achievement.trailhead), isTrue);
     await model.open(const PuzzleId.level(1), replay: true);
     complete(model);
     expect(model.lastReward, 0);
-    expect(model.coinBalance, 95);
+    expect(model.coinBalance, 98);
     expect(model.levelsSolved, 1);
     await model.flush();
     final restored = create(store, await store.load());
     expect(restored.highestUnlocked, 2);
-    expect(restored.coinBalance, 95);
+    expect(restored.coinBalance, 98);
     expect(
       restored.transactions.where((tx) => tx.id == 'achievement/trailhead'),
       hasLength(1),

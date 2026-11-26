@@ -59,6 +59,18 @@ const journeyPropPaths = <String>[
   'assets/art/journey/prop_ocean_palm.webp',
   'assets/art/journey/prop_desert_cactus.webp',
   'assets/art/journey/prop_signpost.webp',
+  'assets/art/journey/iso_platform_completed.webp',
+  'assets/art/journey/iso_platform_current.webp',
+  'assets/art/journey/iso_platform_locked.webp',
+  'assets/art/journey/iso_pedestal.webp',
+  'assets/art/journey/iso_bridge_wood.webp',
+  'assets/art/journey/iso_bridge_stone.webp',
+  'assets/art/journey/iso_stairway.webp',
+  'assets/art/journey/iso_ruin_terrace.webp',
+  'assets/art/journey/iso_ocean_cove.webp',
+  'assets/art/journey/iso_forest_grove.webp',
+  'assets/art/journey/iso_winter_glacier.webp',
+  'assets/art/journey/iso_desert_mesa.webp',
 ];
 
 String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.webp';
@@ -130,8 +142,7 @@ final class GameAssetCache extends ChangeNotifier {
       if (!_images.containsKey(journeyTerrainPath(biome)))
         _load(journeyTerrainPath(biome)),
     for (final prop in journeyPropPaths)
-      if (!_images.containsKey(prop))
-        _load(prop, targetWidth: 132, targetHeight: 132),
+      if (!_images.containsKey(prop)) _load(prop),
   ]);
 
   /// Evicts Journey-specific terrain and prop textures when leaving the Journey

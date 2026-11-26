@@ -12,7 +12,6 @@ import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
 import 'main_menu_view.dart';
-import 'puzzle_view.dart';
 
 part 'journey_landscape.dart';
 
@@ -301,9 +300,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
         x: stopX,
         playable: unlocked,
         current: level == model.highestUnlocked,
-        solveTime: result == null
-            ? null
-            : formatTime(Duration(milliseconds: result.milliseconds)),
+        stars: result == null ? null : model.starsFor(id),
         onTap: unlocked
             ? () => openPuzzle(
                 context,
@@ -353,7 +350,7 @@ class _JourneyNode extends StatelessWidget {
     required this.x,
     required this.playable,
     required this.current,
-    required this.solveTime,
+    required this.stars,
     required this.onTap,
   });
 
@@ -362,12 +359,12 @@ class _JourneyNode extends StatelessWidget {
   final double x;
   final bool playable;
   final bool current;
-  final String? solveTime;
+  final int? stars;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final completed = solveTime != null;
+    final completed = stars != null;
     final stroke = current
         ? palette.onRoute
         : completed
@@ -376,42 +373,51 @@ class _JourneyNode extends StatelessWidget {
     final fill = current
         ? palette.route
         : completed
-        ? Color.lerp(palette.card, palette.route, palette.dark ? .14 : .10)!
+        ? Color.lerp(palette.card, palette.route, palette.dark ? .20 : .14)!
         : playable
         ? palette.card
         : palette.quiet;
-    final topColor = Color.lerp(fill, Colors.white, palette.dark ? .12 : .24)!;
-    final bottomColor = Color.lerp(
+    final topColor = Color.lerp(fill, Colors.white, palette.dark ? .14 : .26)!;
+    final skirtColor = Color.lerp(
       fill,
       Colors.black,
-      palette.dark ? .22 : .10,
+      palette.dark ? .38 : .26,
     )!;
     final ink = current
         ? palette.onRoute
         : playable
         ? palette.ink
         : palette.mutedInk;
-    final badge = current
-        ? Icons.play_arrow_rounded
-        : completed
-        ? Icons.star_rounded
-        : playable
-        ? null
-        : Icons.lock_outline_rounded;
-    final label = current ? 'Current' : solveTime;
     final semanticsLabel = current
         ? 'Level $level, current'
         : !playable
         ? 'Level $level, locked'
         : completed
-        ? 'Level $level, completed, $solveTime'
+        ? 'Level $level, completed, $stars of 3 stars'
         : 'Level $level';
     final textScale = MediaQuery.textScalerOf(context).scale(20);
     final width = math.max(
-      current ? 64.0 : 54.0,
-      math.min(114.0, textScale * (level.toString().length * .57 + .9)),
+      current ? 78.0 : 70.0,
+      math.min(130.0, textScale * (level.toString().length * .56 + 1.45)),
     );
-    final height = math.max(current ? 60.0 : 50.0, textScale + 18);
+    final height = math.max(current ? 66.0 : 58.0, textScale + 26);
+    const goldStar = Color(0xFFE5A91A);
+    final emptyStar = palette.mutedInk.withValues(alpha: .42);
+    final highContrast =
+        palette == BoardPalette.palettes[PathwiseTheme.signal] ||
+        palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
+    final platformAsset = current
+        ? 'assets/art/journey/iso_platform_current.webp'
+        : !playable
+        ? 'assets/art/journey/iso_platform_locked.webp'
+        : 'assets/art/journey/iso_platform_completed.webp';
+    final numberInk = highContrast
+        ? ink
+        : current
+        ? Colors.white
+        : playable
+        ? const Color(0xFF1F2A24)
+        : const Color(0xFFF2F5F8);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -424,19 +430,19 @@ class _JourneyNode extends StatelessWidget {
         final labelOnRight = x <= .5;
         final labelInset = labelOnRight ? center : widthAvailable - center;
         final tagStart = labelInset + nodeWidth / 2 + 8;
-        final shape = StadiumBorder(
-          side: BorderSide(color: stroke, width: current ? 2.5 : 1.5),
+        final shape = RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         );
 
         return Stack(
           children: [
-            if (label != null && widthAvailable - tagStart > 20)
+            if (current && widthAvailable - tagStart > 20)
               Positioned(
                 left: labelOnRight ? tagStart : null,
                 right: labelOnRight ? null : tagStart,
                 top: 0,
                 bottom: 0,
-                width: math.min(130.0, widthAvailable - tagStart - 6),
+                width: math.min(110.0, widthAvailable - tagStart - 6),
                 child: Align(
                   alignment: labelOnRight
                       ? Alignment.centerLeft
@@ -444,11 +450,9 @@ class _JourneyNode extends StatelessWidget {
                   child: ExcludeSemantics(
                     child: DecoratedBox(
                       decoration: ShapeDecoration(
-                        color: current ? fill : palette.surface,
+                        color: fill,
                         shape: StadiumBorder(
-                          side: BorderSide(
-                            color: current ? stroke : palette.cardEdge,
-                          ),
+                          side: BorderSide(color: stroke, width: 1.5),
                         ),
                       ),
                       child: Padding(
@@ -457,14 +461,14 @@ class _JourneyNode extends StatelessWidget {
                           vertical: 4,
                         ),
                         child: Text(
-                          label,
+                          'Current',
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: current ? ink : palette.ink,
+                            color: ink,
                             fontWeight: FontWeight.w800,
-                            fontSize: 13,
+                            fontSize: 12,
                           ),
                         ),
                       ),
@@ -474,7 +478,7 @@ class _JourneyNode extends StatelessWidget {
               ),
             Positioned(
               left: center - nodeWidth / 2,
-              top: (constraints.maxHeight - height) / 2,
+              top: (constraints.maxHeight - height) / 2 - (current ? 2 : 0),
               width: nodeWidth,
               height: height,
               child: Semantics(
@@ -484,62 +488,97 @@ class _JourneyNode extends StatelessWidget {
                 hint: !playable ? 'Shows how to unlock this level' : null,
                 excludeSemantics: true,
                 onTap: onTap,
-                child: DecoratedBox(
-                  decoration: ShapeDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [topColor, bottomColor],
-                    ),
-                    shape: shape,
-                    shadows: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: .36),
-                        offset: const Offset(0, 3),
-                        blurRadius: 6,
-                      ),
-                      if (current)
-                        BoxShadow(
-                          color: palette.accent,
-                          spreadRadius: 3,
-                          blurRadius: 2,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (highContrast)
+                      CustomPaint(
+                        painter: _IsoPlatformPainter(
+                          topColor: topColor,
+                          bottomColor: fill,
+                          skirtColor: skirtColor,
+                          borderColor: stroke,
+                          accentGlow: current ? palette.accent : null,
+                          elevated: current,
                         ),
-                    ],
-                  ),
-                  child: Material(
-                    type: MaterialType.transparency,
-                    shape: shape,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: onTap,
-                      customBorder: shape,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(7, 3, 7, 4),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (badge != null)
-                              Icon(badge, color: ink, size: current ? 18 : 14),
-                            Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  '$level',
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: ink,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 20,
-                                    height: 1.05,
+                      )
+                    else
+                      Image.asset(
+                        platformAsset,
+                        fit: BoxFit.fill,
+                        filterQuality: FilterQuality.medium,
+                        errorBuilder: (_, _, _) => CustomPaint(
+                          painter: _IsoPlatformPainter(
+                            topColor: topColor,
+                            bottomColor: fill,
+                            skirtColor: skirtColor,
+                            borderColor: stroke,
+                            accentGlow: current ? palette.accent : null,
+                            elevated: current,
+                          ),
+                        ),
+                      ),
+                    Material(
+                      type: MaterialType.transparency,
+                      shape: shape,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: onTap,
+                        customBorder: shape,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (current)
+                                Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: numberInk,
+                                  size: 14,
+                                )
+                              else if (!playable)
+                                Icon(
+                                  Icons.lock_outline_rounded,
+                                  color: numberInk,
+                                  size: 12,
+                                ),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '$level',
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      color: numberInk,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 17,
+                                      height: 1.05,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                              if (completed)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (var s = 0; s < 3; s++)
+                                      Icon(
+                                        s < stars!
+                                            ? Icons.star_rounded
+                                            : Icons.star_outline_rounded,
+                                        size: 11,
+                                        color: s < stars!
+                                            ? goldStar
+                                            : emptyStar,
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -548,6 +587,86 @@ class _JourneyNode extends StatelessWidget {
       },
     );
   }
+}
+
+class _IsoPlatformPainter extends CustomPainter {
+  const _IsoPlatformPainter({
+    required this.topColor,
+    required this.bottomColor,
+    required this.skirtColor,
+    required this.borderColor,
+    required this.elevated,
+    this.accentGlow,
+  });
+
+  final Color topColor;
+  final Color bottomColor;
+  final Color skirtColor;
+  final Color borderColor;
+  final Color? accentGlow;
+  final bool elevated;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const skirtDepth = 5.5;
+    final faceRect = Rect.fromLTWH(0, 0, size.width, size.height - skirtDepth);
+    final faceRRect = RRect.fromRectAndRadius(
+      faceRect,
+      const Radius.circular(13),
+    );
+    final skirtRRect = RRect.fromRectAndRadius(
+      faceRect.translate(0, skirtDepth),
+      const Radius.circular(13),
+    );
+
+    // Soft ground shadow.
+    canvas.drawRRect(
+      skirtRRect.inflate(1.2).shift(const Offset(0, 2)),
+      Paint()..color = Colors.black.withValues(alpha: elevated ? .36 : .24),
+    );
+
+    if (accentGlow != null) {
+      canvas.drawRRect(
+        faceRRect.inflate(2.5),
+        Paint()
+          ..color = accentGlow!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6,
+      );
+    }
+
+    // 2.5D extruded underside skirt.
+    canvas.drawRRect(skirtRRect, Paint()..color = skirtColor);
+
+    // Top platform face with subtle directional lighting.
+    canvas.drawRRect(
+      faceRRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [topColor, bottomColor],
+        ).createShader(faceRect),
+    );
+
+    // Crisp rim border.
+    canvas.drawRRect(
+      faceRRect.deflate(.6),
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = elevated ? 2.0 : 1.3,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_IsoPlatformPainter old) =>
+      old.topColor != topColor ||
+      old.bottomColor != bottomColor ||
+      old.skirtColor != skirtColor ||
+      old.borderColor != borderColor ||
+      old.accentGlow != accentGlow ||
+      old.elevated != elevated;
 }
 
 class _ChapterHeaderStop extends StatelessWidget {
@@ -561,16 +680,15 @@ class _ChapterHeaderStop extends StatelessWidget {
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: DecoratedBox(
-        decoration: ShapeDecoration(
-          color: palette.surface.withValues(alpha: .92),
-          shape: StadiumBorder(
-            side: BorderSide(color: palette.cardEdge, width: 1.2),
-          ),
-          shadows: [
+        decoration: BoxDecoration(
+          color: palette.surface.withValues(alpha: .94),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.cardEdge, width: 1.4),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: .20),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: .28),
+              blurRadius: 0,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -676,68 +794,102 @@ class _ChestStop extends StatelessWidget {
       child: Semantics(
         button: true,
         label: '${chapterName(chapter)}, $status',
-        child: Material(
-          color: palette.surface.withValues(alpha: .94),
-          shape: StadiumBorder(
-            side: BorderSide(
-              color: ready ? palette.route : palette.cardEdge,
-              width: ready ? 2.2 : 1.2,
-            ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .32),
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          elevation: ready ? 4 : 2,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GameArt(
-                    claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-                    palette: palette,
-                    size: 40,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          status,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: ready ? palette.route : palette.ink,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            height: 1.15,
+          child: Material(
+            color: palette.surface.withValues(alpha: .96),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: ready ? palette.route : palette.cardEdge,
+                width: ready ? 2.2 : 1.4,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      height: 46,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            bottom: 0,
+                            child: Image.asset(
+                              'assets/art/journey/iso_pedestal.webp',
+                              width: 46,
+                              height: 36,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
+                            ),
                           ),
-                        ),
-                        Text(
-                          '$chapterRewardCoins coins · $chapterRewardHints hint',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: palette.mutedInk,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                            height: 1.15,
+                          Positioned(
+                            top: 0,
+                            child: GameArt(
+                              claimed ? ArtKind.treasureOpen : ArtKind.treasure,
+                              palette: palette,
+                              size: 30,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  if (ready) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: palette.route,
-                      size: 20,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: ready ? palette.route : palette.ink,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              height: 1.15,
+                            ),
+                          ),
+                          Text(
+                            '$chapterRewardCoins coins · $chapterRewardHints hint',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: palette.mutedInk,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                              height: 1.15,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    if (ready) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: palette.route,
+                        size: 20,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

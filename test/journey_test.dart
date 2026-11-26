@@ -57,7 +57,8 @@ void main() {
       expect(await callback('sdk'), isTrue);
       expect(await callback('duplicate'), isFalse);
       final expected =
-          normal + economy.clearReward(PlayMode.levels) * (multiplier - 1);
+          normal +
+          (economy.clearReward(PlayMode.levels) + 3) * (multiplier - 1);
       expect(model.coinBalance, expected);
       final restored = journeyModel(storage, await storage.load());
       await clear(restored, 1, replay: true);

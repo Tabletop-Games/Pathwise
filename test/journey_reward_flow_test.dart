@@ -77,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(model.selectedMultiplier, 4);
     expect(tester.getCenter(pointer), position);
-    final watch = find.textContaining('Watch ad for +15 coins');
+    final watch = find.textContaining('Watch ad for +24 coins');
     await tester.tap(watch);
     await tester.pumpAndSettle();
     expect(ads.requests, 1);
@@ -94,7 +94,7 @@ void main() {
     await tester.tap(watch);
     await tester.pumpAndSettle();
     expect(ads.presentations, 1);
-    expect(model.coinBalance, normal + 15);
+    expect(model.coinBalance, normal + 24);
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
     ads.dispose();
@@ -181,7 +181,7 @@ void main() {
     final billing = BillingService(persist: (_) async => true);
     await clear(model, 1);
     final normal = model.coinBalance;
-    final watch = find.textContaining('Watch ad for +10 coins');
+    final watch = find.textContaining('Watch ad for +16 coins');
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -211,7 +211,7 @@ void main() {
     await tester.tap(watch);
     await tester.pumpAndSettle();
     expect(ads.presentations, 2);
-    expect(model.coinBalance, normal + 10);
+    expect(model.coinBalance, normal + 16);
     expect(watch, findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();

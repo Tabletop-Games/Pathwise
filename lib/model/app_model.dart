@@ -11,6 +11,7 @@ import '../logic/haptic_service.dart';
 import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
+import '../logic/star_rating.dart';
 import 'economy.dart';
 import 'economy_activity.dart';
 import 'fortune.dart';
@@ -64,6 +65,10 @@ class AppModel extends ChangeNotifier
           hints: hints,
           unassisted: data['unassisted'] == true || hints == 0,
         );
+        final savedStars = data['stars'];
+        if (savedStars is int && savedStars >= 0 && savedStars <= 3) {
+          _levelStars[entry.key] = savedStars;
+        }
       }
     }
     if (!snapshot.containsKey('playStreak')) {
@@ -1078,6 +1083,9 @@ class AppModel extends ChangeNotifier
   bool chapterCompletedThisVisit = false;
   bool firstCampaignClear = false;
   int completionCoins = 0;
+  int attemptStars = 0;
+  int previousAttemptBestStars = 0;
+  int earnedStarCoins = 0;
   int? selectedMultiplier;
 
   int get completionBonusCoins => firstCampaignClear
@@ -1204,7 +1212,7 @@ class AppModel extends ChangeNotifier
           !_wallet.add(
             'journey/multiplier/$level',
             'Level $level video bonus',
-            economy.completionBonusCoins(multiplier),
+            economy.completionBonusCoins(multiplier, stars: attemptStars),
             _today(),
           ))
         return false;
@@ -1270,6 +1278,7 @@ class AppModel extends ChangeNotifier
   late final HapticService haptic;
   final _attempts = <String, dynamic>{};
   final _results = <String, RunResult>{};
+  final _levelStars = <String, int>{};
   final elapsed = ValueNotifier(Duration.zero);
   final _watch = Stopwatch();
   Timer? _tick;
@@ -1374,7 +1383,33 @@ class AppModel extends ChangeNotifier
   bool get canClear => !complete && (path.length > 1 || hintCell != null);
   bool get canHint => _canPlay && (_game?.canHint ?? false) && _hintBalance > 0;
   bool hasAttempt(PuzzleId id) => _attempts.containsKey(id.key);
+  @visibleForTesting
+  void addElapsedForTest(Duration delta) {
+    _baseTime += delta;
+    elapsed.value += delta;
+  }
+
   RunResult? result(PuzzleId id) => _results[id.key];
+
+  /// Highest earned star rating (0–3) for a completed campaign level, or null
+  /// if not yet completed. Lazily migrates historical solve times without
+  /// granting retroactive coins.
+  int? starsFor(PuzzleId id) {
+    if (id.mode != PlayMode.levels) return null;
+    final run = _results[id.key];
+    if (run == null) return null;
+    final stored = _levelStars[id.key];
+    if (stored != null) return stored;
+    if (run.milliseconds <= 0) return 0;
+    final derived = starThresholdsForLevel(id.level).rate(run.milliseconds);
+    _levelStars[id.key] = derived;
+    return derived;
+  }
+
+  StarThresholds? get activeStarThresholds =>
+      _game != null && activeId?.mode == PlayMode.levels
+      ? starThresholdsForBoard(_game!.board)
+      : null;
   int get solved => _results.length + _retiredSolved;
   int get unassisted =>
       _results.values.where((value) => value.unassisted).length + _retiredClean;
@@ -1823,6 +1858,9 @@ class AppModel extends ChangeNotifier
     _accountedMilliseconds = 0;
     lastReward = 0;
     completionCoins = 0;
+    attemptStars = 0;
+    previousAttemptBestStars = 0;
+    earnedStarCoins = 0;
     latestDiscovery = null;
     latestDiscoveryClaimed = false;
     discoveryStartPercent = null;
@@ -2038,6 +2076,27 @@ class AppModel extends ChangeNotifier
         hints: improved ? totalHints : previous.hints,
         unassisted: totalHints == 0 || (previous?.unassisted ?? false),
       );
+      final mult = progression.multiplier(progressionTime);
+      var levelStars = 0;
+      if (id.mode == PlayMode.levels) {
+        final prevStars = previous == null ? 0 : (starsFor(id) ?? 0);
+        levelStars = starThresholdsForBoard(_game!.board).rate(time);
+        final bestStars = max(prevStars, levelStars);
+        attemptStars = levelStars;
+        previousAttemptBestStars = prevStars;
+        _levelStars[id.key] = bestStars;
+        if (previous != null && bestStars > prevStars) {
+          for (var s = prevStars + 1; s <= bestStars; s++) {
+            _wallet.add(
+              'star/${id.key}/$s',
+              'Level ${id.level} $s-star bonus',
+              mult,
+              _today(),
+            );
+          }
+          earnedStarCoins = coinBalance - coinsBefore;
+        }
+      }
       if (previous == null) {
         if (totalHints == 0 && !_usedClear && stages.isEmpty)
           _achievements.precision++;
@@ -2045,8 +2104,8 @@ class AppModel extends ChangeNotifier
           _levelsSolved++;
           _advanceJourney(id.level);
           _highestUnlocked = max(_highestUnlocked, id.level + 1);
+          earnedStarCoins = levelStars * mult;
         }
-        final mult = progression.multiplier(progressionTime);
         final goldenBonus = totalHints == 0
             ? progression.effect(Research.golden)
             : 0;
@@ -2058,6 +2117,7 @@ class AppModel extends ChangeNotifier
                 momentumBonus: _levelsSolved % 5 == 0
                     ? progression.effect(Research.momentum)
                     : 0,
+                stars: levelStars,
               )
             : economy.dailyClearCoins(
                 multiplier: mult,
@@ -2100,6 +2160,8 @@ class AppModel extends ChangeNotifier
     final previousAchievements = achievementCounters;
     final coinsBefore = coinBalance;
     _results[id.key] = (milliseconds: 15000, hints: 0, unassisted: true);
+    final demoStars = starThresholdsForLevel(1).rate(15000);
+    _levelStars[id.key] = demoStars;
     _achievements.precision++;
     _levelsSolved++;
     _advanceJourney(1);
@@ -2112,6 +2174,7 @@ class AppModel extends ChangeNotifier
         magnetBonus: progression.effect(Research.magnet),
         goldenBonus: progression.effect(Research.golden),
         momentumBonus: 0,
+        stars: demoStars,
       ),
       _today(),
     );
@@ -2361,6 +2424,7 @@ class AppModel extends ChangeNotifier
           'milliseconds': entry.value.milliseconds,
           'hints': entry.value.hints,
           'unassisted': entry.value.unassisted,
+          if (_levelStars[entry.key] case final stars?) 'stars': stars,
         },
     },
   };

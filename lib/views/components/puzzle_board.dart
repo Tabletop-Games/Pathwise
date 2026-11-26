@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../logic/game_controller.dart';
@@ -111,12 +112,23 @@ class PuzzleBoard extends StatefulWidget {
 }
 
 class _PuzzleBoardState extends State<PuzzleBoard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _rejection = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 450),
     animationBehavior: AnimationBehavior.preserve,
   );
+  late final AnimationController _checkpointPulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  late final AnimationController _completePulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  int? _pulsedCheckpointCell;
   RejectedMove? _rejectedMove;
   int? _attemptFrom;
   int? _attemptTarget;
@@ -161,10 +173,107 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   /// Transient picture of the tip while a finger is down. Never persisted.
   final _visual = ValueNotifier<TipVisual?>(null);
 
+  /// Smoothed visual tip state driven by an unconditionally stable exponential settle.
+  final _animatedVisual = ValueNotifier<({Offset tip, double angle})?>(null);
+  Ticker? _springTicker;
+  Duration? _lastTick;
+  Offset? _springTip;
+  double? _springAngle;
+  TipVisual? _springTarget;
+
   /// Set only while the tip retracts along the trail, so the board redraws
   /// the route up to the tip. Forward drags never repaint the board layer.
   final _trim = ValueNotifier<({int cell, Offset tip})?>(null);
   late TipTracker _tracker = _newTracker();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _springTicker?.stop();
+      _lastTick = null;
+    } else if (_springTarget != null &&
+        _springTicker != null &&
+        !_springTicker!.isActive) {
+      _springTicker!.start();
+    }
+  }
+
+  static double _angleForFacing(int facing) =>
+      (facing < 0 ? 3 : facing % 4) * (math.pi / 2);
+
+  static double _shortestAngleDelta(double from, double to) {
+    var diff = (to - from) % (math.pi * 2);
+    if (diff > math.pi) diff -= math.pi * 2;
+    if (diff < -math.pi) diff += math.pi * 2;
+    return diff;
+  }
+
+  void _driveSpring(
+    TipVisual target, {
+    bool snap = false,
+    bool snapTip = false,
+  }) {
+    _springTarget = target;
+    final targetAngle = _angleForFacing(target.facing);
+    final reduced = mounted && MediaQuery.disableAnimationsOf(context);
+    if (snap || reduced || _springTip == null || _springAngle == null) {
+      _springTip = target.tip;
+      _springAngle = targetAngle;
+      _animatedVisual.value = (tip: target.tip, angle: targetAngle);
+      _springTicker?.stop();
+      _lastTick = null;
+      return;
+    }
+    if (snapTip) {
+      _springTip = target.tip;
+      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+    }
+    _springTicker ??= createTicker(_onSpringTick);
+    if (!_springTicker!.isActive) {
+      _lastTick = null;
+      _springTicker!.start();
+    }
+  }
+
+  void _onSpringTick(Duration elapsed) {
+    final target = _springTarget;
+    if (target == null || _springTip == null || _springAngle == null) {
+      _springTicker?.stop();
+      return;
+    }
+    final prev = _lastTick;
+    _lastTick = elapsed;
+    if (prev == null) return;
+    final dt = ((elapsed - prev).inMicroseconds / 1e6).clamp(0.001, 0.05);
+    final factor = 1.0 - math.exp(-26.0 * dt);
+    final targetAngle = _angleForFacing(target.facing);
+
+    _springTip = _pointer != null
+        ? target.tip
+        : Offset.lerp(_springTip!, target.tip, factor)!;
+    final angleErr = _shortestAngleDelta(_springAngle!, targetAngle);
+    _springAngle = _springAngle! + angleErr * factor;
+
+    final settledPos = (_springTip! - target.tip).distance < 0.002;
+    final settledAngle =
+        _shortestAngleDelta(_springAngle!, targetAngle).abs() < 0.01;
+
+    if (settledPos && settledAngle) {
+      _springTip = target.tip;
+      _springAngle = targetAngle;
+      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+      _springTicker?.stop();
+      _lastTick = null;
+    } else {
+      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+    }
+  }
 
   TipTracker _newTracker() => TipTracker(
     tipRadius: tipRadiusOf(widget.tipStyle),
@@ -215,6 +324,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   void _track(Offset position, {int initialFacing = -1}) {
     final controls = widget.model;
     final route = controls.path;
+    final prevCell = _visual.value?.cell;
     final visual = _tracker.update(
       puzzle: widget.puzzle,
       route: route,
@@ -224,7 +334,16 @@ class _PuzzleBoardState extends State<PuzzleBoard>
           : tipDirection(widget.puzzle, route),
       canEnter: _canEnterCell,
     );
+    final isPortalJump =
+        prevCell != null &&
+        widget.puzzle.portal?.$1 == prevCell &&
+        widget.puzzle.portal?.$2 == visual.cell;
     _visual.value = visual;
+    _driveSpring(
+      visual,
+      snap: isPortalJump || initialFacing >= 0,
+      snapTip: _pointer != null,
+    );
     final trim = visual.trim ? (cell: visual.cell, tip: visual.tip) : null;
     if (trim?.cell != _trim.value?.cell || trim?.tip != _trim.value?.tip) {
       _trim.value = trim;
@@ -236,6 +355,11 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _tracker.reset();
     _visual.value = null;
     _trim.value = null;
+    _springTicker?.stop();
+    _lastTick = null;
+    _springTarget = null;
+    _springTip = null;
+    _animatedVisual.value = null;
   }
 
   int get _size => widget.puzzle.size;
@@ -324,9 +448,14 @@ class _PuzzleBoardState extends State<PuzzleBoard>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _springTicker?.dispose();
+    _animatedVisual.dispose();
     _visual.dispose();
     _trim.dispose();
     _rejection.dispose();
+    _checkpointPulse.dispose();
+    _completePulse.dispose();
     super.dispose();
   }
 
@@ -337,7 +466,34 @@ class _PuzzleBoardState extends State<PuzzleBoard>
       _tracker = _newTracker();
       _settle();
     }
-    if (oldWidget.puzzle != widget.puzzle) _preferredRest = -1;
+    if (oldWidget.puzzle != widget.puzzle) {
+      _preferredRest = -1;
+      _springTip = null;
+      _springAngle = null;
+      _springTarget = null;
+      _animatedVisual.value = null;
+      _pulsedCheckpointCell = null;
+      _checkpointPulse.stop();
+      _checkpointPulse.value = 0;
+      _completePulse.stop();
+      _completePulse.value = 0;
+    } else {
+      final path = widget.model.path;
+      final tipCell = path.isNotEmpty ? path.last : null;
+      if (tipCell != null &&
+          widget.puzzle.numbers[tipCell] != 0 &&
+          tipCell != widget.puzzle.start &&
+          tipCell != _pulsedCheckpointCell &&
+          !MediaQuery.disableAnimationsOf(context)) {
+        _pulsedCheckpointCell = tipCell;
+        _checkpointPulse.forward(from: 0);
+      }
+      if (widget.model.complete &&
+          _completePulse.status == AnimationStatus.dismissed &&
+          !MediaQuery.disableAnimationsOf(context)) {
+        _completePulse.forward(from: 0);
+      }
+    }
     if (oldWidget.puzzle != widget.puzzle ||
         widget.model.complete ||
         (_rejectedMove != null &&
@@ -386,6 +542,9 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       rejection: _rejection,
                       rejectedMove: () => _rejectedMove,
                       trim: _trim,
+                      checkpointPulse: _checkpointPulse,
+                      pulsedCheckpointCell: () => _pulsedCheckpointCell,
+                      completePulse: _completePulse,
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -400,6 +559,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                         tipStyle: widget.tipStyle,
                         route: path,
                         visual: _visual,
+                        animatedVisual: _animatedVisual,
                         restingFacing: () => _restingDirection(path),
                         rejection: _rejection,
                         reduced: MediaQuery.disableAnimationsOf(context),
@@ -929,6 +1089,9 @@ class _BoardPainter extends CustomPainter {
     this.rejection,
     this.rejectedMove,
     this.trim,
+    this.checkpointPulse,
+    this.pulsedCheckpointCell,
+    this.completePulse,
     this.showTip = false,
     this.reducedMotion = false,
   }) : visited = route.toSet(),
@@ -937,11 +1100,16 @@ class _BoardPainter extends CustomPainter {
            GameAssetCache.instance,
            if (rejection != null) rejection,
            if (trim != null) trim,
+           if (checkpointPulse != null) checkpointPulse,
+           if (completePulse != null) completePulse,
          ]),
        );
 
   /// Present only while the tip retracts along the trail.
   final ValueNotifier<({int cell, Offset tip})?>? trim;
+  final AnimationController? checkpointPulse;
+  final int? Function()? pulsedCheckpointCell;
+  final AnimationController? completePulse;
 
   /// The static preview paints its own tip. Live boards use the tip layer.
   final bool showTip;
@@ -1047,17 +1215,63 @@ class _BoardPainter extends CustomPainter {
 
     final first = _center(route.first);
     final trimmed = trim?.value;
-    final stroke = Path()..moveTo(first.dx, first.dy);
-    for (final cell in route.skip(1)) {
+    final points = <Offset>[first];
+    final portalJumpAt = <int>{};
+    for (var i = 1; i < route.length; i++) {
+      final cell = route[i];
       final point =
-          trimmed != null && cell == route.last && trimmed.cell == cell
+          trimmed != null && i == route.length - 1 && trimmed.cell == cell
           ? trimmed.tip
           : _center(cell);
       if (puzzle.portal?.$2 == cell) {
-        stroke.moveTo(point.dx, point.dy);
-      } else {
-        stroke.lineTo(point.dx, point.dy);
+        portalJumpAt.add(points.length);
       }
+      points.add(point);
+    }
+    final stroke = Path()..moveTo(points.first.dx, points.first.dy);
+    const cornerRadius = 0.16;
+    for (var i = 1; i < points.length; i++) {
+      if (portalJumpAt.contains(i)) {
+        stroke.moveTo(points[i].dx, points[i].dy);
+        continue;
+      }
+      final hasNext = i + 1 < points.length && !portalJumpAt.contains(i + 1);
+      if (hasNext) {
+        final prev = points[i - 1];
+        final curr = points[i];
+        final next = points[i + 1];
+        final inVec = curr - prev;
+        final outVec = next - curr;
+        final inLen = inVec.distance;
+        final outLen = outVec.distance;
+        final isTurn =
+            inLen > 1e-4 &&
+            outLen > 1e-4 &&
+            (inVec.dx * outVec.dy - inVec.dy * outVec.dx).abs() > 1e-4;
+        if (isTurn) {
+          final r = math.min(cornerRadius, math.min(inLen, outLen) * 0.45);
+          final entry = curr - (inVec / inLen) * r;
+          final exit = curr + (outVec / outLen) * r;
+          stroke.lineTo(entry.dx, entry.dy);
+          stroke.quadraticBezierTo(curr.dx, curr.dy, exit.dx, exit.dy);
+          continue;
+        }
+      }
+      stroke.lineTo(points[i].dx, points[i].dy);
+    }
+    final completeT = completePulse?.isAnimating == true && !reducedMotion
+        ? math.sin(completePulse!.value * math.pi)
+        : 0.0;
+    if (completeT > 0) {
+      canvas.drawPath(
+        stroke,
+        Paint()
+          ..color = palette.accent.withValues(alpha: .28 * completeT)
+          ..strokeWidth = .38 + .08 * completeT
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke,
+      );
     }
     _paintRoutePath(canvas, stroke, palette);
     if (hint case final cell?) {
@@ -1068,16 +1282,35 @@ class _BoardPainter extends CustomPainter {
         ..strokeWidth = .036;
       canvas.drawCircle(point, .34, ring);
     }
+    final pulsedCell = checkpointPulse?.isAnimating == true && !reducedMotion
+        ? pulsedCheckpointCell?.call()
+        : null;
+    final cpWave = pulsedCell != null
+        ? math.sin(checkpointPulse!.value * math.pi)
+        : 0.0;
     for (final (index, cell) in puzzle.checkpoints.indexed) {
       final number = index + 1;
       final isVisited = visited.contains(cell);
       final position = _center(cell) + Offset(cell == target ? shake : 0, 0);
       final highlighted = cell == hint || (!complete && cell == route.last);
       final pending = number == next && !highlighted;
+      final cpScale = cell == pulsedCell ? 1.0 + 0.14 * cpWave : 1.0;
+      if (cell == pulsedCell && cpWave > 0) {
+        canvas.drawCircle(
+          position,
+          .275 * (1.0 + 0.36 * checkpointPulse!.value),
+          Paint()
+            ..color = palette.accent.withValues(
+              alpha: 0.36 * (1 - checkpointPulse!.value),
+            )
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .04,
+        );
+      }
       fill.color = highlighted
           ? palette.accent
           : (isVisited ? palette.route : palette.surface);
-      canvas.drawCircle(position, .275, fill);
+      canvas.drawCircle(position, .275 * cpScale, fill);
       if (pending) {
         canvas.drawCircle(
           position,
@@ -1193,7 +1426,11 @@ void _paintRouteLine(
 double tipLead(PathTip style) => style == PathTip.classic ? 0 : .42;
 
 /// Tip radius in cells. One size on every cell; checkpoints do not shrink it.
-double tipRadiusOf(PathTip style) => style == PathTip.classic ? .1685 : .22;
+double tipRadiusOf(PathTip style) => switch (style) {
+  PathTip.classic => .1685,
+  PathTip.arrow => .205,
+  _ => .22,
+};
 
 /// Paints the leading segment and the tip in board units. The canvas is
 /// already scaled so one unit is one cell.
@@ -1202,34 +1439,41 @@ void paintTip(
   Puzzle puzzle,
   BoardPalette palette,
   PathTip style,
-  TipVisual v,
-) {
+  TipVisual v, {
+  Offset? drawTip,
+  double? angleRadians,
+}) {
+  final tipPos = drawTip ?? v.tip;
   final checkpoint = puzzle.numbers[v.cell] != 0;
   final classic = style == PathTip.classic;
   // Classic on a checkpoint is the highlighted disc itself.
   if (checkpoint && classic && v.extension <= .275) {
     return;
   }
-  if (v.extension > 0 && !v.trim) {
-    final dir = v.tip - v.center;
-    final unit = dir / dir.distance;
+  final extVec = tipPos - v.center;
+  final extDist = extVec.distance;
+  if (extDist > 0.01 && !v.trim) {
+    final unit = extVec / extDist;
     // On a checkpoint start at the rim so the number is never covered.
     final start = checkpoint ? v.center + unit * .275 : v.center;
-    _paintRouteLine(
-      canvas,
-      start,
-      v.tip,
-      palette,
-      cap: checkpoint ? StrokeCap.butt : StrokeCap.round,
-    );
+    if (!checkpoint || extDist > .275) {
+      _paintRouteLine(
+        canvas,
+        start,
+        tipPos,
+        palette,
+        cap: checkpoint ? StrokeCap.butt : StrokeCap.round,
+      );
+    }
   }
   paintPathTip(
     canvas,
-    v.tip,
+    tipPos,
     tipRadiusOf(style),
     style,
     palette,
     quarterTurns: v.facing < 0 ? 3 : v.facing,
+    angleRadians: angleRadians,
   );
 }
 
@@ -1241,12 +1485,14 @@ class _TipPainter extends CustomPainter {
     required this.tipStyle,
     required this.route,
     required this.visual,
+    required this.animatedVisual,
     required this.restingFacing,
     required this.rejection,
     required this.reduced,
   }) : super(
          repaint: Listenable.merge([
            visual,
+           animatedVisual,
            rejection,
            GameAssetCache.instance,
          ]),
@@ -1257,6 +1503,7 @@ class _TipPainter extends CustomPainter {
   final PathTip tipStyle;
   final List<int> route;
   final ValueNotifier<TipVisual?> visual;
+  final ValueNotifier<({Offset tip, double angle})?> animatedVisual;
   final int Function() restingFacing;
   final AnimationController rejection;
   final bool reduced;
@@ -1273,9 +1520,18 @@ class _TipPainter extends CustomPainter {
           restingFacing(),
           checkpointLead: tipLead(tipStyle),
         );
+    final anim = reduced ? null : animatedVisual.value;
     canvas.save();
     canvas.scale(size.width / puzzle.size);
-    paintTip(canvas, puzzle, palette, tipStyle, v);
+    paintTip(
+      canvas,
+      puzzle,
+      palette,
+      tipStyle,
+      v,
+      drawTip: anim?.tip,
+      angleRadians: anim?.angle,
+    );
     canvas.restore();
   }
 
@@ -1362,6 +1618,9 @@ class _RejectionPainter extends CustomPainter {
       canvas.restore();
     }
     if (classic && checkpoint && end <= .275) return;
+    final attemptAngle = (to - from).distance > 1e-4
+        ? math.atan2(to.dy - from.dy, to.dx - from.dx)
+        : (direction < 0 ? 3 : direction) * (math.pi / 2);
     canvas.save();
     canvas.scale(side);
     paintPathTip(
@@ -1370,7 +1629,7 @@ class _RejectionPainter extends CustomPainter {
       tipRadiusOf(tipStyle),
       tipStyle,
       palette,
-      quarterTurns: direction < 0 ? 3 : direction,
+      angleRadians: attemptAngle,
     );
     canvas.restore();
   }

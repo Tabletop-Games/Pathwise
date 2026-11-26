@@ -80,14 +80,15 @@ class EconomyRules {
   };
 
   /// Centralized Economy 2.0 campaign first-clear payout:
-  /// timed boosts multiply only the base reward; research bonuses are additive.
+  /// timed boosts multiply `(baseReward + stars)`; research bonuses are additive.
   int campaignClearCoins({
     required int multiplier,
     required int magnetBonus,
     required int goldenBonus,
     required int momentumBonus,
+    int stars = 0,
   }) =>
-      clearReward(PlayMode.levels) * multiplier +
+      (clearReward(PlayMode.levels) + stars) * multiplier +
       magnetBonus +
       goldenBonus +
       momentumBonus;
@@ -101,8 +102,10 @@ class EconomyRules {
   }) => clearReward(PlayMode.daily) * multiplier + fortuneBonus + goldenBonus;
 
   /// Post-completion rewarded video bonus on campaign first clears.
-  int completionBonusCoins(int multiplier) =>
-      clearReward(PlayMode.levels) * (multiplier - 1);
+  /// Eligible base includes the newly earned star bonus without compounding
+  /// timed boosts or permanent research.
+  int completionBonusCoins(int multiplier, {int stars = 0}) =>
+      (clearReward(PlayMode.levels) + stars) * (multiplier - 1);
 
   String tipRarity(PathTip tip) => switch (tip.price) {
     <= 0 => 'Starter',

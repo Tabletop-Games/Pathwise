@@ -582,7 +582,7 @@ void main() {
         expect(find.bySemanticsLabel('Level 37, current'), findsOneWidget);
         expect(find.bySemanticsLabel('Level 38, locked'), findsOneWidget);
         expect(
-          find.bySemanticsLabel('Level 36, completed, 0:01'),
+          find.bySemanticsLabel('Level 36, completed, 3 of 3 stars'),
           findsOneWidget,
         );
       } finally {

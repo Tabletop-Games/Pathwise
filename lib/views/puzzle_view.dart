@@ -120,6 +120,49 @@ class PuzzleView extends StatelessWidget {
                       ),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
+                    if (!timed &&
+                        !model.complete &&
+                        model.activeStarThresholds != null) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: '3-star target time',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: palette.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: palette.cardEdge),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 14,
+                                color: Color(0xFFD99A1E),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                formatTime(
+                                  Duration(
+                                    milliseconds:
+                                        model.activeStarThresholds!.threeStarMs,
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  color: palette.mutedInk,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -464,6 +507,75 @@ Future<void> _confirmAttackAction(
   }
 }
 
+class _AttemptStarsRow extends StatelessWidget {
+  const _AttemptStarsRow({
+    required this.stars,
+    required this.previousBest,
+    required this.isFirstClear,
+    required this.palette,
+  });
+
+  final int stars;
+  final int previousBest;
+  final bool isFirstClear;
+  final BoardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    final improved = !isFirstClear && stars > previousBest;
+    const gold = Color(0xFFE5A91A);
+    final empty = palette.mutedInk.withValues(alpha: .36);
+    return Semantics(
+      label: '$stars of 3 stars',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < 3; i++)
+                TweenAnimationBuilder<double>(
+                  key: ValueKey('completion-star-$i-$stars'),
+                  tween: Tween(begin: reduced ? 1.0 : 0.4, end: 1.0),
+                  duration: reduced
+                      ? Duration.zero
+                      : Duration(milliseconds: 220 + i * 70),
+                  curve: Curves.easeOutBack,
+                  builder: (context, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Icon(
+                      i < stars
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: 32,
+                      color: i < stars ? gold : empty,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (!isFirstClear) ...[
+            const SizedBox(height: 2),
+            Text(
+              improved
+                  ? 'Improved! Best: $stars/3 ★'
+                  : 'Best: $previousBest/3 ★',
+              style: TextStyle(
+                color: improved ? palette.route : palette.mutedInk,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _Completion extends StatelessWidget {
   const _Completion({
     required this.model,
@@ -575,6 +687,16 @@ class _Completion extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
+            if (id.mode == PlayMode.levels) ...[
+              const SizedBox(height: 6),
+              _AttemptStarsRow(
+                stars: model.attemptStars,
+                previousBest: model.previousAttemptBestStars,
+                isFirstClear: model.firstCampaignClear,
+                palette: palette,
+              ),
+              const SizedBox(height: 4),
+            ],
             Text(
               '${formatTime(duration)} · $hints hints',
               style: TextStyle(
@@ -587,6 +709,17 @@ class _Completion extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 2),
                 child: RewardAmount(levelCoins + bonusCoins, size: 48),
+              ),
+            if (id.mode == PlayMode.levels && model.earnedStarCoins > 0)
+              Text(
+                model.firstCampaignClear
+                    ? 'Includes +${model.earnedStarCoins} star bonus'
+                    : 'New star bonus · +${model.earnedStarCoins} coins',
+                style: TextStyle(
+                  color: palette.route,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             if (bonusCoins > 0)
               Text(
