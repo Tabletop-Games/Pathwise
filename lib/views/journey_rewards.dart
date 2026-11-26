@@ -120,6 +120,8 @@ class _CompletionBonusState extends State<CompletionBonus>
     super.dispose();
   }
 
+  static const _curve = _MultiplierGlideCurve();
+
   @override
   Widget build(BuildContext context) {
     final model = widget.model;
@@ -142,7 +144,9 @@ class _CompletionBonusState extends State<CompletionBonus>
               child: AnimatedBuilder(
                 animation: _track,
                 builder: (context, _) {
-                  _visiblePosition = _track.value;
+                  if (selected == null) {
+                    _visiblePosition = _curve.transform(_track.value);
+                  }
                   return _MultiplierTrack(
                     _visiblePosition,
                     stopped: selected != null,
@@ -351,76 +355,119 @@ class _MultiplierSegment extends StatelessWidget {
     final labelColor = selected
         ? (isJackpot ? jackpotInk : palette.onRoute)
         : (isJackpot ? jackpotInk : palette.ink);
-    return Container(
-      margin: EdgeInsets.only(right: isLast ? 0 : 1.5),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: colors,
+    final segmentRadius = BorderRadius.horizontal(
+      left: isFirst ? const Radius.circular(14) : Radius.zero,
+      right: isLast ? const Radius.circular(14) : Radius.zero,
+    );
+    return ClipRRect(
+      borderRadius: segmentRadius,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: segmentRadius,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: colors,
+          ),
+          border: selected
+              ? Border.all(
+                  color: isJackpot ? palette.ink : palette.accent,
+                  width: 2.2,
+                )
+              : (!stopped && active)
+              ? Border.all(
+                  color: (isJackpot ? jackpotGold : palette.route).withValues(
+                    alpha: .85,
+                  ),
+                  width: 1.5,
+                )
+              : null,
         ),
-        border: selected
-            ? Border.all(
-                color: isJackpot ? palette.ink : palette.accent,
-                width: 2.2,
-              )
-            : (!stopped && active)
-            ? Border.all(
-                color: (isJackpot ? jackpotGold : palette.route).withValues(
-                  alpha: .85,
-                ),
-                width: 1.5,
-              )
-            : Border(
-                top: BorderSide(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (!selected && !(!stopped && active)) ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 1,
+                child: ColoredBox(
                   color: Colors.white.withValues(
                     alpha: palette.dark ? .22 : .65,
                   ),
-                  width: 1,
                 ),
-                bottom: BorderSide(
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 1.5,
+                child: ColoredBox(
                   color: Colors.black.withValues(
                     alpha: palette.dark ? .42 : .18,
                   ),
-                  width: 1.5,
                 ),
-                left: isFirst
-                    ? BorderSide(color: palette.cardEdge, width: 1)
-                    : BorderSide.none,
-                right: isLast
-                    ? BorderSide(color: palette.cardEdge, width: 1)
-                    : BorderSide.none,
               ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (!stopped && active)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: (isJackpot ? jackpotGold : palette.route).withValues(
-                  alpha: palette.dark ? .22 : .16,
+              if (!isLast)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(
+                      alpha: palette.dark ? .35 : .14,
+                    ),
+                  ),
+                ),
+            ],
+            if (!stopped && active)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: (isJackpot ? jackpotGold : palette.route).withValues(
+                    alpha: palette.dark ? .22 : .16,
+                  ),
+                ),
+              ),
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$multiplier×',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: labelColor,
+                    fontWeight: isJackpot ? FontWeight.w900 : FontWeight.w800,
+                    fontSize: isJackpot ? 18 : 15,
+                    letterSpacing: -.2,
+                  ),
                 ),
               ),
             ),
-          Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '$multiplier×',
-                maxLines: 1,
-                style: TextStyle(
-                  color: labelColor,
-                  fontWeight: isJackpot ? FontWeight.w900 : FontWeight.w800,
-                  fontSize: isJackpot ? 18 : 15,
-                  letterSpacing: -.2,
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _MultiplierGlideCurve extends Curve {
+  const _MultiplierGlideCurve();
+
+  // Smooth C1 endpoint deceleration over outer 10% of each half-cycle
+  // (velocity = 0 at t=0 and t=1, constant 1.111x glide across 3x/4x/3x).
+  static const _d = 0.10;
+  static const _v = 1.0 / (1.0 - _d);
+
+  @override
+  double transformInternal(double t) {
+    if (t <= _d) return 0.5 * _v / _d * t * t;
+    if (t >= 1.0 - _d) {
+      final r = 1.0 - t;
+      return 1.0 - 0.5 * _v / _d * r * r;
+    }
+    return _v * (t - 0.5 * _d);
   }
 }
 

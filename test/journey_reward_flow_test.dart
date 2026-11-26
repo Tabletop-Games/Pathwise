@@ -218,4 +218,132 @@ void main() {
     ads.dispose();
     billing.dispose();
   });
+
+  testWidgets(
+    'all five multiplier segments align corner radii and stop accurately',
+    (tester) async {
+      // Expected stops across the 1750ms half-cycle for [2x, 3x, 4x, 3x, 2x]:
+      // 100ms -> ~0.03 (2x left), 550ms -> ~0.29 (3x left), 875ms -> 0.50 (4x),
+      // 1200ms -> ~0.71 (3x right), 1650ms -> ~0.97 (2x right).
+      final cases = <(int ms, int expectedMult)>[
+        (100, 2),
+        (550, 3),
+        (875, 4),
+        (1200, 3),
+        (1650, 2),
+      ];
+      for (final (ms, expected) in cases) {
+        final model = journeyModel(MemoryStorage(), {});
+        final ads = _Ads();
+        final billing = BillingService(persist: (_) async => true);
+        await clear(model, 1);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AppModel>.value(value: model),
+              ChangeNotifierProvider<AdService>.value(value: ads),
+              ChangeNotifierProvider<BillingService>.value(value: billing),
+            ],
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) =>
+                    Scaffold(body: CompletionBonus(context.watch<AppModel>())),
+              ),
+            ),
+          ),
+        );
+        final clips = tester
+            .widgetList<ClipRRect>(find.byType(ClipRRect))
+            .toList();
+        // First ClipRRect is the track; next 5 are the segments.
+        expect(clips.length, greaterThanOrEqualTo(6));
+        final segments = clips.skip(1).take(5).toList();
+        expect(
+          segments.first.borderRadius,
+          const BorderRadius.horizontal(left: Radius.circular(14)),
+        );
+        for (var i = 1; i <= 3; i++) {
+          expect(segments[i].borderRadius, BorderRadius.zero);
+        }
+        expect(
+          segments.last.borderRadius,
+          const BorderRadius.horizontal(right: Radius.circular(14)),
+        );
+
+        await tester.pump(Duration(milliseconds: ms));
+        await tester.tap(find.text('Stop'));
+        await tester.pumpAndSettle();
+        expect(model.selectedMultiplier, expected);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        model.dispose();
+        ads.dispose();
+        billing.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'all five multiplier segments align corner radii and stop accurately',
+    (tester) async {
+      // Expected stops across the 1750ms half-cycle for [2x, 3x, 4x, 3x, 2x]:
+      // 100ms -> ~0.03 (2x left), 550ms -> ~0.29 (3x left), 875ms -> 0.50 (4x),
+      // 1200ms -> ~0.71 (3x right), 1650ms -> ~0.97 (2x right).
+      final cases = <(int ms, int expectedMult)>[
+        (100, 2),
+        (550, 3),
+        (875, 4),
+        (1200, 3),
+        (1650, 2),
+      ];
+      for (final (ms, expected) in cases) {
+        final model = journeyModel(MemoryStorage(), {});
+        final ads = _Ads();
+        final billing = BillingService(persist: (_) async => true);
+        await clear(model, 1);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AppModel>.value(value: model),
+              ChangeNotifierProvider<AdService>.value(value: ads),
+              ChangeNotifierProvider<BillingService>.value(value: billing),
+            ],
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) =>
+                    Scaffold(body: CompletionBonus(context.watch<AppModel>())),
+              ),
+            ),
+          ),
+        );
+        final clips = tester
+            .widgetList<ClipRRect>(find.byType(ClipRRect))
+            .toList();
+        // First ClipRRect is the track; next 5 are the segments.
+        expect(clips.length, greaterThanOrEqualTo(6));
+        final segments = clips.skip(1).take(5).toList();
+        expect(
+          segments.first.borderRadius,
+          const BorderRadius.horizontal(left: Radius.circular(14)),
+        );
+        for (var i = 1; i <= 3; i++) {
+          expect(segments[i].borderRadius, BorderRadius.zero);
+        }
+        expect(
+          segments.last.borderRadius,
+          const BorderRadius.horizontal(right: Radius.circular(14)),
+        );
+
+        await tester.pump(Duration(milliseconds: ms));
+        await tester.tap(find.text('Stop'));
+        await tester.pumpAndSettle();
+        expect(model.selectedMultiplier, expected);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        model.dispose();
+        ads.dispose();
+        billing.dispose();
+      }
+    },
+  );
 }

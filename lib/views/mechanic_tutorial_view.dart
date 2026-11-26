@@ -42,14 +42,16 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
   int get nextCheckpoint => game.nextCheckpoint;
   @override
   bool get complete => game.complete;
-  bool get success => switch (widget.mechanic) {
-    MechanicTutorial.walls => complete || (rejected && path.contains(4)),
-    MechanicTutorial.gate =>
-      complete || (rejected && path.contains(3) && path.contains(1)),
+
+  /// Whether the player has demonstrated the target mechanic on the board.
+  /// Distinct from [complete], which requires solving the full puzzle.
+  bool get mechanicDemonstrated => switch (widget.mechanic) {
+    MechanicTutorial.walls => complete || path.contains(4),
+    MechanicTutorial.gate => complete || (path.contains(3) && path.contains(1)),
     MechanicTutorial.ice => complete || (path.contains(1) && path.contains(2)),
     MechanicTutorial.portal =>
       complete || (path.contains(1) && path.contains(8)),
-    MechanicTutorial.arrow => complete || (rejected && path.contains(3)),
+    MechanicTutorial.arrow => complete || path.contains(3),
   };
 
   @override
@@ -139,31 +141,41 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
       MechanicTutorial.walls => (
         'Walls',
         'Walls block connections between tiles.',
-        rejected
+        mechanicDemonstrated
+            ? 'Great! You routed around the wall. Now complete the puzzle.'
+            : rejected
             ? 'Go around the wall through the tiles below.'
             : 'Try to cross the wall to the right.',
       ),
       MechanicTutorial.ice => (
         'Ice',
         'Ice carries the path straight ahead until a normal tile.',
-        'Enter the ice tile to the right.',
+        mechanicDemonstrated
+            ? 'Great! Ice carries your path forward automatically. Now complete the puzzle.'
+            : 'Enter the ice tile to the right.',
       ),
       MechanicTutorial.gate => (
         'Keys and gates',
         'Collect the key before passing the locked gate.',
-        rejected
+        mechanicDemonstrated
+            ? 'Great! You unlocked the gate with the key. Now complete the puzzle.'
+            : rejected
             ? 'Collect the key below, then reach the gate.'
             : 'Try the locked gate to the right.',
       ),
       MechanicTutorial.portal => (
         'Portals',
         'Enter a solid portal to continue from its paired exit.',
-        'Enter the portal to the right.',
+        mechanicDemonstrated
+            ? 'Great! Portals warp your path across the board. Now complete the puzzle.'
+            : 'Enter the portal to the right.',
       ),
       MechanicTutorial.arrow => (
         'Arrows',
         'Leave the arrow tile in the direction it points.',
-        rejected
+        mechanicDemonstrated
+            ? 'Great! Arrows guide your path forward. Now complete the puzzle.'
+            : rejected
             ? 'Follow the arrow down.'
             : 'Try to move right, against the arrow.',
       ),
@@ -224,10 +236,10 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                   Semantics(
                     liveRegion: true,
                     child: Text(
-                      success ? 'Well done!' : instruction,
+                      complete ? 'Well done!' : instruction,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: success ? palette.route : palette.ink,
+                        color: complete ? palette.route : palette.ink,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
@@ -247,7 +259,7 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
                       ActionPill(
                         label: busy ? 'Saving…' : 'Continue',
                         tone: ActionTone.primary,
-                        onTap: success && !busy ? () => done(false) : null,
+                        onTap: complete && !busy ? () => done(false) : null,
                       ),
                     ],
                   ),

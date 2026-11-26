@@ -61,7 +61,13 @@ void main() {
       await tester.pump();
       await drag.moveTo(at(0));
       await drag.moveTo(at(3));
+      await drag.moveTo(at(6));
+      await drag.moveTo(at(7));
       await drag.moveTo(at(4));
+      await drag.moveTo(at(1));
+      await drag.moveTo(at(2));
+      await drag.moveTo(at(5));
+      await drag.moveTo(at(8));
       await drag.up();
       await tester.pump();
       expect(find.text('Well done!'), findsOneWidget);
@@ -170,14 +176,34 @@ void main() {
           await tester.pump();
           await drag.moveTo(at(0));
         }
-        final steps = switch (mechanic) {
-          MechanicTutorial.walls => [3, 4],
+        final partialSteps = switch (mechanic) {
+          MechanicTutorial.walls => [3, 6, 7, 4],
           MechanicTutorial.ice => [1],
-          MechanicTutorial.gate => [3, 4, 1],
+          MechanicTutorial.gate => [3, 6, 7, 4, 1],
           MechanicTutorial.portal => [1],
           MechanicTutorial.arrow => [3],
         };
-        for (final cell in steps) {
+        for (final cell in partialSteps) {
+          await drag.moveTo(at(cell));
+          await tester.pump();
+        }
+        // Mechanic demonstrated, but puzzle is incomplete: Continue must stay disabled.
+        expect(find.text('Well done!'), findsNothing);
+        expect(find.textContaining('Now complete the puzzle.'), findsOneWidget);
+        await tester.ensureVisible(find.text('Continue'));
+        await tester.tap(find.text('Continue'));
+        await tester.pump();
+        expect(outcome, isNull);
+
+        // Complete the remaining legal route on the same board.
+        final remainingSteps = switch (mechanic) {
+          MechanicTutorial.walls => [1, 2, 5, 8],
+          MechanicTutorial.ice => [2, 5, 4, 3, 6, 7, 8],
+          MechanicTutorial.gate => [2, 5, 8],
+          MechanicTutorial.portal => [8, 7, 6, 3, 4, 5, 2],
+          MechanicTutorial.arrow => [6, 7, 4, 1, 2, 5, 8],
+        };
+        for (final cell in remainingSteps) {
           await drag.moveTo(at(cell));
           await tester.pump();
         }
@@ -197,6 +223,104 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'Restart demo resets mechanic instruction and disables Continue',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final model = AppModel(storage: MemoryStorage(), snapshot: {})
+        ..setHaptics(false);
+      bool? outcome;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: model,
+          child: MaterialApp(
+            home: MechanicTutorialView(
+              mechanic: MechanicTutorial.ice,
+              onAcknowledge: (skipped) async {
+                outcome = skipped;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+      final grid = tester.getRect(find.byKey(const ValueKey('puzzle-grid')));
+      final side = grid.width / 3;
+      Offset at(int cell) =>
+          grid.topLeft +
+          Offset((cell % 3 + .5) * side, (cell ~/ 3 + .5) * side);
+      final drag = await tester.startGesture(at(0));
+      for (final cell in [1, 2, 5, 4, 3, 6, 7, 8]) {
+        await drag.moveTo(at(cell));
+        await tester.pump();
+      }
+      await drag.up();
+      await tester.pump();
+      expect(find.text('Well done!'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Restart demo'));
+      await tester.tap(find.text('Restart demo'));
+      await tester.pump();
+      expect(find.text('Well done!'), findsNothing);
+      expect(find.text('Enter the ice tile to the right.'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pump();
+      expect(outcome, isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      model.dispose();
+    },
+  );
+
+  testWidgets(
+    'Restart demo resets mechanic instruction and disables Continue',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final model = AppModel(storage: MemoryStorage(), snapshot: {})
+        ..setHaptics(false);
+      bool? outcome;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: model,
+          child: MaterialApp(
+            home: MechanicTutorialView(
+              mechanic: MechanicTutorial.ice,
+              onAcknowledge: (skipped) async {
+                outcome = skipped;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+      final grid = tester.getRect(find.byKey(const ValueKey('puzzle-grid')));
+      final side = grid.width / 3;
+      Offset at(int cell) =>
+          grid.topLeft +
+          Offset((cell % 3 + .5) * side, (cell ~/ 3 + .5) * side);
+      final drag = await tester.startGesture(at(0));
+      for (final cell in [1, 2, 5, 4, 3, 6, 7, 8]) {
+        await drag.moveTo(at(cell));
+        await tester.pump();
+      }
+      await drag.up();
+      await tester.pump();
+      expect(find.text('Well done!'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Restart demo'));
+      await tester.tap(find.text('Restart demo'));
+      await tester.pump();
+      expect(find.text('Well done!'), findsNothing);
+      expect(find.text('Enter the ice tile to the right.'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pump();
+      expect(outcome, isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      model.dispose();
+    },
+  );
 
   testWidgets('Next opens tutorial for the actual next board', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 1000));

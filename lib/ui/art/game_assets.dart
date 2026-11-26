@@ -44,6 +44,24 @@ String biomeAssetPath(BiomeKind biome) => switch (biome) {
   BiomeKind.desert => 'assets/art/biomes/desert.png',
 };
 
+String journeyTerrainPath(BiomeKind biome) => switch (biome) {
+  BiomeKind.ocean => 'assets/art/journey/ocean_terrain.png',
+  BiomeKind.forest => 'assets/art/journey/forest_terrain.png',
+  BiomeKind.winter => 'assets/art/journey/winter_terrain.png',
+  BiomeKind.desert => 'assets/art/journey/desert_terrain.png',
+};
+
+const journeyPropPaths = <String>[
+  'assets/art/journey/prop_forest_trees.png',
+  'assets/art/journey/prop_forest_rocks.png',
+  'assets/art/journey/prop_winter_pine.png',
+  'assets/art/journey/prop_winter_ice.png',
+  'assets/art/journey/prop_ocean_palm.png',
+  'assets/art/journey/prop_desert_cactus.png',
+  'assets/art/journey/prop_signpost.png',
+  'assets/art/journey/prop_bridge.png',
+];
+
 String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.png';
 
 String boostAssetPath(Boost boost) => switch (boost) {
@@ -111,11 +129,16 @@ final class GameAssetCache extends ChangeNotifier {
     ]);
   }
 
-  /// Decodes the shared Journey paintings ahead of rendering.
+  /// Decodes the shared Journey paintings, terrains, and props ahead of rendering.
   Future<void> preloadBiomes() => Future.wait([
-    for (final biome in BiomeKind.values)
+    for (final biome in BiomeKind.values) ...[
       if (!_images.containsKey(biomeAssetPath(biome)))
         _load(biomeAssetPath(biome)),
+      if (!_images.containsKey(journeyTerrainPath(biome)))
+        _load(journeyTerrainPath(biome)),
+    ],
+    for (final prop in journeyPropPaths)
+      if (!_images.containsKey(prop)) _load(prop),
   ]);
 
   Future<void> _load(String assetPath) async {

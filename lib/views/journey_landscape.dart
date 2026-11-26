@@ -3,10 +3,19 @@ part of 'campaign_journey_view.dart';
 BiomeKind _biomeForChapter(int chapter) =>
     BiomeKind.values[chapter % BiomeKind.values.length];
 
-double _routeX(int position) {
-  final slot = position % (chapterSize + 2);
+double _routeX(int globalSlot) {
+  const slotsPerChapter = chapterSize + 2;
+  final chapter = globalSlot ~/ slotsPerChapter;
+  final slot = globalSlot % slotsPerChapter;
   if (slot == 0 || slot > chapterSize) return .5;
-  return .5 + .25 * math.sin(slot * math.pi / 4);
+  final edgeEase = math.min(1.0, math.min(slot, chapterSize + 1 - slot) / 2.2);
+  final offset = switch (chapter % 4) {
+    0 => .24 * math.sin(slot * math.pi / 4.2),
+    1 => -.25 * math.sin(slot * math.pi / 5.5),
+    2 => .25 * math.sin(slot * math.pi / 4.8 + .5) * math.cos(slot * .22),
+    _ => .22 * math.sin(slot * math.pi / 3.6),
+  };
+  return .5 + offset * edgeEase;
 }
 
 class _JourneyLandscape extends CustomPainter {
@@ -35,6 +44,7 @@ class _JourneyLandscape extends CustomPainter {
     canvas.clipRect(bounds, doAntiAlias: false);
     _paintLandscape(canvas, size);
     _paintTrail(canvas, size);
+    _paintProps(canvas, size);
     canvas.restore();
   }
 
@@ -51,7 +61,7 @@ class _JourneyLandscape extends CustomPainter {
   void _paintLandscape(Canvas canvas, Size size) {
     const slotsPerChapter = chapterSize + 2;
     const rowsPerScene = 9;
-    final overlap = size.height * .65;
+    final overlap = size.height * .85;
     final bounds = Offset.zero & size;
     final sceneStart = position ~/ rowsPerScene * rowsPerScene;
     final sceneEnd = math.min(sceneStart + rowsPerScene, slotsPerChapter);
@@ -71,17 +81,16 @@ class _JourneyLandscape extends CustomPainter {
       final ground = _ground(sceneBiome);
       canvas.drawRect(bounds, Paint()..color = ground);
       final image = GameAssetCache.instance.imageFor(
-        biomeAssetPath(sceneBiome),
+        journeyTerrainPath(sceneBiome),
       );
       if (image == null) return;
 
       // Shared coordinates keep each crop stable as its rows move on screen.
-      final imageHeight = image.height.toDouble();
       final cropBounds = Rect.fromLTWH(
         0,
-        imageHeight * .022,
+        0,
         image.width.toDouble(),
-        imageHeight * .956,
+        image.height.toDouble(),
       );
       final crop = applyBoxFit(
         BoxFit.cover,
@@ -89,7 +98,7 @@ class _JourneyLandscape extends CustomPainter {
         frame.size,
       ).source;
       final alignment = Alignment(
-        const [-.72, .62, .06][(sceneChapter + scene) % 3],
+        const [-.35, .35, .0][(sceneChapter + scene) % 3],
         0,
       );
       canvas.drawImageRect(
@@ -103,10 +112,10 @@ class _JourneyLandscape extends CustomPainter {
         Paint()
           ..color = ground.withValues(
             alpha: highContrast
-                ? .86
+                ? .84
                 : palette.dark
-                ? .27
-                : .12,
+                ? .22
+                : .06,
           ),
       );
     }
@@ -172,6 +181,9 @@ class _JourneyLandscape extends CustomPainter {
   }
 
   void _paintTrail(Canvas canvas, Size size) {
+    const slotsPerChapter = chapterSize + 2;
+    final globalSlot = chapter * slotsPerChapter + position;
+
     // Both rows sharing a trail section paint the same full curve. Clipping
     // it at the row boundary keeps the outline and slope continuous.
     Path section(int start, double y) {
@@ -191,20 +203,32 @@ class _JourneyLandscape extends CustomPainter {
         );
     }
 
-    final active = switch (biome) {
-      BiomeKind.ocean => const Color(0xffe7d0a2),
-      BiomeKind.forest => const Color(0xffe7be77),
-      BiomeKind.winter => const Color(0xffdaedef),
-      BiomeKind.desert => const Color(0xffffd291),
-    };
-    final resting = switch (biome) {
-      BiomeKind.ocean => const Color(0xff8faea9),
-      BiomeKind.forest => const Color(0xffaca478),
-      BiomeKind.winter => const Color(0xff94aab8),
-      BiomeKind.desert => const Color(0xffb18464),
-    };
+    (Color active, Color resting, Color edgeShadow) trailColors(BiomeKind b) =>
+        switch (b) {
+          BiomeKind.ocean => (
+            const Color(0xffe9d4a6),
+            const Color(0xff9ab3ac),
+            const Color(0xff3e6469),
+          ),
+          BiomeKind.forest => (
+            const Color(0xffdec08a),
+            const Color(0xffa7a17b),
+            const Color(0xff3b4d36),
+          ),
+          BiomeKind.winter => (
+            const Color(0xffd7e8f0),
+            const Color(0xff9cb0be),
+            const Color(0xff526b80),
+          ),
+          BiomeKind.desert => (
+            const Color(0xffecc283),
+            const Color(0xffb48a6a),
+            const Color(0xff6b4228),
+          ),
+        };
 
-    void draw(Path path, bool reached) {
+    void draw(Path path, bool reached, BiomeKind trailBiome) {
+      final (active, resting, edgeShadow) = trailColors(trailBiome);
       final surface = highContrast
           ? (reached ? palette.route : palette.mutedInk)
           : (reached ? active : resting);
@@ -212,34 +236,109 @@ class _JourneyLandscape extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(
-        path,
-        paint
-          ..strokeWidth = 24
-          ..color = Colors.black.withValues(alpha: reached ? .53 : .39),
-      );
-      canvas.drawPath(
-        path,
-        paint
-          ..strokeWidth = 19
-          ..color = surface.withValues(
-            alpha: highContrast || reached ? 1 : .86,
-          ),
-      );
-      if (!highContrast) {
+      if (highContrast) {
         canvas.drawPath(
           path,
           paint
-            ..strokeWidth = 13
-            ..color = Colors.white.withValues(alpha: reached ? .10 : .07),
+            ..strokeWidth = 22
+            ..color = palette.canvas,
         );
+        canvas.drawPath(
+          path,
+          paint
+            ..strokeWidth = 16
+            ..color = surface,
+        );
+        return;
       }
+      // Soft terrain-integrated berm shadow instead of a harsh diagram outline.
+      canvas.drawPath(
+        path,
+        paint
+          ..strokeWidth = 22
+          ..color = edgeShadow.withValues(alpha: reached ? .34 : .24),
+      );
+      canvas.drawPath(
+        path,
+        paint
+          ..strokeWidth = 17
+          ..color = surface.withValues(alpha: reached ? .96 : .82),
+      );
+      canvas.drawPath(
+        path,
+        paint
+          ..strokeWidth = 8
+          ..color = Colors.white.withValues(alpha: reached ? .18 : .10),
+      );
     }
 
     if (position != 0 || chapter != 0) {
-      draw(section(position, size.height / 2), pathBelowReached);
+      final belowBiome =
+          position == 0 && chapter > 0 ? _biomeForChapter(chapter - 1) : biome;
+      draw(section(globalSlot, size.height / 2), pathBelowReached, belowBiome);
     }
-    draw(section(position + 1, -size.height / 2), pathAboveReached);
+    draw(section(globalSlot + 1, -size.height / 2), pathAboveReached, biome);
+  }
+
+  void _paintProps(Canvas canvas, Size size) {
+    if (highContrast) return;
+    const slotsPerChapter = chapterSize + 2;
+    final globalSlot = chapter * slotsPerChapter + position;
+
+    void drawProp(String path, Offset center, double dim) {
+      final img = GameAssetCache.instance.imageFor(path);
+      if (img == null) return;
+      // Soft ground shadow
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center.translate(0, dim * .34),
+          width: dim * .72,
+          height: dim * .22,
+        ),
+        Paint()..color = Colors.black.withValues(alpha: .18),
+      );
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        img.width.toDouble(),
+        img.height.toDouble(),
+      );
+      final dst = Rect.fromCenter(center: center, width: dim, height: dim);
+      canvas.drawImageRect(
+        img,
+        src,
+        dst,
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+    }
+
+    if (position == 0 || position > chapterSize) return;
+
+    // Deterministic environmental props tucked on the open side away from node & time pill.
+    final hash = (globalSlot * 37 + chapter * 13) % 7;
+    if (hash >= 4) return;
+    final stopX = _routeX(globalSlot);
+    final propX = stopX <= .5 ? size.width * .88 : size.width * .12;
+    final propY = size.height * .52;
+    final propPath = switch (biome) {
+      BiomeKind.forest =>
+        hash.isEven
+            ? 'assets/art/journey/prop_forest_trees.png'
+            : 'assets/art/journey/prop_forest_rocks.png',
+      BiomeKind.winter =>
+        hash.isEven
+            ? 'assets/art/journey/prop_winter_pine.png'
+            : 'assets/art/journey/prop_winter_ice.png',
+      BiomeKind.ocean =>
+        hash.isEven
+            ? 'assets/art/journey/prop_ocean_palm.png'
+            : 'assets/art/journey/prop_forest_rocks.png',
+      BiomeKind.desert =>
+        hash.isEven
+            ? 'assets/art/journey/prop_desert_cactus.png'
+            : 'assets/art/journey/prop_forest_rocks.png',
+    };
+    drawProp(propPath, Offset(propX, propY), 44);
   }
 
   @override

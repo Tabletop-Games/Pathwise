@@ -32,6 +32,12 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
   int? _lastFocusedLevel;
   double _extent = 72;
 
+  @override
+  void initState() {
+    super.initState();
+    GameAssetCache.instance.preloadBiomes();
+  }
+
   // Keep subpixel precision in the scroll offset, including at large text sizes.
   static int _maxLevelForExtent(double extent) =>
       (1 << 49) ~/ extent ~/ _slotsPerChapter * chapterSize;
@@ -271,7 +277,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
     final level = chapter * chapterSize + position;
     final isHeader = position == 0;
     final isTreasure = position == chapterSize + 1;
-    final stopX = _routeX(position);
+    final stopX = _routeX(index);
     final unlocked = model.canPlayLevel(
       isHeader
           ? first
@@ -361,7 +367,6 @@ class _JourneyNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completed = solveTime != null;
-    final discovery = level % discoveryInterval == 0;
     final stroke = current
         ? palette.onRoute
         : completed
@@ -369,9 +374,17 @@ class _JourneyNode extends StatelessWidget {
         : palette.cardEdge;
     final fill = current
         ? palette.route
+        : completed
+        ? Color.lerp(palette.card, palette.route, palette.dark ? .14 : .10)!
         : playable
         ? palette.card
         : palette.quiet;
+    final topColor = Color.lerp(fill, Colors.white, palette.dark ? .12 : .24)!;
+    final bottomColor = Color.lerp(
+      fill,
+      Colors.black,
+      palette.dark ? .22 : .10,
+    )!;
     final ink = current
         ? palette.onRoute
         : playable
@@ -472,19 +485,23 @@ class _JourneyNode extends StatelessWidget {
                 onTap: onTap,
                 child: DecoratedBox(
                   decoration: ShapeDecoration(
-                    color: fill,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [topColor, bottomColor],
+                    ),
                     shape: shape,
                     shadows: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: .42),
+                        color: Colors.black.withValues(alpha: .36),
                         offset: const Offset(0, 3),
-                        blurRadius: 5,
+                        blurRadius: 6,
                       ),
                       if (current)
                         BoxShadow(
                           color: palette.accent,
                           spreadRadius: 3,
-                          blurRadius: 1,
+                          blurRadius: 2,
                         ),
                     ],
                   ),
@@ -525,31 +542,6 @@ class _JourneyNode extends StatelessWidget {
                 ),
               ),
             ),
-            if (discovery)
-              Positioned(
-                left: center - nodeWidth / 2 - 4,
-                top: (constraints.maxHeight - height) / 2 - 2,
-                child: ExcludeSemantics(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: ShapeDecoration(
-                        color: playable ? palette.accent : palette.quiet,
-                        shape: CircleBorder(
-                          side: BorderSide(color: palette.surface, width: 1.5),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: Icon(
-                          Icons.auto_awesome,
-                          size: 13,
-                          color: playable ? palette.onAccent : palette.mutedInk,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -569,35 +561,60 @@ class _ChapterHeaderStop extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: DecoratedBox(
         decoration: ShapeDecoration(
-          color: palette.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: palette.cardEdge),
+          color: palette.surface.withValues(alpha: .92),
+          shape: StadiumBorder(
+            side: BorderSide(color: palette.cardEdge, width: 1.2),
           ),
+          shadows: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .20),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          child: Column(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Chapter ${chapter + 1} · ${chapterName(chapter)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: palette.ink,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
+              Image.asset(
+                'assets/art/journey/prop_signpost.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) =>
+                    Icon(Icons.signpost_rounded, size: 22, color: palette.ink),
               ),
-              Text(
-                'Levels ${chapter * chapterSize + 1}–${chapterEnd(chapter)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: palette.mutedInk,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chapter ${chapter + 1} · ${chapterName(chapter)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.ink,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        height: 1.15,
+                      ),
+                    ),
+                    Text(
+                      'Levels ${chapter * chapterSize + 1}–${chapterEnd(chapter)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.mutedInk,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -625,73 +642,102 @@ class _ChestStop extends StatelessWidget {
         ? 'Treasure ready'
         : '$clears / $chapterSize puzzles';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-      child: Material(
-        color: palette.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: ready ? palette.route : palette.cardEdge,
-            width: ready ? 2 : 1,
+    void onTap() {
+      if (ready) {
+        _showChapterReward(context, chapter);
+      } else {
+        showDialog<void>(
+          context: context,
+          animationStyle: _journeyAnimationStyle(context),
+          builder: (dialogContext) => GameDialog(
+            title: '${chapterName(chapter)} chest',
+            art: GameArt(
+              claimed ? ArtKind.treasureOpen : ArtKind.treasure,
+              palette: palette,
+              size: 56,
+            ),
+            body: claimed
+                ? 'You already claimed $chapterRewardCoins coins and $chapterRewardHints hint from this chapter.'
+                : 'Complete all $chapterSize puzzles in Chapter ${chapter + 1} ($clears / $chapterSize) to unlock $chapterRewardCoins coins and $chapterRewardHints hint.',
+            actions: [
+              ActionPill(
+                label: 'OK',
+                tone: ActionTone.primary,
+                onTap: () => Navigator.pop(dialogContext),
+              ),
+            ],
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: ready ? () => _showChapterReward(context, chapter) : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            child: Row(
-              children: [
-                GameArt(
-                  claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-                  palette: palette,
-                  size: 42,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        chapterName(chapter),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          height: 1.12,
-                        ),
-                      ),
-                      Text(
-                        status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.ink,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          height: 1.12,
-                        ),
-                      ),
-                      Text(
-                        '$chapterRewardCoins coins · $chapterRewardHints hint',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.mutedInk,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          height: 1.12,
-                        ),
-                      ),
-                    ],
+        );
+      }
+    }
+
+    return Center(
+      child: Semantics(
+        button: true,
+        label: '${chapterName(chapter)}, $status',
+        child: Material(
+          color: palette.surface.withValues(alpha: .94),
+          shape: StadiumBorder(
+            side: BorderSide(
+              color: ready ? palette.route : palette.cardEdge,
+              width: ready ? 2.2 : 1.2,
+            ),
+          ),
+          elevation: ready ? 4 : 2,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GameArt(
+                    claimed ? ArtKind.treasureOpen : ArtKind.treasure,
+                    palette: palette,
+                    size: 40,
                   ),
-                ),
-                if (ready) const Icon(Icons.chevron_right_rounded),
-              ],
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          status,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: ready ? palette.route : palette.ink,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            height: 1.15,
+                          ),
+                        ),
+                        Text(
+                          '$chapterRewardCoins coins · $chapterRewardHints hint',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.mutedInk,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            height: 1.15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (ready) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: palette.route,
+                      size: 20,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
