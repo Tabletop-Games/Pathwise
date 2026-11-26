@@ -611,19 +611,6 @@ class _JourneyLandscape extends CustomPainter {
       return;
     }
 
-    // Illustrated stairway placed directly on the route for elevation climbs.
-    if ((template == _ChapterTemplate.steppedRidge ||
-            template == _ChapterTemplate.canyonPass) &&
-        (position == 8 || position == 18)) {
-      drawSprite(
-        'assets/art/journey/iso_stairway.png',
-        Offset(routeCenterX, size.height * .50),
-        88,
-        shadow: false,
-      );
-      return;
-    }
-
     final onRight = stopX <= .52;
     final sideX = onRight ? size.width * .82 : size.width * .18;
     final altX = onRight ? size.width * .14 : size.width * .86;

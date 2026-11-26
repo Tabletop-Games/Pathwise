@@ -65,7 +65,6 @@ const journeyPropPaths = <String>[
   'assets/art/journey/iso_pedestal.png',
   'assets/art/journey/iso_bridge_wood.png',
   'assets/art/journey/iso_bridge_stone.png',
-  'assets/art/journey/iso_stairway.png',
   'assets/art/journey/iso_ruin_terrace.png',
   'assets/art/journey/iso_ocean_cove.png',
   'assets/art/journey/iso_forest_grove.png',
