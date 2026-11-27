@@ -114,7 +114,6 @@ class AtmosphericBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final highContrast = p == BoardPalette.palettes[PathwiseTheme.signal];
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -124,65 +123,9 @@ class AtmosphericBackdrop extends StatelessWidget {
           stops: const [0.0, 0.42, 1.0],
         ),
       ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (!highContrast && showSilhouettes)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: RepaintBoundary(
-                  child: CustomPaint(painter: _AtmospherePainter(p)),
-                ),
-              ),
-            ),
-          child,
-        ],
-      ),
+      child: child,
     );
   }
-}
-
-class _AtmospherePainter extends CustomPainter {
-  const _AtmospherePainter(this.p);
-  final BoardPalette p;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Soft radial ambient glow near upper-center.
-    final glowRect = Rect.fromCircle(
-      center: Offset(size.width * .5, size.height * .22),
-      radius: size.width * .62,
-    );
-    canvas.drawRect(
-      glowRect,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            p.route.withValues(alpha: p.dark ? .12 : .06),
-            Colors.transparent,
-          ],
-        ).createShader(glowRect),
-    );
-
-    // Sparse, calm ambient motes along the edges (no generic giant hills).
-    final motePaint = Paint()
-      ..color = p.particleColor.withValues(alpha: p.dark ? .30 : .20);
-    const motes = [
-      Offset(.08, .18),
-      Offset(.91, .22),
-      Offset(.14, .44),
-      Offset(.88, .48),
-      Offset(.07, .76),
-      Offset(.93, .72),
-    ];
-    for (var i = 0; i < motes.length; i++) {
-      final pt = Offset(motes[i].dx * size.width, motes[i].dy * size.height);
-      canvas.drawCircle(pt, i.isEven ? 2.2 : 1.5, motePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_AtmospherePainter old) => old.p != p;
 }
 
 /// Flat card with a hairline edge in place of Material elevation.

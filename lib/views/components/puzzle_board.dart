@@ -124,6 +124,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     final issue = rejectionControls.rejectionFor(cell);
     if (issue == null ||
         issue.reason == MoveRejection.adjacency ||
+        issue.reason == MoveRejection.wall ||
         cell == _rejectedCell)
       return;
     _rejectedCell = cell;
