@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/connectivity_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -319,7 +320,9 @@ class _MainMenuViewState extends State<MainMenuView>
                         label: '${model.hintsRemaining} hints. Get hints',
                         onTap: () => showHintShop(context, model),
                       ),
-                      if (!model.onlineReady) ...[
+                      if (context.select<ConnectivityService?, bool>(
+                        (c) => c?.state == ConnectivityState.offline,
+                      )) ...[
                         const SizedBox(width: 8),
                         OfflineStatusChip(palette: palette),
                       ],
