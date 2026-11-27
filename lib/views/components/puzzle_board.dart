@@ -1441,9 +1441,8 @@ void paintTip(
 }) {
   final tipPos = drawTip ?? v.tip;
   final checkpoint = puzzle.numbers[v.cell] != 0;
-  final classic = style == PathTip.classic;
-  // Classic on a checkpoint is the highlighted disc itself.
-  if (checkpoint && classic && v.extension <= .275) {
+  // Any tip on a checkpoint is the highlighted disc itself.
+  if (checkpoint && v.extension <= .275) {
     return;
   }
   final extVec = tipPos - v.center;
@@ -1600,7 +1599,7 @@ class _RejectionPainter extends CustomPainter {
       );
       canvas.restore();
     }
-    if (classic && checkpoint && end <= .275) return;
+    if (checkpoint && end <= .275) return;
     canvas.save();
     canvas.scale(side);
     paintPathTip(
