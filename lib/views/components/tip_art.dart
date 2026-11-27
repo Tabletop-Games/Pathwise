@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:material_ui/material_ui.dart';
 
 import '../../model/app_themes.dart';
@@ -85,23 +83,6 @@ void paintPathTip(
     }
     canvas.drawImageRect(raster, src, dst, paint);
     return;
-  }
-
-  // Minimal geometric placeholder only while an async image decode completes
-  // in headless tests without asset bundles.
-  final fallbackColor = concealed
-      ? Color.lerp(palette.tile, palette.ink, .28)!
-      : (highContrast ? palette.accent : palette.route);
-  canvas.drawCircle(center, radius * .78, Paint()..color = fallbackColor);
-  if (!concealed) {
-    canvas.drawCircle(
-      center,
-      radius * .78,
-      Paint()
-        ..color = palette.onRoute
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.4, radius * .12),
-    );
   }
 }
 
