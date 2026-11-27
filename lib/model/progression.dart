@@ -73,13 +73,13 @@ enum Research {
 }
 
 enum Boost {
-  doubleTen('Quick Charge', 5, 30, 2),
-  doubleFifteen('Surge 15', 15, 36, 2),
-  doubleThirty('Surge 30', 30, 72, 2),
-  doubleSixty('Endurance', 15, 80, 2),
-  tripleFifteen('Power Surge', 5, 65, 3),
-  quadrupleTen('Royal Rush', 3, 75, 4),
-  crateFrequency('Crate Radar', 15, 28, 1);
+  doubleTen('Quick Charge', 5, 60, 2),
+  doubleFifteen('Surge 15', 15, 72, 2),
+  doubleThirty('Surge 30', 30, 144, 2),
+  doubleSixty('Endurance', 15, 160, 2),
+  tripleFifteen('Power Surge', 5, 130, 3),
+  quadrupleTen('Royal Rush', 3, 150, 4),
+  crateFrequency('Crate Radar', 15, 56, 1);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;

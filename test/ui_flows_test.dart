@@ -89,7 +89,7 @@ void main() {
     expect(PathTip.values.length, 19);
     expect(PathTip.classic.price, 0);
     for (final tip in PathTip.values.where((t) => t != PathTip.classic)) {
-      expect({120, 250, 500, 900}, contains(tip.price), reason: tip.label);
+      expect({240, 500, 1000, 1800}, contains(tip.price), reason: tip.label);
     }
   });
 

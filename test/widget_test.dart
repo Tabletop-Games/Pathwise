@@ -510,7 +510,7 @@ void main() {
       final buy = tester.widget<PricePill>(
         find.byKey(const ValueKey('hint-buy')),
       );
-      expect(buy.price, 40);
+      expect(buy.price, 80);
       expect(buy.affordable, isFalse);
       expect(model.hintsRemaining, 0);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -782,7 +782,7 @@ void main() {
       find.descendant(of: card, matching: find.byType(PricePill)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('40 short'), findsOneWidget);
+    expect(find.text('130 short'), findsOneWidget);
     await tester.tap(find.text('Get coins'));
     await tester.pumpAndSettle();
     expect(find.byKey(const PageStorageKey('store-coins')), findsOneWidget);

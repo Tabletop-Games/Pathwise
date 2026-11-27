@@ -114,10 +114,10 @@ void main() {
       );
       expect(
         tester.widget<PricePill>(price).semanticLabel,
-        'Buy Quick Charge for 29 coins',
+        'Buy Quick Charge for 57 coins',
       );
       await _tapVisible(tester, price);
-      expect(find.text('1 short'), findsOneWidget);
+      expect(find.text('29 short'), findsOneWidget);
       await tester.tap(find.text('Not now'));
       await tester.pumpAndSettle();
       expect(model.coinBalance, 28);
@@ -152,7 +152,7 @@ void main() {
         connectivity: connectivity,
         bootTime: () => (boot: 1, milliseconds: clock),
         snapshot: {
-          'archivedCoins': 40,
+          'archivedCoins': 70,
           'progressionBoot': 1,
           'progression': {
             'inventory': {

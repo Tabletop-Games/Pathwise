@@ -4,24 +4,24 @@ import 'user_preferences.dart';
 /// Stable cosmetic identifiers with rarity-tiered Economy 2.0 pricing.
 enum PathTip {
   classic('Classic', 0),
-  crystal('Crystal', 120),
-  star('Star', 120),
-  cat('Cat', 120),
-  dog('Dog', 120),
-  rabbit('Rabbit', 120),
-  fox('Fox', 250),
-  panda('Panda', 250),
-  frog('Frog', 250),
-  penguin('Penguin', 250),
-  turtle('Turtle', 250),
-  bee('Bee', 250),
-  ghost('Ghost', 500),
-  robot('Robot', 500),
-  ufo('UFO', 500),
-  flame('Flame', 500),
-  rocket('Rocket', 500),
-  dragon('Dragon', 900),
-  phoenix('Phoenix', 900);
+  crystal('Crystal', 240),
+  star('Star', 240),
+  cat('Cat', 240),
+  dog('Dog', 240),
+  rabbit('Rabbit', 240),
+  fox('Fox', 500),
+  panda('Panda', 500),
+  frog('Frog', 500),
+  penguin('Penguin', 500),
+  turtle('Turtle', 500),
+  bee('Bee', 500),
+  ghost('Ghost', 1000),
+  robot('Robot', 1000),
+  ufo('UFO', 1000),
+  flame('Flame', 1000),
+  rocket('Rocket', 1000),
+  dragon('Dragon', 1800),
+  phoenix('Phoenix', 1800);
 
   const PathTip(this.label, this.price);
   final String label;
@@ -50,7 +50,7 @@ class EconomyRules {
   int get rewardedAdCoins => 20;
   int get rewardedAdsPerDay => 6;
   int get starterHints => 3;
-  int get hintPrice => 40;
+  int get hintPrice => 80;
   int get hintAdsPerDay => 5;
   int get coinAdMilestone => 4;
   int get coinAdMilestoneBonus => 40;
@@ -59,7 +59,7 @@ class EconomyRules {
   int get cratesPerWindow => 8;
   int attackReward(int solves) =>
       solves < 2 ? 0 : (solves < 8 ? solves : 8) * 3;
-  int get freezePrice => 150;
+  int get freezePrice => 300;
   int get maxFreezes => 2;
   static const milestones = <int, ({int coins, int hints})>{
     1: (coins: 20, hints: 0),
@@ -107,9 +107,9 @@ class EconomyRules {
 
   String tipRarity(PathTip tip) => switch (tip.price) {
     <= 0 => 'Starter',
-    <= 120 => 'Common',
-    <= 250 => 'Uncommon',
-    <= 500 => 'Rare',
+    <= 240 => 'Common',
+    <= 500 => 'Uncommon',
+    <= 1000 => 'Rare',
     _ => 'Epic',
   };
 
@@ -118,19 +118,19 @@ class EconomyRules {
     PathwiseTheme.blackwater ||
     PathwiseTheme.terracotta ||
     PathwiseTheme.signal => 0,
-    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 90,
-    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 140,
-    PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 220,
-    PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
-    PathwiseTheme.canyon => 4500,
-    PathwiseTheme.tidal => 12000,
-    PathwiseTheme.parchment || PathwiseTheme.violet => 500,
-    PathwiseTheme.koi || PathwiseTheme.crt => 1000,
-    PathwiseTheme.neon => 30000,
-    PathwiseTheme.gilded => 60000,
-    PathwiseTheme.basinGold => 1000,
-    PathwiseTheme.copperSky => 4500,
-    PathwiseTheme.highPass => 12000,
+    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 180,
+    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 280,
+    PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 440,
+    PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 1000,
+    PathwiseTheme.canyon => 9000,
+    PathwiseTheme.tidal => 24000,
+    PathwiseTheme.parchment || PathwiseTheme.violet => 1000,
+    PathwiseTheme.koi || PathwiseTheme.crt => 2000,
+    PathwiseTheme.neon => 60000,
+    PathwiseTheme.gilded => 120000,
+    PathwiseTheme.basinGold => 2000,
+    PathwiseTheme.copperSky => 9000,
+    PathwiseTheme.highPass => 24000,
   };
 }
 

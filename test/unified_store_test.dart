@@ -24,7 +24,7 @@ void main() {
     expect(
       PathTip.values
           .skip(1)
-          .every((e) => {120, 250, 500, 900}.contains(e.price)),
+          .every((e) => {240, 500, 1000, 1800}.contains(e.price)),
       isTrue,
     );
     expect(PathTip.fromId('invalid'), isNull);
@@ -56,7 +56,7 @@ void main() {
             {
               'id': 'starter',
               'label': 'Welcome',
-              'amount': 200,
+              'amount': 320,
               'at': '2026-01-01T00:00:00Z',
             },
           ],
@@ -133,7 +133,7 @@ void main() {
             {
               'id': 'starter',
               'label': 'Welcome',
-              'amount': 150,
+              'amount': 270,
               'at': '2026-01-01T00:00:00Z',
             },
           ],

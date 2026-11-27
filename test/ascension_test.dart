@@ -44,9 +44,9 @@ void main() {
       final storage = MemoryStorage();
       final app = model(storage);
       expect(app.hintsRemaining, 3);
-      expect(await app.buyHint(), true);
       expect(await app.buyHint(), false);
-      await app.applyVerifiedPurchase('funds', coins: 600, themes: false);
+      await app.applyVerifiedPurchase('funds', coins: 900, themes: false);
+      expect(await app.buyHint(), true);
       for (var index = 0; index < 10; index++) {
         expect(await app.buyHint(), true);
       }

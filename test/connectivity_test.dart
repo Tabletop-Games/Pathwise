@@ -212,8 +212,8 @@ void main() {
       await goOffline();
       expect(model.coinBalance, 200);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
-      expect(model.research(Research.magnet), isTrue);
-      expect(await model.buyHint(), isTrue);
+      expect(await model.buyHint(), isFalse);
+      expect(model.research(Research.magnet), isFalse);
       expect(await model.grantAdBonus('ad-1'), isFalse);
       expect(await model.grantHintAd('hint-ad-1'), isFalse);
     });
