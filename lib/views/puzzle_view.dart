@@ -129,22 +129,6 @@ class PuzzleView extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      if (!timed &&
-                          !model.complete &&
-                          model.activeStarThresholds != null) ...[
-                        const SizedBox(width: 4),
-                        _StarTimerPill(
-                          elapsed: value,
-                          thresholds: model.activeStarThresholds!,
-                          palette: palette,
-                          onTap: () => _showStarThresholdsDialog(
-                            context,
-                            model.activeStarThresholds!,
-                            model,
-                            palette,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -227,16 +211,15 @@ class PuzzleView extends StatelessWidget {
                                     style: TextStyle(color: palette.muted),
                                   ),
                                 ),
-                              _BoardProgress(
-                                checkpoint: model.complete
-                                    ? board.checkpoints.length
-                                    : model.nextCheckpoint,
-                                checkpoints: board.checkpoints.length,
-                                tiles: model.path.length,
-                                area: board.area,
-                                palette: palette,
-                              ),
-                              const SizedBox(height: 14),
+                              if (model.activeStarThresholds
+                                  case final thresholds?) ...[
+                                _StarDepletionBar(
+                                  model: model,
+                                  thresholds: thresholds,
+                                  palette: palette,
+                                ),
+                                const SizedBox(height: 14),
+                              ],
                               FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Row(
@@ -490,190 +473,18 @@ Future<void> _confirmAttackAction(
   }
 }
 
-class _StarTimerPill extends StatelessWidget {
-  const _StarTimerPill({
-    required this.elapsed,
-    required this.thresholds,
-    required this.palette,
-    required this.onTap,
-  });
-
-  final Duration elapsed;
-  final StarThresholds thresholds;
-  final BoardPalette palette;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ms = elapsed.inMilliseconds;
-    final currentStars = thresholds.rate(ms);
-    final nextCutoffMs = switch (currentStars) {
-      3 => thresholds.threeStarMs,
-      2 => thresholds.twoStarMs,
-      1 => thresholds.oneStarMs,
-      _ => null,
-    };
-    final remaining = nextCutoffMs == null
-        ? Duration.zero
-        : Duration(milliseconds: math.max(0, nextCutoffMs - ms));
-    final highContrast =
-        palette == BoardPalette.palettes[PathwiseTheme.signal] ||
-        MediaQuery.highContrastOf(context);
-    final label = nextCutoffMs != null
-        ? '$currentStars of 3 stars available, ${formatTime(remaining)} remaining. Tap for star thresholds.'
-        : '0 stars remaining. Complete anytime. Tap for star thresholds.';
-
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      onTap: onTap,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 30),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: palette.cardEdge),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 1.5),
-                RatingStar(
-                  earned: i < currentStars,
-                  size: 11.5,
-                  highContrast: highContrast,
-                  palette: palette,
-                ),
-              ],
-              if (nextCutoffMs != null) ...[
-                const SizedBox(width: 4),
-                Text(
-                  formatTime(remaining + const Duration(milliseconds: 999)),
-                  style: TextStyle(
-                    color: palette.mutedInk,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Future<void> _showStarThresholdsDialog(
-  BuildContext context,
-  StarThresholds thresholds,
-  AppModel model,
-  BoardPalette palette,
-) {
-  playUiFeedback(context, sound: SoundEvent.dialogOpen);
-  final mult = model.progression.multiplier(model.progressionTime);
-  String fmt(int ms) => formatTime(Duration(milliseconds: ms));
-  final rows = [
-    (3, 'Under ${fmt(thresholds.threeStarMs)}'),
-    (2, 'Up to ${fmt(thresholds.twoStarMs)}'),
-    (1, 'Up to ${fmt(thresholds.oneStarMs)}'),
-    (0, 'Over ${fmt(thresholds.oneStarMs)}'),
-  ];
-  return showDialog<void>(
-    context: context,
-    builder: (dialog) => GameDialog(
-      title: 'Star Rating Targets',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final (stars, desc) in rows)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < 3; i++)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 2),
-                            child: RatingStar(
-                              earned: i < stars,
-                              size: 15,
-                              palette: palette,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      desc,
-                      style: TextStyle(
-                        color: palette.ink,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 10),
-          Text(
-            mult > 1
-                ? 'Each earned star awards +$mult coins (includes ${mult}x boost) on first clear or when improving your best.'
-                : 'Each earned star awards +1 coin on first clear or when improving your best.',
-            style: TextStyle(color: palette.mutedInk, fontSize: 12),
-          ),
-        ],
-      ),
-      actions: [
-        ActionPill(
-          label: 'Got it',
-          tone: ActionTone.primary,
-          onTap: () => Navigator.pop(dialog),
-        ),
-      ],
-    ),
-  );
-}
-
 class _AttemptStarsRow extends StatelessWidget {
   const _AttemptStarsRow({
     required this.stars,
     required this.previousBest,
     required this.isFirstClear,
-    required this.thresholds,
     required this.palette,
   });
 
   final int stars;
   final int previousBest;
   final bool isFirstClear;
-  final StarThresholds thresholds;
   final BoardPalette palette;
-
-  String _thresholdNote() {
-    String fmt(int ms) => formatTime(Duration(milliseconds: ms));
-    return switch (stars) {
-      3 => '3★ target: under ${fmt(thresholds.threeStarMs)}',
-      2 =>
-        '3★ under ${fmt(thresholds.threeStarMs)} · 2★ up to ${fmt(thresholds.twoStarMs)}',
-      1 =>
-        '2★ up to ${fmt(thresholds.twoStarMs)} · 1★ up to ${fmt(thresholds.oneStarMs)}',
-      _ => '1★ target was up to ${fmt(thresholds.oneStarMs)}',
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -726,18 +537,8 @@ class _AttemptStarsRow extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            _thresholdNote(),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: palette.mutedInk,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
           if (!isFirstClear) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               improved
                   ? 'Improved! Best: $stars/3 ★'
@@ -806,9 +607,6 @@ class _Completion extends StatelessWidget {
     final milestoneCoins = model.lastReward - levelCoins;
     final bonusCoins = model.completionBonusCoins;
     final hints = result?.hints ?? model.hintsUsed;
-    final duration = Duration(
-      milliseconds: result?.milliseconds ?? model.elapsed.value.inMilliseconds,
-    );
     return Semantics(
       liveRegion: true,
       child: Container(
@@ -872,34 +670,14 @@ class _Completion extends StatelessWidget {
                 stars: model.attemptStars,
                 previousBest: model.previousAttemptBestStars,
                 isFirstClear: model.firstCampaignClear,
-                thresholds: starThresholdsForLevel(id.level),
                 palette: palette,
               ),
               const SizedBox(height: 4),
             ],
-            Text(
-              '${formatTime(duration)} · $hints hints',
-              style: TextStyle(
-                color: palette.mutedInk,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
             if (levelCoins > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 2),
+                padding: const EdgeInsets.only(top: 6, bottom: 2),
                 child: RewardAmount(levelCoins + bonusCoins, size: 48),
-              ),
-            if (id.mode == PlayMode.levels && model.earnedStarCoins > 0)
-              Text(
-                model.firstCampaignClear
-                    ? 'Includes +${model.earnedStarCoins} star bonus'
-                    : 'New star bonus · +${model.earnedStarCoins} coins',
-                style: TextStyle(
-                  color: palette.route,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
               ),
             if (bonusCoins > 0)
               Text(
@@ -965,9 +743,8 @@ class _Completion extends StatelessWidget {
                         item: model.upcomingDiscoveryItem,
                         palette: palette,
                         progress: progress,
-                        size: 156,
+                        size: 136,
                       ),
-                      const SizedBox(height: 4),
                       Text(
                         'Mystery discovery · ${(progress * 100).round()}%',
                         style: TextStyle(
@@ -984,10 +761,10 @@ class _Completion extends StatelessWidget {
             if (model.firstCampaignClear &&
                 model.latestDiscovery == null &&
                 id.mode == PlayMode.levels) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               CompletionBonus(model, key: ValueKey(id.level)),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             if (next != null)
               SizedBox(
                 width: double.infinity,
@@ -1337,47 +1114,259 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-/// Checkpoint pips and a single tile bar replace the two text lines.
-class _BoardProgress extends StatelessWidget {
-  const _BoardProgress({
-    required this.checkpoint,
-    required this.checkpoints,
-    required this.tiles,
-    required this.area,
+/// Maps elapsed milliseconds to the horizontal star depletion track `[0.0..1.0]`.
+///
+/// The three stars sit evenly at `0.16` (1★), `0.50` (2★), and `0.84` (3★)
+/// with outer track padding so stars never touch the track endpoints.
+@visibleForTesting
+double starDepletionProgress(int elapsedMs, StarThresholds thresholds) {
+  const x1 = 0.16;
+  const x2 = 0.50;
+  const x3 = 0.84;
+  const tailMs = 2000;
+  if (elapsedMs <= 0) return 1.0;
+  if (elapsedMs < thresholds.threeStarMs) {
+    final span = math.max(1, thresholds.threeStarMs);
+    return (1.0 - (elapsedMs / span) * (1.0 - x3)).clamp(x3, 1.0);
+  }
+  if (elapsedMs <= thresholds.twoStarMs) {
+    final span = math.max(1, thresholds.twoStarMs - thresholds.threeStarMs);
+    return (x3 - ((elapsedMs - thresholds.threeStarMs) / span) * (x3 - x2))
+        .clamp(x2, x3);
+  }
+  if (elapsedMs <= thresholds.oneStarMs) {
+    final span = math.max(1, thresholds.oneStarMs - thresholds.twoStarMs);
+    return (x2 - ((elapsedMs - thresholds.twoStarMs) / span) * (x2 - x1)).clamp(
+      x1,
+      x2,
+    );
+  }
+  final pastOne = elapsedMs - thresholds.oneStarMs;
+  if (pastOne >= tailMs) return 0.0;
+  return (x1 * (1.0 - pastOne / tailMs)).clamp(0.0, x1);
+}
+
+/// Time-based horizontal star depletion bar rendered directly above controls.
+class _StarDepletionBar extends StatefulWidget {
+  const _StarDepletionBar({
+    required this.model,
+    required this.thresholds,
     required this.palette,
   });
 
-  final int checkpoint, checkpoints, tiles, area;
+  final AppModel model;
+  final StarThresholds thresholds;
   final BoardPalette palette;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Checkpoint $checkpoint of $checkpoints, $tiles of $area tiles',
-    excludeSemantics: true,
-    child: Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '$checkpoint/$checkpoints',
-              style: TextStyle(
-                color: palette.ink,
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-              ),
-            ),
-            Text(
-              '$tiles/$area',
-              style: TextStyle(color: palette.mutedInk, fontSize: 13),
-            ),
-          ],
+  State<_StarDepletionBar> createState() => _StarDepletionBarState();
+}
+
+class _StarDepletionBarState extends State<_StarDepletionBar>
+    with SingleTickerProviderStateMixin {
+  static const _starPositions = [0.16, 0.50, 0.84];
+
+  late final AnimationController _controller;
+  late final ValueNotifier<double> _progressNotifier;
+  double _fromProgress = 1.0;
+  double _toProgress = 1.0;
+  int _activeStars = 3;
+  bool _reducedMotion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    )..addListener(_onAnimate);
+    final initialMs = widget.model.elapsed.value.inMilliseconds;
+    _toProgress = starDepletionProgress(initialMs, widget.thresholds);
+    _fromProgress = _toProgress;
+    _progressNotifier = ValueNotifier<double>(_toProgress);
+    _activeStars = widget.thresholds.rate(initialMs);
+    widget.model.elapsed.addListener(_onElapsedChanged);
+    widget.model.addListener(_onModelChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reducedMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reducedMotion && _controller.isAnimating) {
+      _controller.stop();
+      _fromProgress = _toProgress;
+      _progressNotifier.value = _toProgress;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _StarDepletionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.model != widget.model) {
+      oldWidget.model.elapsed.removeListener(_onElapsedChanged);
+      oldWidget.model.removeListener(_onModelChanged);
+      widget.model.elapsed.addListener(_onElapsedChanged);
+      widget.model.addListener(_onModelChanged);
+    }
+    if (oldWidget.model != widget.model ||
+        oldWidget.thresholds != widget.thresholds) {
+      _snapToCurrent();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.model.elapsed.removeListener(_onElapsedChanged);
+    widget.model.removeListener(_onModelChanged);
+    _controller.dispose();
+    _progressNotifier.dispose();
+    super.dispose();
+  }
+
+  void _snapToCurrent() {
+    _controller.stop();
+    final ms = widget.model.elapsed.value.inMilliseconds;
+    final progress = starDepletionProgress(ms, widget.thresholds);
+    _fromProgress = progress;
+    _toProgress = progress;
+    _progressNotifier.value = progress;
+    final stars = widget.thresholds.rate(ms);
+    if (stars != _activeStars && mounted) {
+      setState(() => _activeStars = stars);
+    }
+  }
+
+  void _onAnimate() {
+    _progressNotifier.value =
+        _fromProgress + (_toProgress - _fromProgress) * _controller.value;
+  }
+
+  void _onElapsedChanged() {
+    final ms = widget.model.elapsed.value.inMilliseconds;
+    final nextProgress = starDepletionProgress(ms, widget.thresholds);
+    final stars = widget.thresholds.rate(ms);
+    if (stars != _activeStars && mounted) {
+      setState(() => _activeStars = stars);
+    }
+    if (_reducedMotion || widget.model.complete) {
+      _controller.stop();
+      _fromProgress = nextProgress;
+      _toProgress = nextProgress;
+      _progressNotifier.value = nextProgress;
+      return;
+    }
+    if ((nextProgress - _toProgress).abs() > 1e-6) {
+      _fromProgress = _progressNotifier.value;
+      _toProgress = nextProgress;
+      _controller.forward(from: 0);
+    }
+  }
+
+  void _onModelChanged() {
+    if (widget.model.complete) {
+      _snapToCurrent();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const trackHeight = 7.0;
+    const starSize = 22.0;
+    const barHeight = 26.0;
+    final highContrast =
+        widget.palette == BoardPalette.palettes[PathwiseTheme.signal] ||
+        MediaQuery.highContrastOf(context);
+
+    return Semantics(
+      label: '$_activeStars of 3 stars available',
+      excludeSemantics: true,
+      child: SizedBox(
+        height: barHeight,
+        width: double.infinity,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CustomPaint(
+                  size: Size(width, barHeight),
+                  painter: _StarDepletionTrackPainter(
+                    progressListenable: _progressNotifier,
+                    trackColor: widget.palette.track,
+                    fillColor: widget.palette.route,
+                    trackHeight: trackHeight,
+                  ),
+                ),
+                for (var i = 0; i < 3; i++)
+                  Positioned(
+                    left: width * _starPositions[i] - starSize / 2,
+                    top: (barHeight - starSize) / 2,
+                    child: AnimatedScale(
+                      scale: i < _activeStars ? 1.0 : 0.88,
+                      duration: _reducedMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      child: RatingStar(
+                        earned: i < _activeStars,
+                        size: starSize,
+                        highContrast: highContrast,
+                        palette: widget.palette,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 6),
-        GameBar(value: tiles / area, height: 6),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+}
+
+class _StarDepletionTrackPainter extends CustomPainter {
+  _StarDepletionTrackPainter({
+    required this.progressListenable,
+    required this.trackColor,
+    required this.fillColor,
+    required this.trackHeight,
+  }) : super(repaint: progressListenable);
+
+  final ValueListenable<double> progressListenable;
+  final Color trackColor;
+  final Color fillColor;
+  final double trackHeight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final top = (size.height - trackHeight) / 2;
+    final radius = Radius.circular(trackHeight / 2);
+    final trackRect = Rect.fromLTWH(0, top, size.width, trackHeight);
+    final trackRRect = RRect.fromRectAndRadius(trackRect, radius);
+
+    canvas.drawRRect(trackRRect, Paint()..color = trackColor);
+
+    final progress = progressListenable.value.clamp(0.0, 1.0);
+    if (progress <= 0) return;
+
+    canvas.save();
+    canvas.clipRRect(trackRRect);
+    final fillWidth = (size.width * progress).clamp(0.0, size.width);
+    final fillRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, top, fillWidth, trackHeight),
+      radius,
+    );
+    canvas.drawRRect(fillRRect, Paint()..color = fillColor);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarDepletionTrackPainter oldDelegate) =>
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.fillColor != fillColor ||
+      oldDelegate.trackHeight != trackHeight;
 }
 
 class _AttackResults extends StatelessWidget {

@@ -114,7 +114,9 @@ void main() {
         }
 
         final board = find.byKey(const ValueKey('puzzle-grid'));
-        final progress = find.byType(LinearProgressIndicator);
+        final progress = find.bySemanticsLabel(
+          RegExp(r'\d+ of 3 stars available'),
+        );
         final boardRect = tester.getRect(board);
         final barRect = tester.getRect(progress);
         expect(barRect.width, closeTo((width - 32).clamp(0, 490), .1));

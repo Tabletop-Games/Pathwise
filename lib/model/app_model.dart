@@ -991,6 +991,9 @@ class AppModel extends ChangeNotifier
       return false;
     }
     _pendingTutorials.remove(mechanic);
+    if (_pendingTutorials.isEmpty && _game != null && !complete) {
+      _started = true;
+    }
     _syncClock();
     notifyListeners();
     return true;
@@ -2141,14 +2144,15 @@ class AppModel extends ChangeNotifier
         _attempts.remove(id.key);
         unawaited(flush());
       }
-      _syncClock();
     } catch (_) {
       if (_disposed || request != _request) return;
       loadError = 'This puzzle couldn’t be prepared.';
     } finally {
       if (!_disposed && request == _request) {
         loading = false;
+        _started = _game != null && _pendingTutorials.isEmpty && !complete;
         _processCrates();
+        _syncClock();
         notifyListeners();
       }
     }
