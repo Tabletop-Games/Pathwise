@@ -118,19 +118,19 @@ class EconomyRules {
     PathwiseTheme.blackwater ||
     PathwiseTheme.terracotta ||
     PathwiseTheme.signal => 0,
-    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 180,
-    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 280,
-    PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 440,
-    PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 1000,
-    PathwiseTheme.canyon => 9000,
-    PathwiseTheme.tidal => 24000,
-    PathwiseTheme.parchment || PathwiseTheme.violet => 1000,
-    PathwiseTheme.koi || PathwiseTheme.crt => 2000,
-    PathwiseTheme.neon => 60000,
-    PathwiseTheme.gilded => 120000,
-    PathwiseTheme.basinGold => 2000,
-    PathwiseTheme.copperSky => 9000,
-    PathwiseTheme.highPass => 24000,
+    PathwiseTheme.forestMint || PathwiseTheme.warmWalnut => 120,
+    PathwiseTheme.glacier || PathwiseTheme.midnightSlate => 200,
+    PathwiseTheme.oceanicBreeze || PathwiseTheme.royalVelvet => 320,
+    PathwiseTheme.chalk || PathwiseTheme.amoledCarbon => 500,
+    PathwiseTheme.canyon => 1500,
+    PathwiseTheme.tidal => 2500,
+    PathwiseTheme.parchment || PathwiseTheme.violet => 500,
+    PathwiseTheme.koi || PathwiseTheme.crt => 800,
+    PathwiseTheme.neon => 4000,
+    PathwiseTheme.gilded => 6000,
+    PathwiseTheme.basinGold => 800,
+    PathwiseTheme.copperSky => 1500,
+    PathwiseTheme.highPass => 2500,
   };
 }
 

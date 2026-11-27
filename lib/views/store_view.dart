@@ -166,11 +166,23 @@ class _StoreViewState extends State<StoreView> {
       final textScale = MediaQuery.textScalerOf(context).scale(1);
       final columns = constraints.maxWidth >= 560 ? 4 : 3;
       final width = (constraints.maxWidth - 24 - (columns - 1) * 8) / columns;
+      final themes = List<PathwiseTheme>.of(PathwiseTheme.values)
+        ..sort((a, b) {
+          final byPrice = economy
+              .themePrice(a)
+              .compareTo(economy.themePrice(b));
+          if (byPrice != 0) return byPrice;
+          final aOwned = model.ownsTheme(a) ? 0 : 1;
+          final bOwned = model.ownsTheme(b) ? 0 : 1;
+          final byOwned = aOwned.compareTo(bOwned);
+          if (byOwned != 0) return byOwned;
+          return a.label.compareTo(b.label);
+        });
       return GridView.builder(
         key: const PageStorageKey('store-themes'),
         controller: _tabScrolls[0],
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-        itemCount: PathwiseTheme.values.length,
+        itemCount: themes.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
           crossAxisSpacing: 8,
@@ -178,7 +190,7 @@ class _StoreViewState extends State<StoreView> {
           mainAxisExtent: width + 74 + (textScale > 1.2 ? 28 : 0),
         ),
         itemBuilder: (context, index) {
-          final theme = PathwiseTheme.values[index];
+          final theme = themes[index];
           final candidate = BoardPalette.palettes[theme]!;
           final owned = model.ownsTheme(theme);
           final equipped = model.theme == theme;
