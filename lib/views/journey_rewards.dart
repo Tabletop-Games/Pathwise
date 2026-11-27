@@ -129,7 +129,10 @@ class _CompletionBonusState extends State<CompletionBonus>
     final palette = context.palette;
     final selected = model.selectedMultiplier;
     final mult = selected ?? accessibleMultiplier;
-    final extra = economy.completionBonusCoins(mult, stars: model.attemptStars);
+    final extra = economy.completionBonusCoins(
+      mult,
+      coins: model.completionCoins,
+    );
     final total = model.completionCoins + extra;
     final buying = context.watch<BillingService>().buying;
     return Padding(

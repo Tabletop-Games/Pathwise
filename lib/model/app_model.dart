@@ -1326,7 +1326,7 @@ class AppModel extends ChangeNotifier
           !_wallet.add(
             'journey/multiplier/$level',
             'Level $level video bonus',
-            economy.completionBonusCoins(multiplier, stars: attemptStars),
+            economy.completionBonusCoins(multiplier, coins: completionCoins),
             _today(),
           ))
         return false;

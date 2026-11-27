@@ -682,11 +682,11 @@ class _Completion extends StatelessWidget {
             if (levelCoins > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6, bottom: 2),
-                child: RewardAmount(levelCoins + bonusCoins, size: 48),
+                child: RewardAmount(levelCoins, size: 48),
               ),
             if (bonusCoins > 0)
               Text(
-                'Video bonus · +$bonusCoins coins',
+                '+$bonusCoins ad bonus → ${levelCoins + bonusCoins} total',
                 style: TextStyle(
                   color: palette.route,
                   fontWeight: FontWeight.w700,

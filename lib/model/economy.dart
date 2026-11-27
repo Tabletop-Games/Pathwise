@@ -101,10 +101,9 @@ class EconomyRules {
   }) => clearReward(PlayMode.daily) * multiplier + fortuneBonus + goldenBonus;
 
   /// Post-completion rewarded video bonus on campaign first clears.
-  /// Eligible base includes the newly earned star bonus without compounding
-  /// timed boosts or permanent research.
-  int completionBonusCoins(int multiplier, {int stars = 0}) =>
-      (clearReward(PlayMode.levels) + stars) * (multiplier - 1);
+  /// Multiplies the full earned completion reward (`coins * (multiplier - 1)`).
+  int completionBonusCoins(int multiplier, {int coins = 0}) =>
+      coins * (multiplier - 1);
 
   String tipRarity(PathTip tip) => switch (tip.price) {
     <= 0 => 'Starter',

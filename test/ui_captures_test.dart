@@ -306,7 +306,7 @@ Future<void> _screens(
     await tester.ensureVisible(watch);
     await tester.tap(watch);
     await shot('multiplier-rewarded');
-    expect(find.textContaining('Video bonus · +'), findsOneWidget);
+    expect(find.textContaining('ad bonus →'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await model.flush();
     model.dispose();

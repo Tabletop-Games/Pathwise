@@ -511,7 +511,10 @@ class SimPlayer {
           final mult = random.nextDouble() < 0.25 ? 4 : 3;
           credit(
             'completion_ads',
-            economy.completionBonusCoins(mult, stars: stars),
+            economy.completionBonusCoins(
+              mult,
+              coins: economy.clearReward(PlayMode.levels) + stars,
+            ),
           );
         }
 
