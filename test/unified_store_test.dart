@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../lib/logic/ad_service.dart';
 import '../lib/logic/billing_service.dart';
-import '../lib/logic/puzzle.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/app_themes.dart';
 import '../lib/model/path_tips.dart';
@@ -19,8 +18,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('catalogue identifiers and independent initial prices are stable', () {
-    expect(PathTip.values.length, 20);
-    expect(PathTip.values.map((e) => e.name).toSet().length, 20);
+    expect(PathTip.values.length, 19);
+    expect(PathTip.values.map((e) => e.name).toSet().length, 19);
     expect(PathTip.classic.price, 0);
     expect(
       PathTip.values
@@ -29,32 +28,19 @@ void main() {
       isTrue,
     );
     expect(PathTip.fromId('invalid'), isNull);
-  });
-
-  test('direction follows accepted route, skipping portal transport', () {
-    final board = Puzzle(4, [0, 15], portal: (5, 10));
-    expect(tipDirection(board, [0]), 0);
-    expect(tipDirection(board, [0, 1]), 0);
-    expect(tipDirection(board, [0, 4]), 1);
-    expect(tipDirection(board, [0, 1, 0]), 2);
-    expect(tipDirection(board, [0, 4, 0]), 3);
-    expect(tipDirection(board, [0, 1, 5, 10]), 1);
-    expect(tipDirection(board, [0, 1, 5, 10, 11]), 0);
-    expect(tipDirection(board, [0, 1, 5]), 1);
-    final adjacentPortal = Puzzle(4, [0, 15], portal: (1, 2));
-    expect(tipDirection(adjacentPortal, [0, 4, 5, 1, 2]), 3);
+    expect(PathTip.fromId('arrow'), isNull);
   });
 
   test('old saves and invalid identifiers default safely to classic', () {
     final model = AppModel(
       storage: MemoryStorage(),
       snapshot: {
-        'ownedTips': ['unknown', 'arrow'],
+        'ownedTips': ['unknown', 'crystal'],
         'equippedTip': 'unknown',
       },
     );
     expect(model.ownsTip(PathTip.classic), isTrue);
-    expect(model.ownsTip(PathTip.arrow), isTrue);
+    expect(model.ownsTip(PathTip.crystal), isTrue);
     expect(model.equippedTip, PathTip.classic);
     model.dispose();
   });
@@ -77,19 +63,19 @@ void main() {
         },
       );
       final results = await Future.wait([
-        model.buyTip(PathTip.arrow),
-        model.buyTip(PathTip.arrow),
+        model.buyTip(PathTip.crystal),
+        model.buyTip(PathTip.crystal),
       ]);
       expect(results.where((x) => x).length, 1);
       expect(model.coinBalance, 80);
-      expect(model.ownsTip(PathTip.arrow), isTrue);
+      expect(model.ownsTip(PathTip.crystal), isTrue);
       expect(model.equippedTip, PathTip.classic);
-      expect(await model.equipTip(PathTip.arrow), isTrue);
+      expect(await model.equipTip(PathTip.crystal), isTrue);
       final saved = await storage.load();
       final restored = AppModel(storage: storage, snapshot: saved);
       expect(restored.coinBalance, 80);
-      expect(restored.ownsTip(PathTip.arrow), isTrue);
-      expect(restored.equippedTip, PathTip.arrow);
+      expect(restored.ownsTip(PathTip.crystal), isTrue);
+      expect(restored.equippedTip, PathTip.crystal);
       model.dispose();
       restored.dispose();
     },
@@ -136,9 +122,9 @@ void main() {
     () async {
       final store = MemoryStorage();
       final model = AppModel(storage: store, snapshot: {});
-      expect(await model.buyTip(PathTip.arrow), isFalse);
+      expect(await model.buyTip(PathTip.crystal), isFalse);
       expect(model.coinBalance, 50);
-      expect(model.ownsTip(PathTip.arrow), isFalse);
+      expect(model.ownsTip(PathTip.crystal), isFalse);
       model.dispose();
       final rich = AppModel(
         storage: store,
@@ -154,14 +140,14 @@ void main() {
         },
       );
       store.fail = true;
-      expect(await rich.buyTip(PathTip.arrow), isFalse);
+      expect(await rich.buyTip(PathTip.crystal), isFalse);
       expect(rich.storageError, isTrue);
-      expect(await rich.buyTip(PathTip.arrow), isFalse);
+      expect(await rich.buyTip(PathTip.crystal), isFalse);
       expect(rich.coinBalance, 30);
       store.fail = false;
       expect(await rich.flush(), isTrue);
       final restored = AppModel(storage: store, snapshot: await store.load());
-      expect(restored.ownsTip(PathTip.arrow), isTrue);
+      expect(restored.ownsTip(PathTip.crystal), isTrue);
       expect(restored.coinBalance, 30);
       rich.dispose();
       restored.dispose();
@@ -248,14 +234,15 @@ void main() {
         size.width >= 560 ? 4 : 3,
       );
       expect(find.byType(TipArtwork), findsWidgets);
-      final card = find.byKey(const ValueKey('tip-card-arrow'));
+      final card = find.byKey(const ValueKey('tip-card-crystal'));
       await tester.tap(
         find.descendant(of: card, matching: find.byType(TipArtwork)),
       );
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Up'), findsOneWidget);
-      await tester.tap(find.byTooltip('Up'));
-      await tester.pump();
+      expect(find.byTooltip('Up'), findsNothing);
+      expect(find.byTooltip('Right'), findsNothing);
+      expect(find.byTooltip('Down'), findsNothing);
+      expect(find.byTooltip('Left'), findsNothing);
       expect(model.equippedTip, PathTip.classic);
       final preview = tester.widget<LevelOneBoardPreview>(
         find.descendant(
@@ -263,8 +250,7 @@ void main() {
           matching: find.byType(LevelOneBoardPreview),
         ),
       );
-      expect(preview.tip, PathTip.arrow);
-      expect(preview.directionOverride, 3);
+      expect(preview.tip, PathTip.crystal);
       await tester.tap(find.text('Close'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

@@ -6,8 +6,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/haptic_service.dart';
 import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
+import '../logic/sound_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -544,6 +546,20 @@ class _AttemptStarsRow extends StatelessWidget {
                       ? Duration.zero
                       : Duration(milliseconds: 220 + i * 70),
                   curve: Curves.easeOutBack,
+                  onEnd: i < stars
+                      ? () {
+                          try {
+                            final model = context.read<AppModel?>();
+                            model?.haptic.trigger(HapticEvent.starReveal);
+                            model?.sound.play(
+                              SoundEvent.starReveal,
+                              starIndex: i + 1,
+                            );
+                          } on ProviderNotFoundException {
+                            // Isolated widget tests may omit AppModel.
+                          }
+                        }
+                      : null,
                   builder: (context, scale, child) =>
                       Transform.scale(scale: scale, child: child),
                   child: Padding(

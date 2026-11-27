@@ -47,7 +47,7 @@ void main() {
       final themeRes = vm.buyTheme(PathwiseTheme.canyon);
       expect(themeRes, isA<StoreInsufficientCoins>());
 
-      final tipRes = await vm.buyTip(PathTip.arrow);
+      final tipRes = await vm.buyTip(PathTip.crystal);
       expect(tipRes, isA<StoreInsufficientCoins>());
 
       model.dispose();

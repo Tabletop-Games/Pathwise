@@ -177,7 +177,7 @@ void main() {
         'ownedTips': PathTip.values.map((tip) => tip.name).toList(),
         'journey': {
           'clears': 9,
-          'pending': {'1': 'tip/arrow'},
+          'pending': {'1': 'tip/crystal'},
         },
       });
       await clear(model, 1);

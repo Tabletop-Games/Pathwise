@@ -33,6 +33,7 @@ flutter:
     - assets/art/ui/
     - assets/art/biomes/
     - assets/art/journey/
+    - assets/audio/
   fonts:
     - family: Bricolage
       fonts:

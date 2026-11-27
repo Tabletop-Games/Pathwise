@@ -759,13 +759,11 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                           if (tip != null) {
                             final ok = await model.equipTip(tip);
                             if (ok && mounted) {
-                              model.haptic.selection();
                               setState(() => _justApplied = true);
                             }
                           } else if (theme != null) {
                             model.setTheme(theme);
                             if (mounted) {
-                              model.haptic.selection();
                               setState(() => _justApplied = true);
                             }
                           }

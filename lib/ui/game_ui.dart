@@ -2,10 +2,27 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
+import '../logic/haptic_service.dart';
+import '../logic/sound_service.dart';
+import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/user_preferences.dart';
 import 'game_art.dart';
+
+/// Triggers coordinated UI feedback when [AppModel] is in scope.
+void playUiFeedback(
+  BuildContext context, {
+  HapticEvent? haptic = HapticEvent.button,
+  SoundEvent? sound = SoundEvent.button,
+}) {
+  try {
+    context.read<AppModel?>()?.feedback(haptic, sound);
+  } on ProviderNotFoundException {
+    // Isolated widget tests may render UI components without AppModel.
+  }
+}
 
 /// Spacing, radii and timings used across the whole app.
 abstract final class GameTokens {
@@ -405,15 +422,21 @@ class _PillFrame extends StatelessWidget {
         child: FittedBox(fit: BoxFit.scaleDown, child: child),
       ),
     );
+    final VoidCallback? handleTap = onTap == null
+        ? null
+        : () {
+            playUiFeedback(context);
+            onTap!();
+          };
     return Semantics(
       button: true,
       enabled: onTap != null,
       selected: selected,
       label: semanticLabel,
       excludeSemantics: true,
-      onTap: onTap,
+      onTap: handleTap,
       child: InkResponse(
-        onTap: onTap,
+        onTap: handleTap,
         radius: 28,
         child: ConstrainedBox(
           constraints: const BoxConstraints(
@@ -460,10 +483,24 @@ class GameSegmented<T> extends StatelessWidget {
                 selected: segment.value == selected,
                 label: segment.label,
                 excludeSemantics: true,
-                onTap: () => onChanged(segment.value),
+                onTap: () {
+                  playUiFeedback(
+                    context,
+                    haptic: HapticEvent.tab,
+                    sound: SoundEvent.tab,
+                  );
+                  onChanged(segment.value);
+                },
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(segment.value),
+                  onTap: () {
+                    playUiFeedback(
+                      context,
+                      haptic: HapticEvent.tab,
+                      sound: SoundEvent.tab,
+                    );
+                    onChanged(segment.value);
+                  },
                   child: AnimatedContainer(
                     duration: MediaQuery.disableAnimationsOf(context)
                         ? Duration.zero

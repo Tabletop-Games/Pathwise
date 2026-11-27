@@ -361,8 +361,10 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     _ads = AdService(
       reserveInterstitial: _model.reserveAutomaticAd,
       onRewardedClosed: _model.recordRewardedAdExit,
+      onAdPlayingChanged: _model.setAdPlaying,
       isConnected: connectivity == null ? null : () => connectivity.online,
     );
+    unawaited(_model.sound.preload());
     final cloud = context.read<CloudSyncService?>();
     _billing = BillingService(
       canPurchase: connectivity == null ? null : () => connectivity.online,

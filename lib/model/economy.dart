@@ -4,7 +4,6 @@ import 'user_preferences.dart';
 /// Stable cosmetic identifiers with rarity-tiered Economy 2.0 pricing.
 enum PathTip {
   classic('Classic', 0),
-  arrow('Arrow', 120),
   crystal('Crystal', 120),
   star('Star', 120),
   cat('Cat', 120),

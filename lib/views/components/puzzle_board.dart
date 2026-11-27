@@ -17,32 +17,14 @@ import '../../ui/art/game_assets.dart';
 import '../../ui/game_ui.dart';
 import 'tip_art.dart';
 
-/// Facing direction is derived only from accepted orthogonal moves. Portal
-/// transport is skipped, including when its endpoints happen to be adjacent.
-int tipDirection(Puzzle puzzle, List<int> route) {
-  for (var i = route.length - 1; i > 0; i--) {
-    final from = route[i - 1], to = route[i];
-    if (puzzle.portal?.$1 == from && puzzle.portal?.$2 == to) continue;
-    final dx = to % puzzle.size - from % puzzle.size;
-    final dy = to ~/ puzzle.size - from ~/ puzzle.size;
-    if (dx == 1 && dy == 0) return 0;
-    if (dx == 0 && dy == 1) return 1;
-    if (dx == -1 && dy == 0) return 2;
-    if (dx == 0 && dy == -1) return 3;
-  }
-  return 0;
-}
-
 class LevelOneBoardPreview extends StatelessWidget {
   const LevelOneBoardPreview({
     required this.palette,
     this.tip = PathTip.classic,
-    this.directionOverride,
     super.key,
   });
 
   final PathTip tip;
-  final int? directionOverride;
 
   final BoardPalette palette;
   static final _board = generatePuzzle(
@@ -77,7 +59,6 @@ class LevelOneBoardPreview extends StatelessWidget {
           puzzle: _board.puzzle,
           palette: palette,
           tipStyle: tip,
-          directionOverride: directionOverride,
           showTip: true,
           route: previewRoute,
           hint: null,
@@ -173,12 +154,11 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   /// Transient picture of the tip while a finger is down. Never persisted.
   final _visual = ValueNotifier<TipVisual?>(null);
 
-  /// Smoothed visual tip state driven by an unconditionally stable exponential settle.
-  final _animatedVisual = ValueNotifier<({Offset tip, double angle})?>(null);
+  /// Smoothed visual tip position driven by an unconditionally stable exponential settle.
+  final _animatedVisual = ValueNotifier<Offset?>(null);
   Ticker? _springTicker;
   Duration? _lastTick;
   Offset? _springTip;
-  double? _springAngle;
   TipVisual? _springTarget;
 
   /// Set only while the tip retracts along the trail, so the board redraws
@@ -204,35 +184,23 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     }
   }
 
-  static double _angleForFacing(int facing) =>
-      (facing < 0 ? 3 : facing % 4) * (math.pi / 2);
-
-  static double _shortestAngleDelta(double from, double to) {
-    var diff = (to - from) % (math.pi * 2);
-    if (diff > math.pi) diff -= math.pi * 2;
-    if (diff < -math.pi) diff += math.pi * 2;
-    return diff;
-  }
-
   void _driveSpring(
     TipVisual target, {
     bool snap = false,
     bool snapTip = false,
   }) {
     _springTarget = target;
-    final targetAngle = _angleForFacing(target.facing);
     final reduced = mounted && MediaQuery.disableAnimationsOf(context);
-    if (snap || reduced || _springTip == null || _springAngle == null) {
+    if (snap || reduced || _springTip == null) {
       _springTip = target.tip;
-      _springAngle = targetAngle;
-      _animatedVisual.value = (tip: target.tip, angle: targetAngle);
+      _animatedVisual.value = target.tip;
       _springTicker?.stop();
       _lastTick = null;
       return;
     }
     if (snapTip) {
       _springTip = target.tip;
-      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+      _animatedVisual.value = _springTip;
     }
     _springTicker ??= createTicker(_onSpringTick);
     if (!_springTicker!.isActive) {
@@ -243,7 +211,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
 
   void _onSpringTick(Duration elapsed) {
     final target = _springTarget;
-    if (target == null || _springTip == null || _springAngle == null) {
+    if (target == null || _springTip == null) {
       _springTicker?.stop();
       return;
     }
@@ -252,26 +220,19 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     if (prev == null) return;
     final dt = ((elapsed - prev).inMicroseconds / 1e6).clamp(0.001, 0.05);
     final factor = 1.0 - math.exp(-26.0 * dt);
-    final targetAngle = _angleForFacing(target.facing);
 
     _springTip = _pointer != null
         ? target.tip
         : Offset.lerp(_springTip!, target.tip, factor)!;
-    final angleErr = _shortestAngleDelta(_springAngle!, targetAngle);
-    _springAngle = _springAngle! + angleErr * factor;
 
     final settledPos = (_springTip! - target.tip).distance < 0.002;
-    final settledAngle =
-        _shortestAngleDelta(_springAngle!, targetAngle).abs() < 0.01;
-
-    if (settledPos && settledAngle) {
+    if (settledPos) {
       _springTip = target.tip;
-      _springAngle = targetAngle;
-      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+      _animatedVisual.value = _springTip;
       _springTicker?.stop();
       _lastTick = null;
     } else {
-      _animatedVisual.value = (tip: _springTip!, angle: _springAngle!);
+      _animatedVisual.value = _springTip;
     }
   }
 
@@ -281,7 +242,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   );
   int? _pointer;
   Offset? _previous;
-  int _preferredRest = -1;
 
   bool _canEnterCell(int cell) {
     final model = widget.model;
@@ -290,38 +250,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
             (model as RejectionControls).rejectionFor(cell) == null);
   }
 
-  int _restingDirection(List<int> path) {
-    var facing = TipTracker.restingFacing(
-      widget.puzzle,
-      path,
-      _preferredRest,
-      _canEnterCell,
-    );
-    if (facing < 0 && path.length > 1) {
-      final from = path.last;
-      final to = path[path.length - 2];
-      final portal = widget.puzzle.portal;
-      final isPortal =
-          portal != null &&
-          ((portal.$1 == from && portal.$2 == to) ||
-              (portal.$1 == to && portal.$2 == from));
-      final hasWall =
-          widget.puzzle.walls.contains((from, to)) ||
-          widget.puzzle.walls.contains((to, from));
-      if (!isPortal && !hasWall) {
-        final dx = to % _size - from % _size;
-        final dy = to ~/ _size - from ~/ _size;
-        if (dx == 1 && dy == 0) facing = 0;
-        if (dx == 0 && dy == 1) facing = 1;
-        if (dx == -1 && dy == 0) facing = 2;
-        if (dx == 0 && dy == -1) facing = 3;
-      }
-    }
-    if (facing >= 0) _preferredRest = facing;
-    return facing;
-  }
-
-  void _track(Offset position, {int initialFacing = -1}) {
+  void _track(Offset position, {bool snap = false}) {
     final controls = widget.model;
     final route = controls.path;
     final prevCell = _visual.value?.cell;
@@ -329,9 +258,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
       puzzle: widget.puzzle,
       route: route,
       pointer: position,
-      acceptedFacing: initialFacing >= 0
-          ? initialFacing
-          : tipDirection(widget.puzzle, route),
       canEnter: _canEnterCell,
     );
     final isPortalJump =
@@ -339,11 +265,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
         widget.puzzle.portal?.$1 == prevCell &&
         widget.puzzle.portal?.$2 == visual.cell;
     _visual.value = visual;
-    _driveSpring(
-      visual,
-      snap: isPortalJump || initialFacing >= 0,
-      snapTip: _pointer != null,
-    );
+    _driveSpring(visual, snap: snap || isPortalJump, snapTip: _pointer != null);
     final trim = visual.trim ? (cell: visual.cell, tip: visual.tip) : null;
     if (trim?.cell != _trim.value?.cell || trim?.tip != _trim.value?.tip) {
       _trim.value = trim;
@@ -351,7 +273,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   }
 
   void _settle() {
-    _preferredRest = _visual.value?.facing ?? _preferredRest;
     _tracker.reset();
     _visual.value = null;
     _trim.value = null;
@@ -394,7 +315,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _pointer = event.pointer;
     _rejectedCell = null;
     _previous = position;
-    _track(position, initialFacing: _restingDirection(controls.path));
+    _track(position, snap: true);
   }
 
   void _move(PointerMoveEvent event, double side) {
@@ -467,9 +388,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
       _settle();
     }
     if (oldWidget.puzzle != widget.puzzle) {
-      _preferredRest = -1;
       _springTip = null;
-      _springAngle = null;
       _springTarget = null;
       _animatedVisual.value = null;
       _pulsedCheckpointCell = null;
@@ -560,7 +479,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                         route: path,
                         visual: _visual,
                         animatedVisual: _animatedVisual,
-                        restingFacing: () => _restingDirection(path),
                         rejection: _rejection,
                         reduced: MediaQuery.disableAnimationsOf(context),
                       ),
@@ -579,7 +497,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                       tipColor: widget.palette.accent,
                       palette: widget.palette,
                       tipStyle: widget.tipStyle,
-                      direction: _restingDirection(path),
                       reducedMotion: MediaQuery.disableAnimationsOf(context),
                     ),
                   ),
@@ -1085,7 +1002,6 @@ class _BoardPainter extends CustomPainter {
     required this.next,
     required this.complete,
     this.tipStyle = PathTip.classic,
-    this.directionOverride,
     this.rejection,
     this.rejectedMove,
     this.trim,
@@ -1117,7 +1033,6 @@ class _BoardPainter extends CustomPainter {
   final Puzzle puzzle;
   final BoardPalette palette;
   final PathTip tipStyle;
-  final int? directionOverride;
   final List<int> route;
   final int? hint;
   final int next;
@@ -1348,12 +1263,7 @@ class _BoardPainter extends CustomPainter {
         puzzle,
         palette,
         tipStyle,
-        TipTracker.rest(
-          puzzle,
-          route,
-          directionOverride ?? tipDirection(puzzle, route),
-          checkpointLead: tipLead(tipStyle),
-        ),
+        TipTracker.rest(puzzle, route, checkpointLead: tipLead(tipStyle)),
       );
     }
     canvas.restore();
@@ -1364,7 +1274,6 @@ class _BoardPainter extends CustomPainter {
       oldDelegate.puzzle != puzzle ||
       oldDelegate.palette != palette ||
       oldDelegate.tipStyle != tipStyle ||
-      oldDelegate.directionOverride != directionOverride ||
       oldDelegate.showTip != showTip ||
       oldDelegate.trim != trim ||
       oldDelegate.next != next ||
@@ -1426,11 +1335,7 @@ void _paintRouteLine(
 double tipLead(PathTip style) => style == PathTip.classic ? 0 : .42;
 
 /// Tip radius in cells. One size on every cell; checkpoints do not shrink it.
-double tipRadiusOf(PathTip style) => switch (style) {
-  PathTip.classic => .1685,
-  PathTip.arrow => .205,
-  _ => .22,
-};
+double tipRadiusOf(PathTip style) => style == PathTip.classic ? .1685 : .22;
 
 /// Paints the leading segment and the tip in board units. The canvas is
 /// already scaled so one unit is one cell.
@@ -1441,7 +1346,6 @@ void paintTip(
   PathTip style,
   TipVisual v, {
   Offset? drawTip,
-  double? angleRadians,
 }) {
   final tipPos = drawTip ?? v.tip;
   final checkpoint = puzzle.numbers[v.cell] != 0;
@@ -1466,15 +1370,7 @@ void paintTip(
       );
     }
   }
-  paintPathTip(
-    canvas,
-    tipPos,
-    tipRadiusOf(style),
-    style,
-    palette,
-    quarterTurns: v.facing < 0 ? 3 : v.facing,
-    angleRadians: angleRadians,
-  );
+  paintPathTip(canvas, tipPos, tipRadiusOf(style), style, palette);
 }
 
 /// The tip and its leading segment. Pointer motion repaints only this layer.
@@ -1486,7 +1382,6 @@ class _TipPainter extends CustomPainter {
     required this.route,
     required this.visual,
     required this.animatedVisual,
-    required this.restingFacing,
     required this.rejection,
     required this.reduced,
   }) : super(
@@ -1502,8 +1397,7 @@ class _TipPainter extends CustomPainter {
   final PathTip tipStyle;
   final List<int> route;
   final ValueNotifier<TipVisual?> visual;
-  final ValueNotifier<({Offset tip, double angle})?> animatedVisual;
-  final int Function() restingFacing;
+  final ValueNotifier<Offset?> animatedVisual;
   final AnimationController rejection;
   final bool reduced;
 
@@ -1513,24 +1407,11 @@ class _TipPainter extends CustomPainter {
     if (rejection.isAnimating && !reduced) return;
     final v =
         visual.value ??
-        TipTracker.rest(
-          puzzle,
-          route,
-          restingFacing(),
-          checkpointLead: tipLead(tipStyle),
-        );
+        TipTracker.rest(puzzle, route, checkpointLead: tipLead(tipStyle));
     final anim = reduced ? null : animatedVisual.value;
     canvas.save();
     canvas.scale(size.width / puzzle.size);
-    paintTip(
-      canvas,
-      puzzle,
-      palette,
-      tipStyle,
-      v,
-      drawTip: anim?.tip,
-      angleRadians: anim?.angle,
-    );
+    paintTip(canvas, puzzle, palette, tipStyle, v, drawTip: anim);
     canvas.restore();
   }
 
@@ -1556,7 +1437,6 @@ class _RejectionPainter extends CustomPainter {
     required this.tipColor,
     required this.palette,
     required this.tipStyle,
-    required this.direction,
     required this.reducedMotion,
   }) : super(repaint: Listenable.merge([animation, GameAssetCache.instance]));
   final Puzzle puzzle;
@@ -1566,7 +1446,6 @@ class _RejectionPainter extends CustomPainter {
   final Color routeColor, tipColor;
   final BoardPalette palette;
   final PathTip tipStyle;
-  final int direction;
   final bool reducedMotion;
 
   @override
@@ -1617,9 +1496,6 @@ class _RejectionPainter extends CustomPainter {
       canvas.restore();
     }
     if (classic && checkpoint && end <= .275) return;
-    final attemptAngle = (to - from).distance > 1e-4
-        ? math.atan2(to.dy - from.dy, to.dx - from.dx)
-        : (direction < 0 ? 3 : direction) * (math.pi / 2);
     canvas.save();
     canvas.scale(side);
     paintPathTip(
@@ -1628,7 +1504,6 @@ class _RejectionPainter extends CustomPainter {
       tipRadiusOf(tipStyle),
       tipStyle,
       palette,
-      angleRadians: attemptAngle,
     );
     canvas.restore();
   }
@@ -1639,7 +1514,6 @@ class _RejectionPainter extends CustomPainter {
       oldDelegate.routeColor != routeColor ||
       oldDelegate.tipColor != tipColor ||
       oldDelegate.tipStyle != tipStyle ||
-      oldDelegate.direction != direction ||
       oldDelegate.palette != palette ||
       oldDelegate.reducedMotion != reducedMotion;
 }

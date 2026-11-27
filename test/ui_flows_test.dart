@@ -85,8 +85,8 @@ void main() {
     billing.dispose();
   });
 
-  test('every paid tip keeps its price and the catalogue has 20 tips', () {
-    expect(PathTip.values.length, 20);
+  test('every paid tip keeps its price and the catalogue has 19 tips', () {
+    expect(PathTip.values.length, 19);
     expect(PathTip.classic.price, 0);
     for (final tip in PathTip.values.where((t) => t != PathTip.classic)) {
       expect({120, 250, 500, 900}, contains(tip.price), reason: tip.label);

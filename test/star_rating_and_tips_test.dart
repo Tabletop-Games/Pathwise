@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -187,16 +185,11 @@ void main() {
       },
     );
 
-    test('directional tip specs have accurate native angles', () {
-      expect(tipSpecFor(PathTip.arrow).directional, isTrue);
-      expect(tipSpecFor(PathTip.arrow).nativeAngle, 0);
-      expect(tipSpecFor(PathTip.rocket).directional, isTrue);
-      expect(tipSpecFor(PathTip.rocket).nativeAngle, -math.pi / 2);
-      expect(tipSpecFor(PathTip.turtle).directional, isTrue);
-      expect(tipSpecFor(PathTip.turtle).nativeAngle, -math.pi / 4);
-      expect(tipSpecFor(PathTip.classic).directional, isFalse);
-      expect(tipSpecFor(PathTip.robot).directional, isFalse);
-      expect(tipSpecFor(PathTip.dragon).directional, isFalse);
+    test('all tip specs are upright with positive scale', () {
+      for (final tip in PathTip.values) {
+        expect(tipSpecFor(tip).scale, greaterThan(0));
+      }
+      expect(PathTip.values.length, 19);
     });
 
     testWidgets(

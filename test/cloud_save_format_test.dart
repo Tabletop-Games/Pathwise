@@ -99,7 +99,7 @@ void main() {
       expect(
         economyDigest({
           ...save(),
-          'ownedTips': ['classic', 'arrow'],
+          'ownedTips': ['classic', 'crystal'],
         }),
         isNot(
           economyDigest({

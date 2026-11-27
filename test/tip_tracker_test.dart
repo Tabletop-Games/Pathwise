@@ -14,13 +14,11 @@ TipVisual at(
   Puzzle puzzle,
   List<int> route,
   Offset pointer, {
-  int facing = 0,
   bool Function(int)? canEnter,
 }) => tracker.update(
   puzzle: puzzle,
   route: route,
   pointer: pointer,
-  acceptedFacing: facing,
   canEnter: canEnter ?? (cell) => !route.contains(cell),
 );
 
@@ -28,22 +26,16 @@ void main() {
   late TipTracker tracker;
   setUp(() => tracker = TipTracker());
 
-  test('rest prefers a legal unvisited direction and can stay neutral', () {
-    final puzzle = open4(walls: [(0, 1)]);
-    final visited = [0, 4, 5];
-    expect(TipTracker.restingFacing(puzzle, [0], 3, (cell) => cell == 4), 1);
-    expect(
-      TipTracker.restingFacing(puzzle, visited, 3, (cell) => cell != 1),
-      0,
-    );
-    expect(TipTracker.restingFacing(puzzle, visited, 1, (_) => true), 1);
-    expect(
-      TipTracker.restingFacing(puzzle, visited, 2, (cell) => cell == 4),
-      -1,
-    );
-    final deadEnd = TipTracker.rest(puzzle, [0], -1);
-    expect(deadEnd.tip, deadEnd.center);
-    expect(deadEnd.extension, 0);
+  test('rest centers on normal cells and clears checkpoint numbers', () {
+    final puzzle = open4();
+    final normal = TipTracker.rest(puzzle, [0, 4]);
+    expect(normal.tip, normal.center);
+    expect(normal.extension, 0);
+
+    final checkpoint = TipTracker.rest(puzzle, [0]);
+    expect(checkpoint.tip.dx, checkpoint.center.dx);
+    expect(checkpoint.tip.dy, closeTo(checkpoint.center.dy - 0.42, 1e-9));
+    expect(checkpoint.extension, 0.42);
   });
 
   group('continuous tracking before a cell is accepted', () {
@@ -54,7 +46,6 @@ void main() {
       expect(a.tip, const Offset(1.5, .5));
       final b = at(tracker, puzzle, route, const Offset(1.75, .5));
       expect(b.tip, const Offset(1.75, .5));
-      expect(b.facing, 0);
       final c = at(tracker, puzzle, route, const Offset(1.95, .5));
       expect(c.tip.dx, closeTo(1.95, 1e-9));
       expect(route, [0, 1], reason: 'the route is untouched');
@@ -65,10 +56,10 @@ void main() {
       // Cell 5 is (1, 1); centre (1.5, 1.5). Reach in every direction.
       final route = [0, 4, 5];
       final cases = {
-        'right': (const Offset(1.5 + .3, 1.5), 0, const Offset(1.8, 1.5)),
-        'down': (const Offset(1.5, 1.5 + .3), 1, const Offset(1.5, 1.8)),
-        'left': (const Offset(1.5 - .3, 1.5), 2, const Offset(1.2, 1.5)),
-        'up': (const Offset(1.5, 1.5 - .3), 3, const Offset(1.5, 1.2)),
+        'right': (const Offset(1.5 + .3, 1.5), const Offset(1.8, 1.5)),
+        'down': (const Offset(1.5, 1.5 + .3), const Offset(1.5, 1.8)),
+        'left': (const Offset(1.5 - .3, 1.5), const Offset(1.2, 1.5)),
+        'up': (const Offset(1.5, 1.5 - .3), const Offset(1.5, 1.2)),
       };
       for (final entry in cases.entries) {
         final fresh = TipTracker();
@@ -77,12 +68,10 @@ void main() {
           puzzle,
           route,
           entry.value.$1,
-          facing: entry.value.$2,
           canEnter: (_) => true,
         );
-        expect(v.tip.dx, closeTo(entry.value.$3.dx, 1e-9), reason: entry.key);
-        expect(v.tip.dy, closeTo(entry.value.$3.dy, 1e-9), reason: entry.key);
-        expect(v.facing, entry.value.$2, reason: entry.key);
+        expect(v.tip.dx, closeTo(entry.value.$2.dx, 1e-9), reason: entry.key);
+        expect(v.tip.dy, closeTo(entry.value.$2.dy, 1e-9), reason: entry.key);
       }
     });
 
@@ -100,31 +89,9 @@ void main() {
       expect(v.tip.dy, .5, reason: 'still horizontal');
       final turned = at(tracker, puzzle, [0, 1], const Offset(1.55, .5 + .45));
       expect(turned.tip.dx, 1.5, reason: 'now vertical');
-      expect(turned.facing, 1);
     });
 
-    test(
-      'the facing never flickers on small jitter, and flips on a real retreat',
-      () {
-        final puzzle = open4();
-        at(tracker, puzzle, [0, 1], const Offset(1.5, .5));
-        expect(at(tracker, puzzle, [0, 1], const Offset(1.8, .5)).facing, 0);
-        expect(at(tracker, puzzle, [0, 1], const Offset(1.74, .5)).facing, 0);
-        final back = at(tracker, puzzle, [0, 1], const Offset(1.62, .5));
-        expect(
-          back.facing,
-          2,
-          reason: 'the finger retreated by more than 0.10',
-        );
-        expect(
-          back.tip.dx,
-          closeTo(1.62, 1e-9),
-          reason: 'the tip does not jump',
-        );
-      },
-    );
-
-    test('rendered facing and tip are always cardinal under random input', () {
+    test('rendered tip is always cardinal under random input', () {
       final puzzle = open4();
       final random = math.Random(7);
       final route = [0, 1, 5];
@@ -133,8 +100,7 @@ void main() {
           1.5 + random.nextDouble() * 1.6 - .8,
           1.5 + random.nextDouble() * 1.6 - .8,
         );
-        final v = at(tracker, puzzle, route, pointer, facing: 1);
-        expect(v.facing, inInclusiveRange(0, 3));
+        final v = at(tracker, puzzle, route, pointer);
         expect(
           v.tip.dx == v.center.dx || v.tip.dy == v.center.dy,
           isTrue,
@@ -150,7 +116,6 @@ void main() {
       final before = at(tracker, puzzle, [0, 1], const Offset(1.999, .5));
       final after = at(tracker, puzzle, [0, 1, 2], const Offset(2.001, .5));
       expect((after.tip - before.tip).distance, lessThan(.01));
-      expect(before.facing, after.facing);
       expect(after.trim, isTrue, reason: 'the tip is still on the old segment');
     });
 
@@ -212,7 +177,6 @@ void main() {
 
     test('visited tiles and the board edge block the tip', () {
       final puzzle = open4();
-      // Cell 3 is the top-right corner: nothing to the right or above.
       final edge = at(
         tracker,
         puzzle,
@@ -221,7 +185,6 @@ void main() {
         canEnter: (_) => true,
       );
       expect(edge.tip.dx, lessThan(3.5 + .3));
-      // Cell 0 is on the route but is not the cell just left, so it is blocked.
       final visited = at(TipTracker(), puzzle, [
         0,
         4,
@@ -233,12 +196,11 @@ void main() {
   });
 
   group('backtracking', () {
-    test('retreating keeps the tip on the trail and flips the facing', () {
+    test('retreating keeps the tip on the trail', () {
       final puzzle = open4();
       final route = [0, 1, 2];
       at(tracker, puzzle, route, const Offset(2.2, .5));
       final v = at(tracker, puzzle, route, const Offset(2.05, .5));
-      expect(v.facing, 2);
       expect(v.trim, isTrue);
       expect(v.tip.dx, closeTo(2.05, 1e-9));
     });
@@ -248,7 +210,6 @@ void main() {
       final before = at(tracker, puzzle, [0, 1, 2], const Offset(2.001, .5));
       final after = at(tracker, puzzle, [0, 1], const Offset(1.999, .5));
       expect((after.tip - before.tip).distance, lessThan(.01));
-      expect(after.facing, 2);
     });
   });
 
@@ -256,7 +217,6 @@ void main() {
     test('after a slide the tip waits on the accepted cell', () {
       final puzzle = open4();
       at(tracker, puzzle, [0, 1], const Offset(1.99, .5));
-      // The route jumps by several cells (ice).
       final v = at(
         tracker,
         puzzle,
@@ -283,18 +243,15 @@ void main() {
         puzzle,
         [0, 1, 14],
         const Offset(1.9, .5),
-        facing: 0,
         canEnter: (_) => true,
       );
       expect(jumped.tip, jumped.center, reason: 'waits on the exit');
       expect(jumped.trim, isFalse);
-      // Finger arrives at the exit and carries on from there.
       final arrived = at(
         tracker,
         puzzle,
         [0, 1, 14],
         const Offset(2.55, 3.5),
-        facing: 0,
         canEnter: (_) => true,
       );
       expect(arrived.tip.dy, arrived.center.dy);
@@ -306,24 +263,17 @@ void main() {
     test('the tip rests on the leading rim and never on the number', () {
       final puzzle = Puzzle(4, [0, 5, 15]);
       final route = [0, 1, 5];
-      final v = at(tracker, puzzle, route, const Offset(1.5, 1.5), facing: 1);
+      final v = at(tracker, puzzle, route, const Offset(1.5, 1.5));
       expect(v.tip.dx, 1.5);
-      expect(v.tip.dy, closeTo(1.5 + tracker.checkpointLead, 1e-9));
-      expect(v.facing, 1);
+      expect(v.tip.dy, closeTo(1.5 - tracker.checkpointLead, 1e-9));
     });
 
     test('the lead is continuous as the finger moves', () {
       final puzzle = Puzzle(4, [0, 5, 15]);
       final route = [0, 1, 5];
-      var previous = at(
-        tracker,
-        puzzle,
-        route,
-        const Offset(1.5, 1.2),
-        facing: 1,
-      );
+      var previous = at(tracker, puzzle, route, const Offset(1.5, 1.2));
       for (var y = 1.2; y <= 1.99; y += .01) {
-        final v = at(tracker, puzzle, route, Offset(1.5, y), facing: 1);
+        final v = at(tracker, puzzle, route, Offset(1.5, y));
         expect(
           (v.tip - previous.tip).distance,
           lessThan(.05),
@@ -338,13 +288,11 @@ void main() {
       () {
         final puzzle = Puzzle(4, [0, 5, 15]);
         final ordinary = at(tracker, puzzle, [0, 1], const Offset(1.9, .5));
-        final onCheckpoint = at(
-          TipTracker(),
-          puzzle,
-          [0, 1, 5],
-          const Offset(1.5, 1.95),
-          facing: 1,
-        );
+        final onCheckpoint = at(TipTracker(), puzzle, [
+          0,
+          1,
+          5,
+        ], const Offset(1.5, 1.95));
         expect(ordinary.extension, greaterThan(0));
         expect(onCheckpoint.extension, greaterThan(0));
       },
@@ -356,15 +304,8 @@ void main() {
       final puzzle = open4();
       at(tracker, puzzle, [0, 1], const Offset(1.9, .5));
       tracker.reset();
-      final v = at(tracker, puzzle, [0, 1], const Offset(1.5, .5), facing: 1);
-      expect(v.facing, 1);
-    });
-
-    test('the resting tip faces the accepted direction', () {
-      final puzzle = open4();
-      final v = TipTracker.rest(puzzle, [0, 4], 1);
+      final v = at(tracker, puzzle, [0, 1], const Offset(1.5, .5));
       expect(v.tip, v.center);
-      expect(v.facing, 1);
     });
   });
 }

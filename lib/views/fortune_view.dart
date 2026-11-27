@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/haptic_service.dart';
+import '../logic/sound_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy_activity.dart';
@@ -114,8 +116,10 @@ class _FortuneViewState extends State<FortuneView> {
   }
 
   void _show(FortuneCatalog catalog, FortunePrize prize) {
-    final haptic = context.read<AppModel>().haptic;
-    haptic.selection();
+    context.read<AppModel>().feedback(
+      HapticEvent.wheelTick,
+      SoundEvent.wheelTick,
+    );
     final reduced = MediaQuery.disableAnimationsOf(context);
     setState(() {
       _rotation = catalog.destination(
@@ -141,7 +145,9 @@ class _FortuneViewState extends State<FortuneView> {
     final saved = await model.settleFortune(prize);
     if (mounted) {
       setState(() => _working = false);
-      if (saved) model.haptic.complete();
+      if (saved) {
+        model.feedback(HapticEvent.wheelResult, SoundEvent.wheelResult);
+      }
     }
   }
 

@@ -16,10 +16,12 @@ class AdService extends ChangeNotifier {
     this.reserveInterstitial,
     this.onRewardedClosed,
     this.isConnected,
+    this.onAdPlayingChanged,
     bool testAds = const bool.fromEnvironment('PATHWISE_ADS_TEST'),
   }) : _test = !kReleaseMode && testAds;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
+  final void Function(bool playing)? onAdPlayingChanged;
 
   /// The app's connectivity service. Falls back to a platform check when absent.
   final bool Function()? isConnected;
@@ -331,6 +333,7 @@ class AdService extends ChangeNotifier {
     _interstitial = null;
     _frequency.attemptedInterstitial(now);
     _showing = ad;
+    onAdPlayingChanged?.call(true);
     if (kDebugMode) {
       debugPrint('Pathwise interstitial presenting');
     }
@@ -360,6 +363,7 @@ class AdService extends ChangeNotifier {
     }
     final ad = _rewarded.remove(placement)!.$1;
     _showing = ad;
+    onAdPlayingChanged?.call(true);
     var granted = false;
     final settled = waitForReward ? Completer<void>() : null;
     void finishReward() {
@@ -438,6 +442,7 @@ class AdService extends ChangeNotifier {
       onRewardedClosed?.call();
     }
     _showing = null;
+    onAdPlayingChanged?.call(false);
     unawaited(ad.dispose());
     _preload();
     _report(null);

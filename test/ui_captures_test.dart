@@ -497,7 +497,7 @@ Future<void> _screens(
       await tab('Tips');
       await tester.tap(
         find.descendant(
-          of: find.byKey(const ValueKey('tip-card-arrow')),
+          of: find.byKey(const ValueKey('tip-card-crystal')),
           matching: find.byType(TipArtwork),
         ),
       );
@@ -610,7 +610,7 @@ void main() {
   testWidgets('every tip renders on every theme and forms a contact sheet', (
     tester,
   ) async {
-    expect(PathTip.values.length, 20);
+    expect(PathTip.values.length, 19);
     await tester.binding.setSurfaceSize(const Size(760, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final MapEntry(key: label, value: theme) in _themes.entries) {

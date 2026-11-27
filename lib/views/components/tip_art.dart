@@ -8,52 +8,20 @@ import '../../model/user_preferences.dart';
 import '../../ui/art/game_assets.dart';
 
 /// Per-tip rendering metadata so every cosmetic tip shares a consistent
-/// attachment, orientation, and visual footprint relative to the path.
+/// upright scale and visual footprint relative to the path.
 final class TipRenderSpec {
-  const TipRenderSpec({
-    this.directional = false,
-    this.nativeAngle = -math.pi / 2,
-    this.scale = 1.16,
-    this.forwardLead = 0.0,
-  });
-
-  /// Whether the tip rotates to face the active movement direction.
-  final bool directional;
-
-  /// Native forward direction (radians in Y-down canvas) of the source WebP.
-  /// 0 = right, pi/2 = down, pi = left, -pi/2 = up.
-  final double nativeAngle;
+  const TipRenderSpec({this.scale = 1.16});
 
   /// Visual scale multiplier relative to the base tip radius.
   final double scale;
-
-  /// Slight forward offset along the facing vector (in radius units) so the
-  /// rear of directional tips seats directly onto the path endpoint.
-  final double forwardLead;
 }
 
 const _defaultTipSpec = TipRenderSpec();
 
 const tipRenderSpecs = <PathTip, TipRenderSpec>{
   PathTip.classic: TipRenderSpec(scale: 1.14),
-  PathTip.arrow: TipRenderSpec(
-    directional: true,
-    nativeAngle: 0,
-    scale: 1.08,
-    forwardLead: 0.14,
-  ),
-  PathTip.turtle: TipRenderSpec(
-    directional: true,
-    nativeAngle: -math.pi / 4,
-    scale: 1.14,
-    forwardLead: 0.06,
-  ),
-  PathTip.rocket: TipRenderSpec(
-    directional: true,
-    nativeAngle: -math.pi / 2,
-    scale: 1.16,
-    forwardLead: 0.10,
-  ),
+  PathTip.turtle: TipRenderSpec(scale: 1.14),
+  PathTip.rocket: TipRenderSpec(scale: 1.16),
   PathTip.bee: TipRenderSpec(scale: 1.14),
   PathTip.dragon: TipRenderSpec(scale: 1.16),
   PathTip.phoenix: TipRenderSpec(scale: 1.16),
@@ -65,40 +33,32 @@ bool _isHighContrast(BoardPalette palette) =>
     palette == BoardPalette.palettes[PathwiseTheme.signal] ||
     palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
 
-/// Paints the equipped [PathTip] at [center] using its production WebP artwork.
-/// High Contrast themes receive an accessible luminous halo ring around the
-/// artwork rather than falling back to obsolete vector silhouettes.
+/// Paints the equipped [PathTip] upright at [center] using its production WebP
+/// artwork. High Contrast themes receive an accessible luminous halo ring
+/// around the artwork.
 void paintPathTip(
   Canvas canvas,
   Offset center,
   double radius,
   PathTip tip,
   BoardPalette palette, {
-  int quarterTurns = 3,
-  double? angleRadians,
   bool concealed = false,
   bool catalogue = false,
 }) {
   final highContrast = _isHighContrast(palette);
   final spec = tipSpecFor(tip);
   final drawRadius = radius * spec.scale;
-  final targetAngle = angleRadians ?? (quarterTurns % 4) * (math.pi / 2);
-  final drawCenter = !catalogue && spec.directional && spec.forwardLead != 0
-      ? center +
-            Offset(math.cos(targetAngle), math.sin(targetAngle)) *
-                (radius * spec.forwardLead)
-      : center;
 
   if (highContrast && !concealed) {
     canvas.drawCircle(
-      drawCenter,
+      center,
       drawRadius * 1.04,
       Paint()
         ..color = palette.canvas
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
-      drawCenter,
+      center,
       drawRadius * 1.04,
       Paint()
         ..color = palette.accent
@@ -107,7 +67,7 @@ void paintPathTip(
     );
   } else if (!catalogue && !concealed) {
     canvas.drawCircle(
-      drawCenter.translate(radius * .05, radius * .09),
+      center.translate(radius * .05, radius * .09),
       drawRadius * .90,
       Paint()
         ..color = Colors.black.withValues(alpha: palette.dark ? .40 : .22)
@@ -117,18 +77,13 @@ void paintPathTip(
 
   final raster = GameAssetCache.instance.imageFor(tipAssetPath(tip));
   if (raster != null) {
-    canvas.save();
-    canvas.translate(drawCenter.dx, drawCenter.dy);
-    if (spec.directional) {
-      canvas.rotate(targetAngle - spec.nativeAngle);
-    }
     final src = Rect.fromLTWH(
       0,
       0,
       raster.width.toDouble(),
       raster.height.toDouble(),
     );
-    final dst = Rect.fromCircle(center: Offset.zero, radius: drawRadius);
+    final dst = Rect.fromCircle(center: center, radius: drawRadius);
     final paint = Paint()..filterQuality = FilterQuality.high;
     if (concealed) {
       paint.colorFilter = ColorFilter.mode(
@@ -137,7 +92,6 @@ void paintPathTip(
       );
     }
     canvas.drawImageRect(raster, src, dst, paint);
-    canvas.restore();
     return;
   }
 
@@ -146,10 +100,10 @@ void paintPathTip(
   final fallbackColor = concealed
       ? Color.lerp(palette.tile, palette.ink, .28)!
       : (highContrast ? palette.accent : palette.route);
-  canvas.drawCircle(drawCenter, radius * .78, Paint()..color = fallbackColor);
+  canvas.drawCircle(center, radius * .78, Paint()..color = fallbackColor);
   if (!concealed) {
     canvas.drawCircle(
-      drawCenter,
+      center,
       radius * .78,
       Paint()
         ..color = palette.onRoute
@@ -159,7 +113,7 @@ void paintPathTip(
   }
 }
 
-/// Square catalogue/preview widget for any [PathTip] (all 20 tips use PNG art).
+/// Square catalogue/preview widget for any [PathTip].
 class TipArtwork extends StatelessWidget {
   const TipArtwork({
     required this.tip,

@@ -31,26 +31,39 @@ class UserPreferences {
   UserPreferences({
     this.theme = PathwiseTheme.field,
     this.haptics = true,
+    this.soundEnabled = true,
+    double soundVolume = 0.75,
     this.suggestSharing = true,
-  });
+  }) : soundVolume = soundVolume.clamp(0.0, 1.0).toDouble();
 
-  factory UserPreferences.fromJson(Map<String, dynamic> json) =>
-      UserPreferences(
-        theme: PathwiseTheme.values.firstWhere(
-          (theme) => theme.name == json['theme'],
-          orElse: () => PathwiseTheme.field,
-        ),
-        haptics: json['haptics'] != false,
-        suggestSharing: json['suggestSharing'] != false,
-      );
+  factory UserPreferences.fromJson(Map<String, dynamic> json) {
+    final rawVolume = json['soundVolume'];
+    final parsedVolume = rawVolume is num ? rawVolume.toDouble() : 0.75;
+    return UserPreferences(
+      theme: PathwiseTheme.values.firstWhere(
+        (theme) => theme.name == json['theme'],
+        orElse: () => PathwiseTheme.field,
+      ),
+      haptics: json['haptics'] != false,
+      soundEnabled: json['soundEnabled'] != false,
+      soundVolume: parsedVolume.isFinite
+          ? parsedVolume.clamp(0.0, 1.0).toDouble()
+          : 0.75,
+      suggestSharing: json['suggestSharing'] != false,
+    );
+  }
 
   PathwiseTheme theme;
   bool haptics;
+  bool soundEnabled;
+  double soundVolume;
   bool suggestSharing;
 
   Map<String, Object> toJson() => {
     'theme': theme.name,
     'haptics': haptics,
+    'soundEnabled': soundEnabled,
+    'soundVolume': soundVolume,
     'suggestSharing': suggestSharing,
   };
 }

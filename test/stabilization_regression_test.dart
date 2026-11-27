@@ -82,51 +82,48 @@ class _MemoryStorage extends GameStateStorage {
 }
 
 void main() {
-  group('P0 strict directional tip validation & cosmetic consistency', () {
-    test('TipTracker never faces out-of-bounds, walls, or closed gates', () {
-      // 3x3 board, start at 0, wall between 0 and 1, only legal move is down (1 -> cell 3).
-      final puzzle = Puzzle(3, [0, 8], walls: [(0, 1)]);
-      final tracker = TipTracker();
+  group('P0 upright tip tracking & cosmetic consistency', () {
+    test(
+      'TipTracker stops short of out-of-bounds, walls, and closed gates',
+      () {
+        // 3x3 board, start at 0, wall between 0 and 1, only legal move is down (1 -> cell 3).
+        final puzzle = Puzzle(3, [0, 8], walls: [(0, 1)]);
+        final tracker = TipTracker();
 
-      // Drag right toward wall (0, 1) -> must NOT face 0 (right); must preserve legal facing 1 (down).
-      final rightDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.85, 0.5),
-        acceptedFacing: 1,
-        canEnter: (c) => c == 3,
-      );
-      expect(rightDrag.facing, 1);
+        final rightDrag = tracker.update(
+          puzzle: puzzle,
+          route: const [0],
+          pointer: const Offset(0.85, 0.5),
+          canEnter: (c) => c == 3,
+        );
+        expect(rightDrag.tip.dx, lessThan(0.85));
 
-      // Drag up toward board edge -> must NOT face 3 (up); must preserve legal facing 1 (down).
-      final upDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.5, 0.15),
-        acceptedFacing: 1,
-        canEnter: (c) => c == 3,
-      );
-      expect(upDrag.facing, 1);
+        final upDrag = tracker.update(
+          puzzle: puzzle,
+          route: const [0],
+          pointer: const Offset(0.5, 0.15),
+          canEnter: (c) => c == 3,
+        );
+        expect(upDrag.tip.dy, closeTo(0.08, 1e-9));
 
-      // Drag left toward board edge -> must NOT face 2 (left); must preserve legal facing 1 (down).
-      final leftDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.15, 0.5),
-        acceptedFacing: 1,
-        canEnter: (c) => c == 3,
-      );
-      expect(leftDrag.facing, 1);
-    });
+        final leftDrag = tracker.update(
+          puzzle: puzzle,
+          route: const [0],
+          pointer: const Offset(0.15, 0.5),
+          canEnter: (c) => c == 3,
+        );
+        expect(leftDrag.tip.dx, greaterThan(0.15));
+      },
+    );
 
     test(
-      'TipTracker.rest handles neutral -1 without using facingVector(-1)',
+      'TipTracker.rest centers on normal cells and offsets above checkpoints',
       () {
         final puzzle = Puzzle(3, [0, 8]);
-        final rest = TipTracker.rest(puzzle, const [0], -1);
-        expect(rest.facing, -1);
-        expect(rest.tip, rest.center);
-        expect(rest.extension, 0);
+        final rest = TipTracker.rest(puzzle, const [0]);
+        expect(rest.tip.dx, rest.center.dx);
+        expect(rest.tip.dy, closeTo(rest.center.dy - 0.42, 1e-9));
+        expect(rest.extension, 0.42);
       },
     );
 
@@ -253,7 +250,7 @@ void main() {
         final model = AppModel(
           storage: storage,
           snapshot: const {
-            'journey': {'clears': 2, 'upcoming': 'tip/arrow'},
+            'journey': {'clears': 2, 'upcoming': 'tip/crystal'},
           },
           connectivity: ConnectivityService(probe: () async => true),
           today: () => DateTime(2026, 11, 25),
@@ -293,7 +290,7 @@ void main() {
             .whereType<File>()
             .where((f) => f.path.endsWith('.webp'))
             .toList();
-        expect(files.length, 21);
+        expect(files.length, 20);
         for (final file in files) {
           final bytes = await file.readAsBytes();
           final codec = await ui.instantiateImageCodec(bytes);
@@ -465,7 +462,7 @@ void main() {
           'journey': {
             'clears': 14,
             'upcoming': 'tip/cat',
-            'pending': {'1': 'tip/arrow'},
+            'pending': {'1': 'tip/crystal'},
           },
         },
         connectivity: ConnectivityService(probe: () async => true),

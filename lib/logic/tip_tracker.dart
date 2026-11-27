@@ -2,20 +2,17 @@ import 'dart:ui' show Offset;
 
 import 'puzzle.dart';
 
-/// Cardinal facings: 0 right, 1 down, 2 left, 3 up. Matches `tipDirection`.
+/// Cardinal axis vectors: 0 right, 1 down, 2 left, 3 up.
 const _unit = [Offset(1, 0), Offset(0, 1), Offset(-1, 0), Offset(0, -1)];
 
-Offset facingVector(int facing) => _unit[facing % 4];
-
-/// Transient picture of the path tip while a finger is down. It is never
-/// stored, synced or given to gameplay: the accepted route stays the only
-/// game state.
+/// Transient position of the upright path tip while a finger is down. It is
+/// never stored, synced, or given to gameplay: the accepted route stays the
+/// only game state.
 final class TipVisual {
   const TipVisual({
     required this.cell,
     required this.center,
     required this.tip,
-    required this.facing,
     required this.trim,
     required this.extension,
   });
@@ -26,9 +23,6 @@ final class TipVisual {
 
   /// Where the tip is drawn.
   final Offset tip;
-
-  /// 0 right, 1 down, 2 left, 3 up, or -1 for a neutral resting pose.
-  final int facing;
 
   /// The tip has moved back along the accepted trail, so the last accepted
   /// segment should end at [tip] instead of at [center].
@@ -45,9 +39,6 @@ final class TipVisual {
 /// centre, so it is never on a diagonal. The axis changes only when the other
 /// axis dominates by a dead zone.
 ///
-/// Facing is the direction of the finger's motion on the active axis, with
-/// hysteresis, and is always one of four cardinals.
-///
 /// The tracker owns no gameplay rules. It asks `canEnter` whether a
 /// neighbouring cell would be accepted and otherwise stops the tip just short
 /// of the obstacle. The existing validator still decides what is accepted.
@@ -55,7 +46,6 @@ class TipTracker {
   TipTracker({
     this.tipRadius = .22,
     this.deadZone = .10,
-    this.hysteresis = .10,
     this.checkpointLead = .42,
     this.rebaseRadius = .2,
   });
@@ -63,14 +53,11 @@ class TipTracker {
   /// Tip radius in cells, used to stop short of walls.
   final double tipRadius;
 
-  /// How far ahead of a checkpoint centre the tip rests.
+  /// How far above a checkpoint centre the tip rests so the number stays legible.
   final double checkpointLead;
 
   /// How much the other axis must dominate before the tip changes axis.
   final double deadZone;
-
-  /// Retreat along the axis, in cells, before the facing flips.
-  final double hysteresis;
 
   /// After an automatic move the tip waits until the finger is this close to
   /// the accepted cell's centre.
@@ -82,11 +69,8 @@ class TipTracker {
   int _length = -1;
   int? _before;
   bool _horizontal = true;
-  int _sign = 1;
   int _leadSign = 1;
-  double _peak = 0;
   bool _rebase = false;
-  int _lastValidFacing = -1;
   final _reach = <double>[.5, .5, .5, .5];
   final _legal = <bool>[false, false, false, false];
 
@@ -96,65 +80,25 @@ class TipTracker {
     _length = -1;
     _before = null;
     _rebase = false;
-    _peak = 0;
-    _lastValidFacing = -1;
   }
 
   static Offset centerOf(Puzzle puzzle, int cell) =>
       Offset(cell % puzzle.size + .5, cell ~/ puzzle.size + .5);
 
-  /// Chooses a locally legal direction without revealing a solution.
-  /// Returns -1 when no unvisited neighbour is accessible.
-  static int restingFacing(
-    Puzzle puzzle,
-    List<int> route,
-    int preferred,
-    bool Function(int cell) canEnter,
-  ) {
-    final x = route.last % puzzle.size;
-    final y = route.last ~/ puzzle.size;
-    for (final direction in {if (preferred >= 0) preferred, 0, 1, 2, 3}) {
-      final vector = facingVector(direction);
-      final nextX = x + vector.dx.toInt();
-      final nextY = y + vector.dy.toInt();
-      if (nextX < 0 ||
-          nextX >= puzzle.size ||
-          nextY < 0 ||
-          nextY >= puzzle.size) {
-        continue;
-      }
-      final cell = nextY * puzzle.size + nextX;
-      if (!route.contains(cell) && canEnter(cell)) return direction;
-    }
-    return -1;
-  }
-
-  /// Where the tip rests with no finger down. On a checkpoint it sits on the
-  /// leading rim so the number stays readable.
+  /// Where the tip rests with no finger down. On a checkpoint it sits just
+  /// above the rim so the number stays readable while remaining upright.
   static TipVisual rest(
     Puzzle puzzle,
-    List<int> route,
-    int facing, {
+    List<int> route, {
     double checkpointLead = .42,
   }) {
     final cell = route.last;
     final center = centerOf(puzzle, cell);
-    if (facing < 0) {
-      return TipVisual(
-        cell: cell,
-        center: center,
-        tip: center,
-        facing: -1,
-        trim: false,
-        extension: 0,
-      );
-    }
     final lead = puzzle.numbers[cell] != 0 ? checkpointLead : 0.0;
     return TipVisual(
       cell: cell,
       center: center,
-      tip: center + facingVector(facing) * lead,
-      facing: facing,
+      tip: lead > 0 ? center + Offset(0, -lead) : center,
       trim: false,
       extension: lead,
     );
@@ -162,14 +106,12 @@ class TipTracker {
 
   /// Projects [pointer] (board units) for the current accepted [route].
   ///
-  /// [acceptedFacing] is the cardinal facing derived from accepted edges with
-  /// portal transport skipped. [canEnter] reports whether stepping onto a
-  /// neighbour would be accepted by the real validator.
+  /// [canEnter] reports whether stepping onto a neighbour would be accepted by
+  /// the real validator.
   TipVisual update({
     required Puzzle puzzle,
     required List<int> route,
     required Offset pointer,
-    required int acceptedFacing,
     required bool Function(int cell) canEnter,
   }) {
     final cell = route.last;
@@ -178,14 +120,7 @@ class TipTracker {
     final d = pointer - center;
     if (_cell != cell || _length != route.length) {
       _computeReach(puzzle, route, cell, before, canEnter);
-      final validAccepted = _bestLegalFacing(
-        puzzle,
-        route,
-        cell,
-        acceptedFacing,
-      );
-      _onRouteChanged(puzzle, cell, before, route.length, validAccepted, d);
-      _lastValidFacing = validAccepted;
+      _onRouteChanged(puzzle, cell, before, route.length, d);
       _cell = cell;
       _length = route.length;
       _before = before;
@@ -194,14 +129,11 @@ class TipTracker {
     if (_rebase) {
       if (d.dx.abs() <= rebaseRadius && d.dy.abs() <= rebaseRadius) {
         _rebase = false;
-        _setFacing(_lastValidFacing);
-        _peak = _sign * _along(d);
       } else {
         return TipVisual(
           cell: cell,
           center: center,
           tip: center,
-          facing: _lastValidFacing,
           trim: false,
           extension: 0,
         );
@@ -214,24 +146,13 @@ class TipTracker {
     // can never trigger a switch.
     if (_horizontal && ady > adx + deadZone) {
       _horizontal = false;
-      _sign = d.dy >= 0 ? 1 : -1;
-      _peak = _sign * d.dy;
+      _leadSign = d.dy >= 0 ? 1 : -1;
     } else if (!_horizontal && adx > ady + deadZone) {
       _horizontal = true;
-      _sign = d.dx >= 0 ? 1 : -1;
-      _peak = _sign * d.dx;
+      _leadSign = d.dx >= 0 ? 1 : -1;
     }
 
-    final along = _along(d);
-    // Facing follows the direction of motion, with hysteresis.
-    final signed = _sign * along;
-    if (signed > _peak) {
-      _peak = signed;
-    } else if (signed < _peak - hysteresis) {
-      _sign = -_sign;
-      _peak = _sign * along;
-    }
-
+    final along = _horizontal ? d.dx : d.dy;
     final positiveDir = _horizontal ? 0 : 1;
     final negativeDir = _horizontal ? 2 : 3;
     // The sideways offset is ignored on purpose: the tip sits on the axis
@@ -240,29 +161,14 @@ class TipTracker {
     final extension = along
         .clamp(-_reach[negativeDir], _reach[positiveDir])
         .toDouble();
-    final requestedFacing = _sign > 0 ? positiveDir : negativeDir;
-    var facing = _legal[requestedFacing]
-        ? requestedFacing
-        : (_lastValidFacing >= 0 && _legal[_lastValidFacing]
-              ? _lastValidFacing
-              : _bestLegalFacing(puzzle, route, cell, _lastValidFacing));
-    if (facing >= 0) _lastValidFacing = facing;
 
     final extDir = extension >= 0 ? positiveDir : negativeDir;
     if (puzzle.numbers[cell] != 0 && checkpointLead > 0) {
-      // On a checkpoint, keep the tip clear of the number. Only apply the
-      // axis-aligned lead when moving in a legal direction; otherwise keep the
-      // resting checkpoint lead along the last valid orientation.
       if (extension != 0 && _legal[extDir]) {
         var position = extension;
         final lead = checkpointLead - extension.abs();
         if (lead > 0) {
           position += _leadSign * lead;
-          final leadDir = _leadSign > 0 ? positiveDir : negativeDir;
-          if (_legal[leadDir]) {
-            facing = leadDir;
-            _lastValidFacing = facing;
-          }
         } else {
           _leadSign = extension >= 0 ? 1 : -1;
         }
@@ -278,20 +184,16 @@ class TipTracker {
           cell: cell,
           center: center,
           tip: tip,
-          facing: facing,
           trim: towardBefore,
           extension: distance,
         );
       }
-      final leadDist = facing >= 0 ? checkpointLead : 0.0;
-      final tip = facing >= 0 ? center + _unit[facing] * leadDist : center;
       return TipVisual(
         cell: cell,
         center: center,
-        tip: tip,
-        facing: facing,
+        tip: center + Offset(0, -checkpointLead),
         trim: false,
-        extension: leadDist,
+        extension: checkpointLead,
       );
     }
 
@@ -307,41 +209,9 @@ class TipTracker {
       cell: cell,
       center: center,
       tip: tip,
-      facing: facing,
       trim: towardBefore,
       extension: distance,
     );
-  }
-
-  double _along(Offset d) => _horizontal ? d.dx : d.dy;
-
-  void _setFacing(int facing) {
-    if (facing < 0) return;
-    _horizontal = facing % 2 == 0;
-    _sign = facing == 0 || facing == 1 ? 1 : -1;
-    _leadSign = _sign;
-  }
-
-  int _bestLegalFacing(
-    Puzzle puzzle,
-    List<int> route,
-    int cell,
-    int preferred,
-  ) {
-    if (preferred >= 0 && preferred < 4 && _legal[preferred]) {
-      return preferred;
-    }
-    final x = cell % puzzle.size, y = cell ~/ puzzle.size;
-    for (var dir = 0; dir < 4; dir++) {
-      if (!_legal[dir]) continue;
-      final v = _unit[dir];
-      final next = (y + v.dy.toInt()) * puzzle.size + (x + v.dx.toInt());
-      if (!route.contains(next)) return dir;
-    }
-    for (var dir = 0; dir < 4; dir++) {
-      if (_legal[dir]) return dir;
-    }
-    return -1;
   }
 
   void _onRouteChanged(
@@ -349,14 +219,12 @@ class TipTracker {
     int cell,
     int? before,
     int length,
-    int acceptedFacing,
     Offset d,
   ) {
     final previous = _cell;
     if (previous == null) {
-      // First sight of this gesture: start from the accepted facing.
-      _setFacing(acceptedFacing);
-      _peak = _sign * _along(d);
+      _horizontal = d.dx.abs() >= d.dy.abs();
+      _leadSign = (_horizontal ? d.dx : d.dy) >= 0 ? 1 : -1;
       _rebase = false;
       return;
     }
@@ -366,17 +234,16 @@ class TipTracker {
         ? _directionBetween(puzzle, previous, cell)
         : -1;
     if (step >= 0 && !_portalHop(puzzle, previous, cell)) {
-      // One orthogonal step: carry on in the same direction of motion.
-      _setFacing(step);
-      _peak = _sign * _along(d);
+      _horizontal = step % 2 == 0;
+      _leadSign = (step == 0 || step == 1) ? 1 : -1;
       _rebase = false;
       return;
     }
     // Slide, portal or several cells at once. If the finger is already inside
     // the new cell carry on from it. Otherwise the tip waits on the accepted
     // cell until the finger arrives.
-    _setFacing(acceptedFacing);
-    _peak = _sign * _along(d);
+    _horizontal = d.dx.abs() >= d.dy.abs();
+    _leadSign = (_horizontal ? d.dx : d.dy) >= 0 ? 1 : -1;
     _rebase = d.dx.abs() >= .5 || d.dy.abs() >= .5;
   }
 

@@ -798,76 +798,36 @@ class _StoreViewState extends State<StoreView> {
   }
 
   Future<void> _tipPreview(AppModel model, PathTip tip) async {
-    var direction = 3;
     final palette = BoardPalette.palettes[model.theme]!;
     await showDialog<void>(
       context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (ctx, update) => GameDialog(
-          title: tip.label,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 250,
-                child: LevelOneBoardPreview(
-                  tip: tip,
-                  palette: palette,
-                  directionOverride: direction,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                alignment: WrapAlignment.center,
-                children: [
-                  for (final (turns, label, icon) in const [
-                    (3, 'Up', Icons.arrow_upward_rounded),
-                    (0, 'Right', Icons.arrow_forward_rounded),
-                    (1, 'Down', Icons.arrow_downward_rounded),
-                    (2, 'Left', Icons.arrow_back_rounded),
-                  ])
-                    Semantics(
-                      button: true,
-                      selected: direction == turns,
-                      label: label,
-                      excludeSemantics: true,
-                      onTap: () => update(() => direction = turns),
-                      child: IconButton(
-                        onPressed: () => update(() => direction = turns),
-                        isSelected: direction == turns,
-                        color: direction == turns
-                            ? palette.route
-                            : palette.mutedInk,
-                        icon: Icon(icon),
-                        tooltip: label,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
-            if (model.equippedTip != tip)
-              if (model.ownsTip(tip))
-                ActionPill(
-                  label: 'Apply',
-                  tone: ActionTone.primary,
-                  onTap: () {
-                    Navigator.pop(dialog);
-                    _equipTip(model, tip);
-                  },
-                )
-              else
-                PricePill(
-                  price: tip.price,
-                  onTap: () {
-                    Navigator.pop(dialog);
-                    _buyTip(model, tip);
-                  },
-                ),
-          ],
+      builder: (dialog) => GameDialog(
+        title: tip.label,
+        child: SizedBox(
+          width: 250,
+          child: LevelOneBoardPreview(tip: tip, palette: palette),
         ),
+        actions: [
+          ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
+          if (model.equippedTip != tip)
+            if (model.ownsTip(tip))
+              ActionPill(
+                label: 'Apply',
+                tone: ActionTone.primary,
+                onTap: () {
+                  Navigator.pop(dialog);
+                  _equipTip(model, tip);
+                },
+              )
+            else
+              PricePill(
+                price: tip.price,
+                onTap: () {
+                  Navigator.pop(dialog);
+                  _buyTip(model, tip);
+                },
+              ),
+        ],
       ),
     );
   }

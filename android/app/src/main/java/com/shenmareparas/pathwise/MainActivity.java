@@ -2,20 +2,32 @@ package com.shenmareparas.pathwise;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.SoundPool;
 import android.net.Uri;
+import android.os.Build;
 import android.os.SystemClock;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.provider.Settings;
+import android.view.HapticFeedbackConstants;
+import android.view.View;
 import androidx.annotation.NonNull;
 import com.google.android.gms.games.PlayGames;
 import com.google.android.gms.games.PlayGamesSdk;
 import com.google.android.gms.games.achievement.Achievement;
 import com.google.android.gms.games.achievement.AchievementBuffer;
+import io.flutter.FlutterInjector;
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.MethodChannel;
 import android.util.Base64;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
@@ -23,13 +35,19 @@ import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends FlutterActivity {
+    private SoundPool soundPool;
+    private final Map<String, Integer> soundIds = new HashMap<>();
+
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         super.configureFlutterEngine(engine);
         CloudSaveChannel.register(engine, this);
+        registerAudioChannel(engine);
+        registerHapticsChannel(engine);
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
                 "games.tabletop.pathwise/commerce").setMethodCallHandler((call, result) -> {
             if (!call.method.equals("verifyPlayPurchase")) {
@@ -233,5 +251,164 @@ public class MainActivity extends FlutterActivity {
                     : achievements.setStepsImmediate(id, Integer.parseInt(steps));
             update.addOnCompleteListener(task -> result.success(task.isSuccessful()));
         });
+    }
+
+    private void registerAudioChannel(@NonNull FlutterEngine engine) {
+        ensureSoundPool();
+        new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
+                "games.tabletop.pathwise/audio").setMethodCallHandler((call, result) -> {
+            switch (call.method) {
+                case "preload":
+                    List<String> assets = call.argument("assets");
+                    if (assets != null) {
+                        ensureSoundPool();
+                        final var loader = FlutterInjector.instance().flutterLoader();
+                        final File cacheDir = new File(getCacheDir(), "sfx");
+                        if (!cacheDir.exists()) {
+                            cacheDir.mkdirs();
+                        }
+                        for (String asset : assets) {
+                            if (soundIds.containsKey(asset)) continue;
+                            try {
+                                String key = loader.getLookupKeyForAsset(asset);
+                                File outFile = new File(cacheDir, new File(asset).getName());
+                                if (!outFile.exists() || outFile.length() == 0) {
+                                    try (InputStream in = getAssets().open(key);
+                                         FileOutputStream out = new FileOutputStream(outFile)) {
+                                        byte[] buf = new byte[4096];
+                                        int read;
+                                        while ((read = in.read(buf)) != -1) {
+                                            out.write(buf, 0, read);
+                                        }
+                                    }
+                                }
+                                int id = soundPool.load(outFile.getAbsolutePath(), 1);
+                                if (id != 0) {
+                                    soundIds.put(asset, id);
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        }
+                    }
+                    result.success(null);
+                    break;
+                case "play":
+                    if (soundPool != null) {
+                        String asset = call.argument("asset");
+                        Double volArg = call.argument("volume");
+                        Double rateArg = call.argument("rate");
+                        Integer prioArg = call.argument("priority");
+                        Integer id = asset == null ? null : soundIds.get(asset);
+                        if (id != null) {
+                            float vol = volArg == null ? 0.75f : volArg.floatValue();
+                            float rate = rateArg == null ? 1.0f : rateArg.floatValue();
+                            int prio = prioArg == null ? 1 : prioArg;
+                            soundPool.play(id, vol, vol, prio, 0, rate);
+                        }
+                    }
+                    result.success(null);
+                    break;
+                case "pauseAll":
+                    if (soundPool != null) soundPool.autoPause();
+                    result.success(null);
+                    break;
+                case "resumeAll":
+                    if (soundPool != null) soundPool.autoResume();
+                    result.success(null);
+                    break;
+                case "dispose":
+                    if (soundPool != null) {
+                        soundPool.release();
+                        soundPool = null;
+                        soundIds.clear();
+                    }
+                    result.success(null);
+                    break;
+                default:
+                    result.notImplemented();
+            }
+        });
+    }
+
+    private void ensureSoundPool() {
+        if (soundPool != null) return;
+        AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        soundPool = new SoundPool.Builder()
+                .setMaxStreams(4)
+                .setAudioAttributes(attrs)
+                .build();
+    }
+
+    private void registerHapticsChannel(@NonNull FlutterEngine engine) {
+        new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
+                "games.tabletop.pathwise/haptics").setMethodCallHandler((call, result) -> {
+            if (!"trigger".equals(call.method)) {
+                result.notImplemented();
+                return;
+            }
+            if (!hasVibrator()) {
+                result.success(false);
+                return;
+            }
+            View view = getWindow() != null ? getWindow().getDecorView() : null;
+            if (view == null) {
+                result.success(false);
+                return;
+            }
+            String kind = call.argument("kind");
+            int constant = HapticFeedbackConstants.CLOCK_TICK;
+            if ("light".equals(kind)) {
+                constant = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                        ? HapticFeedbackConstants.CONTEXT_CLICK
+                        : HapticFeedbackConstants.KEYBOARD_TAP;
+            } else if ("medium".equals(kind)) {
+                constant = HapticFeedbackConstants.KEYBOARD_TAP;
+            } else if ("heavy".equals(kind)) {
+                constant = HapticFeedbackConstants.LONG_PRESS;
+            } else if ("confirm".equals(kind)) {
+                constant = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                        ? HapticFeedbackConstants.CONFIRM
+                        : HapticFeedbackConstants.KEYBOARD_TAP;
+            } else if ("reject".equals(kind)) {
+                constant = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                        ? HapticFeedbackConstants.REJECT
+                        : HapticFeedbackConstants.LONG_PRESS;
+            }
+            result.success(view.performHapticFeedback(constant));
+        });
+    }
+
+    private boolean hasVibrator() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            VibratorManager vm = getSystemService(VibratorManager.class);
+            return vm != null && vm.getDefaultVibrator().hasVibrator();
+        }
+        Vibrator v = getSystemService(Vibrator.class);
+        return v != null && v.hasVibrator();
+    }
+
+    @Override
+    protected void onPause() {
+        if (soundPool != null) soundPool.autoPause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (soundPool != null) soundPool.autoResume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (soundPool != null) {
+            soundPool.release();
+            soundPool = null;
+            soundIds.clear();
+        }
+        super.onDestroy();
     }
 }

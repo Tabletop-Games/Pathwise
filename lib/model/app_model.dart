@@ -12,6 +12,7 @@ import '../logic/haptic_service.dart';
 import '../logic/mechanic_tutorials.dart';
 import '../logic/puzzle.dart';
 import '../logic/puzzle_generator.dart';
+import '../logic/sound_service.dart';
 import '../logic/star_rating.dart';
 import 'economy.dart';
 import 'economy_activity.dart';
@@ -40,10 +41,14 @@ class AppModel extends ChangeNotifier
     this.debugTools = false,
     this.connectivity,
     this.onPersisted,
+    SoundService? sound,
+    HapticService? haptic,
   }) : _wallClock = today ?? DateTime.now,
        _loader = loader,
        _bootTime = bootTime ?? (() => null),
-       _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])) {
+       _prefs = UserPreferences.fromJson(_map(snapshot['preferences'])),
+       _providedSound = sound,
+       _providedHaptic = haptic {
     _levelOneDemoSeen = snapshot['levelOneDemoSeen'] is bool
         ? snapshot['levelOneDemoSeen'] as bool
         : snapshot.isNotEmpty;
@@ -297,6 +302,7 @@ class AppModel extends ChangeNotifier
       if (_levelFromKey(key) case final level?) {
         _highestUnlocked = max(_highestUnlocked, level + 1);
         _levelsSolved++;
+        _recordCampaignStars(oldStars: null, newStars: _levelStars[key] ?? 0);
       }
     }
     _coinOfferLevel ??= _levelsSolved;
@@ -312,9 +318,18 @@ class AppModel extends ChangeNotifier
       }
     }
     _updateLongestStreak();
-    haptic = HapticService(enabled: _prefs.haptics);
+    this.haptic = _providedHaptic ?? HapticService(enabled: _prefs.haptics);
+    this.haptic.enabled = _prefs.haptics;
+    this.sound =
+        _providedSound ??
+        SoundService(enabled: _prefs.soundEnabled, volume: _prefs.soundVolume);
+    this.sound.enabled = _prefs.soundEnabled;
+    this.sound.volume = _prefs.soundVolume;
     connectivity?.addListener(_onConnectivityChanged);
   }
+
+  final SoundService? _providedSound;
+  final HapticService? _providedHaptic;
 
   /// Null in unit tests that exercise rules without a network check.
   final ConnectivityService? connectivity;
@@ -622,6 +637,7 @@ class AppModel extends ChangeNotifier
       final beforeAchievements = coinBalance;
       _awardAchievements();
       run.coins += coinBalance - beforeAchievements;
+      feedback(HapticEvent.attackFinished, SoundEvent.attackFinished);
       if (activeId?.mode == PlayMode.attack) {
         final key = activeId!.key;
         _attempts.remove(key);
@@ -835,14 +851,14 @@ class AppModel extends ChangeNotifier
       return false;
     }
     if (!_disposed) {
-      haptic.complete();
+      feedback(HapticEvent.treasure, SoundEvent.treasure);
       notifyListeners();
     }
     return true;
   }
 
   void _progressionChanged() {
-    haptic.selection();
+    feedback(HapticEvent.research, SoundEvent.research);
     unawaited(flush());
     notifyListeners();
   }
@@ -1056,6 +1072,7 @@ class AppModel extends ChangeNotifier
       ))
         return false;
       _ownedTips.add(tip);
+      feedback(HapticEvent.cosmetic, SoundEvent.cosmetic);
       notifyListeners();
       return await flush();
     } finally {
@@ -1069,6 +1086,7 @@ class AppModel extends ChangeNotifier
     _tipMutation = true;
     try {
       _equippedTip = tip;
+      feedback(HapticEvent.cosmetic, SoundEvent.cosmetic);
       notifyListeners();
       return await flush();
     } finally {
@@ -1085,6 +1103,39 @@ class AppModel extends ChangeNotifier
   int _highestUnlocked = 1;
   int _levelsSolved = 0;
   int _longestStreak = 0;
+  int _campaignStars = 0;
+  int _threeStarClears = 0;
+  int _twoStarClears = 0;
+  int _oneStarClears = 0;
+  int _zeroStarClears = 0;
+
+  void _recordCampaignStars({required int? oldStars, required int newStars}) {
+    if (oldStars != null) {
+      _campaignStars -= oldStars;
+      switch (oldStars) {
+        case 3:
+          _threeStarClears--;
+        case 2:
+          _twoStarClears--;
+        case 1:
+          _oneStarClears--;
+        default:
+          _zeroStarClears--;
+      }
+    }
+    _campaignStars += newStars;
+    switch (newStars) {
+      case 3:
+        _threeStarClears++;
+      case 2:
+        _twoStarClears++;
+      case 1:
+        _oneStarClears++;
+      default:
+        _zeroStarClears++;
+    }
+  }
+
   int _playMilliseconds = 0;
   int _accountedMilliseconds = 0;
   final _chapterChests = <int>{};
@@ -1127,6 +1178,7 @@ class AppModel extends ChangeNotifier
       _hintBalance -= chapterRewardHints;
       return false;
     }
+    feedback(HapticEvent.treasure, SoundEvent.treasure);
     if (!_disposed) notifyListeners();
     return true;
   }
@@ -1254,6 +1306,7 @@ class AppModel extends ChangeNotifier
         multiplier > 4)
       return;
     selectedMultiplier = multiplier;
+    feedback(HapticEvent.multiplierStop, SoundEvent.multiplierStop);
     notifyListeners();
   }
 
@@ -1358,6 +1411,7 @@ class AppModel extends ChangeNotifier
   bool completedThisVisit = false;
   bool correctedByHint = false;
   late final HapticService haptic;
+  late final SoundService sound;
   final _attempts = <String, dynamic>{};
   final _results = <String, RunResult>{};
   final _levelStars = <String, int>{};
@@ -1407,7 +1461,14 @@ class AppModel extends ChangeNotifier
   ];
   PathwiseTheme get theme => _prefs.theme;
   bool get haptics => _prefs.haptics;
+  bool get soundEnabled => _prefs.soundEnabled;
+  double get soundVolume => _prefs.soundVolume;
   bool get suggestSharing => _prefs.suggestSharing;
+
+  void feedback(HapticEvent? hapticEvent, SoundEvent? soundEvent) {
+    if (hapticEvent != null) haptic.trigger(hapticEvent);
+    if (soundEvent != null) sound.play(soundEvent);
+  }
 
   Map<AchievementMetric, int> get achievementCounters => {
     AchievementMetric.solves: solved,
@@ -1497,6 +1558,19 @@ class AppModel extends ChangeNotifier
       _results.values.where((value) => value.unassisted).length + _retiredClean;
   int get levelsSolved => _levelsSolved;
   int get highestUnlocked => _highestUnlocked;
+  int get ownedTipsCount => _ownedTips.length;
+  int get researchRankCount => Research.values.fold(
+    0,
+    (sum, item) => sum + (progression.ranks[item.name] ?? 0),
+  );
+  ({int totalStars, int threeStar, int twoStar, int oneStar, int zeroStar})
+  get campaignStarStats => (
+    totalStars: _campaignStars,
+    threeStar: _threeStarClears,
+    twoStar: _twoStarClears,
+    oneStar: _oneStarClears,
+    zeroStar: _zeroStarClears,
+  );
   bool canPlayLevel(int level) =>
       level > 0 && (developerMode || level <= highestUnlocked);
   int get coinBalance => _wallet.balance;
@@ -1548,6 +1622,7 @@ class AppModel extends ChangeNotifier
     activity.event(EconomyEvent.themeBought, coinBalance);
     _prefs.theme = theme;
     _awardAchievements();
+    feedback(HapticEvent.cosmetic, SoundEvent.cosmetic);
     unawaited(flush());
     notifyListeners();
     return true;
@@ -1587,6 +1662,9 @@ class AppModel extends ChangeNotifier
     }
     _pendingFortune = null;
     final saved = await flush();
+    if (saved) {
+      feedback(HapticEvent.wheelResult, SoundEvent.wheelResult);
+    }
     if (!_disposed) notifyListeners();
     return saved;
   }
@@ -2070,26 +2148,47 @@ class AppModel extends ChangeNotifier
       _inPlay && _foreground && _canPlay ? _game?.rejectionFor(cell) : null;
 
   @override
-  void rejectHaptic() => haptic.error();
+  void rejectHaptic([Object? token]) {
+    haptic.trigger(HapticEvent.invalidMove, dedupeToken: token);
+    sound.play(SoundEvent.invalidMove);
+  }
 
   bool begin(int cell) {
     final game = _game;
     if (game == null || !_inPlay || !_foreground || !_canPlay) return false;
+    haptic.resetRejectionDeduplication();
     final before = game.length;
     if (!game.begin(cell)) return false;
-    if (game.length != before) _edited();
+    if (game.length != before) {
+      _edited();
+    } else {
+      feedback(HapticEvent.button, SoundEvent.step);
+    }
     return true;
   }
 
   void step(int cell) {
     if (!_foreground || !_canPlay) return;
+    final game = _game;
+    if (game == null) return;
     final checkpoint = nextCheckpoint;
-    if (_game?.step(cell) case RouteEdit.advance || RouteEdit.retract) {
-      _edited(connectedCheckpoint: nextCheckpoint > checkpoint);
+    final prevLen = game.length;
+    final edit = game.step(cell);
+    if (edit case RouteEdit.advance || RouteEdit.retract) {
+      final path = game.path;
+      final added = edit == RouteEdit.advance && path.length > prevLen
+          ? path.sublist(prevLen)
+          : const <int>[];
+      _edited(
+        connectedCheckpoint: nextCheckpoint > checkpoint,
+        edit: edit,
+        addedCells: added,
+      );
     }
   }
 
   void end() {
+    haptic.resetRejectionDeduplication();
     final changed = _game?.end() ?? false;
     if (changed) {
       _processCrates();
@@ -2106,13 +2205,13 @@ class AppModel extends ChangeNotifier
 
   void undo() {
     if (!_canPlay || !(_game?.undo() ?? false)) return;
-    _edited();
+    _edited(edit: RouteEdit.retract);
   }
 
   void clear() {
     if (!_canPlay || !(_game?.clear() ?? false)) return;
     _usedClear = true;
-    _edited();
+    _edited(edit: RouteEdit.retract);
     unawaited(flush());
   }
 
@@ -2131,7 +2230,8 @@ class AppModel extends ChangeNotifier
     correctedByHint = conflict;
     if (activeId?.mode == PlayMode.attack) attack?.unassisted = false;
     _hintBalance--;
-    _edited();
+    feedback(HapticEvent.hint, SoundEvent.hint);
+    _edited(fromHint: true);
     unawaited(flush());
   }
 
@@ -2144,7 +2244,12 @@ class AppModel extends ChangeNotifier
     ];
   }
 
-  void _edited({bool connectedCheckpoint = false}) {
+  void _edited({
+    bool connectedCheckpoint = false,
+    RouteEdit edit = RouteEdit.advance,
+    List<int> addedCells = const [],
+    bool fromHint = false,
+  }) {
     _started = true;
     if (_crateAnchor == null || complete) {
       _processCrates();
@@ -2157,7 +2262,7 @@ class AppModel extends ChangeNotifier
         final now = _bootTime();
         _attempts.remove(id.key);
         if (now != null && run.clear(now)) {
-          haptic.complete();
+          feedback(HapticEvent.puzzleComplete, SoundEvent.puzzleComplete);
           unawaited(flush());
           unawaited(open(PuzzleId.attack('${run.id}/${run.clears.length}')));
         } else {
@@ -2175,7 +2280,7 @@ class AppModel extends ChangeNotifier
           ),
         );
         _attempts.remove(id.key);
-        haptic.complete();
+        feedback(HapticEvent.puzzleComplete, SoundEvent.puzzleComplete);
         unawaited(flush());
         notifyListeners();
         return;
@@ -2211,6 +2316,10 @@ class AppModel extends ChangeNotifier
         attemptStars = levelStars;
         previousAttemptBestStars = prevStars;
         _levelStars[id.key] = bestStars;
+        _recordCampaignStars(
+          oldStars: previous == null ? null : prevStars,
+          newStars: bestStars,
+        );
         if (previous != null && bestStars > prevStars) {
           for (var s = prevStars + 1; s <= bestStars; s++) {
             _wallet.add(
@@ -2267,17 +2376,58 @@ class AppModel extends ChangeNotifier
       lastReward = coinBalance - coinsBefore;
       _celebrateAchievements(previousAchievements);
       _attempts.remove(id.key);
-      haptic.complete();
+      feedback(HapticEvent.puzzleComplete, SoundEvent.puzzleComplete);
       unawaited(flush());
+    } else if (!fromHint) {
+      _emitMoveFeedback(
+        edit: edit,
+        connectedCheckpoint: connectedCheckpoint,
+        addedCells: addedCells,
+      );
+      _saveSoon();
     } else {
-      if (endedEarly || connectedCheckpoint) {
-        haptic.light();
-      } else {
-        haptic.selection();
-      }
       _saveSoon();
     }
     notifyListeners();
+  }
+
+  void _emitMoveFeedback({
+    required RouteEdit edit,
+    required bool connectedCheckpoint,
+    required List<int> addedCells,
+  }) {
+    if (edit == RouteEdit.retract) {
+      feedback(HapticEvent.retract, SoundEvent.retract);
+      return;
+    }
+    final puzzle = _game?.puzzle;
+    if (puzzle != null && addedCells.isNotEmpty) {
+      final portal = puzzle.portal;
+      if (portal != null &&
+          addedCells.contains(portal.$2) &&
+          _game!.path.contains(portal.$1)) {
+        feedback(HapticEvent.portal, SoundEvent.portal);
+        return;
+      }
+      final gate = puzzle.gate;
+      if (gate != null && addedCells.contains(gate.$2)) {
+        feedback(HapticEvent.gateUnlocked, SoundEvent.gateUnlocked);
+        return;
+      }
+      if (gate != null && addedCells.contains(gate.$1)) {
+        feedback(HapticEvent.keyCollected, SoundEvent.keyCollected);
+        return;
+      }
+      if (addedCells.any(puzzle.iceTiles.contains)) {
+        feedback(HapticEvent.ice, SoundEvent.ice);
+        return;
+      }
+    }
+    if (endedEarly || connectedCheckpoint) {
+      feedback(HapticEvent.checkpoint, SoundEvent.checkpoint);
+    } else {
+      feedback(HapticEvent.step, SoundEvent.step);
+    }
   }
 
   Future<void> completeLevelOneFromDemo() async {
@@ -2288,6 +2438,7 @@ class AppModel extends ChangeNotifier
     _results[id.key] = (milliseconds: 15000, hints: 0, unassisted: true);
     final demoStars = starThresholdsForLevel(1).rate(15000);
     _levelStars[id.key] = demoStars;
+    _recordCampaignStars(oldStars: null, newStars: demoStars);
     _achievements.precision++;
     _levelsSolved++;
     _advanceJourney(1);
@@ -2309,7 +2460,7 @@ class AppModel extends ChangeNotifier
     lastReward = coinBalance - coinsBefore;
     _celebrateAchievements(previousAchievements);
     _attempts.remove(id.key);
-    haptic.complete();
+    feedback(HapticEvent.puzzleComplete, SoundEvent.puzzleComplete);
     notifyListeners();
     await flush();
   }
@@ -2334,6 +2485,8 @@ class AppModel extends ChangeNotifier
   void setForeground(bool foreground) {
     if (_foreground == foreground) return;
     _foreground = foreground;
+    haptic.setForeground(foreground);
+    sound.setForeground(foreground);
     if (!foreground) {
       _game?.end();
       if (!_crateRevealed) _fallingCrate = null;
@@ -2342,6 +2495,11 @@ class AppModel extends ChangeNotifier
     _syncClock();
     if (!foreground) unawaited(flush());
     notifyListeners();
+  }
+
+  void setAdPlaying(bool playing) {
+    haptic.setAdPlaying(playing);
+    sound.setAdPlaying(playing);
   }
 
   void refreshDate() {
@@ -2354,6 +2512,7 @@ class AppModel extends ChangeNotifier
   void setTheme(PathwiseTheme theme) {
     if (!ownsTheme(theme)) return;
     _prefs.theme = theme;
+    feedback(HapticEvent.cosmetic, SoundEvent.cosmetic);
     notifyListeners();
     unawaited(flush());
   }
@@ -2361,7 +2520,26 @@ class AppModel extends ChangeNotifier
   void setHaptics(bool enabled) {
     _prefs.haptics = enabled;
     haptic.enabled = enabled;
-    haptic.light();
+    if (enabled) haptic.trigger(HapticEvent.toggle);
+    notifyListeners();
+    unawaited(flush());
+  }
+
+  void setSoundEnabled(bool enabled) {
+    _prefs.soundEnabled = enabled;
+    sound.enabled = enabled;
+    if (enabled) sound.play(SoundEvent.toggle);
+    notifyListeners();
+    unawaited(flush());
+  }
+
+  void setSoundVolume(double volume, {bool preview = false}) {
+    final clamped = volume.clamp(0.0, 1.0).toDouble();
+    _prefs.soundVolume = clamped;
+    sound.volume = clamped;
+    if (preview && _prefs.soundEnabled) {
+      sound.playVolumePreview();
+    }
     notifyListeners();
     unawaited(flush());
   }
@@ -2581,6 +2759,7 @@ class AppModel extends ChangeNotifier
     attackRemaining.dispose();
     _crateTimer?.cancel();
     elapsed.dispose();
+    haptic.dispose();
     super.dispose();
   }
 }

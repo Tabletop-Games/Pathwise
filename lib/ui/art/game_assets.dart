@@ -85,7 +85,6 @@ String boostAssetPath(Boost boost) => switch (boost) {
 /// directly to the visible collectible height.
 const tipVisibleVerticalBounds = <PathTip, (double, double)>{
   PathTip.classic: (0.040, 0.960),
-  PathTip.arrow: (0.047, 0.953),
   PathTip.bee: (0.010, 0.990),
   PathTip.cat: (0.104, 0.896),
   PathTip.crystal: (0.010, 0.990),
