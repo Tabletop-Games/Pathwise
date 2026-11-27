@@ -195,7 +195,7 @@ void main() {
     await connectivity.check();
     await tester.pump();
     await tester.pump();
-    expect(find.byType(ConnectionPane), findsOneWidget);
+    expect(find.byType(ConnectionPane), findsNothing);
 
     connectivity.dispose();
     model.dispose();

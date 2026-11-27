@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -45,8 +47,26 @@ class ConnectionGate extends StatefulWidget {
 }
 
 class _ConnectionGateState extends State<ConnectionGate> {
-  bool _shownForOfflinePeriod = false;
+  static const _periodicCheckInterval = Duration(seconds: 30);
+
+  bool _remindedOnLaunch = false;
   bool _visible = false;
+  Timer? _periodicCheckTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _periodicCheckTimer = Timer.periodic(_periodicCheckInterval, (_) {
+      if (!mounted) return;
+      unawaited(widget.connectivity.check());
+    });
+  }
+
+  @override
+  void dispose() {
+    _periodicCheckTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,23 +77,22 @@ class _ConnectionGateState extends State<ConnectionGate> {
     final theme = context.select((AppModel model) => model.theme);
 
     if (state == ConnectivityState.online) {
-      if (_visible || _shownForOfflinePeriod) {
+      if (_visible) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           setState(() {
             _visible = false;
-            _shownForOfflinePeriod = false;
           });
         });
       }
     } else if (state == ConnectivityState.offline &&
-        !_shownForOfflinePeriod &&
+        !_remindedOnLaunch &&
         !isDrawing &&
         !_visible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _shownForOfflinePeriod) return;
+        if (!mounted || _remindedOnLaunch) return;
         setState(() {
-          _shownForOfflinePeriod = true;
+          _remindedOnLaunch = true;
           _visible = true;
         });
       });
