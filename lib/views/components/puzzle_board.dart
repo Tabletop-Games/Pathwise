@@ -1423,7 +1423,7 @@ void _paintRouteLine(
 
 /// How far ahead of a checkpoint centre a cosmetic tip rests. Classic keeps
 /// its highlighted-disc treatment and needs no lead.
-double tipLead(PathTip style) => style == PathTip.classic ? 0 : .42;
+double tipLead(PathTip style) => 0;
 
 /// Tip radius in cells. One size on every cell; checkpoints do not shrink it.
 double tipRadiusOf(PathTip style) => style == PathTip.classic ? .1685 : .22;

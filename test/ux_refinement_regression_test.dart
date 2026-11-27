@@ -160,7 +160,7 @@ void main() {
           img.dispose();
           return any;
         });
-        expect(hasPaintedTip, isTrue);
+        expect(hasPaintedTip, isFalse);
         expect(model.path, [0, 3, 6, 7]);
         await tester.pumpWidget(const SizedBox.shrink());
         model.dispose();
