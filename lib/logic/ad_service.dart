@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -17,9 +18,12 @@ class AdService extends ChangeNotifier {
     this.onRewardedClosed,
     this.isConnected,
     this.onAdPlayingChanged,
-    bool testAds =
-        kDebugMode || const bool.fromEnvironment('PATHWISE_ADS_TEST'),
-  }) : _test = !kReleaseMode && testAds;
+    bool? testAds,
+  }) : _test =
+           !kReleaseMode &&
+           (testAds ??
+               ((kDebugMode && !_isFlutterTest) ||
+                   const bool.fromEnvironment('PATHWISE_ADS_TEST')));
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
   final void Function(bool playing)? onAdPlayingChanged;
@@ -30,8 +34,11 @@ class AdService extends ChangeNotifier {
   final bool _test;
   static const _verifyConsent =
       kReleaseMode && bool.fromEnvironment('PATHWISE_ADS_VERIFY_CONSENT');
-  static const _enabled =
-      kDebugMode || bool.fromEnvironment('PATHWISE_ADS_ENABLED');
+  static bool get _isFlutterTest =>
+      !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+  static final _enabled =
+      (kDebugMode && !_isFlutterTest) ||
+      const bool.fromEnvironment('PATHWISE_ADS_ENABLED');
   static const _privacyConfigured = bool.fromEnvironment(
     'PATHWISE_ADS_CONSENT_CONFIGURED',
   );

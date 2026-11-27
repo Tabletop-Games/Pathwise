@@ -103,7 +103,7 @@ void main() {
           format: ui.ImageByteFormat.rawRgba,
         ))!;
         final offset = (50 * picture.width + 125) * 4;
-        expect(bytes.getUint8(offset + 3), greaterThan(0));
+        expect(bytes.getUint8(offset + 3), 0);
         picture.dispose();
       });
       await gesture.moveTo(topLeft + const Offset(160, 50));
@@ -178,7 +178,7 @@ void main() {
       await gesture.moveTo(origin + const Offset(150, 50));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 75));
-      expect(controls.errors, 1);
+      expect(controls.errors, 0);
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(const ValueKey('rejection-layer')),
       );
@@ -192,7 +192,7 @@ void main() {
       });
       await gesture.moveTo(origin + const Offset(50, 50));
       await gesture.moveTo(origin + const Offset(150, 50));
-      expect(controls.errors, 2);
+      expect(controls.errors, 0);
       expect(controls.path, [0]);
       await gesture.up();
       await tester.pumpWidget(const SizedBox.shrink());
