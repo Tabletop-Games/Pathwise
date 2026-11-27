@@ -65,14 +65,6 @@ void paintPathTip(
         ..style = PaintingStyle.stroke
         ..strokeWidth = radius * 0.14,
     );
-  } else if (!catalogue && !concealed) {
-    canvas.drawCircle(
-      center.translate(radius * .05, radius * .09),
-      drawRadius * .90,
-      Paint()
-        ..color = Colors.black.withValues(alpha: palette.dark ? .40 : .22)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * .12),
-    );
   }
 
   final raster = GameAssetCache.instance.imageFor(tipAssetPath(tip));
