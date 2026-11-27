@@ -65,78 +65,83 @@ class PuzzleView extends StatelessWidget {
     }
     return Scaffold(
       bottomNavigationBar: timed || model.complete ? null : const AdBanner(),
-      appBar: AppBar(
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            id.title,
-            maxLines: 1,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-        actions: [
-          if (kDebugMode && !timed && model.puzzle != null)
-            IconButton(
-              tooltip: 'Debug: drop crate',
-              onPressed: model.forceCrateForDebug,
-              icon: const Icon(Icons.bug_report_outlined),
-            ),
-          if (!timed && puzzle != null && !model.complete)
-            PopupMenuButton<int>(
-              tooltip: 'Puzzle options',
-              onSelected: (_) => _confirmPuzzleRestart(context, model),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 0, child: Text('Restart puzzle')),
-              ],
-            ),
-          if (timed && !attackFinished) ...[
-            IconButton(
-              tooltip: 'Stop Time Attack',
-              onPressed: () => _confirmAttackAction(context, model, false),
-              icon: const Icon(Icons.stop_circle_outlined),
-            ),
-            IconButton(
-              tooltip: 'Restart Time Attack',
-              onPressed: () => _confirmAttackAction(context, model, true),
-              icon: const Icon(Icons.restart_alt_rounded),
-            ),
-          ],
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: 12),
-            child: ValueListenableBuilder<Duration>(
-              valueListenable: timed ? model.attackRemaining : model.elapsed,
-              builder: (context, value, child) => Semantics(
-                label: timed ? 'Time remaining' : 'Elapsed time',
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        size: 16,
-                        color: palette.muted,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        formatTime(
-                          timed
-                              ? value + const Duration(milliseconds: 999)
-                              : value,
-                        ),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
+      appBar: model.complete && !timed
+          ? null
+          : AppBar(
+              title: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  id.title,
+                  maxLines: 1,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
+              actions: [
+                if (kDebugMode && !timed && model.puzzle != null)
+                  IconButton(
+                    tooltip: 'Debug: drop crate',
+                    onPressed: model.forceCrateForDebug,
+                    icon: const Icon(Icons.bug_report_outlined),
+                  ),
+                if (!timed && puzzle != null && !model.complete)
+                  PopupMenuButton<int>(
+                    tooltip: 'Puzzle options',
+                    onSelected: (_) => _confirmPuzzleRestart(context, model),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 0, child: Text('Restart puzzle')),
+                    ],
+                  ),
+                if (timed && !attackFinished) ...[
+                  IconButton(
+                    tooltip: 'Stop Time Attack',
+                    onPressed: () =>
+                        _confirmAttackAction(context, model, false),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Restart Time Attack',
+                    onPressed: () => _confirmAttackAction(context, model, true),
+                    icon: const Icon(Icons.restart_alt_rounded),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 12),
+                  child: ValueListenableBuilder<Duration>(
+                    valueListenable: timed
+                        ? model.attackRemaining
+                        : model.elapsed,
+                    builder: (context, value, child) => Semantics(
+                      label: timed ? 'Time remaining' : 'Elapsed time',
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 16,
+                              color: palette.muted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              formatTime(
+                                timed
+                                    ? value + const Duration(milliseconds: 999)
+                                    : value,
+                              ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
       body: AtmosphericBackdrop(
         child: SafeArea(
           top: false,
@@ -697,6 +702,24 @@ class _Completion extends StatelessWidget {
                   fontSize: 13,
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.schedule_rounded, size: 14, color: palette.muted),
+                  const SizedBox(width: 4),
+                  Text(
+                    formatTime(model.elapsed.value),
+                    style: TextStyle(
+                      color: palette.mutedInk,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (model.firstCampaignClear && id.mode == PlayMode.levels) ...[
               const SizedBox(height: 10),
               if (model.latestDiscovery case final discovery?) ...[
