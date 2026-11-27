@@ -401,8 +401,10 @@ class _JourneyNode extends StatelessWidget {
       math.min(130.0, textScale * (level.toString().length * .56 + 1.45)),
     );
     final height = math.max(current ? 66.0 : 58.0, textScale + 26);
-    const goldStar = Color(0xFFE5A91A);
-    final emptyStar = palette.mutedInk.withValues(alpha: .42);
+    final starSize = (15.5 + (textScale - 20).clamp(0.0, 8.0) * 0.35).clamp(
+      14.0,
+      18.0,
+    );
     final highContrast =
         palette == BoardPalette.palettes[PathwiseTheme.signal] ||
         palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
@@ -478,7 +480,13 @@ class _JourneyNode extends StatelessWidget {
               ),
             Positioned(
               left: center - nodeWidth / 2,
-              top: (constraints.maxHeight - height) / 2 - (current ? 2 : 0),
+              top:
+                  (constraints.maxHeight - height) / 2 -
+                  (current
+                      ? 2
+                      : completed
+                      ? 5
+                      : 0),
               width: nodeWidth,
               height: height,
               child: Semantics(
@@ -527,7 +535,7 @@ class _JourneyNode extends StatelessWidget {
                         onTap: onTap,
                         customBorder: shape,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -558,22 +566,6 @@ class _JourneyNode extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (completed)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    for (var s = 0; s < 3; s++)
-                                      Icon(
-                                        s < stars!
-                                            ? Icons.star_rounded
-                                            : Icons.star_outline_rounded,
-                                        size: 11,
-                                        color: s < stars!
-                                            ? goldStar
-                                            : emptyStar,
-                                      ),
-                                  ],
-                                ),
                             ],
                           ),
                         ),
@@ -583,6 +575,27 @@ class _JourneyNode extends StatelessWidget {
                 ),
               ),
             ),
+            if (completed)
+              Positioned(
+                left: center - (starSize * 3 + 6) / 2,
+                top: (constraints.maxHeight - height) / 2 - 5 + height - 4,
+                child: IgnorePointer(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var s = 0; s < 3; s++) ...[
+                        if (s > 0) const SizedBox(width: 2.5),
+                        RatingStar(
+                          earned: s < stars!,
+                          size: starSize,
+                          highContrast: highContrast,
+                          palette: palette,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
           ],
         );
       },

@@ -901,7 +901,9 @@ class _JourneyWorldPainter extends CustomPainter {
             width: w * .72,
             height: h * .20,
           ),
-          Paint()..color = Colors.black.withValues(alpha: .20),
+          Paint()
+            ..color = Colors.black.withValues(alpha: .20)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
         );
       }
       final src = Rect.fromLTWH(
@@ -976,7 +978,7 @@ class _JourneyWorldPainter extends CustomPainter {
         final propPath = switch (biome) {
           BiomeKind.forest =>
             hash == 0
-                ? 'assets/art/journey/prop_forest_trees.webp'
+                ? 'assets/art/journey/prop_forest_trees.png'
                 : 'assets/art/journey/prop_forest_rocks.webp',
           BiomeKind.winter =>
             hash == 0

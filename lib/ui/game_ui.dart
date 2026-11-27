@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -806,4 +808,163 @@ class InfoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Dimensional star used across Journey level nodes and the completion screen.
+class RatingStar extends StatelessWidget {
+  const RatingStar({
+    required this.earned,
+    required this.size,
+    this.highContrast = false,
+    this.palette,
+    super.key,
+  });
+
+  final bool earned;
+  final double size;
+  final bool highContrast;
+  final BoardPalette? palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: CustomPaint(
+        painter: _RatingStarPainter(
+          earned: earned,
+          highContrast: highContrast,
+          palette: palette,
+        ),
+      ),
+    );
+  }
+}
+
+class _RatingStarPainter extends CustomPainter {
+  const _RatingStarPainter({
+    required this.earned,
+    required this.highContrast,
+    this.palette,
+  });
+
+  final bool earned;
+  final bool highContrast;
+  final BoardPalette? palette;
+
+  static Path _starPath(Size size) {
+    final cx = size.width * .5;
+    final cy = size.height * .52;
+    final outer = size.width * .46;
+    final inner = size.width * .21;
+    final pts = <Offset>[];
+    for (var i = 0; i < 10; i++) {
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final r = i.isEven ? outer : inner;
+      pts.add(Offset(cx + math.cos(angle) * r, cy + math.sin(angle) * r));
+    }
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final prev = pts[(i + 9) % 10];
+      final curr = pts[i];
+      final next = pts[(i + 1) % 10];
+      final t = i.isEven ? .18 : .14;
+      final p1 = Offset.lerp(curr, prev, t)!;
+      final p2 = Offset.lerp(curr, next, t)!;
+      if (i == 0) {
+        path.moveTo(p1.dx, p1.dy);
+      } else {
+        path.lineTo(p1.dx, p1.dy);
+      }
+      path.quadraticBezierTo(curr.dx, curr.dy, p2.dx, p2.dy);
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = _starPath(size);
+    final rect = Offset.zero & size;
+
+    // Grounded drop shadow for legibility on all biome & theme surfaces.
+    canvas.save();
+    canvas.translate(0, size.height * .08);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.black.withValues(alpha: earned ? .38 : .28)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.width * .06),
+    );
+    canvas.restore();
+
+    if (highContrast && palette != null) {
+      canvas.drawPath(
+        path,
+        Paint()..color = earned ? palette!.accent : palette!.surface,
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.2, size.width * .08)
+          ..color = earned ? palette!.ink : palette!.mutedInk,
+      );
+      return;
+    }
+
+    if (earned) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFF199), Color(0xFFF6B91A), Color(0xFFC97804)],
+            stops: [0.0, 0.52, 1.0],
+          ).createShader(rect),
+      );
+      // Subtle top highlight bevel.
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawCircle(
+        Offset(size.width * .36, size.height * .28),
+        size.width * .24,
+        Paint()..color = Colors.white.withValues(alpha: .28),
+      );
+      canvas.restore();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.1, size.width * .07)
+          ..strokeJoin = StrokeJoin.round
+          ..color = const Color(0xFF6E3F00),
+      );
+    } else {
+      // Visibly recessed muted slate-grey for unearned slots.
+      canvas.drawPath(
+        path,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF8C97A2), Color(0xFF67727D), Color(0xFF4F5963)],
+          ).createShader(rect),
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.0, size.width * .065)
+          ..strokeJoin = StrokeJoin.round
+          ..color = const Color(0xFF2D353D),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RatingStarPainter oldDelegate) =>
+      earned != oldDelegate.earned ||
+      highContrast != oldDelegate.highContrast ||
+      palette != oldDelegate.palette;
 }

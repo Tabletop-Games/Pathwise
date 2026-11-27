@@ -352,11 +352,19 @@ void main() {
     test(
       'UI and resource PNGs have zero residual alpha in outer 2px border',
       () async {
-        for (final dirPath in ['assets/art/ui', 'assets/art/resources']) {
+        for (final dirPath in [
+          'assets/art/ui',
+          'assets/art/resources',
+          'assets/art/journey',
+        ]) {
           final files = Directory(dirPath)
               .listSync()
               .whereType<File>()
-              .where((f) => f.path.endsWith('.webp'))
+              .where(
+                (f) =>
+                    (f.path.endsWith('.webp') || f.path.endsWith('.png')) &&
+                    !f.path.endsWith('_terrain.webp'),
+              )
               .toList();
           expect(files.isNotEmpty, isTrue);
           for (final file in files) {

@@ -13,6 +13,7 @@ import '../model/app_themes.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
 import '../model/journey.dart';
+import '../model/user_preferences.dart';
 import '../ui/art/control_art.dart';
 import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
@@ -524,8 +525,9 @@ class _AttemptStarsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
     final improved = !isFirstClear && stars > previousBest;
-    const gold = Color(0xFFE5A91A);
-    final empty = palette.mutedInk.withValues(alpha: .36);
+    final highContrast =
+        palette == BoardPalette.palettes[PathwiseTheme.signal] ||
+        palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
     return Semantics(
       label: '$stars of 3 stars',
       child: Column(
@@ -546,12 +548,11 @@ class _AttemptStarsRow extends StatelessWidget {
                       Transform.scale(scale: scale, child: child),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Icon(
-                      i < stars
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      size: 32,
-                      color: i < stars ? gold : empty,
+                    child: RatingStar(
+                      earned: i < stars,
+                      size: 34,
+                      highContrast: highContrast,
+                      palette: palette,
                     ),
                   ),
                 ),

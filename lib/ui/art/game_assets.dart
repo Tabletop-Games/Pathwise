@@ -52,7 +52,7 @@ String journeyTerrainPath(BiomeKind biome) => switch (biome) {
 };
 
 const journeyPropPaths = <String>[
-  'assets/art/journey/prop_forest_trees.webp',
+  'assets/art/journey/prop_forest_trees.png',
   'assets/art/journey/prop_forest_rocks.webp',
   'assets/art/journey/prop_winter_pine.webp',
   'assets/art/journey/prop_winter_ice.webp',
@@ -63,8 +63,6 @@ const journeyPropPaths = <String>[
   'assets/art/journey/iso_platform_current.png',
   'assets/art/journey/iso_platform_locked.png',
   'assets/art/journey/iso_pedestal.png',
-  'assets/art/journey/iso_bridge_wood.png',
-  'assets/art/journey/iso_bridge_stone.png',
   'assets/art/journey/iso_ruin_terrace.png',
   'assets/art/journey/iso_ocean_cove.png',
   'assets/art/journey/iso_forest_grove.png',
