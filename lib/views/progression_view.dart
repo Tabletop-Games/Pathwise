@@ -144,8 +144,9 @@ class ProgressionView extends StatefulWidget {
 
 class _ProgressionViewState extends State<ProgressionView> {
   late _ProgressionTab _tab;
-  var _branch = _ResearchBranch.income;
   var _recordedResearchActivity = false;
+  final _researchScroll = ScrollController();
+  final _boostsScroll = ScrollController();
 
   @override
   void initState() {
@@ -154,6 +155,13 @@ class _ProgressionViewState extends State<ProgressionView> {
     if (_tab == _ProgressionTab.research) {
       _scheduleResearchActivity();
     }
+  }
+
+  @override
+  void dispose() {
+    _researchScroll.dispose();
+    _boostsScroll.dispose();
+    super.dispose();
   }
 
   void _scheduleResearchActivity() {
@@ -182,7 +190,22 @@ class _ProgressionViewState extends State<ProgressionView> {
   }
 
   void _selectTab(_ProgressionTab tab) {
-    if (_tab == tab) return;
+    if (_tab == tab) {
+      final controller = tab == _ProgressionTab.research
+          ? _researchScroll
+          : _boostsScroll;
+      if (!controller.hasClients || controller.offset <= 0) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        controller.jumpTo(0);
+      } else {
+        controller.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      return;
+    }
     setState(() => _tab = tab);
     if (tab == _ProgressionTab.research) {
       _scheduleResearchActivity();
@@ -268,42 +291,20 @@ class _ProgressionViewState extends State<ProgressionView> {
   }
 
   Widget _researchBody(AppModel model, BoardPalette palette) {
-    final tier1 = _branch.items.where((item) => !item.advanced).toList();
-    final tier2 = _branch.items.where((item) => item.advanced).toList();
-    return Column(
+    return ListView(
+      key: const PageStorageKey('research-all'),
+      controller: _researchScroll,
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          padding: const EdgeInsets.only(bottom: 10),
           child: _researchHeader(model, palette),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: GameSegmented<_ResearchBranch>(
-            selected: _branch,
-            onChanged: (value) => setState(() => _branch = value),
-            segments: [
-              for (final branch in _ResearchBranch.values)
-                (value: branch, label: branch.title),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            key: PageStorageKey('research-${_branch.name}'),
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-            children: [
-              if (tier1.isNotEmpty) ...[
-                _researchSectionHeader('Tier 1 · Foundations', palette),
-                for (final item in tier1) _research(model, item),
-              ],
-              if (tier2.isNotEmpty) ...[
-                if (tier1.isNotEmpty) const SizedBox(height: 6),
-                _researchSectionHeader('Tier 2 · Advanced Contracts', palette),
-                for (final item in tier2) _research(model, item),
-              ],
-            ],
-          ),
-        ),
+        for (final branch in _ResearchBranch.values) ...[
+          _researchSectionHeader(branch.title, palette),
+          for (final item in branch.items) _research(model, item),
+          const SizedBox(height: 6),
+        ],
       ],
     );
   }
@@ -347,6 +348,8 @@ class _ProgressionViewState extends State<ProgressionView> {
       final adsEnabled = context.watch<AdService>().enabled;
 
       return ListView(
+        key: const PageStorageKey('boosts-list'),
+        controller: _boostsScroll,
         padding: const EdgeInsets.fromLTRB(12, 2, 12, 24),
         children: [
           if (currentActive.isNotEmpty)
@@ -518,7 +521,7 @@ class _ProgressionViewState extends State<ProgressionView> {
     var earnedRanks = 0;
     var totalRanks = 0;
     Research? masteredItem;
-    for (final item in _branch.items) {
+    for (final item in Research.values) {
       final r = progress.rank(item);
       earnedRanks += r;
       totalRanks += item.limit;
@@ -541,11 +544,11 @@ class _ProgressionViewState extends State<ProgressionView> {
               child: SizedBox.square(
                 dimension: 42,
                 child: Image.asset(
-                  _branch.assetPath,
+                  'assets/art/ui/research.webp',
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) =>
-                      GameArt(_branch.fallbackArt, palette: palette, size: 42),
+                      GameArt(ArtKind.research, palette: palette, size: 42),
                 ),
               ),
             ),
@@ -560,9 +563,9 @@ class _ProgressionViewState extends State<ProgressionView> {
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      '${_branch.title} lab',
-                      style: const TextStyle(
+                    const Text(
+                      'Research lab',
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
                       ),
@@ -575,7 +578,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _branch.summary,
+                  'Permanent upgrades across coins, crates, and efficiency.',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: palette.mutedInk, fontSize: 12),

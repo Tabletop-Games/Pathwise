@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../model/app_model.dart';
 import '../model/economy.dart';
 import '../model/game_state.dart';
@@ -48,6 +50,7 @@ final class StatisticsSummary {
     required this.dailySolved,
     required this.dailyStreak,
     required this.longestStreak,
+    required this.longestPlayStreak,
     required this.bestDailyTime,
     required this.dayStreak,
     required this.playTime,
@@ -97,6 +100,7 @@ final class StatisticsSummary {
       dailySolved: model.dailySolved,
       dailyStreak: model.dailyStreak,
       longestStreak: model.longestStreak,
+      longestPlayStreak: math.max(model.streak.longest, model.streak.count),
       bestDailyTime: model.best(PlayMode.daily),
       dayStreak: model.streak.count,
       playTime: model.playTime,
@@ -136,6 +140,7 @@ final class StatisticsSummary {
   final int dailySolved;
   final int dailyStreak;
   final int longestStreak;
+  final int longestPlayStreak;
   final Duration? bestDailyTime;
   final int dayStreak;
   final Duration playTime;

@@ -14,15 +14,18 @@ import 'logic/attack_clock.dart';
 import 'logic/billing_service.dart';
 import 'logic/connectivity_service.dart';
 import 'logic/game_state_storage.dart';
+import 'logic/notification_service.dart';
 import 'logic/play_games.dart';
 import 'model/app_model.dart';
 import 'model/app_themes.dart';
+import 'model/game_state.dart';
 import 'model/user_preferences.dart';
 import 'ui/art/game_assets.dart';
 import 'views/cloud_save_section.dart';
 import 'views/components/brand_mark.dart';
 import 'views/connection_view.dart';
 import 'views/main_menu_view.dart';
+import 'views/streak_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -160,6 +163,23 @@ class AppSession extends ChangeNotifier {
 
 /// Root of the running app once the save has loaded. Starts connectivity and
 /// cloud sync, and reacts to lifecycle changes.
+/// Disables Android overscroll stretch and glow indicators application-wide
+/// while keeping clamping physics, inertial flings, and programmatic scrolls.
+class PathwiseScrollBehavior extends MaterialScrollBehavior {
+  const PathwiseScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const ClampingScrollPhysics();
+}
+
 class PathwiseRoot extends StatefulWidget {
   const PathwiseRoot({required this.session, this.clock, super.key});
 
@@ -301,6 +321,7 @@ class _PathwiseStartupState extends State<PathwiseStartup> {
                   key: const ValueKey('pathwise-loading'),
                   title: 'Pathwise',
                   debugShowCheckedModeBanner: false,
+                  scrollBehavior: const PathwiseScrollBehavior(),
                   theme: palette.theme,
                   home: Scaffold(
                     key: const ValueKey('pathwise-splash'),
@@ -346,6 +367,8 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   late final BillingService _billing;
   late final AdService _ads;
   late final AchievementSync _achievements;
+  late final NotificationService _notifications;
+  Timer? _notificationSyncTimer;
   final _navigator = GlobalKey<NavigatorState>();
   String? _lastDay;
 
@@ -353,6 +376,9 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _model = context.read<AppModel>();
+    _notifications = NotificationService();
+    _notifications.attachTapHandler(_handleNotificationTap);
+    _model.addListener(_scheduleNotificationSync);
     final connectivity = widget.connectivity;
     _achievements = AchievementSync(
       _model,
@@ -390,6 +416,7 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
         _model.refreshAttackClock();
         _achievements.foreground(true);
         unawaited(_billing.start());
+        unawaited(_syncNotificationsNow());
       }
     });
     WidgetsBinding.instance.addObserver(this);
@@ -408,6 +435,48 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     _lastDay = day;
   }
 
+  void _scheduleNotificationSync() {
+    _notificationSyncTimer?.cancel();
+    _notificationSyncTimer = Timer(
+      const Duration(milliseconds: 500),
+      () => unawaited(_syncNotificationsNow()),
+    );
+  }
+
+  Future<void> _syncNotificationsNow() async {
+    if (!mounted) return;
+    await _notifications.syncSchedule(
+      prefs: _model.notificationPreferences,
+      dailySolvedToday: _model.dailySolvedToday,
+      currentStreak: _model.streak.count,
+      streakQualifiedToday: _model.streakQualifiedToday,
+      streakProtectedToday: _model.streakProtectedToday,
+      inGameplay: _model.activeId != null && !_model.complete,
+    );
+  }
+
+  void _handleNotificationTap(NotificationCategory category) {
+    if (!mounted) return;
+    // Never interrupt an active puzzle.
+    if (_model.activeId != null && !_model.complete) return;
+    final ctx = _navigator.currentContext;
+    if (ctx == null) return;
+    switch (category) {
+      case NotificationCategory.daily:
+        final todayId = _model.dailyCurrent(_model.todayKey);
+        unawaited(openPuzzle(ctx, todayId));
+      case NotificationCategory.streak:
+        unawaited(
+          _navigator.currentState?.push<void>(
+                MaterialPageRoute(builder: (_) => const StreakView()),
+              ) ??
+              Future.value(),
+        );
+      case NotificationCategory.invite:
+        unawaited(openPuzzle(ctx, PuzzleId.level(_model.highestUnlocked)));
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final active = state == AppLifecycleState.resumed;
@@ -415,9 +484,11 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     if (active) {
       _watchDate();
       unawaited(_refreshAttackClock());
+      unawaited(_syncNotificationsNow());
     } else {
       _model.setForeground(false);
       _dayCheck?.cancel();
+      unawaited(_syncNotificationsNow());
     }
   }
 
@@ -433,10 +504,13 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _dayCheck?.cancel();
+    _notificationSyncTimer?.cancel();
+    _model.removeListener(_scheduleNotificationSync);
     WidgetsBinding.instance.removeObserver(this);
     _billing.dispose();
     _ads.dispose();
     _achievements.dispose();
+    _notifications.dispose();
     super.dispose();
   }
 
@@ -450,10 +524,12 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
         ChangeNotifierProvider.value(value: _billing),
         ChangeNotifierProvider.value(value: _ads),
         ChangeNotifierProvider.value(value: _achievements),
+        ChangeNotifierProvider.value(value: _notifications),
       ],
       child: MaterialApp(
         navigatorKey: _navigator,
         debugShowCheckedModeBanner: false,
+        scrollBehavior: const PathwiseScrollBehavior(),
         title: 'Pathwise',
         theme: BoardPalette.palettes[theme]!.theme,
         builder: connectivity == null

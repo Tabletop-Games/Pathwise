@@ -10,6 +10,7 @@ import '../logic/haptic_service.dart';
 import '../logic/play_games.dart';
 import '../logic/social_sharing.dart';
 import '../logic/sound_service.dart';
+import '../logic/star_rating.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import '../model/economy.dart';
@@ -102,71 +103,51 @@ class PuzzleView extends StatelessWidget {
             ),
           ],
           Padding(
-            padding: const EdgeInsetsDirectional.only(end: 18),
+            padding: const EdgeInsetsDirectional.only(end: 12),
             child: ValueListenableBuilder<Duration>(
               valueListenable: timed ? model.attackRemaining : model.elapsed,
               builder: (context, value, child) => Semantics(
                 label: timed ? 'Time remaining' : 'Elapsed time',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 18,
-                      color: palette.muted,
-                    ),
-                    const SizedBox(width: 7),
-                    Text(
-                      formatTime(
-                        timed
-                            ? value + const Duration(milliseconds: 999)
-                            : value,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 16,
+                        color: palette.muted,
                       ),
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    if (!timed &&
-                        !model.complete &&
-                        model.activeStarThresholds != null) ...[
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message: '3-star target time',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.surface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: palette.cardEdge),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 14,
-                                color: Color(0xFFD99A1E),
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                formatTime(
-                                  Duration(
-                                    milliseconds:
-                                        model.activeStarThresholds!.threeStarMs,
-                                  ),
-                                ),
-                                style: TextStyle(
-                                  color: palette.mutedInk,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 4),
+                      Text(
+                        formatTime(
+                          timed
+                              ? value + const Duration(milliseconds: 999)
+                              : value,
+                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                      if (!timed &&
+                          !model.complete &&
+                          model.activeStarThresholds != null) ...[
+                        const SizedBox(width: 4),
+                        _StarTimerPill(
+                          elapsed: value,
+                          thresholds: model.activeStarThresholds!,
+                          palette: palette,
+                          onTap: () => _showStarThresholdsDialog(
+                            context,
+                            model.activeStarThresholds!,
+                            model,
+                            palette,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -510,18 +491,190 @@ Future<void> _confirmAttackAction(
   }
 }
 
+class _StarTimerPill extends StatelessWidget {
+  const _StarTimerPill({
+    required this.elapsed,
+    required this.thresholds,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final Duration elapsed;
+  final StarThresholds thresholds;
+  final BoardPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ms = elapsed.inMilliseconds;
+    final currentStars = thresholds.rate(ms);
+    final nextCutoffMs = switch (currentStars) {
+      3 => thresholds.threeStarMs,
+      2 => thresholds.twoStarMs,
+      1 => thresholds.oneStarMs,
+      _ => null,
+    };
+    final remaining = nextCutoffMs == null
+        ? Duration.zero
+        : Duration(milliseconds: math.max(0, nextCutoffMs - ms));
+    final highContrast =
+        palette == BoardPalette.palettes[PathwiseTheme.signal] ||
+        MediaQuery.highContrastOf(context);
+    final label = nextCutoffMs != null
+        ? '$currentStars of 3 stars available, ${formatTime(remaining)} remaining. Tap for star thresholds.'
+        : '0 stars remaining. Complete anytime. Tap for star thresholds.';
+
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: palette.cardEdge),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 1.5),
+                RatingStar(
+                  earned: i < currentStars,
+                  size: 11.5,
+                  highContrast: highContrast,
+                  palette: palette,
+                ),
+              ],
+              if (nextCutoffMs != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  formatTime(remaining + const Duration(milliseconds: 999)),
+                  style: TextStyle(
+                    color: palette.mutedInk,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showStarThresholdsDialog(
+  BuildContext context,
+  StarThresholds thresholds,
+  AppModel model,
+  BoardPalette palette,
+) {
+  playUiFeedback(context, sound: SoundEvent.dialogOpen);
+  final mult = model.progression.multiplier(model.progressionTime);
+  String fmt(int ms) => formatTime(Duration(milliseconds: ms));
+  final rows = [
+    (3, 'Under ${fmt(thresholds.threeStarMs)}'),
+    (2, 'Up to ${fmt(thresholds.twoStarMs)}'),
+    (1, 'Up to ${fmt(thresholds.oneStarMs)}'),
+    (0, 'Over ${fmt(thresholds.oneStarMs)}'),
+  ];
+  return showDialog<void>(
+    context: context,
+    builder: (dialog) => GameDialog(
+      title: 'Star Rating Targets',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (stars, desc) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 60,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < 3; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 2),
+                            child: RatingStar(
+                              earned: i < stars,
+                              size: 15,
+                              palette: palette,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      desc,
+                      style: TextStyle(
+                        color: palette.ink,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            mult > 1
+                ? 'Each earned star awards +$mult coins (includes ${mult}x boost) on first clear or when improving your best.'
+                : 'Each earned star awards +1 coin on first clear or when improving your best.',
+            style: TextStyle(color: palette.mutedInk, fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        ActionPill(
+          label: 'Got it',
+          tone: ActionTone.primary,
+          onTap: () => Navigator.pop(dialog),
+        ),
+      ],
+    ),
+  );
+}
+
 class _AttemptStarsRow extends StatelessWidget {
   const _AttemptStarsRow({
     required this.stars,
     required this.previousBest,
     required this.isFirstClear,
+    required this.thresholds,
     required this.palette,
   });
 
   final int stars;
   final int previousBest;
   final bool isFirstClear;
+  final StarThresholds thresholds;
   final BoardPalette palette;
+
+  String _thresholdNote() {
+    String fmt(int ms) => formatTime(Duration(milliseconds: ms));
+    return switch (stars) {
+      3 => '3★ target: under ${fmt(thresholds.threeStarMs)}',
+      2 =>
+        '3★ under ${fmt(thresholds.threeStarMs)} · 2★ up to ${fmt(thresholds.twoStarMs)}',
+      1 =>
+        '2★ up to ${fmt(thresholds.twoStarMs)} · 1★ up to ${fmt(thresholds.oneStarMs)}',
+      _ => '1★ target was up to ${fmt(thresholds.oneStarMs)}',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -529,7 +682,7 @@ class _AttemptStarsRow extends StatelessWidget {
     final improved = !isFirstClear && stars > previousBest;
     final highContrast =
         palette == BoardPalette.palettes[PathwiseTheme.signal] ||
-        palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
+        MediaQuery.highContrastOf(context);
     return Semantics(
       label: '$stars of 3 stars',
       child: Column(
@@ -573,6 +726,16 @@ class _AttemptStarsRow extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            _thresholdNote(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: palette.mutedInk,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
           ),
           if (!isFirstClear) ...[
             const SizedBox(height: 2),
@@ -710,6 +873,7 @@ class _Completion extends StatelessWidget {
                 stars: model.attemptStars,
                 previousBest: model.previousAttemptBestStars,
                 isFirstClear: model.firstCampaignClear,
+                thresholds: starThresholdsForLevel(id.level),
                 palette: palette,
               ),
               const SizedBox(height: 4),

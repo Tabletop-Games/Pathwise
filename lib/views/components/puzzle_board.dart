@@ -154,12 +154,16 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   /// Transient picture of the tip while a finger is down. Never persisted.
   final _visual = ValueNotifier<TipVisual?>(null);
 
-  /// Smoothed visual tip position driven by an unconditionally stable exponential settle.
-  final _animatedVisual = ValueNotifier<Offset?>(null);
+  /// Smoothed visual tip position and elastic scale driven by a damped physical spring.
+  final _animatedVisual = ValueNotifier<({Offset tip, double scale})?>(null);
   Ticker? _springTicker;
   Duration? _lastTick;
   Offset? _springTip;
+  Offset _springVel = Offset.zero;
+  double _springScale = 1.0;
+  double _springScaleVel = 0.0;
   TipVisual? _springTarget;
+  int? _lastRouteLen;
 
   /// Set only while the tip retracts along the trail, so the board redraws
   /// the route up to the tip. Forward drags never repaint the board layer.
@@ -184,6 +188,22 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     }
   }
 
+  void _pulseTip({required bool checkpoint}) {
+    if (!mounted || MediaQuery.disableAnimationsOf(context)) return;
+    _springScaleVel = math.min(5.5, _springScaleVel + (checkpoint ? 4.8 : 3.2));
+    _springTarget ??= TipTracker.rest(
+      widget.puzzle,
+      widget.model.path,
+      checkpointLead: tipLead(widget.tipStyle),
+    );
+    _springTip ??= _springTarget!.tip;
+    _springTicker ??= createTicker(_onSpringTick);
+    if (!_springTicker!.isActive) {
+      _lastTick = null;
+      _springTicker!.start();
+    }
+  }
+
   void _driveSpring(
     TipVisual target, {
     bool snap = false,
@@ -193,14 +213,24 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     final reduced = mounted && MediaQuery.disableAnimationsOf(context);
     if (snap || reduced || _springTip == null) {
       _springTip = target.tip;
-      _animatedVisual.value = target.tip;
-      _springTicker?.stop();
-      _lastTick = null;
+      _springVel = Offset.zero;
+      if (reduced) {
+        _springScale = 1.0;
+        _springScaleVel = 0.0;
+      }
+      _animatedVisual.value = (tip: target.tip, scale: _springScale);
+      if (reduced || _springScaleVel.abs() < 0.01) {
+        _springTicker?.stop();
+        _lastTick = null;
+      }
       return;
     }
     if (snapTip) {
+      final dtHint = 1 / 60.0;
+      final instantVel = (target.tip - _springTip!) / dtHint;
+      _springVel = Offset.lerp(_springVel, instantVel, 0.35)!;
       _springTip = target.tip;
-      _animatedVisual.value = _springTip;
+      _animatedVisual.value = (tip: _springTip!, scale: _springScale);
     }
     _springTicker ??= createTicker(_onSpringTick);
     if (!_springTicker!.isActive) {
@@ -219,20 +249,51 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     _lastTick = elapsed;
     if (prev == null) return;
     final dt = ((elapsed - prev).inMicroseconds / 1e6).clamp(0.001, 0.05);
-    final factor = 1.0 - math.exp(-26.0 * dt);
 
-    _springTip = _pointer != null
-        ? target.tip
-        : Offset.lerp(_springTip!, target.tip, factor)!;
+    // Sub-step integration keeps the underdamped spring unconditionally stable
+    // across 60Hz, 90Hz, and 120Hz displays.
+    const subSteps = 2;
+    final h = dt / subSteps;
+    const posStiffness = 440.0;
+    const posDamping = 24.0;
+    const scaleStiffness = 480.0;
+    const scaleDamping = 21.0;
 
-    final settledPos = (_springTip! - target.tip).distance < 0.002;
-    if (settledPos) {
+    for (var s = 0; s < subSteps; s++) {
+      if (_pointer == null) {
+        final disp = _springTip! - target.tip;
+        final acc = (-disp * posStiffness) - (_springVel * posDamping);
+        _springVel += acc * h;
+        _springTip = _springTip! + _springVel * h;
+      } else {
+        _springTip = target.tip;
+      }
+      final scaleDisp = _springScale - 1.0;
+      final scaleAcc =
+          (-scaleDisp * scaleStiffness) - (_springScaleVel * scaleDamping);
+      _springScaleVel += scaleAcc * h;
+      _springScale = (_springScale + _springScaleVel * h).clamp(0.84, 1.24);
+    }
+
+    final settledPos =
+        _pointer != null ||
+        ((_springTip! - target.tip).distance < 0.0015 &&
+            _springVel.distance < 0.015);
+    final settledScale =
+        (_springScale - 1.0).abs() < 0.002 && _springScaleVel.abs() < 0.015;
+
+    if (settledPos && settledScale) {
       _springTip = target.tip;
-      _animatedVisual.value = _springTip;
+      _springVel = Offset.zero;
+      _springScale = 1.0;
+      _springScaleVel = 0.0;
+      _animatedVisual.value = _pointer == null
+          ? null
+          : (tip: target.tip, scale: 1.0);
       _springTicker?.stop();
       _lastTick = null;
     } else {
-      _animatedVisual.value = _springTip;
+      _animatedVisual.value = (tip: _springTip!, scale: _springScale);
     }
   }
 
@@ -272,14 +333,31 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     }
   }
 
-  void _settle() {
+  void _settle({bool springToRest = false}) {
     _tracker.reset();
     _visual.value = null;
     _trim.value = null;
+    if (springToRest &&
+        mounted &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        _springTip != null &&
+        widget.model.path.isNotEmpty &&
+        !widget.model.complete) {
+      final rest = TipTracker.rest(
+        widget.puzzle,
+        widget.model.path,
+        checkpointLead: tipLead(widget.tipStyle),
+      );
+      _driveSpring(rest, snap: false, snapTip: false);
+      return;
+    }
     _springTicker?.stop();
     _lastTick = null;
     _springTarget = null;
     _springTip = null;
+    _springVel = Offset.zero;
+    _springScale = 1.0;
+    _springScaleVel = 0.0;
     _animatedVisual.value = null;
   }
 
@@ -363,7 +441,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     if (_pointer != event.pointer) return;
     _pointer = null;
     _previous = null;
-    _settle();
+    _settle(springToRest: true);
     widget.model.end();
   }
 
@@ -389,7 +467,11 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     }
     if (oldWidget.puzzle != widget.puzzle) {
       _springTip = null;
+      _springVel = Offset.zero;
+      _springScale = 1.0;
+      _springScaleVel = 0.0;
       _springTarget = null;
+      _lastRouteLen = widget.model.path.length;
       _animatedVisual.value = null;
       _pulsedCheckpointCell = null;
       _checkpointPulse.stop();
@@ -399,11 +481,18 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     } else {
       final path = widget.model.path;
       final tipCell = path.isNotEmpty ? path.last : null;
-      if (tipCell != null &&
+      final isNewCheckpoint =
+          tipCell != null &&
           widget.puzzle.numbers[tipCell] != 0 &&
           tipCell != widget.puzzle.start &&
-          tipCell != _pulsedCheckpointCell &&
-          !MediaQuery.disableAnimationsOf(context)) {
+          tipCell != _pulsedCheckpointCell;
+      if (_lastRouteLen != null &&
+          path.length > _lastRouteLen! &&
+          !widget.model.complete) {
+        _pulseTip(checkpoint: isNewCheckpoint);
+      }
+      _lastRouteLen = path.length;
+      if (isNewCheckpoint && !MediaQuery.disableAnimationsOf(context)) {
         _pulsedCheckpointCell = tipCell;
         _checkpointPulse.forward(from: 0);
       }
@@ -480,6 +569,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
                         visual: _visual,
                         animatedVisual: _animatedVisual,
                         rejection: _rejection,
+                        rejectedMove: () => _rejectedMove,
                         reduced: MediaQuery.disableAnimationsOf(context),
                       ),
                     ),
@@ -1346,6 +1436,7 @@ void paintTip(
   PathTip style,
   TipVisual v, {
   Offset? drawTip,
+  double tipScale = 1.0,
 }) {
   final tipPos = drawTip ?? v.tip;
   final checkpoint = puzzle.numbers[v.cell] != 0;
@@ -1370,7 +1461,7 @@ void paintTip(
       );
     }
   }
-  paintPathTip(canvas, tipPos, tipRadiusOf(style), style, palette);
+  paintPathTip(canvas, tipPos, tipRadiusOf(style) * tipScale, style, palette);
 }
 
 /// The tip and its leading segment. Pointer motion repaints only this layer.
@@ -1383,11 +1474,13 @@ class _TipPainter extends CustomPainter {
     required this.visual,
     required this.animatedVisual,
     required this.rejection,
+    required this.rejectedMove,
     required this.reduced,
   }) : super(
          repaint: Listenable.merge([
            visual,
            animatedVisual,
+           rejection,
            GameAssetCache.instance,
          ]),
        );
@@ -1397,21 +1490,30 @@ class _TipPainter extends CustomPainter {
   final PathTip tipStyle;
   final List<int> route;
   final ValueNotifier<TipVisual?> visual;
-  final ValueNotifier<Offset?> animatedVisual;
+  final ValueNotifier<({Offset tip, double scale})?> animatedVisual;
   final AnimationController rejection;
+  final RejectedMove? Function() rejectedMove;
   final bool reduced;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // The rejection layer draws the tip while its temporary segment plays.
-    if (rejection.isAnimating && !reduced) return;
+    // The rejection layer draws the tip only while an active rejection animates.
+    if (rejection.isAnimating && !reduced && rejectedMove() != null) return;
     final v =
         visual.value ??
         TipTracker.rest(puzzle, route, checkpointLead: tipLead(tipStyle));
     final anim = reduced ? null : animatedVisual.value;
     canvas.save();
     canvas.scale(size.width / puzzle.size);
-    paintTip(canvas, puzzle, palette, tipStyle, v, drawTip: anim);
+    paintTip(
+      canvas,
+      puzzle,
+      palette,
+      tipStyle,
+      v,
+      drawTip: anim?.tip,
+      tipScale: anim?.scale ?? 1.0,
+    );
     canvas.restore();
   }
 
@@ -1465,10 +1567,12 @@ class _RejectionPainter extends CustomPainter {
     );
     final from = center(origin), to = center(destination);
     final t = animation.value;
-    final segment = t < .16
-        ? Curves.easeOut.transform(t / .16)
-        : t < .42
-        ? 1 - Curves.easeIn.transform((t - .16) / .26)
+    final segment = t < .18
+        ? Curves.easeOut.transform(t / .18)
+        : t < .44
+        ? 1 - Curves.easeInOut.transform((t - .18) / .26)
+        : t < .66
+        ? 0.16 * math.sin(((t - .44) / .22) * math.pi)
         : 0.0;
     // Stop the round cap at a wall; leave checkpoint numbers unobscured.
     final distance = move.reason == MoveRejection.wall && move.from == origin

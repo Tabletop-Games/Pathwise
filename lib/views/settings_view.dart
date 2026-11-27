@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../cloud/cloud_sync_service.dart';
 import '../logic/ad_service.dart';
+import '../logic/notification_service.dart';
 import '../logic/social_sharing.dart';
 import '../logic/update_service.dart';
 import '../model/app_model.dart';
@@ -152,6 +153,8 @@ class SettingsView extends StatelessWidget {
                       onChanged: model.setHaptics,
                     ),
                   ]),
+                  if (defaultTargetPlatform == TargetPlatform.android)
+                    _NotificationSettingsSection(model: model, palette: p),
                   section('Gameplay', [
                     ListTile(
                       leading: GameArt(ArtKind.levels, palette: p, size: 28),
@@ -449,7 +452,7 @@ class _KeyStatsGrid extends StatelessWidget {
       ('${summary.hintFree}', 'Hint-free'),
       ('${summary.totalStars}', 'Stars earned'),
       ('${summary.dayStreak}', 'Current streak'),
-      ('${summary.longestStreak}', 'Longest streak'),
+      ('${summary.longestPlayStreak}', 'Longest streak'),
       (formatTime(summary.playTime), 'Play time'),
     ];
     return GameCard(
@@ -1098,4 +1101,186 @@ class _CheckForUpdatesState extends State<_CheckForUpdates> {
             messenger.showSnackBar(SnackBar(content: Text(message)));
           },
   );
+}
+
+class _NotificationSettingsSection extends StatelessWidget {
+  const _NotificationSettingsSection({
+    required this.model,
+    required this.palette,
+  });
+
+  final AppModel model;
+  final BoardPalette palette;
+
+  String _formatMinutes(BuildContext context, int minutes) {
+    final time = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+    return time.format(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notifications = context.watch<NotificationService?>();
+    if (notifications == null) return const SizedBox.shrink();
+    final prefs = model.notificationPreferences;
+    final permitted = notifications.permissionGranted;
+    final learnedMinutes = notifications.adaptiveMinutesFor(prefs);
+
+    Future<void> toggleMaster(bool value) async {
+      if (value && !permitted && !prefs.permissionAsked) {
+        final granted = await notifications.requestPermission();
+        model.updateNotificationPreferences((p) {
+          p.permissionAsked = true;
+          p.enabled = granted;
+        });
+        return;
+      }
+      model.updateNotificationPreferences((p) => p.enabled = value);
+    }
+
+    Future<void> pickPreferredTime() async {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(
+          hour: prefs.preferredMinutes ~/ 60,
+          minute: prefs.preferredMinutes % 60,
+        ),
+      );
+      if (picked != null) {
+        model.updateNotificationPreferences(
+          (p) => p.preferredMinutes = picked.hour * 60 + picked.minute,
+        );
+      }
+    }
+
+    Future<void> pickQuietHours() async {
+      final start = await showTimePicker(
+        context: context,
+        helpText: 'Quiet hours start',
+        initialTime: TimeOfDay(
+          hour: prefs.quietStartMinutes ~/ 60,
+          minute: prefs.quietStartMinutes % 60,
+        ),
+      );
+      if (start == null || !context.mounted) return;
+      final end = await showTimePicker(
+        context: context,
+        helpText: 'Quiet hours end',
+        initialTime: TimeOfDay(
+          hour: prefs.quietEndMinutes ~/ 60,
+          minute: prefs.quietEndMinutes % 60,
+        ),
+      );
+      if (end != null) {
+        model.updateNotificationPreferences((p) {
+          p.quietStartMinutes = start.hour * 60 + start.minute;
+          p.quietEndMinutes = end.hour * 60 + end.minute;
+        });
+      }
+    }
+
+    final tiles = <Widget>[
+      SwitchListTile(
+        secondary: const Icon(Icons.notifications_none_rounded),
+        title: const Text('Reminders'),
+        subtitle: !permitted && prefs.permissionAsked
+            ? const Text('Blocked in Android settings')
+            : null,
+        value: prefs.enabled && permitted,
+        onChanged: toggleMaster,
+      ),
+      if (!permitted && prefs.permissionAsked)
+        ListTile(
+          title: const Text('Enable notifications in Android settings'),
+          trailing: ActionPill(
+            label: 'Open',
+            onTap: notifications.openSystemSettings,
+          ),
+        ),
+      if (prefs.enabled && permitted) ...[
+        SwitchListTile(
+          title: const Text('Daily challenge reminder'),
+          value: prefs.dailyReminder,
+          onChanged: (v) =>
+              model.updateNotificationPreferences((p) => p.dailyReminder = v),
+        ),
+        SwitchListTile(
+          title: const Text('Streak reminder'),
+          value: prefs.streakReminder,
+          onChanged: (v) =>
+              model.updateNotificationPreferences((p) => p.streakReminder = v),
+        ),
+        SwitchListTile(
+          title: const Text('Puzzle invitations'),
+          value: prefs.inviteReminder,
+          onChanged: (v) =>
+              model.updateNotificationPreferences((p) => p.inviteReminder = v),
+        ),
+        SwitchListTile(
+          title: const Text('Adaptive timing'),
+          subtitle: Text(
+            prefs.adaptiveTiming
+                ? 'Learns your play times (${_formatMinutes(context, learnedMinutes)})'
+                : 'Uses your preferred reminder time',
+          ),
+          value: prefs.adaptiveTiming,
+          onChanged: (v) =>
+              model.updateNotificationPreferences((p) => p.adaptiveTiming = v),
+        ),
+        ListTile(
+          title: const Text('Preferred reminder time'),
+          trailing: Text(
+            _formatMinutes(context, prefs.preferredMinutes),
+            style: TextStyle(
+              color: palette.mutedInk,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          onTap: pickPreferredTime,
+        ),
+        ListTile(
+          title: const Text('Quiet hours'),
+          trailing: Text(
+            '${_formatMinutes(context, prefs.quietStartMinutes)} – ${_formatMinutes(context, prefs.quietEndMinutes)}',
+            style: TextStyle(
+              color: palette.mutedInk,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          onTap: pickQuietHours,
+        ),
+      ],
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 6),
+            child: Text(
+              'Notifications',
+              style: TextStyle(
+                color: palette.mutedInk,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          GameCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) Divider(height: 1, color: palette.cardEdge),
+                  tiles[i],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

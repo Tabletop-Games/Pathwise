@@ -48,6 +48,10 @@ class _StoreViewState extends State<StoreView> {
   late int _category;
   bool _busy = false;
   bool _watching = false;
+  late final List<ScrollController> _tabScrolls = List.generate(
+    4,
+    (_) => ScrollController(),
+  );
 
   @override
   void initState() {
@@ -61,6 +65,32 @@ class _StoreViewState extends State<StoreView> {
       StoreSection.upgrades || StoreSection.premium => 3,
       null => 0,
     };
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _tabScrolls) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _selectCategory(int value) {
+    if (value == _category) {
+      final controller = _tabScrolls[value];
+      if (!controller.hasClients || controller.offset <= 0) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        controller.jumpTo(0);
+      } else {
+        controller.animateTo(
+          0,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      return;
+    }
+    setState(() => _category = value);
   }
 
   @override
@@ -99,7 +129,7 @@ class _StoreViewState extends State<StoreView> {
                       padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
                       child: GameSegmented<int>(
                         selected: _category,
-                        onChanged: (value) => setState(() => _category = value),
+                        onChanged: _selectCategory,
                         segments: const [
                           (value: 0, label: 'Themes'),
                           (value: 1, label: 'Tips'),
@@ -138,6 +168,7 @@ class _StoreViewState extends State<StoreView> {
       final width = (constraints.maxWidth - 24 - (columns - 1) * 8) / columns;
       return GridView.builder(
         key: const PageStorageKey('store-themes'),
+        controller: _tabScrolls[0],
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
         itemCount: PathwiseTheme.values.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -251,6 +282,7 @@ class _StoreViewState extends State<StoreView> {
       final large = MediaQuery.textScalerOf(context).scale(1) > 1.2;
       return GridView.builder(
         key: const PageStorageKey('store-tips'),
+        controller: _tabScrolls[1],
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
         itemCount: PathTip.values.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -283,11 +315,7 @@ class _StoreViewState extends State<StoreView> {
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: Center(
-                            child: TipArtwork(
-                              tip: tip,
-                              palette: palette,
-                              scale: .54,
-                            ),
+                            child: TipArtwork(tip: tip, palette: palette),
                           ),
                         ),
                       ),
@@ -332,6 +360,7 @@ class _StoreViewState extends State<StoreView> {
     final recommended = recommendedCoinPack(widget.coinShortfall);
     return ListView(
       key: const PageStorageKey('store-coins'),
+      controller: _tabScrolls[2],
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       children: [
         if (widget.coinShortfall > 0)
@@ -611,6 +640,7 @@ class _StoreViewState extends State<StoreView> {
     final buyable = billing.enabled && !billing.buying && !model.storageError;
     return ListView(
       key: const PageStorageKey('store-upgrades'),
+      controller: _tabScrolls[3],
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       children: [
         _UpgradeCard(

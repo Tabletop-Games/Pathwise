@@ -49,7 +49,7 @@ void paintPathTip(
   final spec = tipSpecFor(tip);
   final drawRadius = radius * spec.scale;
 
-  if (highContrast && !concealed) {
+  if (highContrast && !concealed && !catalogue) {
     canvas.drawCircle(
       center,
       drawRadius * 1.04,
@@ -118,19 +118,19 @@ class TipArtwork extends StatelessWidget {
   const TipArtwork({
     required this.tip,
     required this.palette,
-    this.scale = .62,
     this.concealed = false,
+    this.showContrastRing = false,
     super.key,
   });
 
   final PathTip tip;
   final BoardPalette palette;
-  final double scale;
   final bool concealed;
+  final bool showContrastRing;
 
   @override
   Widget build(BuildContext context) {
-    final highContrast = _isHighContrast(palette);
+    final highContrast = showContrastRing && _isHighContrast(palette);
     final shadowColor = Color.lerp(palette.tile, palette.ink, .28)!;
     final img = Image.asset(
       tipAssetPath(tip),
@@ -143,6 +143,7 @@ class TipArtwork extends StatelessWidget {
           tip: tip,
           palette: palette,
           concealed: concealed,
+          showContrastRing: showContrastRing,
         ),
       ),
     );
@@ -168,11 +169,13 @@ class _TipPlaceholderPainter extends CustomPainter {
     required this.tip,
     required this.palette,
     required this.concealed,
+    required this.showContrastRing,
   });
 
   final PathTip tip;
   final BoardPalette palette;
   final bool concealed;
+  final bool showContrastRing;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -183,11 +186,14 @@ class _TipPlaceholderPainter extends CustomPainter {
       tip,
       palette,
       concealed: concealed,
-      catalogue: true,
+      catalogue: !showContrastRing,
     );
   }
 
   @override
   bool shouldRepaint(_TipPlaceholderPainter old) =>
-      old.tip != tip || old.palette != palette || old.concealed != concealed;
+      old.tip != tip ||
+      old.palette != palette ||
+      old.concealed != concealed ||
+      old.showContrastRing != showContrastRing;
 }

@@ -649,11 +649,7 @@ void main() {
                                       borderRadius: BorderRadius.circular(23),
                                     ),
                                   ),
-                                  TipArtwork(
-                                    tip: tip,
-                                    palette: palette,
-                                    scale: .45,
-                                  ),
+                                  TipArtwork(tip: tip, palette: palette),
                                 ],
                               ),
                             ),

@@ -20,6 +20,7 @@ import 'fortune.dart';
 import 'game_state.dart';
 import 'journey.dart';
 import 'native_achievements.dart';
+import 'notification_preferences.dart';
 import 'play_streak.dart';
 import 'product_catalog.dart';
 import 'progression.dart';
@@ -1464,6 +1465,18 @@ class AppModel extends ChangeNotifier
   bool get soundEnabled => _prefs.soundEnabled;
   double get soundVolume => _prefs.soundVolume;
   bool get suggestSharing => _prefs.suggestSharing;
+  NotificationPreferences get notificationPreferences => _prefs.notifications;
+  bool get dailySolvedToday => result(daily) != null;
+  bool get streakQualifiedToday => streak.lastEarned == todayKey;
+  bool get streakProtectedToday => streak.days[todayKey] == 'protected';
+
+  void updateNotificationPreferences(
+    void Function(NotificationPreferences prefs) mutate,
+  ) {
+    mutate(_prefs.notifications);
+    notifyListeners();
+    unawaited(flush());
+  }
 
   void feedback(HapticEvent? hapticEvent, SoundEvent? soundEvent) {
     if (hapticEvent != null) haptic.trigger(hapticEvent);
@@ -2376,6 +2389,7 @@ class AppModel extends ChangeNotifier
       lastReward = coinBalance - coinsBefore;
       _celebrateAchievements(previousAchievements);
       _attempts.remove(id.key);
+      _prefs.notifications.recordActivity(_wallClock().millisecondsSinceEpoch);
       feedback(HapticEvent.puzzleComplete, SoundEvent.puzzleComplete);
       unawaited(flush());
     } else if (!fromHint) {

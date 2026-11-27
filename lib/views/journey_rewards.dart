@@ -540,7 +540,7 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
         ? (tipVisibleVerticalBounds[tip] ?? (0.02, 0.98))
         : (0.04, 0.96);
     final Widget revealed = tip != null
-        ? TipArtwork(tip: tip, palette: palette, scale: .5)
+        ? TipArtwork(tip: tip, palette: palette)
         : boost != null
         ? Image.asset(boostAssetPath(boost), fit: BoxFit.contain)
         : theme != null
@@ -550,7 +550,7 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
           )
         : GameArt(ArtKind.coinStack3, palette: palette);
     final Widget silhouette = tip != null
-        ? TipArtwork(tip: tip, palette: palette, scale: .5, concealed: true)
+        ? TipArtwork(tip: tip, palette: palette, concealed: true)
         : theme != null
         ? ClipRRect(
             borderRadius: BorderRadius.circular(size * 0.14),

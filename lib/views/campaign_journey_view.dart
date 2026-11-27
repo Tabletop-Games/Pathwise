@@ -144,14 +144,32 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
     final palette = BoardPalette.palettes[model.theme]!;
     final highContrast =
         model.theme == PathwiseTheme.signal ||
-        model.theme == PathwiseTheme.amoledCarbon ||
         MediaQuery.highContrastOf(context);
     final highest = model.highestUnlocked;
     final treasureCount = model.pendingChapterChests.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Journey'),
+        title: Semantics(
+          button: true,
+          label: 'Journey, jump to level ${model.highestUnlocked}',
+          excludeSemantics: true,
+          onTap: () {
+            playUiFeedback(context);
+            _focusLevel(model.highestUnlocked);
+          },
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              playUiFeedback(context);
+              _focusLevel(model.highestUnlocked);
+            },
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Text('Journey'),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Current level',
@@ -407,7 +425,7 @@ class _JourneyNode extends StatelessWidget {
     );
     final highContrast =
         palette == BoardPalette.palettes[PathwiseTheme.signal] ||
-        palette == BoardPalette.palettes[PathwiseTheme.amoledCarbon];
+        MediaQuery.highContrastOf(context);
     final platformAsset = current
         ? 'assets/art/journey/iso_platform_current.png'
         : !playable

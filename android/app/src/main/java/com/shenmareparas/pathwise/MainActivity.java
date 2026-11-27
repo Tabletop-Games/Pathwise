@@ -1,11 +1,14 @@
 package com.shenmareparas.pathwise;
 
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.Vibrator;
 import android.os.VibratorManager;
@@ -39,8 +42,37 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends FlutterActivity {
+    private static final int NOTIFICATION_PERMISSION_REQ = 941;
     private SoundPool soundPool;
     private final Map<String, Integer> soundIds = new HashMap<>();
+    private MethodChannel notificationChannel;
+    private MethodChannel.Result pendingPermissionResult;
+    private String initialNotificationTap;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        captureNotificationIntent(getIntent(), false);
+    }
+
+    @Override
+    protected void onNewIntent(@NonNull Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        captureNotificationIntent(intent, true);
+    }
+
+    private void captureNotificationIntent(Intent intent, boolean notifyFlutter) {
+        if (intent == null) return;
+        String category = intent.getStringExtra(NotificationHelper.EXTRA_CATEGORY);
+        if (category == null || category.isEmpty()) return;
+        intent.removeExtra(NotificationHelper.EXTRA_CATEGORY);
+        if (notifyFlutter && notificationChannel != null) {
+            notificationChannel.invokeMethod("onNotificationTap", category);
+        } else {
+            initialNotificationTap = category;
+        }
+    }
 
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
@@ -48,6 +80,7 @@ public class MainActivity extends FlutterActivity {
         CloudSaveChannel.register(engine, this);
         registerAudioChannel(engine);
         registerHapticsChannel(engine);
+        registerNotificationChannel(engine);
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
                 "games.tabletop.pathwise/commerce").setMethodCallHandler((call, result) -> {
             if (!call.method.equals("verifyPlayPurchase")) {
@@ -388,6 +421,97 @@ public class MainActivity extends FlutterActivity {
         }
         Vibrator v = getSystemService(Vibrator.class);
         return v != null && v.hasVibrator();
+    }
+
+    private void registerNotificationChannel(@NonNull FlutterEngine engine) {
+        NotificationHelper.ensureChannels(this);
+        notificationChannel = new MethodChannel(
+                engine.getDartExecutor().getBinaryMessenger(),
+                "games.tabletop.pathwise/notifications");
+        notificationChannel.setMethodCallHandler((call, result) -> {
+            switch (call.method) {
+                case "canPost":
+                    result.success(NotificationHelper.canPostNotifications(this));
+                    break;
+                case "requestPermission":
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                            || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                                    == PackageManager.PERMISSION_GRANTED) {
+                        result.success(NotificationHelper.canPostNotifications(this));
+                    } else if (pendingPermissionResult != null) {
+                        result.success(false);
+                    } else {
+                        pendingPermissionResult = result;
+                        requestPermissions(
+                                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                                NOTIFICATION_PERMISSION_REQ
+                        );
+                    }
+                    break;
+                case "openSettings":
+                    NotificationHelper.openNotificationSettings(this);
+                    result.success(null);
+                    break;
+                case "schedule": {
+                    Integer id = call.argument("id");
+                    String channel = call.argument("channel");
+                    String title = call.argument("title");
+                    String body = call.argument("body");
+                    String category = call.argument("category");
+                    Number triggerAt = call.argument("triggerAt");
+                    if (id != null && channel != null && title != null && body != null
+                            && category != null && triggerAt != null) {
+                        NotificationHelper.schedule(
+                                this, id, channel, title, body, category, triggerAt.longValue());
+                    }
+                    result.success(null);
+                    break;
+                }
+                case "showNow": {
+                    Integer id = call.argument("id");
+                    String channel = call.argument("channel");
+                    String title = call.argument("title");
+                    String body = call.argument("body");
+                    String category = call.argument("category");
+                    if (id != null && channel != null && title != null && body != null
+                            && category != null) {
+                        NotificationHelper.showNow(this, id, channel, title, body, category);
+                    }
+                    result.success(null);
+                    break;
+                }
+                case "cancel": {
+                    Integer id = call.argument("id");
+                    if (id != null) NotificationHelper.cancel(this, id);
+                    result.success(null);
+                    break;
+                }
+                case "cancelAll":
+                    NotificationHelper.cancelAll(this);
+                    result.success(null);
+                    break;
+                case "consumeInitialTap":
+                    String tap = initialNotificationTap;
+                    initialNotificationTap = null;
+                    result.success(tap);
+                    break;
+                default:
+                    result.notImplemented();
+            }
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        if (requestCode == NOTIFICATION_PERMISSION_REQ && pendingPermissionResult != null) {
+            boolean granted = grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            pendingPermissionResult.success(granted && NotificationHelper.canPostNotifications(this));
+            pendingPermissionResult = null;
+            return;
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
     @Override

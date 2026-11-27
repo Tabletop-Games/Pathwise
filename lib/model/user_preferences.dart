@@ -1,3 +1,5 @@
+import 'notification_preferences.dart';
+
 enum PathwiseTheme {
   field('Field'),
   blackwater('Blackwater'),
@@ -34,11 +36,14 @@ class UserPreferences {
     this.soundEnabled = true,
     double soundVolume = 0.75,
     this.suggestSharing = true,
-  }) : soundVolume = soundVolume.clamp(0.0, 1.0).toDouble();
+    NotificationPreferences? notifications,
+  }) : soundVolume = soundVolume.clamp(0.0, 1.0).toDouble(),
+       notifications = notifications ?? NotificationPreferences();
 
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
     final rawVolume = json['soundVolume'];
     final parsedVolume = rawVolume is num ? rawVolume.toDouble() : 0.75;
+    final rawNotif = json['notifications'];
     return UserPreferences(
       theme: PathwiseTheme.values.firstWhere(
         (theme) => theme.name == json['theme'],
@@ -50,6 +55,9 @@ class UserPreferences {
           ? parsedVolume.clamp(0.0, 1.0).toDouble()
           : 0.75,
       suggestSharing: json['suggestSharing'] != false,
+      notifications: rawNotif is Map<String, dynamic>
+          ? NotificationPreferences.fromJson(rawNotif)
+          : NotificationPreferences(),
     );
   }
 
@@ -58,6 +66,7 @@ class UserPreferences {
   bool soundEnabled;
   double soundVolume;
   bool suggestSharing;
+  NotificationPreferences notifications;
 
   Map<String, Object> toJson() => {
     'theme': theme.name,
@@ -65,5 +74,6 @@ class UserPreferences {
     'soundEnabled': soundEnabled,
     'soundVolume': soundVolume,
     'suggestSharing': suggestSharing,
+    'notifications': notifications.toJson(),
   };
 }

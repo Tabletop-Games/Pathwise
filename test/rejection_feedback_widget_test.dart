@@ -338,7 +338,7 @@ void main() {
       final sideways = await pixel(80, 185);
       expect(sideways[3], 0, reason: 'the tip stays on its vertical axis');
       await drag.up();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect((await pixel(50, 185))[3], 0, reason: 'transient tip is gone');
       expect(controls.path, [0, 3]);
     },
