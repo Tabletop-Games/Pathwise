@@ -197,6 +197,9 @@ class AdService extends ChangeNotifier {
         !_disposed &&
         await ConsentInformation.instance.canRequestAds() &&
         !_disposed) {
+      // Let the first frame and home screen settle before initializing WebView-heavy SDKs.
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (_disposed) return;
       await MobileAds.instance.initialize();
       if (_disposed) return;
       _canRequest = true;
