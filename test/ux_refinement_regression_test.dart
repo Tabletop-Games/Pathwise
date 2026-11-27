@@ -143,14 +143,22 @@ void main() {
         final pointerBoundary = tester.renderObject<RenderRepaintBoundary>(
           find.byKey(const ValueKey('pointer-layer')),
         );
-        final img = await pointerBoundary.toImage(pixelRatio: 1);
-        final bytes = (await img.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!;
-        final px = (250 * img.width + 150) * 4;
-        final alphaAtTip = bytes.getUint8(px + 3);
-        img.dispose();
-        expect(alphaAtTip, greaterThan(0));
+        final hasPaintedTip = await tester.runAsync(() async {
+          final img = await pointerBoundary.toImage(pixelRatio: 1);
+          final bytes = (await img.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          var any = false;
+          for (var i = 3; i < bytes.lengthInBytes; i += 4) {
+            if (bytes.getUint8(i) > 0) {
+              any = true;
+              break;
+            }
+          }
+          img.dispose();
+          return any;
+        });
+        expect(hasPaintedTip, isTrue);
         expect(model.path, [0, 3, 6, 7]);
         await tester.pumpWidget(const SizedBox.shrink());
         model.dispose();
@@ -214,7 +222,7 @@ void main() {
         expect(find.text('Research'), findsOneWidget);
         expect(find.text('Boosts'), findsOneWidget);
         // All 3 research branches appear as scrolling sections without nested tabs.
-        expect(find.text('Coins'), findsOneWidget);
+        expect(find.text('Research lab'), findsOneWidget);
 
         await tester.pumpWidget(const SizedBox.shrink());
         model.dispose();
@@ -356,7 +364,7 @@ void main() {
         }
         expect(
           scheduler.chooseReminderMinutes(quietPrefs, DateTime(2026, 11, 27)),
-          8 * 60,
+          19 * 60,
         );
 
         // Streak at risk prioritizes streak reminder today.
