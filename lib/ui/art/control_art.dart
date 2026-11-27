@@ -73,7 +73,7 @@ final _glyphs = <ControlGlyph, Path>{
     (
       ControlGlyph.settings,
       'M 12 8.8 C 13.8 8.8 15.2 10.2 15.2 12 C 15.2 13.8 13.8 15.2 12 15.2 C 10.2 15.2 8.8 13.8 8.8 12 C 8.8 10.2 10.2 8.8 12 8.8 Z '
-          'M 10.4 3 L 13.6 3 L 14.1 5.3 L 16 6.1 L 18 4.8 L 20.2 7 L 18.9 9 L 19.7 10.9 L 22 11.4 L 22 14.6 L 19.7 15.1 L 18.9 17 L 20.2 19 L 18 21.2 L 16 19.9 L 14.1 20.7 L 13.6 23 L 10.4 23 L 9.9 20.7 L 8 19.9 L 6 21.2 L 3.8 19 L 5.1 17 L 4.3 15.1 L 2 14.6 L 2 11.4 L 4.3 10.9 L 5.1 9 L 3.8 7 L 6 4.8 L 8 6.1 L 9.9 5.3 Z',
+      'M 10.4 3 L 13.6 3 L 14.1 5.3 L 16 6.1 L 18 4.8 L 20.2 7 L 18.9 9 L 19.7 10.9 L 22 11.4 L 22 14.6 L 19.7 15.1 L 18.9 17 L 20.2 19 L 18 21.2 L 16 19.9 L 14.1 20.7 L 13.6 23 L 10.4 23 L 9.9 20.7 L 8 19.9 L 6 21.2 L 3.8 19 L 5.1 17 L 4.3 15.1 L 2 14.6 L 2 11.4 L 4.3 10.9 L 5.1 9 L 3.8 7 L 6 4.8 L 8 6.1 L 9.9 5.3 Z',
     ),
     (ControlGlyph.back, 'M 11 5 L 4 12 L 11 19 M 4 12 L 21 12'),
     (ControlGlyph.close, 'M 6 6 L 18 18 M 18 6 L 6 18'),
@@ -142,31 +142,35 @@ class PathIcon extends StatelessWidget {
   final ControlGlyph glyph;
   final double size;
 
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: CustomPaint(
-      painter: _ControlPainter(
-        glyph,
-        IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface,
-      ),
-    ),
-  );
-}
+  static IconData iconFor(ControlGlyph glyph) => switch (glyph) {
+    ControlGlyph.home => Icons.home_rounded,
+    ControlGlyph.levels => Icons.explore_rounded,
+    ControlGlyph.calendar => Icons.calendar_today_rounded,
+    ControlGlyph.timer => Icons.timer_rounded,
+    ControlGlyph.collections => Icons.collections_bookmark_rounded,
+    ControlGlyph.store => Icons.storefront_rounded,
+    ControlGlyph.research => Icons.science_rounded,
+    ControlGlyph.boost => Icons.bolt_rounded,
+    ControlGlyph.wheel => Icons.casino_rounded,
+    ControlGlyph.statistics => Icons.bar_chart_rounded,
+    ControlGlyph.settings => Icons.settings_rounded,
+    ControlGlyph.back => Icons.arrow_back_rounded,
+    ControlGlyph.close => Icons.close_rounded,
+    ControlGlyph.undo => Icons.undo_rounded,
+    ControlGlyph.clear => Icons.refresh_rounded,
+    ControlGlyph.hint => Icons.lightbulb_outline_rounded,
+    ControlGlyph.play => Icons.play_arrow_rounded,
+    ControlGlyph.pause => Icons.pause_rounded,
+    ControlGlyph.share => Icons.share_rounded,
+    ControlGlyph.lock => Icons.lock_rounded,
+    ControlGlyph.check => Icons.check_rounded,
+    ControlGlyph.cloud => Icons.cloud_outlined,
+    ControlGlyph.connection => Icons.wifi_rounded,
+    ControlGlyph.sound => Icons.volume_up_rounded,
+    ControlGlyph.haptics => Icons.vibration_rounded,
+    ControlGlyph.accessibility => Icons.accessibility_new_rounded,
+  };
 
-class _ControlPainter extends CustomPainter {
-  const _ControlPainter(this.glyph, this.ink);
-  final ControlGlyph glyph;
-  final Color ink;
-
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.translate(size.width / 2, size.height / 2);
-    canvas.scale(size.shortestSide / 2);
-    paintControl(canvas, glyph, ink);
-  }
-
-  @override
-  bool shouldRepaint(_ControlPainter oldDelegate) =>
-      glyph != oldDelegate.glyph || ink != oldDelegate.ink;
+  Widget build(BuildContext context) => Icon(iconFor(glyph), size: size);
 }
