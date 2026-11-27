@@ -77,14 +77,19 @@ class _FallingCrateState extends State<FallingCrate>
           builder: (_, child) {
             final time = _flight.value;
             final distance = time * (.65 + .35 * time);
-            final horizontalRoom = max(
-              0.0,
-              constraints.maxWidth - _size - 2 * _edge,
+            final minLeft = max(_edge, constraints.maxWidth * 0.10);
+            final maxLeft = max(
+              minLeft,
+              min(
+                constraints.maxWidth - _size - _edge,
+                constraints.maxWidth * 0.90 - _size,
+              ),
             );
+            final horizontalRoom = max(0.0, maxLeft - minLeft);
             return Stack(
               children: [
                 Positioned(
-                  left: _edge + _horizontal * horizontalRoom,
+                  left: minLeft + _horizontal * horizontalRoom,
                   top: reduce
                       ? constraints.maxHeight * .12
                       : -_size + (constraints.maxHeight + _size) * distance,

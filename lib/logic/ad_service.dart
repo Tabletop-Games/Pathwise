@@ -17,7 +17,8 @@ class AdService extends ChangeNotifier {
     this.onRewardedClosed,
     this.isConnected,
     this.onAdPlayingChanged,
-    bool testAds = const bool.fromEnvironment('PATHWISE_ADS_TEST'),
+    bool testAds =
+        kDebugMode || const bool.fromEnvironment('PATHWISE_ADS_TEST'),
   }) : _test = !kReleaseMode && testAds;
   final Future<bool> Function()? reserveInterstitial;
   final VoidCallback? onRewardedClosed;
@@ -29,7 +30,8 @@ class AdService extends ChangeNotifier {
   final bool _test;
   static const _verifyConsent =
       kReleaseMode && bool.fromEnvironment('PATHWISE_ADS_VERIFY_CONSENT');
-  static const _enabled = bool.fromEnvironment('PATHWISE_ADS_ENABLED');
+  static const _enabled =
+      kDebugMode || bool.fromEnvironment('PATHWISE_ADS_ENABLED');
   static const _privacyConfigured = bool.fromEnvironment(
     'PATHWISE_ADS_CONSENT_CONFIGURED',
   );
