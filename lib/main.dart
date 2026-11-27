@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'cloud/cloud_save_provider.dart';
 import 'cloud/cloud_sync_service.dart';
@@ -378,6 +379,9 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     _model = context.read<AppModel>();
     _notifications = NotificationService();
     _notifications.attachTapHandler(_handleNotificationTap);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_requestNotificationPermissionOnce()),
+    );
     _model.addListener(_scheduleNotificationSync);
     final connectivity = widget.connectivity;
     _achievements = AchievementSync(
@@ -441,6 +445,24 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
       const Duration(milliseconds: 500),
       () => unawaited(_syncNotificationsNow()),
     );
+  }
+
+  Future<void> _requestNotificationPermissionOnce() async {
+    if (!mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('notif_permission_prompted_v1') ?? false) return;
+      await prefs.setBool('notif_permission_prompted_v1', true);
+      if (!mounted) return;
+      final alreadyGranted = await _notifications.refreshPermission();
+      if (alreadyGranted || !mounted) return;
+      final granted = await _notifications.requestPermission();
+      if (granted && mounted) {
+        unawaited(_syncNotificationsNow());
+      }
+    } catch (_) {
+      // Ignore in widget tests where platform channels are not registered.
+    }
   }
 
   Future<void> _syncNotificationsNow() async {
