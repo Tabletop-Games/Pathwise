@@ -242,18 +242,35 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                             }
                           });
                         }
-                        return ListView.builder(
-                          padding: EdgeInsets.zero,
-                          reverse: true,
-                          itemExtent: _extent,
-                          controller: _scroll,
-                          itemBuilder: (context, index) => _buildStop(
-                            context,
-                            model,
-                            palette,
-                            highContrast,
-                            index,
-                          ),
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: _JourneyWorldPainter(
+                                    scroll: _scroll!,
+                                    extent: _extent,
+                                    palette: palette,
+                                    highContrast: highContrast,
+                                    highestUnlocked: highest,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ListView.builder(
+                              padding: EdgeInsets.zero,
+                              reverse: true,
+                              itemExtent: _extent,
+                              controller: _scroll,
+                              itemBuilder: (context, index) => _buildStop(
+                                context,
+                                model,
+                                palette,
+                                highContrast,
+                                index,
+                              ),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -276,7 +293,6 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
   ) {
     final chapter = index ~/ _slotsPerChapter;
     final position = index % _slotsPerChapter;
-    final biome = _biomeForChapter(chapter);
     final first = chapter * chapterSize + 1;
     final level = chapter * chapterSize + position;
     final isHeader = position == 0;
@@ -290,59 +306,39 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
           : level,
     );
 
-    final Widget stop;
     if (isHeader) {
-      stop = _ChapterHeaderStop(chapter: chapter, palette: palette);
-    } else if (isTreasure) {
-      stop = _ChestStop(chapter, palette);
-    } else {
-      final id = PuzzleId.level(level);
-      final result = model.result(id);
-      stop = _JourneyNode(
-        level: level,
-        palette: palette,
-        x: stopX,
-        playable: unlocked,
-        current: level == model.highestUnlocked,
-        stars: result == null ? null : model.starsFor(id),
-        onTap: unlocked
-            ? () => openPuzzle(
-                context,
-                id,
-                replay: result != null && !model.hasAttempt(id),
-              )
-            : () {
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      content: Text(
-                        'Clear Level ${model.highestUnlocked} first to unlock Level $level',
-                      ),
-                    ),
-                  );
-              },
-      );
+      return _ChapterHeaderStop(chapter: chapter, palette: palette);
     }
-
-    return CustomPaint(
-      painter: _JourneyLandscape(
-        chapter: chapter,
-        position: position,
-        palette: palette,
-        biome: biome,
-        highContrast: highContrast,
-        pathBelowReached: unlocked,
-        pathAboveReached: model.canPlayLevel(
-          isHeader
-              ? first
-              : isTreasure
-              ? chapterEnd(chapter) + 1
-              : level + 1,
-        ),
-      ),
-      child: stop,
+    if (isTreasure) {
+      return _ChestStop(chapter, palette);
+    }
+    final id = PuzzleId.level(level);
+    final result = model.result(id);
+    return _JourneyNode(
+      level: level,
+      palette: palette,
+      x: stopX,
+      playable: unlocked,
+      current: level == model.highestUnlocked,
+      stars: result == null ? null : model.starsFor(id),
+      onTap: unlocked
+          ? () => openPuzzle(
+              context,
+              id,
+              replay: result != null && !model.hasAttempt(id),
+            )
+          : () {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    content: Text(
+                      'Clear Level ${model.highestUnlocked} first to unlock Level $level',
+                    ),
+                  ),
+                );
+            },
     );
   }
 }
