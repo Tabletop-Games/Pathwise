@@ -85,6 +85,44 @@ void main() {
     billing.dispose();
   });
 
+  testWidgets('the Store reopens on the category the player last used', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final model = AppModel(storage: MemoryStorage(), snapshot: {});
+    final ads = AdService();
+    final billing = BillingService(persist: (_) async => true);
+    Widget store() => MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: model),
+        ChangeNotifierProvider.value(value: ads),
+        ChangeNotifierProvider.value(value: billing),
+      ],
+      child: MaterialApp(
+        theme: BoardPalette.palettes[PathwiseTheme.field]!.theme,
+        home: const StoreView(),
+      ),
+    );
+    await tester.pumpWidget(store());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('theme-card-field')), findsOneWidget);
+    await tester.tap(find.text('Coins'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(store());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('free-coins')), findsOneWidget);
+    // The memory belongs to the session, so a new player starts on Themes.
+    final fresh = AppModel(storage: MemoryStorage(), snapshot: {});
+    expect(fresh.lastStoreCategory, 0);
+    fresh.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+    model.dispose();
+    ads.dispose();
+    billing.dispose();
+  });
+
   test('every paid tip keeps its price and the catalogue has 19 tips', () {
     expect(PathTip.values.length, 19);
     expect(PathTip.classic.price, 0);

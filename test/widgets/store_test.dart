@@ -229,10 +229,7 @@ void main() {
   testWidgets(
     'TipArtwork in Store omits circular contrast ring on signal/amoled',
     (tester) async {
-      for (final theme in [
-        PathwiseTheme.signal,
-        PathwiseTheme.amoledCarbon,
-      ]) {
+      for (final theme in [PathwiseTheme.signal, PathwiseTheme.amoledCarbon]) {
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(

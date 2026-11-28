@@ -97,9 +97,7 @@ void main() {
       // Move to cell 1 (which only has backtracking to 0 because walls block 2 and 4).
       final grid = find.byKey(const ValueKey('puzzle-grid'));
       final topLeft = tester.getTopLeft(grid);
-      final gesture = await tester.startGesture(
-        topLeft + const Offset(50, 50),
-      );
+      final gesture = await tester.startGesture(topLeft + const Offset(50, 50));
       await gesture.moveTo(topLeft + const Offset(150, 50));
       await tester.pump();
       expect(controls.path, [0, 1]);

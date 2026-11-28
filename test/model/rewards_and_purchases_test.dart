@@ -10,15 +10,13 @@ import '../support/fixtures.dart';
 
 final day = DateTime(2026, 11, 22);
 
-AppModel create(
-  MemoryStorage store, [
-  Map<String, dynamic> saved = const {},
-]) => AppModel(
-  storage: store,
-  snapshot: saved,
-  today: () => day,
-  loader: (_) async => fixture(),
-)..setHaptics(false);
+AppModel create(MemoryStorage store, [Map<String, dynamic> saved = const {}]) =>
+    AppModel(
+      storage: store,
+      snapshot: saved,
+      today: () => day,
+      loader: (_) async => fixture(),
+    )..setHaptics(false);
 
 AppModel app(
   MemoryStorage store, {

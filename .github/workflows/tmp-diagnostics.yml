@@ -35,7 +35,24 @@ jobs:
         run: flutter analyze --no-pub
       - name: Test
         continue-on-error: true
-        run: PATHWISE_CAPTURE_DIR="$RUNNER_TEMP/captures" flutter test --no-pub --reporter expanded
+        run: PATHWISE_CAPTURE_DIR="$RUNNER_TEMP/captures" flutter test --no-pub --coverage --reporter expanded
+      - name: Coverage summary
+        run: |
+          python3 - <<'PY'
+          import re
+          hit=found=0; files={}
+          cur=None
+          for l in open('coverage/lcov.info'):
+              l=l.strip()
+              if l.startswith('SF:'): cur=l[3:]; files[cur]=[0,0]
+              elif l.startswith('LF:'): files[cur][1]=int(l[3:]); found+=int(l[3:])
+              elif l.startswith('LH:'): files[cur][0]=int(l[3:]); hit+=int(l[3:])
+          print('=====COVERAGE-BEGIN=====')
+          print(f'TOTAL {hit}/{found} = {100*hit/found:.1f}%')
+          for f,(h,n) in sorted(files.items(), key=lambda kv: (kv[1][0]/max(kv[1][1],1))):
+              if n>=40: print(f'{100*h/n:5.1f}% {h:5d}/{n:5d} {f}')
+          print('=====COVERAGE-END=====')
+          PY
       - name: Upload captures
         if: always()
         uses: actions/upload-artifact@v4

@@ -160,5 +160,4 @@ void main() {
       app.dispose();
     },
   );
-
 }

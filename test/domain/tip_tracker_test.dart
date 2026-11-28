@@ -309,38 +309,35 @@ void main() {
     });
   });
 
-  test(
-    'TipTracker stops short of out-of-bounds, walls, and closed gates',
-    () {
-      // 3x3 board, start at 0, wall between 0 and 1, only legal move is down (1 -> cell 3).
-      final puzzle = Puzzle(3, [0, 8], walls: [(0, 1)]);
-      final tracker = TipTracker();
+  test('TipTracker stops short of out-of-bounds, walls, and closed gates', () {
+    // 3x3 board, start at 0, wall between 0 and 1, only legal move is down (1 -> cell 3).
+    final puzzle = Puzzle(3, [0, 8], walls: [(0, 1)]);
+    final tracker = TipTracker();
 
-      final rightDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.85, 0.5),
-        canEnter: (c) => c == 3,
-      );
-      expect(rightDrag.tip.dx, lessThan(0.85));
+    final rightDrag = tracker.update(
+      puzzle: puzzle,
+      route: const [0],
+      pointer: const Offset(0.85, 0.5),
+      canEnter: (c) => c == 3,
+    );
+    expect(rightDrag.tip.dx, lessThan(0.85));
 
-      final upDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.5, 0.15),
-        canEnter: (c) => c == 3,
-      );
-      expect(upDrag.tip.dy, closeTo(0.08, 1e-9));
+    final upDrag = tracker.update(
+      puzzle: puzzle,
+      route: const [0],
+      pointer: const Offset(0.5, 0.15),
+      canEnter: (c) => c == 3,
+    );
+    expect(upDrag.tip.dy, closeTo(0.08, 1e-9));
 
-      final leftDrag = tracker.update(
-        puzzle: puzzle,
-        route: const [0],
-        pointer: const Offset(0.15, 0.5),
-        canEnter: (c) => c == 3,
-      );
-      expect(leftDrag.tip.dx, greaterThan(0.15));
-    },
-  );
+    final leftDrag = tracker.update(
+      puzzle: puzzle,
+      route: const [0],
+      pointer: const Offset(0.15, 0.5),
+      canEnter: (c) => c == 3,
+    );
+    expect(leftDrag.tip.dx, greaterThan(0.15));
+  });
 
   test(
     'TipTracker.rest centers on normal cells and offsets above checkpoints',

@@ -52,7 +52,6 @@ Future<void> clear(AppModel model, int level, {bool replay = false}) async {
   await model.flush();
 }
 
-
 /// In-memory [KeyValueStore] with the same contract as the preferences store.
 class MemoryKeyValueStore implements KeyValueStore {
   final values = <String, String>{};

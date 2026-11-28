@@ -4,37 +4,30 @@ import '../../lib/model/economy.dart';
 import '../../lib/model/progression.dart';
 
 void main() {
-  test(
-    'Economy 2.0 does not compound research bonuses with timed boosts',
-    () {
-      expect(
-        economy.campaignClearCoins(
-          multiplier: 4,
-          magnetBonus: 10,
-          goldenBonus: 8,
-          momentumBonus: 0,
-        ),
-        38,
-      );
-      expect(
-        economy.campaignClearCoins(
-          multiplier: 4,
-          magnetBonus: 10,
-          goldenBonus: 8,
-          momentumBonus: 16,
-        ),
-        54,
-      );
-      expect(
-        economy.dailyClearCoins(
-          multiplier: 4,
-          fortuneBonus: 16,
-          goldenBonus: 8,
-        ),
-        64,
-      );
-    },
-  );
+  test('Economy 2.0 does not compound research bonuses with timed boosts', () {
+    expect(
+      economy.campaignClearCoins(
+        multiplier: 4,
+        magnetBonus: 10,
+        goldenBonus: 8,
+        momentumBonus: 0,
+      ),
+      38,
+    );
+    expect(
+      economy.campaignClearCoins(
+        multiplier: 4,
+        magnetBonus: 10,
+        goldenBonus: 8,
+        momentumBonus: 16,
+      ),
+      54,
+    );
+    expect(
+      economy.dailyClearCoins(multiplier: 4, fortuneBonus: 16, goldenBonus: 8),
+      64,
+    );
+  });
 
   test('advanced cost and benefit bounds and single-slot boost caps hold', () {
     final progress = Progression({

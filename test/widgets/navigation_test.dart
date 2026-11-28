@@ -15,32 +15,33 @@ import '../support/fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('PathwiseScrollBehavior clamps scrolling and draws no overscroll', (
-    tester,
-  ) async {
-    const behavior = PathwiseScrollBehavior();
-    late BuildContext context;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (c) {
-            context = c;
-            return const SizedBox();
-          },
+  testWidgets(
+    'PathwiseScrollBehavior clamps scrolling and draws no overscroll',
+    (tester) async {
+      const behavior = PathwiseScrollBehavior();
+      late BuildContext context;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (c) {
+              context = c;
+              return const SizedBox();
+            },
+          ),
         ),
-      ),
-    );
-    expect(behavior.getScrollPhysics(context), isA<ClampingScrollPhysics>());
-    const child = SizedBox();
-    expect(
-      behavior.buildOverscrollIndicator(
-        context,
-        child,
-        const ScrollableDetails(direction: AxisDirection.down),
-      ),
-      same(child),
-    );
-  });
+      );
+      expect(behavior.getScrollPhysics(context), isA<ClampingScrollPhysics>());
+      const child = SizedBox();
+      expect(
+        behavior.buildOverscrollIndicator(
+          context,
+          child,
+          const ScrollableDetails(direction: AxisDirection.down),
+        ),
+        same(child),
+      );
+    },
+  );
 
   testWidgets(
     'Journey AppBar title is tappable and Upgrades has no nested tabs',
@@ -63,10 +64,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(
-        find.bySemanticsLabel('Journey, jump to level 1'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Journey, jump to level 1'), findsOneWidget);
 
       await tester.pumpWidget(
         MultiProvider(
