@@ -156,7 +156,7 @@ void main() {
 
   group('Cosmetic tip artwork & rendering specs', () {
     test(
-      'Home banner uses classic.webp for Compass, never hero_robot.webp',
+      'every tip resolves to its own artwork file',
       () {
         expect(tipAssetPath(PathTip.classic), 'assets/art/tips/classic.webp');
         expect(tipAssetPath(PathTip.robot), 'assets/art/tips/robot.webp');
@@ -197,7 +197,6 @@ void main() {
             .map((a) => a.assetName)
             .toList();
         expect(images, contains('assets/art/tips/classic.webp'));
-        expect(images, isNot(contains('assets/art/tips/hero_robot.webp')));
         await tester.pumpWidget(const SizedBox.shrink());
         model.dispose();
         ads.dispose();

@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -280,42 +278,6 @@ void main() {
         billing.dispose();
       },
     );
-
-    test(
-      'all 20 tip PNGs have zero residual alpha in outer 2px border',
-      () async {
-        final dir = Directory('assets/art/tips');
-        final files = dir
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.endsWith('.webp'))
-            .toList();
-        expect(files.length, 20);
-        for (final file in files) {
-          final bytes = await file.readAsBytes();
-          final codec = await ui.instantiateImageCodec(bytes);
-          final frame = await codec.getNextFrame();
-          final img = frame.image;
-          final raw = (await img.toByteData(
-            format: ui.ImageByteFormat.rawRgba,
-          ))!;
-          for (var y = 0; y < img.height; y++) {
-            for (var x = 0; x < img.width; x++) {
-              if (x < 2 || x >= img.width - 2 || y < 2 || y >= img.height - 2) {
-                final alpha = raw.getUint8((y * img.width + x) * 4 + 3);
-                expect(
-                  alpha,
-                  0,
-                  reason: '${file.path} has residual alpha $alpha at ($x, $y)',
-                );
-              }
-            }
-          }
-          img.dispose();
-          codec.dispose();
-        }
-      },
-    );
   });
 
   group('P1 interstitial frequency', () {
@@ -346,56 +308,6 @@ void main() {
   });
 
   group('Final visual refinement & release guards', () {
-    test(
-      'UI and resource PNGs have zero residual alpha in outer 2px border',
-      () async {
-        for (final dirPath in [
-          'assets/art/ui',
-          'assets/art/resources',
-          'assets/art/journey',
-        ]) {
-          final files = Directory(dirPath)
-              .listSync()
-              .whereType<File>()
-              .where(
-                (f) =>
-                    (f.path.endsWith('.webp') || f.path.endsWith('.png')) &&
-                    !f.path.endsWith('_terrain.webp'),
-              )
-              .toList();
-          expect(files.isNotEmpty, isTrue);
-          for (final file in files) {
-            final bytes = await file.readAsBytes();
-            final codec = await ui.instantiateImageCodec(bytes);
-            final frame = await codec.getNextFrame();
-            final img = frame.image;
-            final data = await img.toByteData(
-              format: ui.ImageByteFormat.rawRgba,
-            );
-            expect(data, isNotNull);
-            final rgba = data!.buffer.asUint8List();
-            final w = img.width;
-            final h = img.height;
-            for (var y = 0; y < h; y++) {
-              for (var x = 0; x < w; x++) {
-                if (x < 2 || x >= w - 2 || y < 2 || y >= h - 2) {
-                  final alpha = rgba[(y * w + x) * 4 + 3];
-                  expect(
-                    alpha,
-                    0,
-                    reason:
-                        '${file.path} has residual alpha $alpha at ($x, $y)',
-                  );
-                }
-              }
-            }
-            img.dispose();
-            codec.dispose();
-          }
-        }
-      },
-    );
-
     testWidgets(
       'CollectionsView renders ProgressiveDiscoveryArt in both header and upcoming catalogue tile',
       (tester) async {

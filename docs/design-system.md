@@ -18,6 +18,7 @@ A polished, illustrated mobile puzzle game: a large board and a campaign path in
 | Tip tracking | `lib/logic/tip_tracker.dart` |
 | Journey scenery | `lib/views/journey_landscape.dart`, `lib/views/campaign_journey_view.dart` |
 | Bundled artwork | `assets/art/` (tips, resources, ui, biomes, journey) |
+| Google Play listing art (not bundled) | `docs/media/pathwise-feature-graphic.png`, `docs/media/pathwise-play-icon.png`, `docs/media/play-games/` |
 | Sound effects | `assets/audio/`, `lib/logic/sound_service.dart` |
 | Haptics | `lib/logic/haptic_service.dart` |
 

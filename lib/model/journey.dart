@@ -211,20 +211,4 @@ class Discovery {
     }
     return null;
   }
-
-  String get displayName {
-    if (isCoins) return '$coinAmount coins';
-    if (boost case final b?) return '${b.multiplier}× ${b.title}';
-    if (tip case final t?) return t.label;
-    if (theme case final th?) return th.name;
-    return item;
-  }
-
-  String get categoryLabel {
-    if (isCoins) return 'Coin pouch';
-    if (isBoost) return 'Coin boost';
-    if (isTip) return 'Path tip';
-    if (isTheme) return 'Theme';
-    return 'Mystery reward';
-  }
 }

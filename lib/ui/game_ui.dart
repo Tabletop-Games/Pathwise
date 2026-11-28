@@ -27,8 +27,6 @@ void playUiFeedback(
 /// Spacing, radii and timings used across the whole app.
 abstract final class GameTokens {
   static const double gap = 8;
-  static const double gapSmall = 4;
-  static const double gapLarge = 16;
   static const double margin = 16;
   static const double cardRadius = 20;
   static const double pillRadius = 999;
@@ -89,9 +87,6 @@ extension GameColors on BoardPalette {
       : Color.lerp(route, dark ? Colors.white : surface, .18)!;
   Color get buttonBottom =>
       _isSignal ? route : Color.lerp(route, Colors.black, .16)!;
-
-  /// Subtle atmospheric particle tint.
-  Color get particleColor => Color.lerp(route, accent, .45)!;
 
   /// Foreground that is readable on [background].
   Color onColor(Color background) => background.computeLuminance() > .42
