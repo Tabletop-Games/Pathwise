@@ -87,6 +87,11 @@ final class GameController {
     var next = cell;
     while (true) {
       final from = trial.last;
+      if (puzzle.walls.any(
+        (w) => (w.$1 == from && w.$2 == next) || (w.$1 == next && w.$2 == from),
+      )) {
+        return (reason: MoveRejection.wall, from: from, target: next);
+      }
       if (trial.contains(next)) {
         final forced = trial.length > _path.length;
         final reason = forced && puzzle.portal?.$1 == from
