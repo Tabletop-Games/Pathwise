@@ -604,19 +604,27 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   for (final cell in removable) {
     if (b.clues.length <= floor) break;
     b.clues.remove(cell);
-    // Logic that decides every edge also proves the solution unique, so the
-    // exact search is left for the final certification.
-    stats.deduceCalls++;
-    final logic = deduce(
-      b.puzzle(),
-      maxTier: cap,
-      trace: false,
-      deepBudget: _trialBudget,
-    );
-    if (logic.solved) {
-      removed.add(cell);
-    } else {
+    // The exact search rejects most removals in a few nodes; only boards
+    // that stay unique are worth the cost of solving by logic.
+    final puzzle = b.puzzle();
+    stats.solverCalls++;
+    final proof = solve(puzzle, budget: 40000);
+    stats.solverNodes += proof.nodes;
+    var keep = !proof.unique;
+    if (!keep) {
+      stats.deduceCalls++;
+      keep =
+          !deduce(
+            puzzle,
+            maxTier: cap,
+            trace: false,
+            deepBudget: _trialBudget,
+          ).solved;
+    }
+    if (keep) {
       b.clues.add(cell);
+    } else {
+      removed.add(cell);
     }
   }
 

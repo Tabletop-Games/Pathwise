@@ -660,22 +660,33 @@ class _Engine {
     return needed > t.area - 1 ? 'budget' : null;
   }
 
-  /// Assumes each undecided edge both ways on a copy of [s]. The first
+  /// Assumes the undecided edge [e] both ways on a copy of [s]. The
   /// assumption that breaks a rule decides the edge the other way.
+  _Hit? probeEdge(
+    _State s,
+    _State scratch,
+    int e, {
+    required bool counting,
+  }) {
+    scratch.copyFrom(s);
+    scratch.assign(e, 1);
+    final ifIn = propagate(scratch, null) ?? detect(scratch, counting: counting);
+    scratch.copyFrom(s);
+    scratch.assign(e, 2);
+    final ifOut =
+        propagate(scratch, null) ?? detect(scratch, counting: counting);
+    if (ifIn != null && ifOut != null) return _Hit(e, 0, 'inconsistent');
+    if (ifIn != null) return _Hit(e, 2, ifIn);
+    if (ifOut != null) return _Hit(e, 1, ifOut);
+    return null;
+  }
+
+  /// The first edge, in order, that one assumption decides.
   _Hit? probeScan(_State s, _State scratch, {required bool counting}) {
     for (var e = 0; e < t.edgeCount; e++) {
       if (s.edge[e] != 0) continue;
-      scratch.copyFrom(s);
-      scratch.assign(e, 1);
-      final ifIn =
-          propagate(scratch, null) ?? detect(scratch, counting: counting);
-      scratch.copyFrom(s);
-      scratch.assign(e, 2);
-      final ifOut =
-          propagate(scratch, null) ?? detect(scratch, counting: counting);
-      if (ifIn != null && ifOut != null) return _Hit(e, 0, 'inconsistent');
-      if (ifIn != null) return _Hit(e, 2, ifIn);
-      if (ifOut != null) return _Hit(e, 1, ifOut);
+      final hit = probeEdge(s, scratch, e, counting: counting);
+      if (hit != null) return hit;
     }
     return null;
   }
@@ -765,6 +776,42 @@ DeductionResult deduce(
     emit(_Step('portal_link', link, 1, -1), 0);
   }
 
+  // Applies a lookahead result, then the propagation it unlocks.
+  bool applyHit(_Hit hit, String kind) {
+    if (hit.value == 0 || !state.assign(hit.edge, hit.value)) return false;
+    rounds++;
+    depth++;
+    emit(_Step(kind, hit.edge, hit.value, -1), depth);
+    raw.clear();
+    final broken = engine.propagate(state, raw);
+    if (raw.isNotEmpty) {
+      for (final step in raw) {
+        emit(step, depth + step.pass);
+      }
+      depth += engine.lastPasses;
+    }
+    return broken == null;
+  }
+
+  // One sweep over the undecided edges. Every success is applied at once and
+  // the sweep carries on, so a board with many lookahead deductions is not
+  // rescanned from the start each time.
+  bool sweep({required bool counting}) {
+    var any = false;
+    for (var e = 0; e < t.edgeCount; e++) {
+      if (state.edge[e] != 0) continue;
+      final hit = engine.probeEdge(state, engine.probe, e, counting: counting);
+      if (hit == null) continue;
+      if (!applyHit(hit, _techniqueFor(hit.kind))) {
+        inconsistent = true;
+        return true;
+      }
+      any = true;
+      if (state.unknown == 0) break;
+    }
+    return any;
+  }
+
   while (true) {
     raw.clear();
     final broken = engine.propagate(state, raw);
@@ -779,26 +826,22 @@ DeductionResult deduce(
       inconsistent = true;
       break;
     }
-    if (state.unknown == 0) break;
-    if (maxTier < 2) break;
-    var hit = engine.probeScan(state, engine.probe, counting: false);
-    var kind = hit == null ? null : _techniqueFor(hit.kind);
-    if (hit == null && maxTier >= 3) {
-      hit = engine.probeScan(state, engine.probe, counting: true);
-      if (hit != null) kind = _techniqueFor(hit.kind);
+    if (state.unknown == 0 || maxTier < 2) break;
+    if (sweep(counting: false)) {
+      if (inconsistent) break;
+      continue;
     }
-    if (hit == null && maxTier >= 3) {
-      hit = engine.deepScan(state, deepBudget);
-      if (hit != null) kind = 'probe_deep';
+    if (maxTier < 3) break;
+    if (sweep(counting: true)) {
+      if (inconsistent) break;
+      continue;
     }
-    if (hit == null) break;
-    if (hit.value == 0 || !state.assign(hit.edge, hit.value)) {
+    final deep = engine.deepScan(state, deepBudget);
+    if (deep == null) break;
+    if (!applyHit(deep, 'probe_deep')) {
       inconsistent = true;
       break;
     }
-    rounds++;
-    depth++;
-    emit(_Step(kind!, hit.edge, hit.value, -1), depth);
   }
 
   List<int>? path;
