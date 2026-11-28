@@ -88,12 +88,15 @@ void run(List<PuzzleSpec> specs, {required bool detail}) {
     total++;
     times.add(watch.elapsedMilliseconds);
     for (final entry in stats.rejections.entries) {
-      reasons.update(entry.key, (n) => n + entry.value, ifAbsent: () => entry.value);
+      reasons.update(
+        entry.key,
+        (n) => n + entry.value,
+        ifAbsent: () => entry.value,
+      );
     }
     final profile = board?.profile;
     if (stats.fallback > 0) fallbacks++;
-    final group =
-        '${spec.band.name}/${spec.archetype.name}/${spec.size}';
+    final group = '${spec.band.name}/${spec.archetype.name}/${spec.size}';
     final tally = summary.putIfAbsent(group, () => [0, 0, 0]);
     tally[0]++;
     if (stats.fallback > 0) tally[1]++;

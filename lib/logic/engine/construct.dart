@@ -126,21 +126,20 @@ int _color(int n, int cell) => (cell % n + cell ~/ n) & 1;
 (int, int)? _choosePortal(int n, Set<Wall> walls, PuzzleRandom rng) {
   final probe = Puzzle(n, [0, n * n - 1], walls: walls);
   final distances = <int, List<int>>{};
-  List<int> distanceFrom(int source) =>
-      distances.putIfAbsent(source, () {
-        final dist = List<int>.filled(n * n, -1);
-        dist[source] = 0;
-        final queue = [source];
-        for (var head = 0; head < queue.length; head++) {
-          final cell = queue[head];
-          for (final next in probe.neighbors[cell]) {
-            if (probe.isWalled(cell, next) || dist[next] != -1) continue;
-            dist[next] = dist[cell] + 1;
-            queue.add(next);
-          }
-        }
-        return dist;
-      });
+  List<int> distanceFrom(int source) => distances.putIfAbsent(source, () {
+    final dist = List<int>.filled(n * n, -1);
+    dist[source] = 0;
+    final queue = [source];
+    for (var head = 0; head < queue.length; head++) {
+      final cell = queue[head];
+      for (final next in probe.neighbors[cell]) {
+        if (probe.isWalled(cell, next) || dist[next] != -1) continue;
+        dist[next] = dist[cell] + 1;
+        queue.add(next);
+      }
+    }
+    return dist;
+  });
   final options = <(int, int)>[];
   final wanted = math.max(3, n - 2);
   for (var a = 0; a < n * n; a++) {
@@ -278,8 +277,7 @@ bool _wallsFromAlternative(
 }
 
 Formation? _stripFormation(PuzzleRandom rng, int n) =>
-    buildSkeleton(Archetype.corridors, n, rng, DifficultyBand.easy)
-        .firstOrNull;
+    buildSkeleton(Archetype.corridors, n, rng, DifficultyBand.easy).firstOrNull;
 
 /// Relative weights for how to remove alternative solutions, by archetype.
 ({int clue, int wall, int ice, int gate}) _weights(PuzzleSpec spec) {
@@ -456,7 +454,9 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   final ceiling = low + (math.min(high, 100) - low) * fraction;
   final removable = [
     for (final cell in b.route)
-      if (b.clues.contains(cell) && cell != b.route.first && cell != b.route.last)
+      if (b.clues.contains(cell) &&
+          cell != b.route.first &&
+          cell != b.route.last)
         cell,
   ];
   rng.shuffle(removable);
@@ -599,8 +599,5 @@ Accepted? _finish(
       reports.length +
       walk.trapDepth * 0.5;
   final quality = richness - (difficulty - centre).abs() * 0.15;
-  return Accepted(
-    VerifiedPuzzle(puzzle, b.route, profile: profile),
-    quality,
-  );
+  return Accepted(VerifiedPuzzle(puzzle, b.route, profile: profile), quality);
 }

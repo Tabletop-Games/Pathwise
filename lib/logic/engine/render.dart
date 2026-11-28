@@ -42,9 +42,7 @@ String describeBoard(Puzzle p, {List<int>? route}) {
     final below = StringBuffer('+');
     for (var column = 0; column < n; column++) {
       final cell = row * n + column;
-      below.write(
-        row == n - 1 || p.isWalled(cell, cell + n) ? '---+' : '   +',
-      );
+      below.write(row == n - 1 || p.isWalled(cell, cell + n) ? '---+' : '   +');
     }
     lines.add(below.toString());
   }

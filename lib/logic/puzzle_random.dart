@@ -36,9 +36,8 @@ final class PuzzleRandom {
 
   /// A new generator whose stream depends only on this one's state and
   /// [salt].
-  PuzzleRandom fork(int salt) => PuzzleRandom(
-    ((_next() ^ (salt * 0x9E3779B1)) * 0x85EBCA6B) & 0xFFFFFFFF,
-  );
+  PuzzleRandom fork(int salt) =>
+      PuzzleRandom(((_next() ^ (salt * 0x9E3779B1)) * 0x85EBCA6B) & 0xFFFFFFFF);
 }
 
 /// FNV-1a hash of a puzzle identity.

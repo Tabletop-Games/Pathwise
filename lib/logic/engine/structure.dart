@@ -255,7 +255,9 @@ int wallLimit(int size, DifficultyBand band) => switch (size) {
 
 /// Whether the cells stay connected once [walls] are drawn.
 bool staysConnected(int n, Set<Wall> walls) {
-  final blocked = {for (final (a, b) in walls) a * 64 + b, b * 64 + a};
+  final blocked = {
+    for (final (a, b) in walls) ...[a * 64 + b, b * 64 + a],
+  };
   final seen = <int>{0};
   final queue = [0];
   for (var head = 0; head < queue.length; head++) {

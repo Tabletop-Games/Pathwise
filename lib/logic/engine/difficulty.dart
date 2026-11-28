@@ -149,7 +149,11 @@ WalkAnalysis analyzeWalk(
     }
     for (final option in options) {
       if (option.first == solution[length]) continue;
-      final result = solve(puzzle, budget: budget, prefix: [...prefix, ...option]);
+      final result = solve(
+        puzzle,
+        budget: budget,
+        prefix: [...prefix, ...option],
+      );
       nodes += result.nodes;
       traps++;
       final reached = result.status == SolveStatus.inconclusive
@@ -179,11 +183,7 @@ double walkBonus(WalkAnalysis walk) {
 
 /// A model of how long a competent player takes. It is an estimate built from
 /// the deductions and decisions on the board, not a measurement.
-int expectedSolveMs(
-  Puzzle puzzle,
-  DeductionResult result,
-  WalkAnalysis walk,
-) {
+int expectedSolveMs(Puzzle puzzle, DeductionResult result, WalkAnalysis walk) {
   var tier2 = 0;
   var tier3 = 0;
   for (final entry in result.techniques.entries) {

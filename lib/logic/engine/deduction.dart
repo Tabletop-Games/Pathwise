@@ -24,10 +24,8 @@ const techniqueTiers = <String, int>{
 /// Plain-language reasons, suitable for explanatory hints.
 const techniqueText = <String, String>{
   'portal_link': 'The two portal cells are always joined by the route.',
-  'forced_degree':
-      'This cell has no other exit, so the route must use both of its open sides.',
-  'saturated_cell':
-      'The route already enters and leaves this cell, so it cannot use any other side.',
+  'forced_degree': 'This cell has no other exit, so the route must use both of its open sides.',
+  'saturated_cell': 'The route already enters and leaves this cell, so it cannot use any other side.',
   'ice_straight': 'Ice must be crossed in a straight line.',
   'no_loop': 'Joining these two ends of the same route would close a loop.',
   'order_merge':
@@ -38,10 +36,8 @@ const techniqueText = <String, String>{
       'Trying this move forces the numbers or the key and gate out of order.',
   'probe_isolation':
       'Trying this move cuts the board into pieces the route cannot all visit.',
-  'probe_budget':
-      'Trying this move leaves too few cells to reach the checkpoints in order.',
-  'probe_deep':
-      'Trying this move leads, after two steps of reasoning, to a contradiction.',
+  'probe_budget': 'Trying this move leaves too few cells to reach the checkpoints in order.',
+  'probe_deep': 'Trying this move leads, after two steps of reasoning, to a contradiction.',
 };
 
 /// One logical step: an edge between two cells is decided.
@@ -405,7 +401,12 @@ class _Engine {
           if (s.edge[e] != 0) continue;
           if (!s.assign(e, value)) return 'dead_end';
           log?.add(
-            _Step(saturated ? 'saturated_cell' : 'forced_degree', e, value, cell),
+            _Step(
+              saturated ? 'saturated_cell' : 'forced_degree',
+              e,
+              value,
+              cell,
+            ),
           );
           changed = true;
         }
@@ -416,7 +417,8 @@ class _Engine {
             a != -1 && b != -1 && s.edge[a] != 2 && s.edge[b] != 2;
         bool anyIn(int a, int b) =>
             (a != -1 && s.edge[a] == 1) || (b != -1 && s.edge[b] == 1);
-        final horizontal = open(sides[0], sides[1]) && !anyIn(sides[2], sides[3]);
+        final horizontal =
+            open(sides[0], sides[1]) && !anyIn(sides[2], sides[3]);
         final vertical = open(sides[2], sides[3]) && !anyIn(sides[0], sides[1]);
         if (!horizontal && !vertical) return 'dead_end';
         if (horizontal == vertical) continue;
@@ -623,10 +625,12 @@ class _Engine {
       if (s.edge[e] != 0) continue;
       scratch.copyFrom(s);
       scratch.assign(e, 1);
-      final ifIn = propagate(scratch, null) ?? detect(scratch, counting: counting);
+      final ifIn =
+          propagate(scratch, null) ?? detect(scratch, counting: counting);
       scratch.copyFrom(s);
       scratch.assign(e, 2);
-      final ifOut = propagate(scratch, null) ?? detect(scratch, counting: counting);
+      final ifOut =
+          propagate(scratch, null) ?? detect(scratch, counting: counting);
       if (ifIn != null && ifOut != null) return _Hit(e, 0, 'inconsistent');
       if (ifIn != null) return _Hit(e, 2, ifIn);
       if (ifOut != null) return _Hit(e, 1, ifOut);
