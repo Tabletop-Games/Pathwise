@@ -615,7 +615,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     return null;
   }
   stats.frontier.add(logicDifficulty(full));
-  if (logicDifficulty(full) < low - 6) {
+  if (logicDifficulty(full) < low - 4) {
     stats.reject('band_low');
     return null;
   }

@@ -50,7 +50,15 @@ List<PuzzleSpec> gridSpecs(int seeds) {
   ];
   for (final band in DifficultyBand.values) {
     for (final (archetype, walls, ice, gate, portal) in mechanics) {
-      for (final size in const [4, 5, 6, 7]) {
+      final sizes = switch (band) {
+        DifficultyBand.beginner => const [4, 5],
+        DifficultyBand.easy => const [4, 5],
+        DifficultyBand.intermediate => const [5, 6],
+        DifficultyBand.advanced => const [5, 6, 7],
+        DifficultyBand.expert => const [6, 7],
+        DifficultyBand.master => const [7],
+      };
+      for (final size in sizes) {
         for (var seed = 0; seed < seeds; seed++) {
           specs.add(
             PuzzleSpec(

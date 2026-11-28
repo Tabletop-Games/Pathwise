@@ -34,9 +34,9 @@ const _wave = [0.0, 0.05, 0.1, -0.04, 0.12, 0.17, 0.06, 0.2, -0.12, 0.26];
 DifficultyBand _bandFor(double target) {
   if (target < 0.1) return DifficultyBand.beginner;
   if (target < 0.24) return DifficultyBand.easy;
-  if (target < 0.44) return DifficultyBand.intermediate;
-  if (target < 0.64) return DifficultyBand.advanced;
-  if (target < 0.82) return DifficultyBand.expert;
+  if (target < 0.42) return DifficultyBand.intermediate;
+  if (target < 0.6) return DifficultyBand.advanced;
+  if (target < 0.78) return DifficultyBand.expert;
   return DifficultyBand.master;
 }
 
@@ -46,7 +46,7 @@ int _sizeFor(DifficultyBand band, int level, PuzzleRandom rng) {
     DifficultyBand.easy => [4, 5, 5],
     DifficultyBand.intermediate => [5, 5, 6],
     DifficultyBand.advanced => [5, 6, 6, 7],
-    DifficultyBand.expert => [6, 6, 7, 7],
+    DifficultyBand.expert => [6, 7, 7],
     DifficultyBand.master => [7],
   };
   final cap = level <= 12

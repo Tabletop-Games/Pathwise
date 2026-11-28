@@ -45,12 +45,12 @@ double logicDifficulty(DeductionResult result) {
 
 /// Inclusive lower and exclusive upper difficulty bounds for a band.
 (double, double) bandRange(DifficultyBand band) => switch (band) {
-  DifficultyBand.beginner => (0, 15),
-  DifficultyBand.easy => (15, 28),
-  DifficultyBand.intermediate => (28, 42),
-  DifficultyBand.advanced => (42, 56),
-  DifficultyBand.expert => (56, 70),
-  DifficultyBand.master => (70, 101),
+  DifficultyBand.beginner => (0, 10),
+  DifficultyBand.easy => (10, 20),
+  DifficultyBand.intermediate => (20, 32),
+  DifficultyBand.advanced => (32, 44),
+  DifficultyBand.expert => (44, 56),
+  DifficultyBand.master => (56, 101),
 };
 
 DifficultyBand bandFor(double difficulty) {
