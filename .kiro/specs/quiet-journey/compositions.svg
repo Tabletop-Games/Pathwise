@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="480" viewBox="0 0 900 480">
-<rect width="900" height="480" fill="#e8dfcf"/>
-<g fill="#faf5e9"><rect x="24" y="18" width="260" height="444" rx="12"/><rect x="320" y="18" width="260" height="444" rx="12"/><rect x="616" y="18" width="260" height="444" rx="12"/></g>
-<g fill="#273b30" font-family="serif"><text x="48" y="65" font-size="30">Pathwise</text><text x="48" y="260" font-size="27">First Light</text><text x="48" y="285" font-size="15">Level 8 · 7 of 25 solved</text><text x="48" y="395" font-size="21">Daily Challenge</text><text x="375" y="223" font-size="29">Level complete</text><text x="416" y="259" font-size="18">+5 coins</text><text x="361" y="317" font-size="15">Discovery · 80%</text><text x="361" y="414" font-size="16">Optional reward bonus</text><text x="642" y="65" font-size="30">Collections</text><text x="642" y="123" font-size="19">Discoveries</text><text x="642" y="221" font-size="19">Path tips</text><text x="642" y="352" font-size="19">Themes</text></g>
-<g fill="none" stroke="#829789" stroke-width="2"><path d="M48 206 Q95 145 133 170 T260 130 M48 218 Q95 166 133 183 T260 150 M48 228 Q95 186 133 200 T260 173"/><path d="M368 145 Q417 163 425 127 T535 98"/><path d="M361 335H514"/></g>
-<g fill="#273b30"><rect x="48" y="307" width="211" height="45" rx="10"/><rect x="361" y="351" width="180" height="45" rx="10"/><circle cx="368" cy="145" r="5"/><circle cx="535" cy="98" r="5"/></g>
-<g fill="#faf5e9" font-family="sans-serif" font-size="15"><text x="69" y="335">Continue</text><text x="428" y="379">Next</text></g>
-<g fill="#a2ad93"><circle cx="672" cy="273" r="24"/><path d="M730 248l26 25-26 25-25-25z"/><path d="M800 248l28 25-28 25z"/><rect x="642" y="373" width="55" height="45" rx="4"/><rect x="710" y="373" width="55" height="45" rx="4"/><rect x="778" y="373" width="55" height="45" rx="4"/></g>
-</svg>

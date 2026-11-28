@@ -18,7 +18,7 @@ def main():
     required = ("KEYSTORE", "STORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
     signing = {name: os.environ.get(f"PATHWISE_{name}") for name in required}
     if not all(signing.values()):
-        sys.exit("Set the four PATHWISE signing variables documented in setup.md.")
+        sys.exit("Set the four PATHWISE signing variables documented in docs/development.md.")
 
     native_metadata = "BUNDLE-METADATA/com.android.tools.build.debugsymbols/"
     signature = re.compile(r"META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$", re.I)

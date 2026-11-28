@@ -739,7 +739,7 @@ void writeRatesCsv(StringBuffer csv) {
 }
 
 void main() {
-  final reportDir = Directory('docs/reports');
+  final reportDir = Directory('build/economy_reports');
   if (!reportDir.existsSync()) reportDir.createSync(recursive: true);
 
   final researchCost = Research.values
@@ -828,12 +828,12 @@ void main() {
   final ratesCsv = StringBuffer();
   writeRatesCsv(ratesCsv);
 
-  File('docs/reports/economy_simulation.csv')
+  File('build/economy_reports/economy_simulation.csv')
       .writeAsStringSync(simCsv.toString());
-  File('docs/reports/boost_profitability.csv')
+  File('build/economy_reports/boost_profitability.csv')
       .writeAsStringSync(boostCsv.toString());
-  File('docs/reports/research_payback.csv')
+  File('build/economy_reports/research_payback.csv')
       .writeAsStringSync(researchCsv.toString());
-  File('docs/reports/economy_rates.csv').writeAsStringSync(ratesCsv.toString());
-  print('\nWrote CSV reports to docs/reports/*.csv');
+  File('build/economy_reports/economy_rates.csv').writeAsStringSync(ratesCsv.toString());
+  print('\nWrote CSV reports to build/economy_reports/*.csv');
 }

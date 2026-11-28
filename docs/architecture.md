@@ -2,7 +2,7 @@
 
 Pathwise is a local-first, offline-capable Android route-drawing puzzle built with Flutter and `Provider`. This document describes the target MVVM architecture, dependency boundaries, state ownership, transaction integrity, persistence/cloud sync, and practical development rules.
 
-For the repository-wide baseline audit and itemized findings, see [architecture-audit.md](architecture-audit.md).
+
 
 ---
 
