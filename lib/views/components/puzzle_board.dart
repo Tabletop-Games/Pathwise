@@ -1203,7 +1203,8 @@ class _BoardPainter extends CustomPainter {
       if (move != null && move.reason == MoveRejection.wall) {
         final a = _center(from), b = _center(to);
         final delta = b - a, midpoint = (a + b) / 2;
-        final ends = Offset(-delta.dy, delta.dx) * .44;
+        final ends =
+            Offset(-delta.dy, delta.dx) * (puzzle.walls.length > 1 ? .50 : .44);
         canvas.drawLine(
           midpoint - ends,
           midpoint + ends,
