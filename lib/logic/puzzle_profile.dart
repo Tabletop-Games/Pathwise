@@ -51,10 +51,15 @@ final class FormationReport {
     required this.kind,
     required this.cells,
     required this.relevance,
+    this.shape,
   });
 
   /// `wall`, `ice`, `gate` or `portal`.
   final String kind;
+
+  /// For walls, the formation shape: `bar`, `ell`, `u`, `zigzag`, `tee`,
+  /// `hook`, `chamber`, `partition` or `stagger`.
+  final String? shape;
 
   /// Number of wall edges, ice tiles, or 2 for pairs.
   final int cells;

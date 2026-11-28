@@ -35,6 +35,17 @@ final class Accepted {
 final class _Board {
   _Board(this.n);
 
+  _Board.copy(_Board other)
+    : n = other.n,
+      gate = other.gate,
+      portal = other.portal,
+      route = other.route,
+      index = other.index {
+    formations.addAll(other.formations);
+    ice.addAll(other.ice);
+    clues.addAll(other.clues);
+  }
+
   final int n;
   final List<Formation> formations = [];
   final Set<int> ice = {};
@@ -226,7 +237,18 @@ bool _clueFromUnknowns(_Board b, List<(int, int)> unknown, PuzzleRandom rng) {
 
 /// Makes a cell icy where the alternative route turns but the route goes
 /// straight.
-bool _iceFromAlternative(_Board b, List<int> alt, PuzzleRandom rng) {
+bool _iceFromAlternative(
+  _Board b,
+  List<int> alt,
+  PuzzleRandom rng,
+  DifficultyBand band,
+) {
+  final limit = switch (band) {
+    DifficultyBand.beginner || DifficultyBand.easy => 2,
+    DifficultyBand.intermediate => 3,
+    _ => 5,
+  };
+  if (b.ice.length >= limit) return false;
   final n = b.n;
   final altIndex = {for (final (i, cell) in alt.indexed) cell: i};
   final options = <int>[];
@@ -286,7 +308,7 @@ bool _wallsFromAlternative(
 ) {
   final limit = wallLimit(b.n, band);
   final current = b.walls;
-  if (current.length >= limit) return false;
+  if (current.length >= limit || b.formations.length >= 4) return false;
   final routeEdges = _edgeKeys(b.route);
   final altEdges = _edgeKeys(alt);
   Formation? best;
@@ -379,7 +401,7 @@ Relevance _relevance(
   final logic = deduce(without, maxTier: cap, trace: false);
   if (!logic.solved) return Relevance.supporting;
   if (logic.hardestTier > baseline.hardestTier ||
-      logicDifficulty(logic) >= logicDifficulty(baseline) + 4) {
+      logicDifficulty(logic) >= logicDifficulty(baseline) + 1) {
     return Relevance.supporting;
   }
   return Relevance.redundant;
@@ -450,7 +472,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
       case 'wall':
         applied = _wallsFromAlternative(b, alt, rng, spec.band);
       case 'ice':
-        applied = _iceFromAlternative(b, alt, rng);
+        applied = _iceFromAlternative(b, alt, rng, spec.band);
       case 'gate':
         applied = _gateFromAlternative(b, alt, rng);
     }
@@ -484,15 +506,8 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     return null;
   }
 
-  // Remove checkpoints while the board stays logic-solvable and below the
-  // difficulty target for its style.
-  final (low, high) = bandRange(spec.band);
-  final fraction = switch (spec.style) {
-    CheckpointStyle.guided => 0.15,
-    CheckpointStyle.standard => 0.55,
-    CheckpointStyle.sparse => 0.9,
-  };
-  final ceiling = low + (math.min(high, 100) - low) * fraction;
+  // Strip checkpoints down to the logic frontier: the fewest clues from which
+  // logic alone still solves the board. Parts that matter are judged there.
   final removable = [
     for (final cell in b.route)
       if (b.clues.contains(cell) &&
@@ -501,6 +516,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
         cell,
   ];
   rng.shuffle(removable);
+  final removed = <int>[];
   for (final cell in removable) {
     if (b.clues.length <= floor) break;
     b.clues.remove(cell);
@@ -511,52 +527,93 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     var keep = !proof.unique;
     if (!keep) {
       stats.deduceCalls++;
-      final logic = deduce(puzzle, maxTier: cap, trace: false);
-      keep = !logic.solved || logicDifficulty(logic) > ceiling;
+      keep = !deduce(puzzle, maxTier: cap, trace: false).solved;
     }
-    if (keep) b.clues.add(cell);
+    if (keep) {
+      b.clues.add(cell);
+    } else {
+      removed.add(cell);
+    }
   }
 
   // Drop mechanic parts that do not change how the board is solved.
   stats.deduceCalls++;
-  final full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  var full = deduce(b.puzzle(), maxTier: cap, trace: false);
   if (!full.solved) {
     stats.reject('lost_logic');
     return null;
   }
+  _dropRedundant(b, route, full, cap, stats);
+
+  // Give clues back until the board is no harder than its style allows.
+  final (low, high) = bandRange(spec.band);
+  final fraction = switch (spec.style) {
+    CheckpointStyle.guided => 0.15,
+    CheckpointStyle.standard => 0.55,
+    CheckpointStyle.sparse => 0.9,
+  };
+  final ceiling = low + (math.min(high, 100) - low) * fraction;
+  stats.deduceCalls++;
+  full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  while (logicDifficulty(full) > ceiling && removed.isNotEmpty) {
+    b.clues.add(removed.removeLast());
+    stats.deduceCalls++;
+    full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  }
+  if (!full.solved) {
+    stats.reject('lost_logic');
+    return null;
+  }
+  if (logicDifficulty(full) < low - 6) {
+    stats.reject('band_low');
+    return null;
+  }
+  _dropRedundant(b, route, full, cap, stats);
+
+  if (!_hasStructure(spec, b)) {
+    stats.reject('no_structure');
+    return null;
+  }
+  if ((spec.walls && b.formations.isEmpty) ||
+      (spec.ice && b.ice.isEmpty) ||
+      (spec.gate && b.gate == null)) {
+    stats.reject('mechanic_irrelevant');
+    return null;
+  }
+
+  stats.deduceCalls++;
+  full = deduce(b.puzzle(), maxTier: cap, trace: false);
   final reports = <FormationReport>[];
-  for (final formation in List.of(b.formations)) {
-    b.formations.remove(formation);
-    final relevance = _relevance(b.puzzle(), route, full, cap, stats);
-    if (relevance == Relevance.redundant) continue;
-    b.formations.add(formation);
+  for (final formation in b.formations) {
+    final without = _Board.copy(b)..formations.remove(formation);
     reports.add(
       FormationReport(
         kind: 'wall',
+        shape: formation.kind,
         cells: formation.edges.length,
-        relevance: relevance,
+        relevance: _relevance(without.puzzle(), route, full, cap, stats),
       ),
     );
   }
-  for (final cell in b.ice.toList()) {
-    b.ice.remove(cell);
-    final relevance = _relevance(b.puzzle(), route, full, cap, stats);
-    if (relevance == Relevance.redundant) continue;
-    b.ice.add(cell);
-    reports.add(FormationReport(kind: 'ice', cells: 1, relevance: relevance));
+  for (final cell in b.ice) {
+    final without = _Board.copy(b)..ice.remove(cell);
+    reports.add(
+      FormationReport(
+        kind: 'ice',
+        cells: 1,
+        relevance: _relevance(without.puzzle(), route, full, cap, stats),
+      ),
+    );
   }
-  final gate = b.gate;
-  if (gate != null) {
-    b.gate = null;
-    final relevance = _relevance(b.puzzle(), route, full, cap, stats);
-    if (relevance == Relevance.redundant) {
-      // Leave the gate off.
-    } else {
-      b.gate = gate;
-      reports.add(
-        FormationReport(kind: 'gate', cells: 2, relevance: relevance),
-      );
-    }
+  if (b.gate != null) {
+    final without = _Board.copy(b)..gate = null;
+    reports.add(
+      FormationReport(
+        kind: 'gate',
+        cells: 2,
+        relevance: _relevance(without.puzzle(), route, full, cap, stats),
+      ),
+    );
   }
   if (b.portal != null) {
     reports.add(
@@ -567,14 +624,69 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
       ),
     );
   }
-  if ((spec.walls && b.formations.isEmpty) ||
-      (spec.ice && b.ice.isEmpty) ||
-      (spec.gate && b.gate == null)) {
-    stats.reject('mechanic_irrelevant');
-    return null;
-  }
-
   return _finish(spec, b, stats, reports);
+}
+
+/// Removes every wall formation, ice cell or gate whose absence leaves the
+/// board as easy to solve as before. Repeats because each removal can change
+/// what the others contribute.
+void _dropRedundant(
+  _Board b,
+  List<int> route,
+  DeductionResult full,
+  int cap,
+  GenerationStats stats,
+) {
+  var changed = true;
+  var baseline = full;
+  while (changed) {
+    changed = false;
+    for (final formation in List.of(b.formations)) {
+      final without = _Board.copy(b)..formations.remove(formation);
+      if (_relevance(without.puzzle(), route, baseline, cap, stats) ==
+          Relevance.redundant) {
+        b.formations.remove(formation);
+        changed = true;
+      }
+    }
+    for (final cell in b.ice.toList()) {
+      final without = _Board.copy(b)..ice.remove(cell);
+      if (_relevance(without.puzzle(), route, baseline, cap, stats) ==
+          Relevance.redundant) {
+        b.ice.remove(cell);
+        changed = true;
+      }
+    }
+    if (b.gate != null) {
+      final without = _Board.copy(b)..gate = null;
+      if (_relevance(without.puzzle(), route, baseline, cap, stats) ==
+          Relevance.redundant) {
+        b.gate = null;
+        changed = true;
+      }
+    }
+    if (changed) {
+      stats.deduceCalls++;
+      baseline = deduce(b.puzzle(), maxTier: cap, trace: false);
+    }
+  }
+}
+
+/// Whether the walls that survived still express the archetype.
+bool _hasStructure(PuzzleSpec spec, _Board b) {
+  final big = [
+    for (final f in b.formations)
+      if (f.edges.length >= math.max(4, b.n - 1) ||
+          const {'chamber', 'partition', 'stagger'}.contains(f.kind))
+        f,
+  ];
+  return switch (spec.archetype) {
+    Archetype.corridors ||
+    Archetype.chambers ||
+    Archetype.bottleneck => big.isNotEmpty,
+    Archetype.interlock => b.formations.length >= 2 && big.isNotEmpty,
+    _ => true,
+  };
 }
 
 Accepted? _finish(
