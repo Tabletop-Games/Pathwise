@@ -984,6 +984,7 @@ class CollectionsView extends StatelessWidget {
                       apply: theme == model.theme
                           ? null
                           : () => model.setTheme(theme),
+                      previewTheme: theme,
                     ),
                 ],
               ),
@@ -1064,6 +1065,7 @@ class _AlbumItem extends StatelessWidget {
     required this.silhouette,
     required this.unlockHint,
     required this.apply,
+    this.previewTheme,
   });
   final String label;
   final bool owned;
@@ -1071,6 +1073,7 @@ class _AlbumItem extends StatelessWidget {
   final Widget silhouette;
   final String unlockHint;
   final VoidCallback? apply;
+  final PathwiseTheme? previewTheme;
 
   @override
   Widget build(BuildContext context) {
@@ -1085,38 +1088,79 @@ class _AlbumItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           onTap: () => showDialog<void>(
             context: context,
-            builder: (dialog) => GameDialog(
-              title: owned ? label : 'Mystery item',
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox.square(
-                    dimension: 140,
-                    child: owned ? artwork : silhouette,
-                  ),
-                  if (!owned) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      unlockHint,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: palette.mutedInk, fontSize: 13),
+            builder: (dialog) {
+              if (owned && previewTheme != null) {
+                final candidate = BoardPalette.palettes[previewTheme!]!;
+                return Theme(
+                  data: candidate.theme,
+                  child: Builder(
+                    builder: (ctx) => GameDialog(
+                      title: label,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: candidate.canvas,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: artwork,
+                        ),
+                      ),
+                      actions: [
+                        ActionPill(
+                          label: 'Close',
+                          onTap: () => Navigator.pop(dialog),
+                        ),
+                        if (apply != null)
+                          ActionPill(
+                            label: 'Apply',
+                            tone: ActionTone.primary,
+                            onTap: () {
+                              apply!();
+                              Navigator.pop(dialog);
+                            },
+                          ),
+                      ],
                     ),
-                  ],
-                ],
-              ),
-              actions: [
-                if (owned && apply != null)
-                  ActionPill(
-                    label: 'Apply',
-                    tone: ActionTone.primary,
-                    onTap: () {
-                      apply!();
-                      Navigator.pop(dialog);
-                    },
                   ),
-                ActionPill(label: 'Close', onTap: () => Navigator.pop(dialog)),
-              ],
-            ),
+                );
+              }
+              return GameDialog(
+                title: owned ? label : 'Mystery item',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 140,
+                      child: owned ? artwork : silhouette,
+                    ),
+                    if (!owned) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        unlockHint,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: palette.mutedInk, fontSize: 13),
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  if (owned && apply != null)
+                    ActionPill(
+                      label: 'Apply',
+                      tone: ActionTone.primary,
+                      onTap: () {
+                        apply!();
+                        Navigator.pop(dialog);
+                      },
+                    ),
+                  ActionPill(
+                    label: 'Close',
+                    onTap: () => Navigator.pop(dialog),
+                  ),
+                ],
+              );
+            },
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
