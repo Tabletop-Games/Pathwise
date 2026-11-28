@@ -13,7 +13,7 @@ A polished, illustrated mobile puzzle game: a large board and a campaign path in
 | Palettes and themes (23, including AMOLED and High Contrast) | `lib/model/app_themes.dart`, `lib/model/user_preferences.dart` (`PathwiseTheme`) |
 | Tokens, shared widgets, dialogs | `lib/ui/game_ui.dart` (`GameTokens`, `GameCard`, `PricePill`, `ActionPill`, `GameSegmented`, `GameBar`, `ProgressPips`, `RatingStar`, `BalanceChip`, `RewardAmount`, `InfoChip`, `GameDialog`) |
 | Illustration lookup and image cache | `lib/ui/art/game_assets.dart`, `lib/ui/game_art.dart` |
-| Resource and control glyphs | `lib/ui/art/resource_art.dart`, `lib/ui/art/control_art.dart` |
+| Control glyphs | `lib/ui/art/control_art.dart` |
 | Tip artwork and board tip rendering | `lib/views/components/tip_art.dart`, `lib/views/components/puzzle_board.dart` |
 | Tip tracking | `lib/logic/tip_tracker.dart` |
 | Journey scenery | `lib/views/journey_landscape.dart`, `lib/views/campaign_journey_view.dart` |
@@ -24,11 +24,11 @@ A polished, illustrated mobile puzzle game: a large board and a campaign path in
 
 ## Themes and accessibility
 
-`test/theme_palette_contrast_test.dart` checks every palette in `PathwiseTheme.values`. Text must reach 4.5:1 and meaningful graphics 3:1 against the colour actually behind them. Cosmetic artwork in the Store and collections is shown as it is; only the tip on the board gets a contrast halo, and only on the High Contrast and AMOLED themes.
+`test/model/theme_contrast_test.dart` checks every palette in `PathwiseTheme.values`. Text must reach 4.5:1 and meaningful graphics 3:1 against the colour actually behind them. Cosmetic artwork in the Store and collections is shown as it is; only the tip on the board gets a contrast halo, and only on the High Contrast and AMOLED themes.
 
 ## Visual regression
 
-`test/ui_captures_test.dart` renders the main screens on six reference themes and at several viewports and text scales, and fails on overflow. Run it with `PATHWISE_CAPTURE_DIR=/path flutter test test/ui_captures_test.dart` to write PNGs, then look at them. Artwork transparency and references are checked by `test/asset_validation_test.dart`.
+`test/widgets/ui_captures_test.dart` renders the main screens on six reference themes and at several viewports and text scales, and fails on overflow. Run it with `PATHWISE_CAPTURE_DIR=/path flutter test test/widgets/ui_captures_test.dart` to write PNGs, then look at them. Artwork transparency and references are checked by `test/architecture/asset_validation_test.dart`.
 
 ## Attribution
 

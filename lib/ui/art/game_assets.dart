@@ -10,7 +10,7 @@ import '../../model/user_preferences.dart';
 
 enum BiomeKind { ocean, forest, winter, desert }
 
-/// Maps each of the 22 themes to its corresponding illustrated environment.
+/// Maps each of the 23 themes to its corresponding illustrated environment.
 BiomeKind biomeForTheme(PathwiseTheme theme) => switch (theme) {
   PathwiseTheme.oceanicBreeze ||
   PathwiseTheme.blackwater ||

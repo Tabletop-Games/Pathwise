@@ -16,7 +16,7 @@ AppModel _model(MemoryStorage storage, Map<String, dynamic> snapshot) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Star rewards, replay, migration, and cloud sync', () {
+  group('Star rewards, replay and cloud sync', () {
     test(
       'first clear applies boost to (base + stars) and keeps research additive',
       () async {

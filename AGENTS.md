@@ -19,7 +19,7 @@ Before any substantial UI, UX, theme, artwork, animation or screen work, load th
 
 ## Architecture rules
 
-- Dependency direction: views → ViewModels and `AppModel` → pure domain; services and storage sit beside `AppModel`. `lib/logic`, `lib/cloud` and `lib/model` (except `app_model.dart` and `app_themes.dart`) must not import `lib/views`, `lib/ui` or `AppModel`. `test/architecture_boundaries_test.dart` enforces this.
+- Dependency direction: views → ViewModels and `AppModel` → pure domain; services and storage sit beside `AppModel`. `lib/logic`, `lib/cloud` and `lib/model` (except `app_model.dart` and `app_themes.dart`) must not import `lib/views`, `lib/ui` or `AppModel`. `test/architecture/architecture_boundaries_test.dart` enforces this.
 - Pure rules live in `lib/logic`, `lib/model` and `lib/cloud` and are unit-tested. Presentation coordination lives in `lib/viewmodels` (no `BuildContext`, no widgets). `AppModel` owns shared player state and persistence. Widgets stay declarative.
 - A reward, spend or purchase uses a stable ledger ID, mutates state and persists in one `flush()`, and rolls back if the write fails. Never grant before the save succeeds.
 - Keep puzzle seeds, checkpoint order and route semantics deterministic. Use named, seeded fixtures and fake clocks in tests.

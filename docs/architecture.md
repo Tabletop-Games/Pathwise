@@ -161,7 +161,7 @@ sequenceDiagram
 ## 8. Navigation, Lifecycle & Performance Boundaries
 
 - **Lifecycle**: `PathwiseRoot` observes `AppLifecycleState` to pause/resume `ConnectivityService` and trigger `cloud.syncNow()` on backgrounding. `PathwiseApp` manages `AttackClock` sync, `AchievementSync.foreground`, and midnight `dayCheck`.
-- **Android-only**: Dormant iOS/StoreKit code is prohibited (`test/architecture_boundaries_test.dart` enforces this).
+- **Android-only**: Dormant iOS/StoreKit code is prohibited (`test/architecture/architecture_boundaries_test.dart` enforces this).
 - **Performance**:
   - `PuzzleBoard` isolates pointer motion in `_TipPainter` and rejection flashes in `_RejectionPainter`.
   - `GameAssetCache` bounds image memory and guards Journey evictions with a generation counter so late in-flight decodes cannot leak back into cache.

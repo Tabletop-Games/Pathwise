@@ -32,7 +32,11 @@ Future<void> _open(WidgetTester tester, AppModel model) async {
   await tester.pumpAndSettle();
 }
 
-String? _status(WidgetTester tester) {
+/// The status banner sits at the top of a lazy ListView, so scroll back up
+/// before looking for it.
+Future<String?> _status(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView).first, const Offset(0, 4000));
+  await tester.pumpAndSettle();
   final finder = find.byType(SelectableText);
   return finder.evaluate().isEmpty
       ? null
@@ -127,14 +131,14 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Coins'), '777');
     await _tap(tester, 'Set coins');
     expect(model.coinBalance, 777);
-    expect(_status(tester), 'Coins set to 777.');
+    expect(await _status(tester), 'Coins set to 777.');
     await tester.enterText(find.widgetWithText(TextField, 'Hints'), '9');
     await _tap(tester, 'Set hints');
     expect(model.hintsRemaining, 9);
     await tester.enterText(find.widgetWithText(TextField, 'Coins'), 'many');
     await _tap(tester, 'Set coins');
     expect(model.coinBalance, 777);
-    expect(_status(tester), 'Enter a valid coin amount (>= 0).');
+    expect(await _status(tester), 'Enter a valid coin amount (>= 0).');
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   });
