@@ -1560,6 +1560,7 @@ class _RejectionPainter extends CustomPainter {
     final move = issue();
     final origin = attemptFrom(), destination = attemptTarget();
     if (move == null ||
+        move.reason == MoveRejection.wall ||
         origin == null ||
         destination == null ||
         !animation.isAnimating ||
