@@ -21,7 +21,7 @@ void main(List<String> args) {
       final specs = [
         for (var i = 0; i < count; i++) campaignSpec(first + i * step),
       ];
-      run(specs, detail: detail);
+      run(specs, detail: detail, quiet: args.length > 4 && args[4] == 'quiet');
     case 'grid':
       final seeds = int.parse(args[1]);
       run(
