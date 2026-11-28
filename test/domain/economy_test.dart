@@ -1,0 +1,82 @@
+import 'dart:convert';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
+import '../../lib/logic/ad_frequency.dart';
+import '../../lib/logic/ad_service.dart';
+import '../../lib/logic/billing_service.dart';
+import '../../lib/logic/connectivity_service.dart';
+import '../../lib/logic/game_controller.dart';
+import '../../lib/logic/game_state_storage.dart';
+import '../../lib/logic/puzzle.dart';
+import '../../lib/logic/tip_tracker.dart';
+import '../../lib/model/app_model.dart';
+import '../../lib/model/app_themes.dart';
+import '../../lib/model/economy.dart';
+import '../../lib/model/user_preferences.dart';
+import '../../lib/views/components/puzzle_board.dart';
+import '../../lib/views/journey_rewards.dart';
+import 'dart:io';
+import 'dart:math';
+import '../../lib/model/fortune.dart';
+import '../../lib/model/progression.dart';
+import '../../lib/model/time_attack.dart';
+import '../support/fixtures.dart' show MemoryStorage;
+
+void main() {
+  test(
+    'Economy 2.0 does not compound research bonuses with timed boosts',
+    () {
+      expect(
+        economy.campaignClearCoins(
+          multiplier: 4,
+          magnetBonus: 10,
+          goldenBonus: 8,
+          momentumBonus: 0,
+        ),
+        38,
+      );
+      expect(
+        economy.campaignClearCoins(
+          multiplier: 4,
+          magnetBonus: 10,
+          goldenBonus: 8,
+          momentumBonus: 16,
+        ),
+        54,
+      );
+      expect(
+        economy.dailyClearCoins(
+          multiplier: 4,
+          fortuneBonus: 16,
+          goldenBonus: 8,
+        ),
+        64,
+      );
+    },
+  );
+
+  test('advanced cost and benefit bounds and single-slot boost caps hold', () {
+    final progress = Progression({
+      'ranks': {for (final item in Research.values) item.name: item.limit + 5},
+      'inventory': {for (final boost in Boost.values) boost.name: 1},
+    });
+    for (final item in Research.values) {
+      final costs = List.generate(item.limit, item.price);
+      expect(costs, everyElement(greaterThan(0)));
+      expect(costs.last, lessThan(200000));
+      for (var i = 1; i < costs.length; i++) {
+        expect(costs[i], greaterThan(costs[i - 1]));
+        expect(item.effectAt(i + 1), greaterThan(item.effectAt(i)));
+      }
+      expect(progress.rank(item), item.limit);
+      expect(() => item.price(item.limit), throwsRangeError);
+    }
+    expect(progress.durationBonus, 24);
+    expect(progress.discount(100), 86);
+    progress.activate(Boost.quadrupleTen, 1);
+    expect(progress.canActivate(Boost.doubleTen, 2), false);
+    expect(progress.multiplier(2), 4);
+    expect(progress.multiplier(2), 4);
+  });
+}
