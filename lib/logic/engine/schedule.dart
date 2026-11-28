@@ -23,9 +23,10 @@ const _wallArchetypes = [
 ];
 
 /// Where a level sits in the long difficulty curve, from 0 to about 0.9. It
-/// rises quickly at first, then levels off so late levels stay playable.
+/// rises quickly at first, then levels off. The waves below keep late levels
+/// moving between advanced, expert and the occasional master board.
 double baseDifficulty(int level) =>
-    math.min(0.9, 1 - math.exp(-(level - 1) / 320));
+    math.min(0.68, 1 - math.exp(-(level - 1) / 260));
 
 /// Offsets inside each block of ten levels. Difficulty comes in waves: a
 /// breather every few levels and a hard one at the end of the block.
@@ -63,7 +64,7 @@ int _sizeFor(DifficultyBand band, int level, PuzzleRandom rng) {
 PuzzleSpec campaignSpec(int level) {
   final rng = PuzzleRandom(puzzleSeed('pathwise-schedule/campaign/$level'));
   final block = (level - 1) % 10;
-  final target = (baseDifficulty(level) + _wave[block] * 0.8).clamp(0.0, 0.92);
+  final target = (baseDifficulty(level) + _wave[block] * 0.8).clamp(0.0, 0.95);
   var band = _bandFor(target);
   final id = 'campaign/$level';
 

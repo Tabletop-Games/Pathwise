@@ -49,8 +49,8 @@ double logicDifficulty(DeductionResult result) {
   DifficultyBand.easy => (10, 20),
   DifficultyBand.intermediate => (20, 32),
   DifficultyBand.advanced => (32, 44),
-  DifficultyBand.expert => (44, 56),
-  DifficultyBand.master => (56, 101),
+  DifficultyBand.expert => (44, 54),
+  DifficultyBand.master => (54, 101),
 };
 
 DifficultyBand bandFor(double difficulty) {

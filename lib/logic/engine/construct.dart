@@ -444,7 +444,12 @@ Relevance _relevance(
   stats.solverNodes += proof.nodes;
   if (!proof.unique || !_same(proof.first, route)) return Relevance.essential;
   stats.deduceCalls++;
-  final logic = deduce(without, maxTier: cap, trace: false);
+  final logic = deduce(
+    without,
+    maxTier: cap,
+    trace: false,
+    deepBudget: _trialBudget,
+  );
   if (!logic.solved) return Relevance.supporting;
   if (logic.hardestTier > baseline.hardestTier ||
       logicDifficulty(logic) >= logicDifficulty(baseline) + 1) {
@@ -452,6 +457,9 @@ Relevance _relevance(
   }
   return Relevance.redundant;
 }
+
+/// Propagation budget for the second-level lookahead during trial removals.
+const _trialBudget = 700;
 
 /// Builds one candidate board. Returns null, after recording why, when any
 /// gate fails.
@@ -570,25 +578,25 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   for (final cell in removable) {
     if (b.clues.length <= floor) break;
     b.clues.remove(cell);
-    final puzzle = b.puzzle();
-    stats.solverCalls++;
-    final proof = solve(puzzle, budget: 40000);
-    stats.solverNodes += proof.nodes;
-    var keep = !proof.unique;
-    if (!keep) {
-      stats.deduceCalls++;
-      keep = !deduce(puzzle, maxTier: cap, trace: false).solved;
-    }
-    if (keep) {
-      b.clues.add(cell);
-    } else {
+    // Logic that decides every edge also proves the solution unique, so the
+    // exact search is left for the final certification.
+    stats.deduceCalls++;
+    final logic = deduce(
+      b.puzzle(),
+      maxTier: cap,
+      trace: false,
+      deepBudget: _trialBudget,
+    );
+    if (logic.solved) {
       removed.add(cell);
+    } else {
+      b.clues.add(cell);
     }
   }
 
   // Drop mechanic parts that do not change how the board is solved.
   stats.deduceCalls++;
-  var full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  var full = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
   if (!full.solved) {
     stats.reject('lost_logic');
     return null;
@@ -604,11 +612,11 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   };
   final ceiling = low + (math.min(high, 100) - low) * fraction;
   stats.deduceCalls++;
-  full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  full = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
   while (logicDifficulty(full) > ceiling && removed.isNotEmpty) {
     b.clues.add(removed.removeLast());
     stats.deduceCalls++;
-    full = deduce(b.puzzle(), maxTier: cap, trace: false);
+    full = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
   }
   if (!full.solved) {
     stats.reject('lost_logic');
@@ -633,7 +641,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   }
 
   stats.deduceCalls++;
-  full = deduce(b.puzzle(), maxTier: cap, trace: false);
+  full = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
   final reports = <FormationReport>[];
   for (final formation in b.formations) {
     final without = _Board.copy(b)..formations.remove(formation);
@@ -718,7 +726,7 @@ void _dropRedundant(
     }
     if (changed) {
       stats.deduceCalls++;
-      baseline = deduce(b.puzzle(), maxTier: cap, trace: false);
+      baseline = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
     }
   }
 }
