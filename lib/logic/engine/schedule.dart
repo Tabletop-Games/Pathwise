@@ -78,7 +78,8 @@ PuzzleSpec campaignSpec(int level) {
     CheckpointStyle? style,
   }) {
     final chosen = forced ?? band;
-    final minimum = (gate || portal || (walls && ice)) ? 5 : 4;
+    final hard = chosen.index >= DifficultyBand.intermediate.index;
+    final minimum = (gate || portal || ice || (walls && hard)) ? 5 : 4;
     final cells = math.max(minimum, size ?? _sizeFor(chosen, level, rng));
     return PuzzleSpec(
       id: id,

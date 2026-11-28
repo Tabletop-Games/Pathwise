@@ -113,23 +113,45 @@ bool _adjacent(int n, int a, int b) =>
 
 int _color(int n, int cell) => (cell % n + cell ~/ n) & 1;
 
-/// Start and finish cells whose colours allow a route through every cell.
-(int, int)? _chooseEnds(int n, PuzzleRandom rng, bool portal) {
+bool _parityAllows(int n, int start, int finish, bool portal) {
+  if (portal) return true;
   final area = n * n;
-  final start = rng.nextInt(area);
-  final options = <int>[];
+  return area.isEven
+      ? _color(n, start) != _color(n, finish)
+      : _color(n, start) == 0 && _color(n, finish) == 0;
+}
+
+/// Start and finish cells whose colours allow a route through every cell.
+/// Cells with a single open side can only be an end of the route, so they are
+/// chosen first. Returns null when the walls make a route impossible.
+(int, int)? _chooseEnds(Puzzle probe, PuzzleRandom rng) {
+  final n = probe.size;
+  final area = n * n;
+  final portal = probe.portal != null;
+  final forced = <int>[];
   for (var cell = 0; cell < area; cell++) {
-    if (cell == start) continue;
-    if (portal) {
-      options.add(cell);
-    } else if (area.isEven) {
-      if (_color(n, cell) != _color(n, start)) options.add(cell);
-    } else if (_color(n, cell) == 0 && _color(n, start) == 0) {
-      options.add(cell);
+    final open = probe.movesFrom(cell).where((m) => !probe.isWalled(cell, m));
+    final degree = open.length;
+    if (degree == 0) return null;
+    if (degree == 1) forced.add(cell);
+  }
+  if (forced.length > 2) return null;
+  if (forced.length == 2) {
+    final pair = rng.chance(50)
+        ? (forced[0], forced[1])
+        : (forced[1], forced[0]);
+    return _parityAllows(n, pair.$1, pair.$2, portal) ? pair : null;
+  }
+  final options = <(int, int)>[];
+  final firsts = forced.isEmpty ? [rng.nextInt(area)] : forced;
+  for (final first in firsts) {
+    for (var other = 0; other < area; other++) {
+      if (other != first && _parityAllows(n, first, other, portal)) {
+        options.add(rng.chance(50) ? (first, other) : (other, first));
+      }
     }
   }
-  if (options.isEmpty) return null;
-  return (start, rng.pick(options));
+  return options.isEmpty ? null : rng.pick(options);
 }
 
 /// Two cells far enough apart that jumping between them changes the order in
@@ -271,7 +293,28 @@ bool _iceFromAlternative(
     if (!straightInAlt) options.add(cell);
   }
   if (options.isEmpty) return false;
-  b.ice.add(rng.pick(options));
+  // Cells beside a wall count double: ice next to a barrier decides which way
+  // a route can come through.
+  final walls = b.walls;
+  final weighted = [
+    for (final cell in options) ...[
+      cell,
+      if (walls.any((w) => w.$1 == cell || w.$2 == cell)) cell,
+    ],
+  ];
+  final pick = rng.pick(weighted);
+  b.ice.add(pick);
+  // Sometimes extend into a short slide along the route.
+  if (rng.chance(45)) {
+    final i = b.index[pick]!;
+    for (final j in [i + 1, i - 1]) {
+      if (b.ice.length >= limit || j < 1 || j + 1 >= b.route.length) continue;
+      final cell = b.route[j];
+      if (!options.contains(cell)) continue;
+      b.ice.add(cell);
+      break;
+    }
+  }
   return true;
 }
 
@@ -425,9 +468,13 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   }
 
   List<int>? route;
-  for (var tries = 0; tries < 6 && route == null; tries++) {
-    final ends = _chooseEnds(n, rng, spec.portal);
-    if (ends == null) break;
+  final probe = Puzzle(n, [0, n * n - 1], walls: b.walls, portal: b.portal);
+  for (var tries = 0; tries < 5 && route == null; tries++) {
+    final ends = _chooseEnds(probe, rng);
+    if (ends == null) {
+      stats.reject('skeleton_infeasible');
+      return null;
+    }
     if (b.portal case (final p, final q)) {
       if (ends.$1 == p || ends.$1 == q || ends.$2 == p || ends.$2 == q) {
         continue;
@@ -439,7 +486,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
       walls: b.walls,
       portal: b.portal,
     );
-    route = findRoute(base, rng, budget: 12000);
+    route = findRoute(base, rng, budget: 20000);
   }
   if (route == null) {
     stats.reject('no_route');

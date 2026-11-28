@@ -54,8 +54,10 @@ DifficultyBand bandFor(double difficulty) {
 /// The highest deduction tier a band may require.
 int tierCap(DifficultyBand band) => switch (band) {
   DifficultyBand.beginner || DifficultyBand.easy => 1,
-  DifficultyBand.intermediate || DifficultyBand.advanced => 2,
-  DifficultyBand.expert || DifficultyBand.master => 3,
+  DifficultyBand.intermediate => 2,
+  DifficultyBand.advanced ||
+  DifficultyBand.expert ||
+  DifficultyBand.master => 3,
 };
 
 /// What a player faces when walking the certified route step by step.
