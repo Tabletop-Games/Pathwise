@@ -35,7 +35,7 @@ import java.util.UUID;
  * Errors use code "unavailable" for service or network problems.
  */
 final class CloudSaveChannel implements MethodChannel.MethodCallHandler {
-    static final String CHANNEL = "games.tabletop.pathwise/cloud";
+    static final String CHANNEL = "com.shenmareparas.pathwise/cloud";
 
     private final Activity activity;
     private final Map<String, SnapshotsClient.SnapshotConflict> conflicts = new HashMap<>();

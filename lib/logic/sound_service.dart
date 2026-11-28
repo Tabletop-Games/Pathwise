@@ -50,7 +50,7 @@ abstract interface class SoundBackend {
 }
 
 final class PlatformSoundBackend implements SoundBackend {
-  static const _channel = MethodChannel('games.tabletop.pathwise/audio');
+  static const _channel = MethodChannel('com.shenmareparas.pathwise/audio');
   bool _supported = !kIsWeb && Platform.isAndroid;
 
   @override

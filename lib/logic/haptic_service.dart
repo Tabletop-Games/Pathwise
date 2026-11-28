@@ -42,7 +42,7 @@ abstract interface class HapticBackend {
 }
 
 final class PlatformHapticBackend implements HapticBackend {
-  static const _channel = MethodChannel('games.tabletop.pathwise/haptics');
+  static const _channel = MethodChannel('com.shenmareparas.pathwise/haptics');
   bool _nativeSupported = true;
 
   @override

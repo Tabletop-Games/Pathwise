@@ -21,7 +21,7 @@ void main() {
     'plugins.flutter.io/google_mobile_ads/ump',
     StandardMethodCodec(UserMessagingCodec()),
   );
-  const clock = MethodChannel('games.tabletop.pathwise/clock');
+  const clock = MethodChannel('com.shenmareparas.pathwise/clock');
   const testPublisher = 'ca-app-pub-3940256099942544';
   late AdService ads;
   late List<int> rewarded;

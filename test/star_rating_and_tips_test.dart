@@ -155,16 +155,13 @@ void main() {
   });
 
   group('Cosmetic tip artwork & rendering specs', () {
-    test(
-      'every tip resolves to its own artwork file',
-      () {
-        expect(tipAssetPath(PathTip.classic), 'assets/art/tips/classic.webp');
-        expect(tipAssetPath(PathTip.robot), 'assets/art/tips/robot.webp');
-        for (final tip in PathTip.values) {
-          expect(tipAssetPath(tip), 'assets/art/tips/${tip.name}.webp');
-        }
-      },
-    );
+    test('every tip resolves to its own artwork file', () {
+      expect(tipAssetPath(PathTip.classic), 'assets/art/tips/classic.webp');
+      expect(tipAssetPath(PathTip.robot), 'assets/art/tips/robot.webp');
+      for (final tip in PathTip.values) {
+        expect(tipAssetPath(tip), 'assets/art/tips/${tip.name}.webp');
+      }
+    });
 
     test('all tip specs are upright with positive scale', () {
       for (final tip in PathTip.values) {

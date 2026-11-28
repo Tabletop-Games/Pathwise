@@ -68,7 +68,7 @@ class BillingService extends ChangeNotifier {
 
   /// Receives the permanent products Google Play reports as owned.
   final void Function(Set<String> owned)? onOwnedProducts;
-  static const _commerce = MethodChannel('games.tabletop.pathwise/commerce');
+  static const _commerce = MethodChannel('com.shenmareparas.pathwise/commerce');
   static const _playKey = String.fromEnvironment(
     'PATHWISE_PLAY_BILLING_PUBLIC_KEY',
   );

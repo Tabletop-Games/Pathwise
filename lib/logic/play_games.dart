@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 class PlayGames {
   static const enabled = bool.fromEnvironment('PATHWISE_GAMES_ENABLED');
-  static const _channel = MethodChannel('games.tabletop.pathwise/games');
+  static const _channel = MethodChannel('com.shenmareparas.pathwise/games');
   static Map<String, String> _ids(String config) {
     try {
       return Map<String, String>.from(jsonDecode(config) as Map);

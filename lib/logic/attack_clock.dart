@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import '../model/time_attack.dart';
 
 class AttackClock {
-  static const _channel = MethodChannel('games.tabletop.pathwise/clock');
+  static const _channel = MethodChannel('com.shenmareparas.pathwise/clock');
   final _watch = Stopwatch()..start();
   BootTime? _anchor;
   int _position = 0;

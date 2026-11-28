@@ -34,7 +34,12 @@ void main() {
 
   test('every bundled asset folder is declared in pubspec.yaml', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    for (final folder in ['art/tips', 'art/resources', 'art/ui', 'art/biomes']) {
+    for (final folder in [
+      'art/tips',
+      'art/resources',
+      'art/ui',
+      'art/biomes',
+    ]) {
       expect(pubspec, contains('assets/$folder/'), reason: folder);
     }
     expect(pubspec, contains('assets/art/journey/'));
@@ -56,10 +61,7 @@ void main() {
 
   test('no two bundled assets are byte-identical', () {
     final seen = <String, String>{};
-    for (final file in [
-      ..._files('assets/art'),
-      ..._files('assets/audio'),
-    ]) {
+    for (final file in [..._files('assets/art'), ..._files('assets/audio')]) {
       final digest = sha256.convert(file.readAsBytesSync()).toString();
       expect(
         seen[digest],
@@ -70,37 +72,40 @@ void main() {
     }
   });
 
-  test('transparent artwork has no residual alpha in its outer 2px border', () async {
-    final files = [
-      for (final file in _files('assets/art'))
-        if ((file.path.endsWith('.webp') || file.path.endsWith('.png')) &&
-            !_opaqueByDesign(file.path.replaceAll('\\', '/')))
-          file,
-    ];
-    expect(files.length, greaterThan(50));
-    for (final file in files) {
-      final codec = await ui.instantiateImageCodec(file.readAsBytesSync());
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-      final data = (await image.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      ))!;
-      final width = image.width;
-      final height = image.height;
-      for (var y = 0; y < height; y++) {
-        for (var x = 0; x < width; x++) {
-          final border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
-          if (!border) continue;
-          final alpha = data.getUint8((y * width + x) * 4 + 3);
-          expect(
-            alpha,
-            0,
-            reason: '${file.path} has residual alpha $alpha at ($x, $y)',
-          );
+  test(
+    'transparent artwork has no residual alpha in its outer 2px border',
+    () async {
+      final files = [
+        for (final file in _files('assets/art'))
+          if ((file.path.endsWith('.webp') || file.path.endsWith('.png')) &&
+              !_opaqueByDesign(file.path.replaceAll('\\', '/')))
+            file,
+      ];
+      expect(files.length, greaterThan(50));
+      for (final file in files) {
+        final codec = await ui.instantiateImageCodec(file.readAsBytesSync());
+        final frame = await codec.getNextFrame();
+        final image = frame.image;
+        final data = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final width = image.width;
+        final height = image.height;
+        for (var y = 0; y < height; y++) {
+          for (var x = 0; x < width; x++) {
+            final border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
+            if (!border) continue;
+            final alpha = data.getUint8((y * width + x) * 4 + 3);
+            expect(
+              alpha,
+              0,
+              reason: '${file.path} has residual alpha $alpha at ($x, $y)',
+            );
+          }
         }
+        image.dispose();
+        codec.dispose();
       }
-      image.dispose();
-      codec.dispose();
-    }
-  });
+    },
+  );
 }

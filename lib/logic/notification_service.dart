@@ -55,7 +55,7 @@ abstract interface class NotificationBackend {
 
 final class PlatformNotificationBackend implements NotificationBackend {
   static const _channel = MethodChannel(
-    'games.tabletop.pathwise/notifications',
+    'com.shenmareparas.pathwise/notifications',
   );
   final bool _supported = !kIsWeb && Platform.isAndroid;
 

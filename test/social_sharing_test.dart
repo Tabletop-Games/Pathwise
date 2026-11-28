@@ -93,7 +93,7 @@ void main() {
       final calls = <MethodCall>[];
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const channel = MethodChannel('games.tabletop.pathwise/share');
+      const channel = MethodChannel('com.shenmareparas.pathwise/share');
       messenger.setMockMethodCallHandler(channel, (call) async {
         calls.add(call);
         return call.method == 'chooser';
@@ -117,7 +117,7 @@ void main() {
       final events = <String>[];
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      const channel = MethodChannel('games.tabletop.pathwise/share');
+      const channel = MethodChannel('com.shenmareparas.pathwise/share');
       messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
         if (call.method == 'Clipboard.setData') {
           events.add(call.arguments['text'] as String);

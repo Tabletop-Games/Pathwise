@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../lib/logic/game_controller.dart';
 import '../lib/logic/mechanic_tutorials.dart';
@@ -135,4 +136,8 @@ void main() {
       'elapsedMs': watch.elapsedMilliseconds,
     }),
   );
+  if (duplicates.isNotEmpty) {
+    stderr.writeln('Symmetry-equivalent duplicate boards: $duplicates');
+    exitCode = 1;
+  }
 }

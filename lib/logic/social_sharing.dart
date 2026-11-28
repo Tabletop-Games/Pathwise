@@ -166,7 +166,7 @@ abstract final class ShareContentBuilder {
 class ShareDestinationService {
   const ShareDestinationService();
 
-  static const _channel = MethodChannel('games.tabletop.pathwise/share');
+  static const _channel = MethodChannel('com.shenmareparas.pathwise/share');
 
   Future<bool> _open(String method, String content) async {
     try {
