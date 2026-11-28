@@ -22,21 +22,3 @@ class PreferencesKeyValueStore implements KeyValueStore {
   @override
   Future<void> remove(String key) => _preferences.remove(key);
 }
-
-/// Test double with the same contract.
-class MemoryKeyValueStore implements KeyValueStore {
-  final values = <String, String>{};
-
-  @override
-  Future<String?> getString(String key) async => values[key];
-
-  @override
-  Future<void> setString(String key, String value) async {
-    values[key] = value;
-  }
-
-  @override
-  Future<void> remove(String key) async {
-    values.remove(key);
-  }
-}

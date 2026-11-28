@@ -30,6 +30,8 @@ jobs:
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub
       - run: dart run tool/economy_simulation.dart
+      - name: Validate the first 1,000 campaign levels
+        run: dart run tool/validate_catalogue.dart
       - name: Check tracked files for credential patterns
         run: |
           if git grep -l -I -E -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|AIza[A-Za-z0-9_-]{35}'; then

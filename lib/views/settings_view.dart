@@ -157,7 +157,7 @@ class SettingsView extends StatelessWidget {
                     _NotificationSettingsSection(model: model, palette: p),
                   section('Gameplay', [
                     ListTile(
-                      leading: GameArt(ArtKind.levels, palette: p, size: 28),
+                      leading: GameArt(ArtKind.levels, size: 28),
                       title: const Text('How to play'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => openLevelOneDemo(context),
@@ -171,7 +171,7 @@ class SettingsView extends StatelessWidget {
                   section('Account & data', [
                     if (cloud != null) const CloudSaveSection(compact: true),
                     ListTile(
-                      leading: GameArt(ArtKind.trophy, palette: p, size: 28),
+                      leading: GameArt(ArtKind.trophy, size: 28),
                       title: const Text('Google Play Achievements'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
@@ -393,7 +393,7 @@ class _ChapterProgressHeader extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      GameArt(ArtKind.levels, palette: palette, size: 28),
+                      GameArt(ArtKind.levels, size: 28),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -837,7 +837,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      GameArt(art, palette: palette, size: 22),
+      GameArt(art, size: 22),
       const SizedBox(width: 8),
       Expanded(
         child: Text(
@@ -933,8 +933,7 @@ class _AchievementCard extends StatelessWidget {
     final img = Image.asset(
       _asset,
       fit: BoxFit.contain,
-      errorBuilder: (_, _, _) =>
-          GameArt(ArtKind.trophy, palette: palette, size: 42),
+      errorBuilder: (_, _, _) => GameArt(ArtKind.trophy, size: 42),
     );
     if (earned || item.inProgress) return img;
     return ColorFiltered(

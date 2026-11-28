@@ -6,13 +6,13 @@ This document describes the design, the rules a sync pass follows, and what the 
 
 ## What is stored
 
-One saved game per player, named `pathwise-progress-v1` (debug builds use a local test store, see below). Its payload is the same snapshot map the app writes to the device, so there is one schema and one migration path.
+One saved game per player, named `pathwise-progress-v1` (debug builds use a local test store, see below). Its payload is the same snapshot map the app writes to the device, so there is one schema.
 
 The cloud envelope uses canonical JSON with optional gzip compression:
 
 | Field | Meaning |
 | --- | --- |
-| `format`, `version` | `pathwise-cloud`, version 4. Versions 1–3 remain readable. Version 1 is verified and migrated to Classic tip defaults. Versions 1 and 2 start discovery progress prospectively unless the payload already includes it. |
+| `format`, `version` | `pathwise-cloud`, version 5. Any other format or version is treated as damaged and is never overwritten without the player's choice. |
 | `revision` | Increments on every successful upload. Used to detect remote changes. |
 | `savedAt` | Upload time in milliseconds, for display only. |
 | `economy` | SHA-256 of the economy unit (below). Lets a device compare copies without parsing both. |
@@ -107,7 +107,19 @@ The accepted limitations below are the trade-offs of avoiding a hosted backend:
 4. **Advertisement rewards are verified on the device.** A modified client can claim a reward. Rewards are limited per day on the device, which only stops accidental over-claiming.
 5. **Refund reconciliation is limited to what Google Play reports** when the app starts, plus Google's own purchase history. A refund that happens while a player is offline with the app closed is applied the next time the app starts online.
 6. **Device time is not trusted.** Daily rewards and cooldowns use the device clock. Changing the clock can reset a daily limit. Time Attack deadlines use the elapsed-time clock, which does not reset on a clock change.
-7. **Going offline does not stop advertisements.** Play requires an internet connection, so a player cannot play offline to avoid ads. Ads themselves can still fail to load, and gameplay never waits for them.
+7. **Ads need a connection.** Pathwise plays fully offline, so a player can avoid ads by staying offline. Gameplay never waits for an ad.
+
+## Offline play and connectivity
+
+Pathwise is local-first. Campaign, Daily Challenge, Time Attack, tutorials and every coin purchase work with no connection, and progress is saved on the device. Only ads, Google Play Billing and Play Games (sign-in and cloud save) need a network, and each fails gracefully.
+
+`ConnectivityService` (`lib/logic/connectivity_service.dart`) is the only component that decides whether the device is online. Screens never probe the network, and nothing is sent per tile movement.
+
+- The probe is an HTTPS request to `https://connectivitycheck.gstatic.com/generate_204`, falling back to `https://www.google.com/generate_204`. Any response other than 204 (a redirect, a sign-in page) counts as unreachable. No identifiers are sent and no developer server is involved.
+- Joining Wi-Fi or mobile data is not enough: the device is online only after a probe succeeds. The service reports offline after two failed probes at least four seconds apart, so one dropped packet does nothing.
+- Probing pauses in the background and resumes on return. While offline it retries with backoff (2, 4, 8, then 15 seconds).
+- When the device goes offline, `ConnectionGate` (`lib/views/connection_view.dart`) shows one dismissible notice per offline period, never during a drawing gesture, and Home shows a small Offline chip. Rewarded ads, purchases and cloud sync are unavailable until the connection returns. Local saves are queued and sync opportunistically when it does.
+- The probe is not a security control. A modified app can ignore it.
 
 ## Debug builds
 
@@ -115,7 +127,7 @@ The debug package has no Play Games project, so debug builds use `FakeCloudSaves
 
 ## Platform scope
 
-Pathwise is Android-only (see [Android-only policy](android-only.md)). Cloud saves use Play Games Saved Games. Other platforms would use `UnsupportedCloudSaves`, which is not built or tested.
+Pathwise is Android-only (see [development](development.md#android-only)). Cloud saves use Play Games Saved Games. Other platforms would use `UnsupportedCloudSaves`, which is not built or tested.
 
 ## Code map
 

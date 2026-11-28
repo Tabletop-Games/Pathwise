@@ -64,7 +64,7 @@ StarThresholds starThresholdsForBoard(VerifiedPuzzle board) {
 final _levelThresholdCache = <int, StarThresholds>{};
 
 /// Deterministic, bounded-cache lookup for campaign level thresholds when the
-/// board is not already loaded in memory (e.g., Journey display or lazy migration).
+/// board is not already loaded in memory (e.g., Journey display).
 StarThresholds starThresholdsForLevel(int level) {
   final cached = _levelThresholdCache[level];
   if (cached != null) return cached;

@@ -82,7 +82,7 @@ public class MainActivity extends FlutterActivity {
         registerHapticsChannel(engine);
         registerNotificationChannel(engine);
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/commerce").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/commerce").setMethodCallHandler((call, result) -> {
             if (!call.method.equals("verifyPlayPurchase")) {
                 result.notImplemented();
                 return;
@@ -105,7 +105,7 @@ public class MainActivity extends FlutterActivity {
             }
         });
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/games").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/games").setMethodCallHandler((call, result) -> {
             if (getString(R.string.pathwise_games_project).equals("0")) {
                 result.error("games_disabled", "Play Games is disabled in this build.", null);
                 return;
@@ -166,7 +166,7 @@ public class MainActivity extends FlutterActivity {
             }
         });
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/share").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/share").setMethodCallHandler((call, result) -> {
             final String content = call.argument("content");
             if (content == null || content.isEmpty()) {
                 result.success(false);
@@ -190,7 +190,7 @@ public class MainActivity extends FlutterActivity {
             }
         });
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/clock").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/clock").setMethodCallHandler((call, result) -> {
             if (call.method.equals("online")) {
                 ConnectivityManager manager = getSystemService(ConnectivityManager.class);
                 NetworkCapabilities network = manager == null ? null :
@@ -289,7 +289,7 @@ public class MainActivity extends FlutterActivity {
     private void registerAudioChannel(@NonNull FlutterEngine engine) {
         ensureSoundPool();
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/audio").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/audio").setMethodCallHandler((call, result) -> {
             switch (call.method) {
                 case "preload":
                     List<String> assets = call.argument("assets");
@@ -377,7 +377,7 @@ public class MainActivity extends FlutterActivity {
 
     private void registerHapticsChannel(@NonNull FlutterEngine engine) {
         new MethodChannel(engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/haptics").setMethodCallHandler((call, result) -> {
+                "com.shenmareparas.pathwise/haptics").setMethodCallHandler((call, result) -> {
             if (!"trigger".equals(call.method)) {
                 result.notImplemented();
                 return;
@@ -427,7 +427,7 @@ public class MainActivity extends FlutterActivity {
         NotificationHelper.ensureChannels(this);
         notificationChannel = new MethodChannel(
                 engine.getDartExecutor().getBinaryMessenger(),
-                "games.tabletop.pathwise/notifications");
+                "com.shenmareparas.pathwise/notifications");
         notificationChannel.setMethodCallHandler((call, result) -> {
             switch (call.method) {
                 case "canPost":

@@ -49,7 +49,7 @@ class ConnectionGate extends StatefulWidget {
 class _ConnectionGateState extends State<ConnectionGate> {
   static const _periodicCheckInterval = Duration(seconds: 30);
 
-  bool _remindedOnLaunch = false;
+  bool _shownThisOutage = false;
   bool _visible = false;
   Timer? _periodicCheckTimer;
 
@@ -77,22 +77,23 @@ class _ConnectionGateState extends State<ConnectionGate> {
     final theme = context.select((AppModel model) => model.theme);
 
     if (state == ConnectivityState.online) {
-      if (_visible) {
+      if (_visible || _shownThisOutage) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           setState(() {
             _visible = false;
+            _shownThisOutage = false;
           });
         });
       }
     } else if (state == ConnectivityState.offline &&
-        !_remindedOnLaunch &&
+        !_shownThisOutage &&
         !isDrawing &&
         !_visible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _remindedOnLaunch) return;
+        if (!mounted || _shownThisOutage) return;
         setState(() {
-          _remindedOnLaunch = true;
+          _shownThisOutage = true;
           _visible = true;
         });
       });

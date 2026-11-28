@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../logic/social_sharing.dart';
 import '../model/app_model.dart';
-import '../model/app_themes.dart';
 import '../ui/art/control_art.dart';
 import '../ui/game_art.dart';
 
@@ -195,11 +194,7 @@ class AchievementCelebration extends StatelessWidget {
     if (model.recentAchievements.isEmpty) return const SizedBox.shrink();
     final item = model.recentAchievements.last;
     return ListTile(
-      leading: GameArt(
-        ArtKind.trophy,
-        palette: BoardPalette.palettes[model.theme]!,
-        size: 38,
-      ),
+      leading: GameArt(ArtKind.trophy, size: 38),
       title: Text(item.name),
       subtitle: Text(item.description),
     );

@@ -78,22 +78,6 @@ class AppModel extends ChangeNotifier
         }
       }
     }
-    if (!snapshot.containsKey('playStreak')) {
-      final historicalDays =
-          _results.keys
-              .where((key) => key.startsWith('daily/'))
-              .map((key) => key.substring('daily/'.length))
-              .where(
-                (day) =>
-                    DateTime.tryParse(day) != null &&
-                    day.compareTo(todayKey) <= 0,
-              )
-              .toList()
-            ..sort();
-      for (final day in historicalDays) {
-        streak.qualify(day);
-      }
-    }
     streak.reconcile(todayKey);
     for (final entry in _map(snapshot['dailyCheckpoints']).entries) {
       final data = _map(entry.value);
@@ -106,28 +90,6 @@ class AppModel extends ChangeNotifier
           unassisted: hints == 0,
         );
       }
-    }
-    _classicLevels.addAll(
-      (snapshot['classicLevels'] as List? ?? []).whereType<String>(),
-    );
-    if (!snapshot.containsKey('classicLevels')) {
-      _classicLevels.addAll(
-        [
-          ..._results.keys,
-          ..._attempts.keys,
-        ].where((key) => key.startsWith('levels/')),
-      );
-    }
-    _legacyMechanicLevels.addAll(
-      (snapshot['legacyMechanicLevels'] as List? ?? []).whereType<String>(),
-    );
-    if (!snapshot.containsKey('legacyMechanicLevels')) {
-      _legacyMechanicLevels.addAll(
-        [
-          ..._results.keys,
-          ..._attempts.keys,
-        ].where((key) => key.startsWith('levels/')),
-      );
     }
     final attackMinutes = snapshot['attackMinutes'];
     if (attackMinutes == 1 || attackMinutes == 3 || attackMinutes == 5) {
@@ -153,37 +115,16 @@ class AppModel extends ChangeNotifier
         prize: FortunePrize(prize, '$coins coins', 0, coins),
       );
     }
-    _wheelClaims.addAll(_map(fortune['claims']).cast<String, int>());
-    for (final row in (fortune['videos'] as List? ?? []).whereType<Map>()) {
-      final boot = row['boot'];
-      final at = row['at'];
-      if (boot is int && at is int && at >= 0) {
-        _wheelVideos.add((boot: boot, milliseconds: at));
-      }
-    }
-    final savedProgression = _map(snapshot['progression']);
-    progression = Progression(savedProgression);
-    progression.migrateCrates(
-      savedProgression,
-      _bootTime(),
-      snapshot['progressionBoot'],
-      dayKey(_today()),
-    );
+    progression = Progression(_map(snapshot['progression']));
     if (snapshot['progressionBoot'] != _bootTime()?.boot) {
       progression.active.clear();
     }
     final savedHints = snapshot['hintBalance'];
-    final legacyHints = snapshot['hintTank'];
     _hintBalance = savedHints is int
         ? max(0, savedHints)
         : snapshot.isEmpty
         ? economy.starterHints
-        : (legacyHints is int ? legacyHints.clamp(0, 3) : 0);
-    if (savedHints is! int && (snapshot['schemaVersion'] as int? ?? 1) >= 4) {
-      _hintBalance += _map(snapshot['hintCredits']).entries
-          .where((entry) => !_retiredPuzzle(entry.key) && entry.value == 1)
-          .length;
-    }
+        : 0;
     _hintEvents.addAll(
       (snapshot['hintEvents'] as List? ?? []).whereType<String>(),
     );
@@ -195,15 +136,6 @@ class AppModel extends ChangeNotifier
         _boostAdDays[event.key] = event.value as String;
     }
     _hintPurchaseSerial = snapshot['hintPurchaseSerial'] as int? ?? 0;
-    _attempts.removeWhere((key, _) => _retiredPuzzle(key));
-    final offer = _map(snapshot['coinOffer']);
-    if (offer['levels'] is int) _coinOfferLevel = offer['levels'] as int;
-    if (offer['boot'] is int && offer['milliseconds'] is int) {
-      _lastCoinOffer = (
-        boot: offer['boot'] as int,
-        milliseconds: offer['milliseconds'] as int,
-      );
-    }
     final journey = _map(snapshot['journey']);
     final chests = journey['chapterChests'];
     if (chests is List) {
@@ -215,8 +147,6 @@ class AppModel extends ChangeNotifier
       0,
       journey['clears'] is int ? journey['clears'] as int : 0,
     );
-    // Economy 2.0 migration: discard obsolete unclaimed discovery queues
-    // ('pending'), preserve claimed mystery IDs, and keep valid upcoming items.
     final claimedMysteries = journey['claimedMysteries'];
     if (claimedMysteries is List) {
       _claimedMysteries.addAll(claimedMysteries.whereType<int>());
@@ -240,22 +170,10 @@ class AppModel extends ChangeNotifier
     _wallet = Wallet(
       snapshot['ledger'] ?? (snapshot.isEmpty ? null : <Object>[]),
       _today(),
-      archivedCoins:
-          (snapshot['archivedCoins'] ?? snapshot['archivedTrailCoins'])
-              as int? ??
-          0,
+      archivedCoins: snapshot['archivedCoins'] as int? ?? 0,
     );
-    if (snapshot['coinAdDays'] is Map) {
-      for (final event in _map(snapshot['coinAdDays']).entries) {
-        if (event.value is String)
-          _coinAdDays[event.key] = event.value as String;
-      }
-    } else {
-      for (final entry in _wallet.history.where(
-        (entry) => entry.id.startsWith('ad/'),
-      )) {
-        _coinAdDays[entry.id.substring(3)] = dayKey(entry.date.toLocal());
-      }
+    for (final event in _map(snapshot['coinAdDays']).entries) {
+      if (event.value is String) _coinAdDays[event.key] = event.value as String;
     }
     for (final date in [
       ..._coinAdDays.values,
@@ -264,8 +182,6 @@ class AppModel extends ChangeNotifier
     ]) {
       _markRewardDay(date);
     }
-    _restoreRetiredProgress(snapshot);
-    _refundCrateUpgrades();
     _owned.addAll(
       PathwiseTheme.values.where((theme) => economy.themePrice(theme) == 0),
     );
@@ -306,18 +222,9 @@ class AppModel extends ChangeNotifier
         _recordCampaignStars(oldStars: null, newStars: _levelStars[key] ?? 0);
       }
     }
-    _coinOfferLevel ??= _levelsSolved;
     final savedUnlocked = snapshot['highestUnlocked'];
     if (savedUnlocked is int)
       _highestUnlocked = max(_highestUnlocked, savedUnlocked);
-    if (snapshot['schemaVersion'] == null || snapshot['schemaVersion'] == 1) {
-      for (final key in _attempts.keys) {
-        final legacy = _levelFromKey(key);
-        if (legacy != null && legacy <= legacyLevelCount) {
-          _highestUnlocked = max(_highestUnlocked, legacy);
-        }
-      }
-    }
     _updateLongestStreak();
     this.haptic = _providedHaptic ?? HapticService(enabled: _prefs.haptics);
     this.haptic.enabled = _prefs.haptics;
@@ -349,168 +256,20 @@ class AppModel extends ChangeNotifier
     notifyListeners();
   }
 
-  int _retiredSolved = 0, _retiredClean = 0, _retiredRanks = 0;
-
-  static bool _retiredPuzzle(String key) =>
-      key.startsWith('expedition/') || key.startsWith('endless/');
-
-  void _restoreRetiredProgress(Map<String, dynamic> snapshot) {
-    _retiredSolved = snapshot['priorSolves'] as int? ?? 0;
-    _retiredClean = snapshot['priorCleanSolves'] as int? ?? 0;
-    _retiredRanks = snapshot['priorRanks'] as int? ?? 0;
-    final progress = _map(snapshot['expeditionProgress']);
-    if (progress.isNotEmpty) {
-      int count(int mask) =>
-          List.generate(10, (bit) => (mask >> bit) & 1).reduce((a, b) => a + b);
-      _retiredSolved +=
-          max(0, (progress['next'] as int? ?? 1) - 1) * 10 +
-          count(progress['stages'] as int? ?? 0);
-      _retiredClean +=
-          (progress['qualifiedClean'] as int? ?? 0) +
-          count(progress['clean'] as int? ?? 0);
-    }
-    _results.removeWhere((key, result) {
-      if (!key.startsWith('expedition/')) return false;
-      if (progress.isEmpty) {
-        _retiredSolved++;
-        if (result.unassisted) _retiredClean++;
-      }
-      return true;
-    });
-    _retiredRanks +=
-        (progression.ranks.remove('trailYield') ?? 0) +
-        (progression.ranks.remove('fieldwork') ?? 0);
-    final unused = progression.inventory.remove('trailProvisions') ?? 0;
-    final wasActive =
-        (progression.active.remove('trailProvisions') ?? 0) > progressionTime;
-    final history = _wallet.history.toList();
-    final refund = history
-        .where(
-          (tx) =>
-              tx.id.startsWith('research/trailYield/') ||
-              tx.id.startsWith('research/fieldwork/'),
-        )
-        .fold(0, (total, tx) => total - tx.amount);
-    final supplyRefund = history.reversed
-        .where(
-          (tx) =>
-              tx.id.startsWith('boost/') &&
-              tx.label == '50% more first-qualification base coins',
-        )
-        .take(unused + (wasActive ? 1 : 0))
-        .fold(0, (total, tx) => total - tx.amount);
-    _wallet.add(
-      'migration/retired-upgrades',
-      'Retired upgrades refund',
-      refund + supplyRefund,
-      _today(),
-    );
-  }
-
-  void _refundCrateUpgrades() {
-    final history = _wallet.history.toList();
-    var refund = 0;
-    final retiredPurchases = <String>{};
-    for (final key in [
-      'lucky',
-      'rare',
-      'legendaryCache',
-      'expedition',
-      'salvage',
-      'discovery',
-    ]) {
-      final rank = progression.ranks.remove(key);
-      if (rank == null) continue;
-      _retiredRanks += rank;
-      retiredPurchases.add(key);
-      if (key == 'legendaryCache') retiredPurchases.add('expedition');
-    }
-    refund += history
-        .where(
-          (tx) =>
-              tx.id.startsWith('research/') &&
-              retiredPurchases.contains(tx.id.split('/')[1]) &&
-              tx.amount < 0,
-        )
-        .fold(0, (sum, tx) => sum - tx.amount);
-    for (final (key, label) in [
-      ('crateValue', 'Double crate coins'),
-      ('crateRarity', 'More rare crates'),
-    ]) {
-      final available =
-          (progression.inventory.remove(key) ?? 0) +
-          ((progression.active.remove(key) ?? 0) > progressionTime ? 1 : 0);
-      refund += history.reversed
-          .where(
-            (tx) =>
-                tx.id.startsWith('boost/') &&
-                tx.label == label &&
-                tx.amount < 0,
-          )
-          .take(available)
-          .fold(0, (sum, tx) => sum - tx.amount);
-    }
-    _wallet.add(
-      'migration/flying-crates',
-      'Retired crate upgrades refund',
-      refund,
-      _today(),
-    );
-  }
-
   static Future<VerifiedPuzzle> _generate(
     ({int size, int seed, int clues}) request,
     int level,
-    bool legacy,
-  ) => compute(
-    (request) =>
-        generatePuzzle(request.$1, level: request.$2, legacy: request.$3),
-    (request, level, legacy),
-  );
+  ) => compute((request) => generatePuzzle(request.$1, level: request.$2), (
+    request,
+    level,
+  ));
 
   final BootTime? Function() _bootTime;
+
+  /// The Store category the player last used, so reopening the Store resumes
+  /// there. Session-only: it is never saved.
+  int lastStoreCategory = 0;
   BootTime? _lastAutomaticAd;
-  BootTime? _lastCoinOffer;
-  int? _coinOfferLevel;
-
-  bool get canOfferCoinVideo {
-    final now = _bootTime();
-    final baseline = _coinOfferLevel;
-    if (now == null ||
-        baseline == null ||
-        adFree ||
-        storageError ||
-        !_foreground ||
-        !onlineReady ||
-        activeId != null ||
-        attack?.finished == false ||
-        !canEarnAdBonus ||
-        _levelsSolved - baseline < 5)
-      return false;
-    final last = _lastCoinOffer;
-    if (last != null) {
-      final elapsed = last.boot == now.boot
-          ? now.milliseconds - last.milliseconds
-          : now.milliseconds;
-      if (elapsed < const Duration(minutes: 15).inMilliseconds) return false;
-    }
-    final ad = _lastAutomaticAd;
-    if (ad != null) {
-      final elapsed = ad.boot == now.boot
-          ? now.milliseconds - ad.milliseconds
-          : now.milliseconds;
-      if (elapsed < EconomyRules.automaticAdGap.inMilliseconds) return false;
-    }
-    return true;
-  }
-
-  Future<bool> recordCoinOffer() async {
-    if (!canOfferCoinVideo) return false;
-    _lastCoinOffer = _bootTime();
-    _coinOfferLevel = _levelsSolved;
-    return flush();
-  }
-
   Future<bool> reserveAutomaticAd() async {
     if (adFree || storageError || !_foreground) return false;
     final now = _bootTime();
@@ -526,18 +285,12 @@ class AppModel extends ChangeNotifier
     return flush();
   }
 
-  void recordRewardedAdExit() {
-    // Interstitial cooldown after rewarded ads is handled by AdFrequency.
-    // Do not overwrite _lastAutomaticAd with the 3-minute automaticAdGap.
-  }
-
   final _hintAdDays = <String, String>{};
   final _hintEvents = <String>{};
   AttackRun? attack;
   final attackHistory = <AttackRun>[];
   final attackRemaining = ValueNotifier(AttackRun.duration);
   Timer? _attackTicker;
-  bool get attackClockReady => _bootTime() != null;
   int get attackBest =>
       attackHistory.fold(0, (best, run) => max(best, run.score));
   int get attackHighest =>
@@ -739,7 +492,6 @@ class AppModel extends ChangeNotifier
 
   bool buyBoost(Boost item) {
     if (storageError ||
-        !item.availableToBuy ||
         !_wallet.add(
           'boost/${progression.serial}',
           item.title,
@@ -915,8 +667,6 @@ class AppModel extends ChangeNotifier
 
   late int _hintBalance;
   int _hintPurchaseSerial = 0;
-  int get hintAdsToday =>
-      _hintAdDays.values.where((day) => day == dayKey(_today())).length;
   bool get canEarnHintAd => !_disposed && !storageError && _rewardDayAvailable;
 
   Future<bool> buyHint() async {
@@ -1042,8 +792,6 @@ class AppModel extends ChangeNotifier
   }
 
   final PuzzleLoader? _loader;
-  final _classicLevels = <String>{};
-  final _legacyMechanicLevels = <String>{};
   final UserPreferences _prefs;
   late final Wallet _wallet;
   final _owned = <PathwiseTheme>{};
@@ -1489,7 +1237,7 @@ class AppModel extends ChangeNotifier
     AchievementMetric.attackFinished: attackHighest > 0 ? 1 : 0,
     AchievementMetric.attackScore: attackBest,
     AchievementMetric.research: Research.values.fold(
-      _retiredRanks,
+      0,
       (sum, item) => sum + progression.rank(item),
     ),
     AchievementMetric.themes: _owned
@@ -1546,27 +1294,21 @@ class AppModel extends ChangeNotifier
   RunResult? result(PuzzleId id) => _results[id.key];
 
   /// Highest earned star rating (0–3) for a completed campaign level, or null
-  /// if not yet completed. Lazily migrates historical solve times without
-  /// granting retroactive coins.
+  /// if not yet completed.
   int? starsFor(PuzzleId id) {
-    if (id.mode != PlayMode.levels) return null;
-    final run = _results[id.key];
-    if (run == null) return null;
-    final stored = _levelStars[id.key];
-    if (stored != null) return stored;
-    if (run.milliseconds <= 0) return 0;
-    final derived = starThresholdsForLevel(id.level).rate(run.milliseconds);
-    _levelStars[id.key] = derived;
-    return derived;
+    if (id.mode != PlayMode.levels || !_results.containsKey(id.key)) {
+      return null;
+    }
+    return _levelStars[id.key] ?? 0;
   }
 
   StarThresholds? get activeStarThresholds =>
       _game != null && activeId?.mode == PlayMode.levels
       ? starThresholdsForBoard(_game!.board)
       : null;
-  int get solved => _results.length + _retiredSolved;
+  int get solved => _results.length;
   int get unassisted =>
-      _results.values.where((value) => value.unassisted).length + _retiredClean;
+      _results.values.where((value) => value.unassisted).length;
   int get levelsSolved => _levelsSolved;
   int get highestUnlocked => _highestUnlocked;
   int get ownedTipsCount => _ownedTips.length;
@@ -1646,9 +1388,7 @@ class AppModel extends ChangeNotifier
   }
 
   BootTime? _lastFreeFortune;
-  final _wheelClaims = <String, int>{};
   int get fortuneWait => freeFortuneWait(_lastFreeFortune, _bootTime());
-  final _wheelVideos = <BootTime>[];
 
   ({String id, FortunePrize prize})? _pendingFortune;
   FortunePrize? get pendingFortune => _pendingFortune?.prize;
@@ -1667,7 +1407,7 @@ class AppModel extends ChangeNotifier
       activity.event(
         pending.id.startsWith('wheel/free/')
             ? EconomyEvent.wheelFree
-            : EconomyEvent.wheelVerified,
+            : EconomyEvent.wheelVideo,
         coinBalance,
       );
     }
@@ -1680,14 +1420,10 @@ class AppModel extends ChangeNotifier
     return saved;
   }
 
-  bool _activeWheelVideo(BootTime stamp, BootTime now) =>
-      freeFortuneWait(stamp, now) > 0;
-
-  int get fortuneVideosRemaining {
-    final now = _bootTime();
-    if (_disposed || storageError || now == null) return 0;
-    return 99;
-  }
+  /// Video spins have no local daily cap. They need a working clock and a
+  /// healthy save.
+  bool get fortuneVideoAvailable =>
+      !_disposed && !storageError && _bootTime() != null;
 
   Future<FortunePrize?> spinRewardedFortune(
     FortuneCatalog catalog,
@@ -1699,23 +1435,17 @@ class AppModel extends ChangeNotifier
     final id = 'wheel/video/$event';
     if (_pendingFortune != null ||
         now == null ||
-        fortuneVideosRemaining == 0 ||
+        !fortuneVideoAvailable ||
         _wallet.contains(id) ||
         !_hintEvents.add(id)) {
       return null;
     }
-    final prevVideos = List<BootTime>.of(_wheelVideos);
     final prize = catalog.pick((random ?? Random.secure()).nextInt(100));
     _pendingFortune = (id: id, prize: prize);
-    _wheelVideos.removeWhere((stamp) => !_activeWheelVideo(stamp, now));
-    _wheelVideos.add(now);
     final saved = await flush();
     if (!saved) {
       _hintEvents.remove(id);
       _pendingFortune = null;
-      _wheelVideos
-        ..clear()
-        ..addAll(prevVideos);
       return null;
     }
     if (!_disposed) notifyListeners();
@@ -1743,51 +1473,6 @@ class AppModel extends ChangeNotifier
     final saved = await flush();
     if (!_disposed) notifyListeners();
     return saved ? prize : null;
-  }
-
-  Future<bool> applyVerifiedFortune(
-    FortuneCatalog catalog,
-    FortuneStatus status,
-  ) async {
-    // Legacy receipts can arrive after an upgrade. Already credited counts
-    // stay credited. Unclaimed retired prizes settle once as coins.
-    final values = {
-      for (final prize in catalog.prizes) prize.id: prize.coins,
-      'boost': 35,
-      'cache': 20,
-    };
-    if (_disposed ||
-        storageError ||
-        status.version != 2 ||
-        status.counts.keys.any((id) => !values.containsKey(id)) ||
-        _wheelClaims.entries.any(
-          (claim) => (status.counts[claim.key] ?? 0) < claim.value,
-        )) {
-      return false;
-    }
-    final total = status.counts.values.fold(0, (sum, count) => sum + count);
-    var coins = 0;
-    var changed = false;
-    for (final entry in status.counts.entries) {
-      final delta = entry.value - (_wheelClaims[entry.key] ?? 0);
-      if (delta == 0) continue;
-      changed = true;
-      _wheelClaims[entry.key] = entry.value;
-      final value = values[entry.key]!;
-      activity.prize('$value coins', delta);
-      activity.event(EconomyEvent.wheelVerified, coinBalance, delta);
-      coins += value * delta;
-    }
-    if (!changed) return false;
-    _wallet.add(
-      'wheel/verified/$total',
-      'Fortune Wheel · verified rewards',
-      coins,
-      _today(),
-    );
-    final saved = await flush();
-    if (!_disposed) notifyListeners();
-    return saved;
   }
 
   final _coinAdDays = <String, String>{};
@@ -2093,11 +1778,7 @@ class AppModel extends ChangeNotifier
       final generation = id.generation;
       final board =
           await (_loader?.call(generation) ??
-              _generate(
-                generation,
-                id.mode == PlayMode.levels ? id.level : 0,
-                false,
-              ));
+              _generate(generation, id.mode == PlayMode.levels ? id.level : 0));
       if (_disposed || request != _request) return;
       final game = GameController(board);
       _game = game;
@@ -2662,16 +2343,11 @@ class AppModel extends ChangeNotifier
     'levelOneDemoSeen': _levelOneDemoSeen,
     'mechanicTutorials': _tutorialStatus,
     'nativeAchievements': _achievements.toJson(),
-    'priorSolves': _retiredSolved,
-    'priorCleanSolves': _retiredClean,
-    'priorRanks': _retiredRanks,
     'progression': progression.toJson(),
     'economyActivity': activity.toJson(),
     'progressionBoot': _bootTime()?.boot,
     'playStreak': streak.toJson(),
     'freezeSerial': _freezeSerial,
-    'classicLevels': _classicLevels.toList(),
-    'legacyMechanicLevels': _legacyMechanicLevels.toList(),
     'hintBalance': _hintBalance,
     'hintPurchaseSerial': _hintPurchaseSerial,
     'hintAdDays': _hintAdDays,
@@ -2692,27 +2368,14 @@ class AppModel extends ChangeNotifier
         'boot': stamp.boot,
         'at': stamp.milliseconds,
       },
-      'claims': _wheelClaims,
       if (_pendingFortune case final pending?)
         'pending': {
           'id': pending.id,
           'prize': pending.prize.id,
           'coins': pending.prize.coins,
         },
-      'videos': [
-        for (final stamp in _wheelVideos)
-          {'boot': stamp.boot, 'at': stamp.milliseconds},
-      ],
     },
     'archivedCoins': _wallet.archivedCoins,
-    if (_coinOfferLevel case final levels?)
-      'coinOffer': {
-        'levels': levels,
-        if (_lastCoinOffer case final offer?) ...{
-          'boot': offer.boot,
-          'milliseconds': offer.milliseconds,
-        },
-      },
     if (_lastAutomaticAd case final stamp?)
       'lastAutomaticAd': {
         'boot': stamp.boot,

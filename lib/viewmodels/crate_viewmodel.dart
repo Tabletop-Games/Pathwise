@@ -11,8 +11,6 @@ class CrateViewModel {
 
   bool reveal(Crate crate) => model.revealCrate(crate);
 
-  void dismiss(Crate crate) => model.dismissCrate(crate);
-
   Future<({bool shown, bool claimed})> claimWithVideo(
     Crate crate, {
     required bool Function() canPresent,

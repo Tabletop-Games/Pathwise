@@ -1,6 +1,6 @@
 # Security
 
-Pathwise has no server. Everything runs on the device, with Google Play Games Services (saved games), Google Play Billing and AdMob as the only remote parties. Read this with [cloud saves](cloud-saves.md), which describes the sync rules, and [connectivity](connectivity.md).
+Pathwise has no server. Everything runs on the device, with Google Play Games Services (saved games), Google Play Billing and AdMob as the only remote parties. Read this with [cloud saves](cloud-saves.md), which describes the sync rules and connectivity handling.
 
 ## What is protected
 
@@ -25,7 +25,7 @@ These are intentional trade-offs of avoiding a hosted backend. They are not bugs
 5. **Refund reconciliation is limited.** Coin packs cannot be reconciled after consumption. Permanent products are reconciled against Google Play's owned list at each start.
 6. **Device time is not trusted.** Daily limits and cooldowns use the device clock, so changing it can reset a day. Time Attack deadlines use the elapsed-time clock, which does not reset when the wall clock changes.
 7. **Play Integrity is not used.** It requires a backend to decrypt verdicts, and this architecture has none. Adding Google's client-side attestation without server verification would not be meaningful, so it is not included.
-8. **Internet checks are not a security boundary.** The connectivity probe prevents offline play for convenience and ad-avoidance reasons. A modified app can skip it.
+8. **Internet checks are not a security boundary.** The connectivity probe only decides whether network features are offered. A modified app can ignore it.
 
 Pathwise does not detect or circumvent VPNs, DNS filters or privacy tools.
 

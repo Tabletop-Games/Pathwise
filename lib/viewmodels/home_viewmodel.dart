@@ -2,31 +2,12 @@ import '../logic/ad_service.dart';
 import '../model/app_model.dart';
 import '../model/game_state.dart';
 
-enum HomeLaunchAction { none, levelOneDemo, dailyWheel }
-
 /// Presentation logic for the Home screen and puzzle launch/exit coordination.
 class HomeViewModel {
   HomeViewModel({required this.model, required this.ads});
 
   final AppModel model;
   final AdService ads;
-
-  HomeLaunchAction decideLaunchAction({
-    required bool offerLevelOneDemo,
-    required bool offerDailySpin,
-    required bool wheelLaunchChecked,
-  }) {
-    if (offerLevelOneDemo && model.shouldOfferLevelOneDemo) {
-      return HomeLaunchAction.levelOneDemo;
-    }
-    if (offerDailySpin &&
-        !wheelLaunchChecked &&
-        model.fortuneWait == 0 &&
-        model.pendingFortune == null) {
-      return HomeLaunchAction.dailyWheel;
-    }
-    return HomeLaunchAction.none;
-  }
 
   bool canOpenPuzzle(PuzzleId id) {
     if (model.activeId != null) return false;

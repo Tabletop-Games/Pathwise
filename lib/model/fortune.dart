@@ -57,37 +57,6 @@ final class FortuneCatalog {
       prizes[(((-rotation) % 1) * segmentCount).floor() % segmentCount];
 }
 
-final class FortuneStatus {
-  FortuneStatus.fromJson(Map data)
-    : version = data['version'] as int? ?? 1,
-      now = data['now'] as int,
-      stamps = List<int>.from(data['stamps'] as List),
-      counts = Map<String, int>.from(data['counts'] as Map),
-      last = data['last'] as String?,
-      receipt = data['receipt'] as String? {
-    if (stamps.length > 4 ||
-        stamps.any((stamp) => stamp <= now - fortuneWindowMs || stamp > now) ||
-        counts.values.any((count) => count < 0 || count > (1 << 40))) {
-      throw const FormatException('Invalid verified wheel state');
-    }
-  }
-
-  final int version, now;
-  final List<int> stamps;
-  final Map<String, int> counts;
-  final String? last, receipt;
-
-  int remaining(int elapsed) =>
-      4 -
-      stamps
-          .where(
-            (stamp) =>
-                stamp >
-                now + elapsed.clamp(0, fortuneWindowMs) - fortuneWindowMs,
-          )
-          .length;
-}
-
 int freeFortuneWait(BootTime? last, BootTime? now) {
   if (now == null) return -1;
   if (last == null) return 0;

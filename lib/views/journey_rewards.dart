@@ -551,7 +551,7 @@ class ProgressiveDiscoveryArt extends StatelessWidget {
             borderRadius: BorderRadius.circular(size * 0.14),
             child: LevelOneBoardPreview(palette: BoardPalette.palettes[theme]!),
           )
-        : GameArt(ArtKind.coinStack3, palette: palette);
+        : GameArt(ArtKind.coinStack3);
     final Widget silhouette = tip != null
         ? TipArtwork(tip: tip, palette: palette, concealed: true)
         : theme != null
@@ -679,7 +679,7 @@ class _DiscoveryRowState extends State<DiscoveryRow> {
                 palette: BoardPalette.palettes[theme]!,
               ),
             )
-          : GameArt(ArtKind.coinStack3, palette: palette),
+          : GameArt(ArtKind.coinStack3),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1051,7 +1051,7 @@ class _ThemeSilhouette extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Center(child: GameArt(ArtKind.lock, palette: palette, size: 22)),
+        child: Center(child: GameArt(ArtKind.lock, size: 22)),
       ),
     ),
   );

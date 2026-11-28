@@ -1,23 +1,30 @@
 # Monetization
 
-Production flags default off. See the publisher configuration and device test checklist. [Setup](../setup.md)
+Live ads and billing are off by default. Enable them only after the checklist in [play-console-setup.md](play-console-setup.md) is complete, using the Play internal track and AdMob test units first. Build flags are in [development.md](development.md#configuration). Reward values and limits are in [economy.md](economy.md#ads).
 
-| Format | Placement | Eligibility |
-| --- | --- | --- |
-| Adaptive banner | Standard puzzle | Configured AdMob unit, UMP permission, adequate height, and no Remove Ads or Premium |
-| Interstitial | Exit after completing a Level or Daily Challenge | Five qualifying exits, at least three minutes between impressions, one minute after a rewarded ad, and no active puzzle |
-| Rewarded hint | Hint shop | One hint per earned callback, up to five per local day |
-| Rewarded coins | Store · Earn Coins | Twenty coins per video, six per day, plus forty on the fourth |
-| Rewarded level bonus | Campaign results | First clears with ready video and no competing discovery reveal. Adds only the selected multiplier difference on the base payout. |
-| Rewarded discovery | Campaign results and Collections | Durable pending find, claimed only after the earned callback |
-| Rewarded boost | Upgrades · Boost Shop | Quick Charge and Power Surge offers follow their daily limits and unlock conditions |
-| Rewarded supply crate | Falling crate dialog | One successful viewing for the displayed amount |
-| Rewarded Fortune Wheel | Fortune Wheel | Six video spins per rolling 24 hours, plus the separate free spin |
+## Advertising
 
-The Android build template specifies production IDs for five distinct units. Serving is disabled by default. Debug/profile test mode uses Google sample IDs, and the Android release consent-only mode can exercise UMP with production metadata while blocking all ad requests. See [publisher setup](../docs/play-console-setup.md#7-admob-developer).
+| Format | Placement |
+| --- | --- |
+| Adaptive banner | Standard puzzle screen, hidden for Remove Ads and Premium |
+| Interstitial | After a completed campaign or Daily exit, spaced by the ad-frequency rules, never during play |
+| Rewarded | Hint shop, Store coins, Boosts, falling crate, Fortune Wheel, campaign completion multiplier, mystery reward |
 
-Client-side AdMob rewards require the SDK earned callback. Placement-specific handlers apply a unique transaction to the local save. Dismissal without earning has no payout. Optional rewards remain available to ad-free purchasers. Local payouts offer weaker tamper resistance than remotely verified receipts.
+Gameplay never waits for an ad. Optional rewarded videos remain available to ad-free players. Rewards come only from the SDK's earned callback: dismissal, load failure or show failure pays nothing, and each reward instance pays once. Android debug and profile builds use Google's sample ad units. The release build can run consent (UMP) with production metadata while blocking ad requests.
 
-Coin purchases and earned boost videos both add items to Your inventory. Activate an owned boost from that section. Both sections show effective durations, and the shop shows effective prices after research discounts.
+Rewards are verified on the device, which is weaker than server-side verification; see [security.md](security.md).
 
-The Store uses localized Google Play quotes. The app is Android-only. Themes handles palette browsing and unlocks, and the Store header shows the balance. On Android, the app verifies the Play-signed purchase with the configured public key. Fulfillment is saved before consumption or acknowledgement. Premium applies both entitlements and a stable one-time 1,000-coin event per local profile. Consumable recovery after save loss and automatic refund reconciliation are unavailable.
+## Purchases
+
+The Store sells coin packs (consumable) and three permanent upgrades through Google Play Billing:
+
+| Product | Effect |
+| --- | --- |
+| Coin packs | Coins, five sizes, localized Play prices |
+| Remove Ads | Removes banners and automatic ads; optional rewarded videos remain |
+| Themes Forever | Unlocks every current and future theme (not tips) |
+| Premium | Remove Ads, Themes Forever and a one-time 1,000-coin bonus |
+
+The app verifies the Play-signed purchase on the device against the configured licensing public key, checks package, product and token, saves the grant (keyed by a hash of the purchase token) and only then consumes or acknowledges it. Pending and cancelled purchases never grant. On start the app asks Google Play which permanent products the account owns and sets entitlements to match, so refunds and reinstalls are reconciled. Consumed coin packs cannot be rebuilt from Billing after save loss. If billing is unavailable the Store shows the packs with an unavailable price, never an invented one.
+
+Product IDs are in `lib/model/product_catalog.dart`.

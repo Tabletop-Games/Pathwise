@@ -157,13 +157,13 @@ class _FortuneViewState extends State<FortuneView> {
     final ads = context.watch<AdService>();
     final palette = BoardPalette.palettes[model.theme]!;
     final wait = model.fortuneWait;
-    final remaining = model.fortuneVideosRemaining;
+    final videoAvailable = model.fortuneVideoAvailable;
     final showVideo = ads.wheelConfigured;
     final videoReady = ads.readyFor(RewardPlacement.wheel);
     final busy = _working || _pending != null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     final canSpin = !busy && wait == 0 && !model.storageError;
-    final canVideoSpin = !busy && remaining > 0 && videoReady;
+    final canVideoSpin = !busy && videoAvailable && videoReady;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlayFor(palette),
       child: Scaffold(
@@ -197,7 +197,7 @@ class _FortuneViewState extends State<FortuneView> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        GameArt(ArtKind.wheel, palette: palette, size: 72),
+                        GameArt(ArtKind.wheel, size: 72),
                         const SizedBox(height: 12),
                         const Text('The wheel could not be loaded.'),
                       ],
@@ -326,18 +326,16 @@ class _FortuneViewState extends State<FortuneView> {
                                 ? () => _spin(catalog, video: true)
                                 : null,
                             icon: Icon(
-                              remaining <= 0
+                              !videoAvailable
                                   ? Icons.block_rounded
                                   : (videoReady
                                         ? Icons.play_arrow_rounded
                                         : Icons.hourglass_top_rounded),
                             ),
                             label: Text(
-                              remaining <= 0
-                                  ? 'No video spins left'
-                                  : (videoReady
-                                        ? 'Spin · $remaining left'
-                                        : 'Loading video'),
+                              !videoAvailable
+                                  ? 'Unavailable'
+                                  : (videoReady ? 'Spin' : 'Loading video'),
                             ),
                           ),
                         ],

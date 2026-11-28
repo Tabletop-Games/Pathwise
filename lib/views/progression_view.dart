@@ -385,9 +385,7 @@ class _ProgressionViewState extends State<ProgressionView> {
             ),
           const SizedBox(height: 10),
           _boostSectionHeader('Boost Shop', palette),
-          for (final boost in Boost.values.where(
-            (boost) => boost.availableToBuy,
-          ))
+          for (final boost in Boost.values)
             _boostRow(
               key: ValueKey('boost-shop-${boost.name}'),
               boost: boost,
@@ -440,7 +438,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           children: [
             Row(
               children: [
-                GameArt(ArtKind.bolt, palette: palette, size: 16),
+                GameArt(ArtKind.bolt, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -478,9 +476,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                               runSpacing: 2,
                               children: [
                                 Text(
-                                  boost.multiplier > 1
-                                      ? '${boost.multiplier}× ${boost.title}'
-                                      : boost.title,
+                                  '${boost.multiplier}× ${boost.title}',
                                   style: TextStyle(
                                     color: palette.ink,
                                     fontWeight: FontWeight.w800,
@@ -548,7 +544,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) =>
-                      GameArt(ArtKind.research, palette: palette, size: 42),
+                      GameArt(ArtKind.research, size: 42),
                 ),
               ),
             ),
@@ -571,7 +567,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                       ),
                     ),
                     InfoChip(
-                      icon: GameArt(ArtKind.trophy, palette: palette, size: 14),
+                      icon: GameArt(ArtKind.trophy, size: 14),
                       label: '$earnedRanks of $totalRanks',
                     ),
                   ],
@@ -615,8 +611,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               _researchAssetPath(item),
               fit: BoxFit.contain,
               gaplessPlayback: true,
-              errorBuilder: (_, _, _) =>
-                  GameArt(ArtKind.research, palette: palette, size: 38),
+              errorBuilder: (_, _, _) => GameArt(ArtKind.research, size: 38),
             ),
           ),
         ),
@@ -646,9 +641,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           boostAssetPath(boost),
           fit: BoxFit.contain,
           gaplessPlayback: true,
-          errorBuilder: (_, _, _) => boost.multiplier > 1
-              ? GameArt(ArtKind.bolt, palette: palette, size: size - 12)
-              : GameArt(ArtKind.crate, palette: palette, size: size - 12),
+          errorBuilder: (_, _, _) => GameArt(ArtKind.bolt, size: size - 12),
         ),
       ),
     ),
@@ -680,7 +673,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GameArt(ArtKind.lock, palette: palette, size: 15),
+              GameArt(ArtKind.lock, size: 15),
               const SizedBox(width: 5),
               Text(
                 'Locked',
@@ -772,7 +765,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  GameArt(ArtKind.lock, palette: palette, size: 13),
+                  GameArt(ArtKind.lock, size: 13),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -814,10 +807,7 @@ class _ProgressionViewState extends State<ProgressionView> {
 
   String _boostDetails(Progression progress, Boost boost) {
     final duration = progress.boostDurationMs(boost);
-    final effect = boost == Boost.crateFrequency
-        ? '2× crate drop rate'
-        : '${boost.multiplier}×';
-    return '$effect · ${_compactDuration(duration)}';
+    return '${boost.multiplier}× · ${_compactDuration(duration)}';
   }
 
   Widget _boostRow({
@@ -930,24 +920,24 @@ class _ProgressionViewState extends State<ProgressionView> {
   }
 
   Widget _boostVideoAction(AppModel model, Boost boost) {
-    final adLimit = boost == Boost.doubleTen ? economy.doubleBoostAdsPerDay : 1;
-    final adsUsed = model.boostAdsToday(boost);
-    final adsLeft = (adLimit - adsUsed).clamp(0, adLimit);
+    // Quick Charge videos are unlimited. Power Surge needs the day's coin
+    // videos first and then allows one video a day.
+    final used = boost == Boost.tripleFifteen && model.boostAdsToday(boost) > 0;
     final milestoneLocked =
         boost == Boost.tripleFifteen &&
         model.adsToday < economy.coinAdMilestone;
     return ActionPill(
-      label: adsLeft == 0
+      label: used
           ? 'Daily limit'
           : milestoneLocked
           ? 'Video locked'
-          : 'Watch · $adsLeft/$adLimit',
-      icon: adsLeft == 0
+          : 'Watch',
+      icon: used
           ? Icons.schedule_rounded
           : milestoneLocked
           ? Icons.lock_outline_rounded
           : Icons.play_arrow_rounded,
-      semanticLabel: adsLeft == 0
+      semanticLabel: used
           ? 'Daily video limit reached for ${boost.title}'
           : milestoneLocked
           ? 'Watch ${economy.coinAdMilestone} coin videos today to unlock a video for ${boost.title}'

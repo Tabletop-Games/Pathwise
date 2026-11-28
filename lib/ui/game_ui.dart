@@ -27,8 +27,6 @@ void playUiFeedback(
 /// Spacing, radii and timings used across the whole app.
 abstract final class GameTokens {
   static const double gap = 8;
-  static const double gapSmall = 4;
-  static const double gapLarge = 16;
   static const double margin = 16;
   static const double cardRadius = 20;
   static const double pillRadius = 999;
@@ -89,9 +87,6 @@ extension GameColors on BoardPalette {
       : Color.lerp(route, dark ? Colors.white : surface, .18)!;
   Color get buttonBottom =>
       _isSignal ? route : Color.lerp(route, Colors.black, .16)!;
-
-  /// Subtle atmospheric particle tint.
-  Color get particleColor => Color.lerp(route, accent, .45)!;
 
   /// Foreground that is readable on [background].
   Color onColor(Color background) => background.computeLuminance() > .42
@@ -195,8 +190,7 @@ class CoinMark extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) =>
-      GameArt(ArtKind.coin, palette: context.palette, size: size);
+  Widget build(BuildContext context) => GameArt(ArtKind.coin, size: size);
 }
 
 /// Price shown as coin icon and number. The currency is never spelled out.
@@ -510,7 +504,7 @@ class ProgressPips extends StatelessWidget {
           for (var i = 0; i < total; i++) ...[
             if (i > 0) const SizedBox(width: 6),
             if (finalReward && i == total - 1)
-              GameArt(ArtKind.gift, palette: p, size: 26)
+              GameArt(ArtKind.gift, size: 26)
             else
               AnimatedContainer(
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -581,7 +575,7 @@ class RewardAmount extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GameArt(ArtKind.coin, palette: p, size: size),
+          GameArt(ArtKind.coin, size: size),
           const SizedBox(width: 8),
           Text(
             '${plus ? '+' : ''}$amount',

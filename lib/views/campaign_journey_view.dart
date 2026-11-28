@@ -11,7 +11,6 @@ import '../model/user_preferences.dart';
 import '../ui/art/game_assets.dart';
 import '../ui/game_art.dart';
 import '../ui/game_ui.dart';
-import '../viewmodels/journey_viewmodel.dart';
 import 'main_menu_view.dart';
 
 part 'journey_landscape.dart';
@@ -40,10 +39,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
 
   // Keep subpixel precision in the scroll offset, including at large text sizes.
   static int _maxLevelForExtent(double extent) =>
-      JourneyViewModel.maxLevelForExtent(
-        extent,
-        slotsPerChapter: _slotsPerChapter,
-      );
+      maxJourneyLevelForExtent(extent, slotsPerChapter: _slotsPerChapter);
 
   static int _slotForLevel(int level) => level + chapterFor(level) * 2;
 
@@ -206,11 +202,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                   constraints: const BoxConstraints(maxWidth: 550),
                   child: ListTile(
                     minTileHeight: 56,
-                    leading: GameArt(
-                      ArtKind.treasure,
-                      palette: palette,
-                      size: 34,
-                    ),
+                    leading: GameArt(ArtKind.treasure, size: 34),
                     title: Text('Treasures · $treasureCount'),
                     trailing: Text(
                       'Claim',
@@ -804,7 +796,6 @@ class _ChestStop extends StatelessWidget {
             title: '${chapterName(chapter)} chest',
             art: GameArt(
               claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-              palette: palette,
               size: 56,
             ),
             body: claimed
@@ -874,7 +865,6 @@ class _ChestStop extends StatelessWidget {
                             top: 0,
                             child: GameArt(
                               claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-                              palette: palette,
                               size: 30,
                             ),
                           ),
@@ -966,7 +956,7 @@ Future<void> showChapterTreasures(BuildContext context) =>
                       ),
                       child: Row(
                         children: [
-                          GameArt(ArtKind.treasure, palette: palette, size: 38),
+                          GameArt(ArtKind.treasure, size: 38),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -1060,7 +1050,6 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
           child: GameArt(
             _opened ? ArtKind.treasureOpen : ArtKind.treasure,
             key: ValueKey(_opened),
-            palette: palette,
             size: 74,
           ),
         ),
@@ -1126,7 +1115,7 @@ class _RewardChip extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GameArt(art, palette: palette, size: 18),
+        GameArt(art, size: 18),
         const SizedBox(width: 6),
         Text(
           label,

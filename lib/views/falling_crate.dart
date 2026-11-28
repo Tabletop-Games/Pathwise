@@ -105,7 +105,7 @@ class _FallingCrateState extends State<FallingCrate>
             tooltip: 'Catch supply crate',
             onPressed: _catchCrate,
             padding: EdgeInsets.zero,
-            icon: GameArt(ArtKind.crate, palette: context.palette, size: _size),
+            icon: GameArt(ArtKind.crate, size: _size),
             constraints: const BoxConstraints.tightFor(
               width: _size,
               height: _size,
@@ -171,7 +171,7 @@ class _CrateRewardState extends State<_CrateReward> {
         curve: Curves.easeOut,
         builder: (context, scale, child) =>
             Transform.scale(scale: scale, child: child),
-        child: GameArt(ArtKind.crate, palette: context.palette, size: 84),
+        child: GameArt(ArtKind.crate, size: 84),
       ),
       title: 'Supply crate',
       child: Column(

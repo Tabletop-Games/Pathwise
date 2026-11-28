@@ -2,7 +2,7 @@ enum EconomyEvent {
   wheelOpened('Wheel opens'),
   wheelFree('Free spins'),
   wheelRequested('Wheel video requests'),
-  wheelVerified('Verified wheel spins'),
+  wheelVideo('Video wheel spins'),
   researchBought('Research ranks purchased'),
   researchAffordable('Affordable next ranks seen'),
   researchUnavailable('Unaffordable next ranks seen'),

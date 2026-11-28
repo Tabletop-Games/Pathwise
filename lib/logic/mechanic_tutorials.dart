@@ -5,14 +5,13 @@ enum MechanicTutorial {
   walls('walls'),
   ice('ice'),
   gate('gate'),
-  portal('portal'),
-  arrow('arrow');
+  portal('portal');
 
   const MechanicTutorial(this.id);
   final String id;
 }
 
-/// Discovers mechanics from the actual board, including restored legacy boards.
+/// Discovers mechanics from the actual board.
 /// Order is stable so boards introducing multiple mechanics have a predictable
 /// tutorial sequence. This function does not mutate the puzzle or player state.
 List<MechanicTutorial> mechanicsOnBoard(Puzzle puzzle) => [
@@ -20,7 +19,6 @@ List<MechanicTutorial> mechanicsOnBoard(Puzzle puzzle) => [
   if (puzzle.iceTiles.isNotEmpty) MechanicTutorial.ice,
   if (puzzle.gate != null) MechanicTutorial.gate,
   if (puzzle.portal != null) MechanicTutorial.portal,
-  if (puzzle.arrow != null) MechanicTutorial.arrow,
 ];
 
 /// Completed and explicitly skipped tutorials are both excluded; an opened

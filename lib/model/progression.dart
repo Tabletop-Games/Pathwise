@@ -74,30 +74,13 @@ enum Research {
 
 enum Boost {
   doubleTen('Quick Charge', 5, 60, 2),
-  doubleFifteen('Surge 15', 15, 72, 2),
-  doubleThirty('Surge 30', 30, 144, 2),
   doubleSixty('Endurance', 15, 160, 2),
   tripleFifteen('Power Surge', 5, 130, 3),
-  quadrupleTen('Royal Rush', 3, 150, 4),
-  crateFrequency('Crate Radar', 15, 56, 1);
+  quadrupleTen('Royal Rush', 3, 150, 4);
 
   const Boost(this.title, this.minutes, this.price, this.multiplier);
   final String title;
   final int minutes, price, multiplier;
-  bool get availableToBuy =>
-      this == doubleTen ||
-      this == doubleSixty ||
-      this == tripleFifteen ||
-      this == quadrupleTen;
-  String get slot => multiplier > 1 ? 'coins' : name;
-  String get subtitle => switch (this) {
-    doubleTen => 'Short 2× session sprint',
-    doubleSixty => 'Best 2× value for longer play',
-    tripleFifteen => 'High-yield 3× coin burst',
-    quadrupleTen => 'Peak 4× speed-clear rush',
-    crateFrequency => 'Twice as many crate drops',
-    _ => '$multiplier× base campaign & daily coins',
-  };
 }
 
 typedef Crate = ({String id, int coins});
@@ -138,24 +121,6 @@ final class Progression {
     crateWait = max(0, crateWait - max(0, elapsed));
   }
 
-  void migrateCrates(
-    Map<String, dynamic> data,
-    BootTime? now,
-    Object? savedBoot,
-    String day,
-  ) {
-    if (data.containsKey('crateWait') || now == null) return;
-    final due = data['nextCrate'];
-    if (savedBoot == now.boot && due is int && due > 0) {
-      crateWait = (due - now.milliseconds).clamp(0, 150000);
-    }
-    if (data['crateDay'] == day && data['crateCount'] is int) {
-      crateDrops.addAll(
-        List.filled((data['crateCount'] as int).clamp(0, 6), now),
-      );
-    }
-  }
-
   int rank(Research item) => (ranks[item.name] ?? 0).clamp(0, item.limit);
   int effect(Research item) => item.effectAt(rank(item));
   int discount(int price) =>
@@ -170,9 +135,7 @@ final class Progression {
       max(0, (active[boost.name] ?? 0) - now);
   bool canActivate(Boost boost, int now) =>
       (inventory[boost.name] ?? 0) > 0 &&
-      !Boost.values.any(
-        (other) => other.slot == boost.slot && remaining(other, now) > 0,
-      );
+      !Boost.values.any((other) => remaining(other, now) > 0);
   int multiplier(int now) => Boost.values.fold(
     1,
     (value, boost) =>
@@ -198,9 +161,7 @@ final class Progression {
     });
     if (crateDrops.length >= economy.cratesPerWindow) return null;
     final crate = (id: 'crate/${serial++}', coins: crateCoins(roll()));
-    crateWait =
-        (150 - effect(Research.hunter) - effect(Research.scout)) *
-        (remaining(Boost.crateFrequency, now.milliseconds) > 0 ? 500 : 1000);
+    crateWait = (150 - effect(Research.hunter) - effect(Research.scout)) * 1000;
     crateDrops.add(now);
     return crate;
   }

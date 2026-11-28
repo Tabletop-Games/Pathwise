@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../lib/logic/game_controller.dart';
 import '../lib/logic/mechanic_tutorials.dart';
@@ -38,7 +39,6 @@ String signature(Puzzle p) {
         ice,
         if (p.gate case (final a, final b)) [map(a), map(b)] else null,
         if (p.portal case (final a, final b)) [map(a), map(b)] else null,
-        if (p.arrow case (final a, final b)) [map(a), map(b)] else null,
       ]),
     );
   }
@@ -136,4 +136,8 @@ void main() {
       'elapsedMs': watch.elapsedMilliseconds,
     }),
   );
+  if (duplicates.isNotEmpty) {
+    stderr.writeln('Symmetry-equivalent duplicate boards: $duplicates');
+    exitCode = 1;
+  }
 }

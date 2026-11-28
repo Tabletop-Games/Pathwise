@@ -83,7 +83,7 @@ class PlayGamesCloudSaves implements CloudSaveProvider {
     Duration? timeout,
     bool enabled = false,
   }) : _channel =
-           channel ?? const MethodChannel('games.tabletop.pathwise/cloud'),
+           channel ?? const MethodChannel('com.shenmareparas.pathwise/cloud'),
        _timeout = timeout ?? const Duration(seconds: 25),
        _enabled = enabled;
 

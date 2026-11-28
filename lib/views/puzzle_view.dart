@@ -422,7 +422,7 @@ Future<void> _confirmPuzzleRestart(BuildContext context, AppModel model) async {
   final accepted = await showGameDialog<bool>(
     context,
     builder: (dialog) => GameDialog(
-      art: GameArt(ArtKind.levels, palette: dialog.palette, size: 56),
+      art: GameArt(ArtKind.levels, size: 56),
       title: 'Restart puzzle?',
       body: 'This clears your route. Your hint balance stays the same.',
       actions: [
@@ -451,7 +451,7 @@ Future<void> _confirmAttackAction(
   final accepted = await showGameDialog<bool>(
     context,
     builder: (dialog) => GameDialog(
-      art: GameArt(ArtKind.timer, palette: dialog.palette, size: 56),
+      art: GameArt(ArtKind.timer, size: 56),
       title: restart ? 'Restart Time Attack?' : 'Stop Time Attack?',
       body: 'This run’s score and rewards will be discarded.',
       actions: [
@@ -644,13 +644,7 @@ class _Completion extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Center(
-                          child: GameArt(
-                            ArtKind.treasureOpen,
-                            palette: palette,
-                            size: 56,
-                          ),
-                        ),
+                        Center(child: GameArt(ArtKind.treasureOpen, size: 56)),
                       ],
                     ),
                   ),
@@ -910,7 +904,7 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
         Widget plusOne(ArtKind kind) => Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GameArt(kind, palette: p, size: 36),
+            GameArt(kind, size: 36),
             const SizedBox(width: 8),
             Semantics(
               label: 'One hint',
@@ -925,11 +919,11 @@ Future<void> showHintShop(BuildContext context, AppModel model) async {
               ),
             ),
             const SizedBox(width: 6),
-            GameArt(ArtKind.hint, palette: p, size: 26),
+            GameArt(ArtKind.hint, size: 26),
           ],
         );
         return GameDialog(
-          art: GameArt(ArtKind.hint, palette: p, size: 64),
+          art: GameArt(ArtKind.hint, size: 64),
           title: 'Get a hint',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1407,7 +1401,7 @@ class _AttackResults extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            GameArt(art, palette: p, size: 28),
+            GameArt(art, size: 28),
             const SizedBox(width: 8),
             Expanded(
               child: FittedBox(
@@ -1438,7 +1432,7 @@ class _AttackResults extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               shrinkWrap: true,
               children: [
-                Center(child: GameArt(ArtKind.timer, palette: p, size: 64)),
+                Center(child: GameArt(ArtKind.timer, size: 64)),
                 const SizedBox(height: 6),
                 Text(
                   'Time’s up',
@@ -1472,12 +1466,12 @@ class _AttackResults extends StatelessWidget {
                   children: [
                     if (run.record)
                       InfoChip(
-                        icon: GameArt(ArtKind.trophy, palette: p, size: 16),
+                        icon: GameArt(ArtKind.trophy, size: 16),
                         label: 'New personal best',
                       ),
                     if (model.recentStreakDay case final day?)
                       InfoChip(
-                        icon: GameArt(ArtKind.flame, palette: p, size: 16),
+                        icon: GameArt(ArtKind.flame, size: 16),
                         label: '$day-day streak',
                       ),
                   ],

@@ -177,7 +177,7 @@ final class NotificationHelper {
         if (!canPostNotifications(context)) return;
         ensureChannels(context);
         Intent tapIntent = new Intent(context, MainActivity.class)
-                .setAction("games.tabletop.pathwise.NOTIFICATION_TAP")
+                .setAction("com.shenmareparas.pathwise.NOTIFICATION_TAP")
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(EXTRA_CATEGORY, category);
         PendingIntent tapPending = PendingIntent.getActivity(

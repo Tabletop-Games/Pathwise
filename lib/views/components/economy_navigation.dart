@@ -21,7 +21,7 @@ Future<void> showInsufficientCoins(
     builder: (dialog) {
       final p = dialog.palette;
       return GameDialog(
-        art: GameArt(ArtKind.coinStack2, palette: p, size: 64),
+        art: GameArt(ArtKind.coinStack2, size: 64),
         title: itemName,
         child: Semantics(
           label: 'You need $shortfall more coins',

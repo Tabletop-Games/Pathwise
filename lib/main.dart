@@ -81,12 +81,7 @@ void main() async {
     await clock.sync();
     try {
       if (snapshot == null) throw StateError('Save could not be loaded');
-      final model = session.buildModel(snapshot);
-      if (snapshot.isNotEmpty &&
-          snapshot['schemaVersion'] != GameStateStorage.schemaVersion) {
-        await model.flush();
-      }
-      return model;
+      return session.buildModel(snapshot);
     } catch (_) {
       storage.protect();
       return AppModel(
@@ -120,9 +115,6 @@ void main() async {
 /// run with sync off. Debug builds without it use a local fake, so the debug
 /// package never reaches a production Play Games project.
 CloudSaveProvider cloudProviderFor(KeyValueStore store) {
-  if (defaultTargetPlatform != TargetPlatform.android) {
-    return const UnsupportedCloudSaves();
-  }
   if (PlayGames.enabled) return PlayGamesCloudSaves(enabled: PlayGames.enabled);
   if (kReleaseMode) return const UnsupportedCloudSaves();
   return FakeCloudSaves(store: store, key: 'pathwise.debug.fakecloud.v1');
@@ -390,7 +382,6 @@ class _PathwiseAppState extends State<PathwiseApp> with WidgetsBindingObserver {
     );
     _ads = AdService(
       reserveInterstitial: _model.reserveAutomaticAd,
-      onRewardedClosed: _model.recordRewardedAdExit,
       onAdPlayingChanged: _model.setAdPlaying,
       isConnected: connectivity == null ? null : () => connectivity.online,
     );

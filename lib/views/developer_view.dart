@@ -59,7 +59,6 @@ class _DeveloperViewState extends State<DeveloperView> {
       final puzzle = board.puzzle;
       final active = [
         if (puzzle.walls.isNotEmpty) 'Walls',
-        if (puzzle.arrow != null) 'One-way',
         if (puzzle.gate != null) 'Keys',
         if (puzzle.portal != null) 'Portals',
         if (puzzle.iceTiles.isNotEmpty) 'Ice',
@@ -684,7 +683,6 @@ class _CertifiedSolutionViewState extends State<_CertifiedSolutionView> {
     final puzzle = board.puzzle;
     final mechanics = [
       if (puzzle.walls.isNotEmpty) 'Walls (${puzzle.walls.length})',
-      if (puzzle.arrow != null) 'One-way arrow',
       if (puzzle.gate != null) 'Key & gate',
       if (puzzle.portal != null) 'Portal',
       if (puzzle.iceTiles.isNotEmpty) 'Ice (${puzzle.iceTiles.length})',

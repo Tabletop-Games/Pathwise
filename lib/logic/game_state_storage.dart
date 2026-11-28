@@ -23,23 +23,7 @@ class GameStateStorage {
     }
     final decoded = jsonDecode(snapshot);
     if (decoded is! Map<String, dynamic> ||
-        (decoded['schemaVersion'] != null &&
-            decoded['schemaVersion'] != 1 &&
-            decoded['schemaVersion'] != 2 &&
-            decoded['schemaVersion'] != 3 &&
-            decoded['schemaVersion'] != 4 &&
-            decoded['schemaVersion'] != 5 &&
-            decoded['schemaVersion'] != 6 &&
-            decoded['schemaVersion'] != 7 &&
-            decoded['schemaVersion'] != 8 &&
-            decoded['schemaVersion'] != 9 &&
-            decoded['schemaVersion'] != 10 &&
-            decoded['schemaVersion'] != 11 &&
-            decoded['schemaVersion'] != 12 &&
-            decoded['schemaVersion'] != 13 &&
-            decoded['schemaVersion'] != 14 &&
-            decoded['schemaVersion'] != 15 &&
-            decoded['schemaVersion'] != schemaVersion)) {
+        decoded['schemaVersion'] != schemaVersion) {
       throw const FormatException('Unsupported saved progress');
     }
     _loaded = true;

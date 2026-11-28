@@ -45,7 +45,6 @@ class StoreView extends StatefulWidget {
 }
 
 class _StoreViewState extends State<StoreView> {
-  static int _lastCategory = 0;
   late int _category;
   bool _busy = false;
   bool _watching = false;
@@ -64,9 +63,9 @@ class _StoreViewState extends State<StoreView> {
       StoreSection.coinPacks ||
       StoreSection.earnCoins => 2,
       StoreSection.upgrades || StoreSection.premium => 3,
-      null => _lastCategory,
+      null => context.read<AppModel>().lastStoreCategory,
     };
-    _lastCategory = _category;
+    context.read<AppModel>().lastStoreCategory = _category;
   }
 
   @override
@@ -78,7 +77,7 @@ class _StoreViewState extends State<StoreView> {
   }
 
   void _selectCategory(int value) {
-    _lastCategory = value;
+    context.read<AppModel>().lastStoreCategory = value;
     if (value == _category) {
       final controller = _tabScrolls[value];
       if (!controller.hasClients || controller.offset <= 0) return;
@@ -487,7 +486,6 @@ class _StoreViewState extends State<StoreView> {
               children: [
                 GameArt(
                   bonus ? ArtKind.coinStack3 : ArtKind.coinStack2,
-                  palette: palette,
                   size: 72,
                 ),
                 const SizedBox(width: 14),
@@ -514,7 +512,7 @@ class _StoreViewState extends State<StoreView> {
                           excludeSemantics: true,
                           child: Row(
                             children: [
-                              GameArt(ArtKind.gift, palette: palette, size: 18),
+                              GameArt(ArtKind.gift, size: 18),
                               const SizedBox(width: 6),
                               Text(
                                 '${economy.rewardedAdCoins} + ${economy.coinAdMilestoneBonus} bonus',
@@ -1109,7 +1107,7 @@ class _PackCard extends StatelessWidget {
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: GameArt(art, palette: p, size: artSize),
+                child: GameArt(art, size: artSize),
               ),
             ),
           ),
@@ -1206,7 +1204,7 @@ class _UpgradeCard extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: GameArt(art, palette: p, size: featured ? 56 : 48),
+                    child: GameArt(art, size: featured ? 56 : 48),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1257,7 +1255,7 @@ class _UpgradeCard extends StatelessWidget {
                 for (final (kind, label) in chips)
                   InfoChip(
                     icon: kind != null
-                        ? GameArt(kind, palette: p, size: 16)
+                        ? GameArt(kind, size: 16)
                         : Icon(
                             Icons.info_outline_rounded,
                             size: 15,

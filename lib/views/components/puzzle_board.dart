@@ -653,14 +653,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     final mechanics = _marksAt(widget.puzzle, cell, visited)
         .map(
           (mark) => switch (mark.kind) {
-            _TileMark.arrow =>
-              mark.direction.dx > 0
-                  ? 'exit right'
-                  : mark.direction.dx < 0
-                  ? 'exit left'
-                  : mark.direction.dy > 0
-                  ? 'exit down'
-                  : 'exit up',
             _TileMark.key => 'key',
             _TileMark.lockedGate => 'locked gate',
             _TileMark.openGate => 'unlocked gate',
@@ -675,29 +667,12 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   }
 }
 
-enum _TileMark {
-  arrow,
-  key,
-  lockedGate,
-  openGate,
-  portalEntry,
-  portalExit,
-  ice,
-}
+enum _TileMark { key, lockedGate, openGate, portalEntry, portalExit, ice }
 
-typedef _Mark = ({_TileMark kind, Offset direction});
-_Mark _mark(_TileMark kind) => (kind: kind, direction: Offset.zero);
-
-Offset _cellCenter(int cell, int size) =>
-    Offset(cell % size + .5, cell ~/ size + .5);
+typedef _Mark = ({_TileMark kind});
+_Mark _mark(_TileMark kind) => (kind: kind);
 
 Iterable<_Mark> _marksAt(Puzzle puzzle, int cell, Set<int> visited) sync* {
-  if (puzzle.arrow case (final from, final to) when from == cell) {
-    yield (
-      kind: _TileMark.arrow,
-      direction: _cellCenter(to, puzzle.size) - _cellCenter(from, puzzle.size),
-    );
-  }
   if (puzzle.gate case (final key, final gate)) {
     if (cell == key && !visited.contains(key)) yield _mark(_TileMark.key);
     if (cell == gate)
@@ -733,7 +708,6 @@ void _paintTile(
     _TileMark.portalEntry || _TileMark.portalExit =>
       dark ? const Color(0xff70e3d5) : const Color(0xff087b78),
     _TileMark.ice => dark ? const Color(0xff93d4ff) : const Color(0xff2469a5),
-    _TileMark.arrow => palette.ink,
   };
   final highContrast = palette == BoardPalette.palettes[PathwiseTheme.signal];
   final topColor = Color.lerp(
@@ -800,11 +774,7 @@ void _paintTile(
       Paint()..color = color.withValues(alpha: .075),
     );
     canvas.save();
-    final direction = mark.direction;
     final motifOffset = switch (mark.kind) {
-      _TileMark.arrow when single && checkpoint =>
-        Offset(direction.dy, -direction.dx) * .32,
-      _TileMark.arrow when visited => Offset(-direction.dy, direction.dx) * .19,
       _TileMark.key when single && checkpoint => const Offset(0, -.32),
       _ => Offset.zero,
     };
@@ -812,33 +782,18 @@ void _paintTile(
     canvas.translate(origin.dx, origin.dy);
     if (!single) {
       canvas.scale(.47);
-    } else if (checkpoint &&
-        (mark.kind == _TileMark.key || mark.kind == _TileMark.arrow)) {
+    } else if (checkpoint && mark.kind == _TileMark.key) {
       canvas.scale(.57);
     } else {
       canvas.scale(.82);
     }
     final ink = Paint()
-      ..color = color.withValues(
-        alpha: mark.kind == _TileMark.arrow ? .38 : .78,
-      )
+      ..color = color.withValues(alpha: .78)
       ..style = PaintingStyle.stroke
       ..strokeWidth = .037
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     switch (mark.kind) {
-      case _TileMark.arrow:
-        final d = mark.direction;
-        final cross = Offset(-d.dy, d.dx);
-        canvas.drawPath(
-          Path()
-            ..moveTo((-d * .30).dx, (-d * .30).dy)
-            ..lineTo((d * .28).dx, (d * .28).dy)
-            ..moveTo((d * .08 + cross * .17).dx, (d * .08 + cross * .17).dy)
-            ..lineTo((d * .28).dx, (d * .28).dy)
-            ..lineTo((d * .08 - cross * .17).dx, (d * .08 - cross * .17).dy),
-          ink..strokeWidth = .072,
-        );
       case _TileMark.key:
         canvas.rotate(-math.pi / 4);
         canvas.drawCircle(const Offset(-.18, 0), .12, ink);
@@ -944,21 +899,6 @@ class BoardRulesButton extends StatelessWidget {
           'Walls',
           'A thick line blocks the shared edge.',
           const <List<_Mark>>[],
-        ),
-      if (puzzle.arrow case (final from, final to))
-        (
-          'Directional tile',
-          'Leave this tile in the direction of the arrow.',
-          [
-            [
-              (
-                kind: _TileMark.arrow,
-                direction:
-                    _cellCenter(to, puzzle.size) -
-                    _cellCenter(from, puzzle.size),
-              ),
-            ],
-          ],
         ),
       if (puzzle.gate != null)
         (
@@ -1146,8 +1086,7 @@ class _BoardPainter extends CustomPainter {
     final pulse = (1 - progress).clamp(0.0, 1.0);
     final target = move == null || move.reason == MoveRejection.wall
         ? null
-        : (move.reason == MoveRejection.arrow ||
-                  move.reason == MoveRejection.ice ||
+        : (move.reason == MoveRejection.ice ||
                   (move.reason == MoveRejection.portal &&
                       puzzle.portal?.$1 == move.from)
               ? move.from

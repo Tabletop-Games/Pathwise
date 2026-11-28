@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'economy.dart';
 import 'progression.dart';
 import 'user_preferences.dart';
@@ -22,6 +24,11 @@ int multiplierAt(double position) {
 }
 
 int chapterFor(int level) => (level - 1) ~/ chapterSize;
+
+/// The highest level whose scroll offset stays exact in a double, given the
+/// fixed extent of one Journey slot.
+int maxJourneyLevelForExtent(double extent, {int slotsPerChapter = 27}) =>
+    (1 << 49) ~/ math.max(1.0, extent) ~/ slotsPerChapter * chapterSize;
 
 const _landscapes = [
   'First Light',
@@ -203,21 +210,5 @@ class Discovery {
       if (value.name == id) return value;
     }
     return null;
-  }
-
-  String get displayName {
-    if (isCoins) return '$coinAmount coins';
-    if (boost case final b?) return '${b.multiplier}× ${b.title}';
-    if (tip case final t?) return t.label;
-    if (theme case final th?) return th.name;
-    return item;
-  }
-
-  String get categoryLabel {
-    if (isCoins) return 'Coin pouch';
-    if (isBoost) return 'Coin boost';
-    if (isTip) return 'Path tip';
-    if (isTheme) return 'Theme';
-    return 'Mystery reward';
   }
 }

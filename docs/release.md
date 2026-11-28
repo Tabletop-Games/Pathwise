@@ -1,14 +1,49 @@
-# Release verification
+# Release
 
-The public version line is 1.0.0. Build 8 adds social results and native achievement progress after Fortune Wheel build 7. The publisher must compare it against the private Play Console upload history and increase it if needed before uploading. Follow [setup.md](../setup.md) for production configuration and signing.
+The version is in `pubspec.yaml` (`version: 1.0.0+8`: name 1.0.0, build 8). Compare the build number with the private Play Console upload history and raise it before uploading. Publishing to Google Play is a manual publisher action.
 
-Use Flutter 3.50.1, Java 21, API 36 and NDK 28.2.13676358. Release Gradle enables R8 code optimization and resource shrinking. Archive the native symbol table zip from the release build. After Flutter verifies its standard bundle, use `tool/prepare_play_bundle.py` to remove duplicate native symbol metadata and sign the slim Play upload with the same publisher key. Verify library hashes match, and upload the symbols separately in Play Console. Keep SHA-256 digests and R8 mappings in private release storage. CI uses an ephemeral key to verify build artifacts.
+## Checks before a release
 
-Run formatting, static analysis, Flutter tests, the economy simulation, then release APK and AAB builds. Validate the AAB with Bundletool and APK alignment and signing with current Android build tools. Review [measured verification results](performance.md). Google Play publishing remains a manual publisher action.
+Run, in order:
 
+```sh
+dart format --output=none --set-exit-if-changed .
+flutter analyze --no-pub
+flutter test --no-pub
+dart run tool/economy_simulation.dart
+flutter build apk --debug --dart-define-from-file=config/production.example.json
+flutter build apk --release --dart-define-from-file=/secure/pathwise-production.json
+flutter build appbundle --release --dart-define-from-file=/secure/pathwise-production.json
+python3 tool/prepare_play_bundle.py build/app/outputs/bundle/release/app-release.aab /secure/pathwise-play.aab
+```
 
-## Sideload verification
+Use JDK 21, API 36 and NDK 28.2.13676358. Release builds enable R8 optimisation and resource shrinking. Keep these with the matching build and store them privately: `mapping.txt`, the native symbol zip (`build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip`) and SHA-256 digests. Upload the symbol zip separately in Play Console.
 
-Use `flutter build apk --debug` for developer features, and `flutter build apk --release` without ABI splitting for a universal signed verification build. CI archives both APKs from its verification workflow. Its temporary release certificate is valid for checking the build and differs from the debug and Play App Signing certificates.
+`tool/prepare_play_bundle.py` removes duplicate native symbol metadata from the verified bundle and signs the slim upload with the publisher key. `tool/verify_android_artifacts.py` then confirms that every native library in the bundle matches the release APK.
 
-Use `aapt dump badging app-release.apk` to inspect the application ID (`com.shenmareparas.pathwise`), Android API requirement, version code, and bundled ABIs. Run `apksigner verify --print-certs app-release.apk` and compare the SHA-256 certificate digest with the prior installation or Play App Signing certificate. An update requires an identical package ID and compatible signature, and Android can reject version downgrades independently of ABI. Device compatibility remains device-specific until a failed reinstall can be reproduced with its Android install error. Debug data uses its own preference key.
+## What CI verifies
+
+`.github/workflows/verify.yml` runs the checks above on every pull request and on `main`, with an ephemeral signing key, and then:
+
+- confirms the debug APK uses the AdMob sample app ID and the release APK uses the production one;
+- verifies APK signing (`apksigner`) and 16 KB ZIP alignment (`zipalign -P 16`);
+- validates the AAB with Bundletool and checks the base manifest;
+- runs `tool/verify_android_artifacts.py`;
+- requires the R8 `mapping.txt` and `resources.txt` outputs;
+- archives the debug and release APKs.
+
+## Manual device checks
+
+CI cannot cover these; do them on a device or emulator before a Play release:
+
+- the minified release build starts from the native launch screen into the saved-theme home screen;
+- play offline (airplane mode): campaign, Daily, Time Attack and coin purchases work, and one offline notice appears;
+- a coin pack purchase with a licence tester: credited once, restored after reinstall for permanent products;
+- cloud save on two devices with one tester account, including the conflict dialog ([cloud-saves.md](cloud-saves.md));
+- gesture tracking and large-font layouts on hardware;
+- rewarded ads with AdMob test units, then live units only after review;
+- the Settings update check against a Play-distributed build.
+
+## Inspecting an installed build
+
+`aapt dump badging app-release.apk` shows the application ID (`com.shenmareparas.pathwise`), API requirement, version code and ABIs. `apksigner verify --print-certs app-release.apk` shows the signing certificate; an update needs the same package ID and a compatible signature. The debug package (`com.shenmareparas.pathwise.debug`) keeps its own data.

@@ -51,11 +51,8 @@ class EconomyRules {
   int get rewardedAdsPerDay => 6;
   int get starterHints => 3;
   int get hintPrice => 80;
-  int get hintAdsPerDay => 5;
   int get coinAdMilestone => 4;
   int get coinAdMilestoneBonus => 40;
-  int get doubleBoostAdsPerDay => 3;
-  int get wheelAdsPerDay => 6;
   int get cratesPerWindow => 8;
   int attackReward(int solves) =>
       solves < 2 ? 0 : (solves < 8 ? solves : 8) * 3;

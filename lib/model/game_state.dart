@@ -2,7 +2,6 @@ import '../logic/puzzle_generator.dart';
 
 enum PlayMode { levels, daily, attack }
 
-const legacyLevelCount = 36;
 const dailyCheckpointCount = 3;
 
 String dayKey(DateTime date) =>
@@ -49,10 +48,7 @@ final class PuzzleId {
   };
 
   int get attackIndex => int.parse((value as String).split('/').last);
-  bool get _variedAttack =>
-      mode == PlayMode.attack && (value as String).startsWith('v2-');
-
-  String? get layoutLabel => !_variedAttack || attackIndex < 3
+  String? get layoutLabel => mode != PlayMode.attack || attackIndex < 3
       ? null
       : switch (attackIndex % 3) {
           0 => 'Guided checkpoints',
@@ -72,7 +68,7 @@ final class PuzzleId {
       };
       return (
         size: size,
-        seed: puzzleSeed('pathwise-attack-${_variedAttack ? 'v2' : 'v1'}/$key'),
+        seed: puzzleSeed('pathwise-attack/$key'),
         clues: baseline + variation,
       );
     }
