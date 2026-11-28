@@ -1200,10 +1200,7 @@ class _BoardPainter extends CustomPainter {
         palette,
         continuous: puzzle.walls.length > 1,
       );
-      if (move != null &&
-          move.reason == MoveRejection.wall &&
-          ((move.from == from && move.target == to) ||
-              (move.from == to && move.target == from))) {
+      if (move != null && move.reason == MoveRejection.wall) {
         final a = _center(from), b = _center(to);
         final delta = b - a, midpoint = (a + b) / 2;
         final ends = Offset(-delta.dy, delta.dx) * .44;
