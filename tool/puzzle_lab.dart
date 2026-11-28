@@ -123,7 +123,7 @@ void run(List<PuzzleSpec> specs, {required bool detail}) {
       stdout.writeln(
         '  got=${profile.band.name} diff=${profile.difficulty.toStringAsFixed(1)} '
         'tier=${profile.hardestTier} steps=${profile.deductionSteps} '
-        'rounds=${profile.rounds} forced=${profile.forcedMoveRatio.toStringAsFixed(2)} '
+        'depth=${profile.chainDepth} forced=${profile.forcedMoveRatio.toStringAsFixed(2)} '
         'traps=${profile.trapCount}/${profile.trapDepth} '
         'clues=${board.puzzle.checkpoints.length} walls=${board.puzzle.walls.length} '
         'expect=${profile.expectedSolveMs}ms',

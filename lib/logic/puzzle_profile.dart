@@ -71,7 +71,7 @@ final class PuzzleProfile {
     required this.hardestTier,
     required this.techniques,
     required this.deductionSteps,
-    required this.rounds,
+    required this.chainDepth,
     required this.forcedMoveRatio,
     required this.trapCount,
     required this.trapDepth,
@@ -97,8 +97,8 @@ final class PuzzleProfile {
   final Map<String, int> techniques;
   final int deductionSteps;
 
-  /// How many times the solver had to move on to a new wave of deductions.
-  final int rounds;
+  /// The longest chain of deductions that each needed the one before it.
+  final int chainDepth;
 
   /// Share of route steps where only one move is legal.
   final double forcedMoveRatio;
@@ -129,7 +129,7 @@ final class PuzzleProfile {
     hardestTier: hardestTier,
     techniques: techniques,
     deductionSteps: deductionSteps,
-    rounds: rounds,
+    chainDepth: chainDepth,
     forcedMoveRatio: forcedMoveRatio,
     trapCount: trapCount,
     trapDepth: trapDepth,

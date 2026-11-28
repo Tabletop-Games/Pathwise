@@ -9,25 +9,23 @@ import 'deduction.dart';
 /// the board is or how many mechanics it shows.
 ///
 /// The logic score weighs the deductions needed to solve the board by logic
-/// alone: tier-1 propagation is cheap, each lookahead costs far more, and a
-/// two-level lookahead more again. Rounds measure how many times the solver had
-/// to wait for an earlier deduction before it could continue.
+/// alone: basic propagation is cheap, each lookahead costs far more, and a
+/// two-level lookahead more again. Depth is the longest chain of deductions
+/// that each needed the one before it.
 double logicScore(DeductionResult result) {
-  final counts = result.techniques;
-  var tier1 = 0;
-  var tier2 = 0;
-  var tier3 = 0;
-  for (final entry in counts.entries) {
-    switch (techniqueTiers[entry.key] ?? 3) {
-      case 1:
-        tier1 += entry.value;
-      case 2:
-        tier2 += entry.value;
-      default:
-        tier3 += entry.value;
-    }
+  var score = 0.0;
+  for (final entry in result.techniques.entries) {
+    final weight = switch (entry.key) {
+      'portal_link' => 0.0,
+      'forced_degree' || 'saturated_cell' => 0.1,
+      'ice_straight' => 0.3,
+      'no_loop' || 'order_merge' => 0.8,
+      'probe_dead_end' || 'probe_order' || 'probe_isolation' => 6.0,
+      _ => 18.0,
+    };
+    score += weight * entry.value;
   }
-  return tier1 * 0.35 + tier2 * 6 + tier3 * 18 + result.rounds * 0.6;
+  return score + result.depth * 1.0;
 }
 
 /// Maps the logic score to 0–100 with diminishing returns.

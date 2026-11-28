@@ -48,7 +48,7 @@ final class Deduction {
     required this.to,
     required this.inRoute,
     required this.cell,
-    required this.round,
+    required this.depth,
   });
 
   final String technique;
@@ -63,8 +63,8 @@ final class Deduction {
   /// The cell whose constraint produced the step, or -1 for a probe.
   final int cell;
 
-  /// The pass of the solve loop that produced this step.
-  final int round;
+  /// How many dependent deductions, counting this one, lead to it.
+  final int depth;
 
   int get tier => techniqueTiers[technique] ?? 3;
   String get explanation => techniqueText[technique] ?? technique;
@@ -79,6 +79,7 @@ final class DeductionResult {
     required this.techniques,
     required this.hardestTier,
     required this.rounds,
+    required this.depth,
     required this.unknownEdges,
     required this.path,
   });
@@ -93,6 +94,10 @@ final class DeductionResult {
   final int hardestTier;
   final int rounds;
 
+  /// The length of the longest chain of deductions that each needed the one
+  /// before it.
+  final int depth;
+
   /// Edges still undecided when the solver ran out of techniques.
   final List<(int, int)> unknownEdges;
 
@@ -103,11 +108,14 @@ final class DeductionResult {
 }
 
 class _Step {
-  _Step(this.technique, this.edge, this.value, this.cell);
+  _Step(this.technique, this.edge, this.value, this.cell, [this.pass = 0]);
   final String technique;
   final int edge;
   final int value;
   final int cell;
+
+  /// The propagation layer that produced the step, counted from one.
+  final int pass;
 }
 
 class _Topology {
@@ -227,6 +235,7 @@ class _Engine {
     deepWork = _State(t);
     deepProbe = _State(t);
     work = _State(t);
+    marked = Int8List(t.edgeCount);
   }
 
   final Puzzle puzzle;
@@ -245,6 +254,12 @@ class _Engine {
   late final _State work;
   late final _State deepWork;
   late final _State deepProbe;
+  late final Int8List marked;
+  final List<int> _pendingEdge = [];
+  final List<int> _pendingValue = [];
+  final List<String> _pendingTech = [];
+  final List<int> _pendingCell = [];
+  int lastPasses = 0;
   int fragCount = 0;
   int _clock = 0;
   int propagations = 0;
@@ -379,15 +394,41 @@ class _Engine {
       order[fragStart[fragment]] == cell ||
       order[fragStart[fragment + 1] - 1] == cell;
 
-  /// Applies every tier-1 rule to a fixed point. Returns the kind of
-  /// contradiction reached, or null.
+  void _clearPending() {
+    for (final e in _pendingEdge) {
+      marked[e] = 0;
+    }
+    _pendingEdge.clear();
+    _pendingValue.clear();
+    _pendingTech.clear();
+    _pendingCell.clear();
+  }
+
+  /// Records a decision for the end of the pass. False when another rule in
+  /// the same pass decided the same edge the other way.
+  bool _queue(int e, int value, String technique, int cell) {
+    final current = marked[e];
+    if (current == value) return true;
+    if (current != 0) return false;
+    marked[e] = value;
+    _pendingEdge.add(e);
+    _pendingValue.add(value);
+    _pendingTech.add(technique);
+    _pendingCell.add(cell);
+    return true;
+  }
+
+  /// Applies every tier-1 rule until nothing changes. Each pass reads a
+  /// frozen copy of the board and applies its decisions together, so the
+  /// number of passes is the depth of the longest chain of dependent
+  /// deductions. Returns the kind of contradiction reached, or null.
   String? propagate(_State s, List<_Step>? log) {
     propagations++;
-    var changed = true;
-    var guard = 0;
-    while (changed) {
-      changed = false;
-      if (++guard > 400) return 'dead_end';
+    _clearPending();
+    var pass = 0;
+    while (true) {
+      pass++;
+      if (pass > 400) return 'dead_end';
       for (var cell = 0; cell < t.area; cell++) {
         final need = t.need[cell];
         final inDeg = s.inDeg[cell];
@@ -397,18 +438,10 @@ class _Engine {
         final saturated = inDeg == need;
         if (!saturated && inDeg + unk != need) continue;
         final value = saturated ? 2 : 1;
+        final technique = saturated ? 'saturated_cell' : 'forced_degree';
         for (final e in t.incident[cell]) {
           if (s.edge[e] != 0) continue;
-          if (!s.assign(e, value)) return 'dead_end';
-          log?.add(
-            _Step(
-              saturated ? 'saturated_cell' : 'forced_degree',
-              e,
-              value,
-              cell,
-            ),
-          );
-          changed = true;
+          if (!_queue(e, value, technique, cell)) return 'dead_end';
         }
       }
       for (final cell in t.iceCells) {
@@ -426,15 +459,11 @@ class _Engine {
         final drop = horizontal ? [sides[2], sides[3]] : [sides[0], sides[1]];
         for (final e in keep) {
           if (e == -1 || s.edge[e] != 0) continue;
-          if (!s.assign(e, 1)) return 'dead_end';
-          log?.add(_Step('ice_straight', e, 1, cell));
-          changed = true;
+          if (!_queue(e, 1, 'ice_straight', cell)) return 'dead_end';
         }
         for (final e in drop) {
           if (e == -1 || s.edge[e] != 0) continue;
-          if (!s.assign(e, 2)) return 'dead_end';
-          log?.add(_Step('ice_straight', e, 2, cell));
-          changed = true;
+          if (!_queue(e, 2, 'ice_straight', cell)) return 'dead_end';
         }
       }
       var broken = _buildFragments(s);
@@ -448,16 +477,29 @@ class _Engine {
         final fu = fragOf[u];
         final fv = fragOf[v];
         if (fu == fv) {
-          if (!s.assign(e, 2)) return 'dead_end';
-          log?.add(_Step('no_loop', e, 2, -1));
-          changed = true;
+          if (!_queue(e, 2, 'no_loop', -1)) return 'dead_end';
         } else if (_isEnd(fu, u) && _isEnd(fv, v) && !_mergeOk(fu, u, fv, v)) {
-          if (!s.assign(e, 2)) return 'dead_end';
-          log?.add(_Step('order_merge', e, 2, -1));
-          changed = true;
+          if (!_queue(e, 2, 'order_merge', -1)) return 'dead_end';
         }
       }
+      if (_pendingEdge.isEmpty) break;
+      for (var i = 0; i < _pendingEdge.length; i++) {
+        final e = _pendingEdge[i];
+        marked[e] = 0;
+        if (!s.assign(e, _pendingValue[i])) {
+          _clearPending();
+          return 'dead_end';
+        }
+        log?.add(
+          _Step(_pendingTech[i], e, _pendingValue[i], _pendingCell[i], pass),
+        );
+      }
+      _pendingEdge.clear();
+      _pendingValue.clear();
+      _pendingTech.clear();
+      _pendingCell.clear();
     }
+    lastPasses = pass - 1;
     return null;
   }
 
@@ -696,9 +738,10 @@ DeductionResult deduce(
   final counts = <String, int>{};
   var hardest = 0;
   var rounds = 0;
+  var depth = 0;
   var inconsistent = false;
 
-  void emit(_Step step, int round) {
+  void emit(_Step step, int level) {
     final tier = techniqueTiers[step.technique] ?? 3;
     if (tier > hardest) hardest = tier;
     counts.update(step.technique, (n) => n + 1, ifAbsent: () => 1);
@@ -710,7 +753,7 @@ DeductionResult deduce(
           to: t.ev[step.edge],
           inRoute: step.value == 1,
           cell: step.cell,
-          round: round,
+          depth: level,
         ),
       );
     }
@@ -728,8 +771,9 @@ DeductionResult deduce(
     if (raw.isNotEmpty) {
       rounds++;
       for (final step in raw) {
-        emit(step, rounds);
+        emit(step, depth + step.pass);
       }
+      depth += engine.lastPasses;
     }
     if (broken != null) {
       inconsistent = true;
@@ -753,7 +797,8 @@ DeductionResult deduce(
       break;
     }
     rounds++;
-    emit(_Step(kind!, hit.edge, hit.value, -1), rounds);
+    depth++;
+    emit(_Step(kind!, hit.edge, hit.value, -1), depth);
   }
 
   List<int>? path;
@@ -772,6 +817,7 @@ DeductionResult deduce(
     techniques: Map.unmodifiable(counts),
     hardestTier: hardest,
     rounds: rounds,
+    depth: depth,
     unknownEdges: [
       for (var e = 0; e < t.edgeCount; e++)
         if (state.edge[e] == 0) (t.eu[e], t.ev[e]),

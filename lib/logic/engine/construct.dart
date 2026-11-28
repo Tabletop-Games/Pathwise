@@ -166,6 +166,44 @@ bool _clueFromAlternative(_Board b, List<int> alt, PuzzleRandom rng) {
   return true;
 }
 
+/// Adds a checkpoint in the middle of the longest stretch of route without
+/// one, so clues spread along the whole route.
+bool _clueSpread(_Board b, PuzzleRandom rng) {
+  final indexes = [for (final cell in b.clues) b.index[cell]!]..sort();
+  var from = 0;
+  var widest = 0;
+  for (var i = 0; i + 1 < indexes.length; i++) {
+    final gap = indexes[i + 1] - indexes[i];
+    if (gap > widest) {
+      widest = gap;
+      from = indexes[i];
+    }
+  }
+  if (widest < 2) return false;
+  final blocked = b.mechanicCells;
+  final options = [
+    for (var i = from + 1; i < from + widest; i++)
+      if (!blocked.contains(b.route[i]) &&
+          (i - from) * 3 >= widest &&
+          (from + widest - i) * 3 >= widest)
+        b.route[i],
+  ];
+  if (options.isEmpty) return false;
+  b.clues.add(rng.pick(options));
+  return true;
+}
+
+/// The fewest checkpoints a board of this kind should keep. Open boards teach
+/// checkpoint order, so they keep enough numbers for order to matter.
+int _clueFloor(PuzzleSpec spec) {
+  if (spec.archetype != Archetype.openOrder) return 3;
+  return switch (spec.band) {
+    DifficultyBand.beginner => spec.size + 2,
+    DifficultyBand.easy => spec.size + 1,
+    _ => spec.size,
+  };
+}
+
 /// Adds the checkpoint next to the most undecided edges.
 bool _clueFromUnknowns(_Board b, List<(int, int)> unknown, PuzzleRandom rng) {
   final counts = <int, int>{};
@@ -423,6 +461,9 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     return null;
   }
 
+  final floor = _clueFloor(spec);
+  while (b.clues.length < floor && _clueSpread(b, rng)) {}
+
   // Add checkpoints until logic alone can solve the board.
   var solved = false;
   for (var round = 0; round < 40; round++) {
@@ -461,6 +502,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   ];
   rng.shuffle(removable);
   for (final cell in removable) {
+    if (b.clues.length <= floor) break;
     b.clues.remove(cell);
     final puzzle = b.puzzle();
     stats.solverCalls++;
@@ -584,7 +626,7 @@ Accepted? _finish(
     hardestTier: logic.hardestTier,
     techniques: logic.techniques,
     deductionSteps: logic.deductionCount,
-    rounds: logic.rounds,
+    chainDepth: logic.depth,
     forcedMoveRatio: walk.forcedMoveRatio,
     trapCount: walk.trapCount,
     trapDepth: walk.trapDepth,
