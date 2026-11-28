@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import '../../lib/cloud/key_value_store.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/logic/puzzle.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/game_state.dart';
+import 'package:pathwise/cloud/key_value_store.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/game_state.dart';
 
 /// Shared fixtures for the test suite: an in-memory save, a tiny certified
 /// board, and helpers that finish it.

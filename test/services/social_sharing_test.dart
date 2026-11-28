@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/social_sharing.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/native_achievements.dart';
+import 'package:pathwise/views/share_view.dart';
 
-import '../../lib/logic/social_sharing.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/native_achievements.dart';
-import '../../lib/views/share_view.dart';
 import '../support/fixtures.dart';
 
 void main() {

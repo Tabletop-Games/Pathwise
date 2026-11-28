@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/billing_service.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/ui/art/game_assets.dart';
+import 'package:pathwise/views/components/tip_art.dart';
+import 'package:pathwise/views/main_menu_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/ui/art/game_assets.dart';
-import '../../lib/views/components/tip_art.dart';
-import '../../lib/views/main_menu_view.dart';
 import '../support/fixtures.dart';
 
 AppModel _model(MemoryStorage storage, Map<String, dynamic> snapshot) =>

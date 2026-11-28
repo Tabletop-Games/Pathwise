@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/mechanic_tutorials.dart';
-import '../../lib/logic/puzzle.dart';
+import 'package:pathwise/logic/mechanic_tutorials.dart';
+import 'package:pathwise/logic/puzzle.dart';
 
 void main() {
   test('mechanics are discovered from board content in stable order', () {

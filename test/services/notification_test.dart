@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/notification_service.dart';
-import '../../lib/model/notification_preferences.dart';
+import 'package:pathwise/logic/notification_service.dart';
+import 'package:pathwise/model/notification_preferences.dart';
 
 final class _FakeNotificationBackend implements NotificationBackend {
   bool granted = true;

@@ -1,11 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/connectivity_service.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/views/connection_view.dart';
 import 'package:provider/provider.dart';
-
-import '../../lib/logic/connectivity_service.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/views/connection_view.dart';
 
 class _FailingStorage extends GameStateStorage {
   bool fail = false;

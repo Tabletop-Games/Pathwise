@@ -3,15 +3,15 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/game_controller.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/views/components/puzzle_board.dart';
 
-import '../../lib/logic/game_controller.dart';
-import '../../lib/logic/puzzle.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/views/components/puzzle_board.dart';
 import '../support/fixtures.dart';
 
 class _TestBoardControls implements BoardControls, RejectionControls {

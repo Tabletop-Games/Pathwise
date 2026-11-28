@@ -2,10 +2,10 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/fortune.dart';
+import 'package:pathwise/model/time_attack.dart';
 
-import '../../lib/model/app_model.dart';
-import '../../lib/model/fortune.dart';
-import '../../lib/model/time_attack.dart';
 import '../support/fixtures.dart';
 
 class FixedRoll implements Random {

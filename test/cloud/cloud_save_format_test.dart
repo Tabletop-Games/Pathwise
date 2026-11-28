@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/cloud/cloud_save_format.dart';
+import 'package:pathwise/cloud/cloud_save_format.dart';
 
 Map<String, dynamic> save({
   int coins = 50,

@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/main.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/user_preferences.dart';
 
-import '../../lib/main.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/user_preferences.dart';
 import '../support/fixtures.dart';
 
 void main() {

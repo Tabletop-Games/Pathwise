@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/progression.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/progression.dart';
 
 class _FailingStorage extends GameStateStorage {
   bool fail = false;

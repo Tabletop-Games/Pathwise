@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/progression.dart';
 
-import '../../lib/model/app_model.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/progression.dart';
 import '../support/fixtures.dart';
 
 AppModel model(

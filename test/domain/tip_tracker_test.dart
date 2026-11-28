@@ -1,9 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/puzzle.dart';
-import '../../lib/logic/tip_tracker.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/logic/tip_tracker.dart';
 
 // 4 x 4, cells numbered row by row. Cell 1 centre is (1.5, 0.5).
 Puzzle open4({List<(int, int)> walls = const [], (int, int)? gate}) =>

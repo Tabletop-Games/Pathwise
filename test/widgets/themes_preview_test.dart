@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-
-import '../../lib/logic/game_controller.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/views/components/puzzle_board.dart';
+import 'package:pathwise/logic/game_controller.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/views/components/puzzle_board.dart';
 
 void main() {
   test('preview selection text remains readable across all palettes', () {

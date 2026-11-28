@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/logic/connectivity_service.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/progression.dart';
+import 'package:pathwise/model/user_preferences.dart';
 
-import '../../lib/logic/connectivity_service.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/progression.dart';
-import '../../lib/model/user_preferences.dart';
 import '../support/fixtures.dart';
 
 void main() {

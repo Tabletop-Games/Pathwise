@@ -48,7 +48,7 @@ jobs:
               elif l.startswith('LF:'): files[cur][1]=int(l[3:]); found+=int(l[3:])
               elif l.startswith('LH:'): files[cur][0]=int(l[3:]); hit+=int(l[3:])
           print('=====COVERAGE-BEGIN=====')
-          print(f'TOTAL {hit}/{found} = {100*hit/found:.1f}%')
+          print(f'TOTAL {hit}/{found} = {100*hit/max(found,1):.1f}%')
           for f,(h,n) in sorted(files.items(), key=lambda kv: (kv[1][0]/max(kv[1][1],1))):
               if n>=40: print(f'{100*h/n:5.1f}% {h:5d}/{n:5d} {f}')
           print('=====COVERAGE-END=====')

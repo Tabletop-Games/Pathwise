@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/model/economy.dart';
-import '../../lib/model/progression.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/progression.dart';
 
 void main() {
   test('Economy 2.0 does not compound research bonuses with timed boosts', () {

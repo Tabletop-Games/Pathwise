@@ -1,13 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/viewmodels/crate_viewmodel.dart';
-import '../../lib/viewmodels/home_viewmodel.dart';
-import '../../lib/viewmodels/streak_viewmodel.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/viewmodels/crate_viewmodel.dart';
+import 'package:pathwise/viewmodels/home_viewmodel.dart';
+import 'package:pathwise/viewmodels/streak_viewmodel.dart';
 
 class _MemStorage extends GameStateStorage {
   String? raw;

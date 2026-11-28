@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/puzzle.dart';
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/logic/puzzle_solver.dart';
-import '../../lib/model/game_state.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/logic/puzzle_generator.dart';
+import 'package:pathwise/logic/puzzle_solver.dart';
+import 'package:pathwise/model/game_state.dart';
 
 /// Independent reference with coordinates and a Set, no pruning or engine rules.
 int referenceCount(Puzzle puzzle) {

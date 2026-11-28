@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/ui/game_ui.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/ui/game_ui.dart';
 
 void main() {
   test('every catalogue palette provides readable card and action colours', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/model/app_model.dart';
 
-import '../../lib/model/app_model.dart';
 import '../support/fixtures.dart';
 
 AppModel app(

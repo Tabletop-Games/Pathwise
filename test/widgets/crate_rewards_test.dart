@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/billing_service.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/progression.dart';
+import 'package:pathwise/views/puzzle_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/progression.dart';
-import '../../lib/views/puzzle_view.dart';
 import '../support/fixtures.dart';
 
 class CrateAds extends AdService {

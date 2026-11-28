@@ -2,25 +2,25 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/cloud/cloud_save_format.dart';
+import 'package:pathwise/logic/ad_frequency.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/billing_service.dart';
+import 'package:pathwise/logic/connectivity_service.dart';
+import 'package:pathwise/logic/game_controller.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/logic/tip_tracker.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/journey.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/views/components/puzzle_board.dart';
+import 'package:pathwise/views/journey_rewards.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/cloud/cloud_save_format.dart';
-import '../../lib/logic/ad_frequency.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/logic/connectivity_service.dart';
-import '../../lib/logic/game_controller.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/logic/puzzle.dart';
-import '../../lib/logic/tip_tracker.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/journey.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/views/components/puzzle_board.dart';
-import '../../lib/views/journey_rewards.dart';
 import '../support/fixtures.dart';
 
 class _MemoryStorage extends GameStateStorage {

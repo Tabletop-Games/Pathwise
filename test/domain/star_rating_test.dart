@@ -1,8 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/logic/star_rating.dart';
-import '../../lib/model/game_state.dart';
+import 'package:pathwise/logic/puzzle_generator.dart';
+import 'package:pathwise/logic/star_rating.dart';
+import 'package:pathwise/model/game_state.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/logic/puzzle.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/user_preferences.dart';
 
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/logic/puzzle.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/user_preferences.dart';
 import '../support/fixtures.dart';
 
 AppModel app(

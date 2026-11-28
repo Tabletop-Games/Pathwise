@@ -1,16 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/billing_service.dart';
+import 'package:pathwise/logic/sound_service.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/views/main_menu_view.dart';
+import 'package:pathwise/views/settings_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/logic/sound_service.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/views/main_menu_view.dart';
-import '../../lib/views/settings_view.dart';
 import '../support/fixtures.dart';
 
 final class _FakeSoundBackend implements SoundBackend {

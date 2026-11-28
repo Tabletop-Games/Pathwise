@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/user_preferences.dart';
 
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/user_preferences.dart';
 import '../support/fixtures.dart';
 
 final day = DateTime(2026, 11, 22);

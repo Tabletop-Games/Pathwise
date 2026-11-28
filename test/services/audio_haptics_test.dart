@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/logic/haptic_service.dart';
+import 'package:pathwise/logic/sound_service.dart';
+import 'package:pathwise/model/app_model.dart';
 
-import '../../lib/logic/haptic_service.dart';
-import '../../lib/logic/sound_service.dart';
-import '../../lib/model/app_model.dart';
 import '../support/fixtures.dart';
 
 final class _FakeSoundBackend implements SoundBackend {

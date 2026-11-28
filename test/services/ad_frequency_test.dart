@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/logic/ad_frequency.dart';
+import 'package:pathwise/model/app_model.dart';
 
-import '../../lib/logic/ad_frequency.dart';
-import '../../lib/model/app_model.dart';
 import '../support/fixtures.dart';
 
 void main() {

@@ -3,9 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/model/economy.dart';
-import '../../lib/ui/art/game_assets.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/ui/art/game_assets.dart';
 
 /// Terrain strips and biome backdrops are intentionally opaque.
 bool _opaqueByDesign(String path) =>

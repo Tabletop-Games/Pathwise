@@ -1,10 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/connectivity_service.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/model/app_model.dart';
+import 'package:pathwise/logic/connectivity_service.dart';
+import 'package:pathwise/logic/game_state_storage.dart';
+import 'package:pathwise/model/app_model.dart';
 
 class _MemoryStorage extends GameStateStorage {
   String data = '{}';

@@ -1,19 +1,19 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/attack_clock.dart';
+import 'package:pathwise/main.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/economy.dart';
+import 'package:pathwise/model/journey.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/ui/game_ui.dart';
+import 'package:pathwise/views/components/brand_mark.dart';
+import 'package:pathwise/views/components/puzzle_board.dart';
+import 'package:pathwise/views/fortune_view.dart';
+import 'package:pathwise/views/store_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/logic/attack_clock.dart';
-import '../../lib/main.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/journey.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/ui/game_ui.dart';
-import '../../lib/views/components/brand_mark.dart';
-import '../../lib/views/components/puzzle_board.dart';
-import '../../lib/views/fortune_view.dart';
-import '../../lib/views/store_view.dart';
 import '../support/fixtures.dart';
 
 Finder _journeyLevel(int level) =>

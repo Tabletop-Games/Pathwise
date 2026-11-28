@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-
-import '../../lib/logic/billing_service.dart';
+import 'package:pathwise/logic/billing_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pathwise/cloud/cloud_save_format.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/game_state.dart';
 
-import '../../lib/cloud/cloud_save_format.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/game_state.dart';
 import '../support/fixtures.dart';
 
 AppModel _model(MemoryStorage storage, Map<String, dynamic> snapshot) =>

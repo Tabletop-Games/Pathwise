@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pathwise/logic/ad_service.dart';
+import 'package:pathwise/logic/puzzle_generator.dart';
+import 'package:pathwise/model/app_model.dart';
+import 'package:pathwise/model/app_themes.dart';
+import 'package:pathwise/model/game_state.dart';
+import 'package:pathwise/model/user_preferences.dart';
+import 'package:pathwise/views/puzzle_view.dart';
 import 'package:provider/provider.dart';
 
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/views/puzzle_view.dart';
 import '../support/fixtures.dart';
 
 void main() {

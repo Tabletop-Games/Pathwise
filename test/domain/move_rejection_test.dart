@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import '../../lib/logic/game_controller.dart';
-import '../../lib/logic/puzzle.dart';
+import 'package:pathwise/logic/game_controller.dart';
+import 'package:pathwise/logic/puzzle.dart';
 
 void main() {
   test('rule reasons preserve existing validation decisions', () {
