@@ -611,8 +611,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               _researchAssetPath(item),
               fit: BoxFit.contain,
               gaplessPlayback: true,
-              errorBuilder: (_, _, _) =>
-                  GameArt(ArtKind.research, size: 38),
+              errorBuilder: (_, _, _) => GameArt(ArtKind.research, size: 38),
             ),
           ),
         ),
@@ -642,8 +641,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           boostAssetPath(boost),
           fit: BoxFit.contain,
           gaplessPlayback: true,
-          errorBuilder: (_, _, _) =>
-              GameArt(ArtKind.bolt, size: size - 12),
+          errorBuilder: (_, _, _) => GameArt(ArtKind.bolt, size: size - 12),
         ),
       ),
     ),

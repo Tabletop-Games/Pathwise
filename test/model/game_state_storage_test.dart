@@ -22,7 +22,9 @@ void main() {
 
   test('a fresh install loads an empty save and may write', () async {
     expect(await storage.load(), isEmpty);
-    await storage.save(jsonEncode({'schemaVersion': GameStateStorage.schemaVersion}));
+    await storage.save(
+      jsonEncode({'schemaVersion': GameStateStorage.schemaVersion}),
+    );
     expect(await preferences.getString(_debugKey), isNotNull);
   });
 

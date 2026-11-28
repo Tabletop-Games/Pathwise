@@ -12,6 +12,7 @@ import 'package:google_mobile_ads/src/ump/user_messaging_codec.dart';
 
 import 'package:pathwise/logic/ad_service.dart';
 import 'package:pathwise/model/app_model.dart';
+
 import '../support/fixtures.dart';
 
 final day = DateTime(2026, 11, 22);

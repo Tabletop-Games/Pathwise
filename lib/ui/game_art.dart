@@ -33,12 +33,7 @@ enum ArtKind {
 
 /// A square illustration drawn from the bundled artwork, decoded at display size.
 class GameArt extends StatelessWidget {
-  const GameArt(
-    this.kind, {
-    this.size = 40,
-    this.semanticLabel,
-    super.key,
-  });
+  const GameArt(this.kind, {this.size = 40, this.semanticLabel, super.key});
 
   final ArtKind kind;
   final double size;

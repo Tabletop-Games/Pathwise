@@ -644,12 +644,7 @@ class _Completion extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Center(
-                          child: GameArt(
-                            ArtKind.treasureOpen,
-                            size: 56,
-                          ),
-                        ),
+                        Center(child: GameArt(ArtKind.treasureOpen, size: 56)),
                       ],
                     ),
                   ),

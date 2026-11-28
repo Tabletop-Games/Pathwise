@@ -376,10 +376,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         subtitle: '${model.levelsSolved} solved',
                         icon: _UiArtIcon(
                           assetPath: 'assets/art/ui/compass.webp',
-                          fallback: GameArt(
-                            ArtKind.levels,
-                            size: 32,
-                          ),
+                          fallback: GameArt(ArtKind.levels, size: 32),
                           size: 32,
                         ),
                         onTap: () => Navigator.push<void>(
@@ -442,10 +439,7 @@ class _MainMenuViewState extends State<MainMenuView>
                         subtitle: researched > 0
                             ? '$researched unlocked'
                             : 'Permanent upgrades',
-                        icon: GameArt(
-                          ArtKind.research,
-                          size: 30,
-                        ),
+                        icon: GameArt(ArtKind.research, size: 30),
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (_) => const ProgressionView(),

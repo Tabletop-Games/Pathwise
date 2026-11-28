@@ -195,10 +195,7 @@ class AchievementCelebration extends StatelessWidget {
     if (model.recentAchievements.isEmpty) return const SizedBox.shrink();
     final item = model.recentAchievements.last;
     return ListTile(
-      leading: GameArt(
-        ArtKind.trophy,
-        size: 38,
-      ),
+      leading: GameArt(ArtKind.trophy, size: 38),
       title: Text(item.name),
       subtitle: Text(item.description),
     );

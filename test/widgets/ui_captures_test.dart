@@ -742,8 +742,7 @@ void main() {
         (glyph.name, PathIcon(glyph, size: 24)),
     ]);
     await sheet('resources', [
-      for (final kind in ArtKind.values)
-        (kind.name, GameArt(kind, size: 54)),
+      for (final kind in ArtKind.values) (kind.name, GameArt(kind, size: 54)),
     ], columns: 5);
     await sheet('boost-art', [
       for (final boost in Boost.values)

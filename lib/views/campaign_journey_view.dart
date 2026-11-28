@@ -202,10 +202,7 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                   constraints: const BoxConstraints(maxWidth: 550),
                   child: ListTile(
                     minTileHeight: 56,
-                    leading: GameArt(
-                      ArtKind.treasure,
-                      size: 34,
-                    ),
+                    leading: GameArt(ArtKind.treasure, size: 34),
                     title: Text('Treasures · $treasureCount'),
                     trailing: Text(
                       'Claim',

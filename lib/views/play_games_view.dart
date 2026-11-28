@@ -115,10 +115,7 @@ class _PlayGamesViewState extends State<PlayGamesView> {
                     final palette = BoardPalette.palettes[model.theme]!;
                     final earned =
                         item.earned(counters) || sync.confirmed(item);
-                    final trophy = GameArt(
-                      ArtKind.trophy,
-                      size: 38,
-                    );
+                    final trophy = GameArt(ArtKind.trophy, size: 38);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: GameCard(

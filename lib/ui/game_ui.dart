@@ -190,8 +190,7 @@ class CoinMark extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) =>
-      GameArt(ArtKind.coin, size: size);
+  Widget build(BuildContext context) => GameArt(ArtKind.coin, size: size);
 }
 
 /// Price shown as coin icon and number. The currency is never spelled out.

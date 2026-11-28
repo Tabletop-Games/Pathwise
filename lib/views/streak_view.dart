@@ -82,10 +82,7 @@ class StreakView extends StatelessWidget {
                             label: 'Longest: ${streak.longest} days',
                             excludeSemantics: true,
                             child: InfoChip(
-                              icon: GameArt(
-                                ArtKind.trophy,
-                                size: 16,
-                              ),
+                              icon: GameArt(ArtKind.trophy, size: 16),
                               label: '${streak.longest}',
                             ),
                           ),
@@ -117,10 +114,7 @@ class StreakView extends StatelessWidget {
                         padding: const EdgeInsets.all(14),
                         child: Row(
                           children: [
-                            GameArt(
-                              ArtKind.treasure,
-                              size: 48,
-                            ),
+                            GameArt(ArtKind.treasure, size: 48),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -163,10 +157,7 @@ class StreakView extends StatelessWidget {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          GameArt(
-                                            ArtKind.hint,
-                                            size: 20,
-                                          ),
+                                          GameArt(ArtKind.hint, size: 20),
                                           const SizedBox(width: 4),
                                           Text(
                                             '+${next.value.hints}',
@@ -195,10 +186,7 @@ class StreakView extends StatelessWidget {
                             padding: const EdgeInsets.all(14),
                             child: Row(
                               children: [
-                                GameArt(
-                                  ArtKind.trophy,
-                                  size: 48,
-                                ),
+                                GameArt(ArtKind.trophy, size: 48),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -404,10 +392,7 @@ class _Day extends StatelessWidget {
             const SizedBox(height: 6),
             switch (status) {
               'played' => GameArt(ArtKind.check, size: 26),
-              'protected' => GameArt(
-                ArtKind.freeze,
-                size: 26,
-              ),
+              'protected' => GameArt(ArtKind.freeze, size: 26),
               _ => Container(
                 width: 26,
                 height: 26,

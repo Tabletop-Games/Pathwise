@@ -933,8 +933,7 @@ class _AchievementCard extends StatelessWidget {
     final img = Image.asset(
       _asset,
       fit: BoxFit.contain,
-      errorBuilder: (_, _, _) =>
-          GameArt(ArtKind.trophy, size: 42),
+      errorBuilder: (_, _, _) => GameArt(ArtKind.trophy, size: 42),
     );
     if (earned || item.inProgress) return img;
     return ColorFiltered(
