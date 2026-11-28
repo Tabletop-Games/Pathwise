@@ -77,9 +77,19 @@ PuzzleSpec campaignSpec(int level) {
     int? size,
     CheckpointStyle? style,
   }) {
-    final chosen = forced ?? band;
+    var chosen = forced ?? band;
+    // A gate only shows in lookahead, so its boards start at intermediate.
+    if (gate && chosen.index < DifficultyBand.intermediate.index) {
+      chosen = DifficultyBand.intermediate;
+    }
+    // Walls alone reach advanced; harder boards add a second mechanic.
+    final wallsOnly = walls && !ice && !gate && !portal;
+    if (wallsOnly && chosen.index > DifficultyBand.advanced.index) {
+      chosen = DifficultyBand.advanced;
+    }
     final hard = chosen.index >= DifficultyBand.intermediate.index;
-    final minimum = (gate || portal || ice || (walls && hard)) ? 5 : 4;
+    var minimum = (gate || portal || ice || (walls && hard)) ? 5 : 4;
+    if (wallsOnly && chosen == DifficultyBand.advanced) minimum = 6;
     final cells = math.max(minimum, size ?? _sizeFor(chosen, level, rng));
     return PuzzleSpec(
       id: id,
@@ -102,6 +112,8 @@ PuzzleSpec campaignSpec(int level) {
   }
 
   PuzzleSpec single(String mechanic) => switch (mechanic) {
+    'walls' when band.index >= DifficultyBand.expert.index && level >= iceIntro =>
+      spec(archetype: Archetype.mixed, walls: true, ice: true),
     'walls' => spec(archetype: rng.pick(_wallArchetypes), walls: true),
     'ice' => spec(archetype: Archetype.directional, ice: true),
     'gate' => spec(archetype: Archetype.keyed, gate: true),
