@@ -38,6 +38,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze --no-pub
 flutter test --no-pub
 dart run tool/economy_simulation.dart
+dart run tool/validate_catalogue.dart   # slow; CI runs it
 ```
 
 Release-affecting changes also need the Android debug APK, the minified release APK and AAB, and the R8 checks in [docs/release.md](docs/release.md). Analyzer infos fail CI. Do not use `continue-on-error` for a correctness check. Do not claim a build, test or emulator run that did not happen.

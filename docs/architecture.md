@@ -11,7 +11,7 @@ Pathwise is a local-first, offline-capable Android route-drawing puzzle built wi
 Pathwise is organized into five strict layers:
 
 1. **Views (`lib/views/`, `lib/ui/`)**: Declarative Flutter widgets, `CustomPainter`s, gesture collection, animations, accessibility, and palette application. Views delegate user intentions to ViewModels and observe state via `Provider` (`context.select`, `ValueListenableBuilder`, scoped tickers).
-2. **ViewModels (`lib/viewmodels/`)**: Presentation-ready, widget-free coordinators (`StoreViewModel`, `ProgressionViewModel`, `FortuneViewModel`, `JourneyViewModel`, `StreakViewModel`, `GameplayViewModel`, `HomeViewModel`, `CrateViewModel`) that process user intentions, format presentation state, and coordinate `AppModel` with external services.
+2. **ViewModels (`lib/viewmodels/`)**: Widget-free, `BuildContext`-free coordinators for the screens that need orchestration beyond `AppModel` calls: `HomeViewModel` (opening and leaving puzzles), `StreakViewModel` (freeze purchases), `CrateViewModel` (crate claims) and `StatisticsViewModel` (statistics and achievement summaries). Other screens call `AppModel` and the infrastructure services directly. Add a ViewModel when a view starts to accumulate service orchestration; do not add one that no view uses.
 3. **Application State & Persistence Coordinator (`lib/model/app_model.dart`)**: Single coherent source of truth for shared player state (`Wallet`, `Progression`, `PlayStreak`, `UserPreferences`, `AchievementLedger`, results, unlocks, cosmetics, entitlements) and atomic snapshot persistence (`flush()`).
 4. **Domain & Pure Logic (`lib/model/`, `lib/logic/puzzle*.dart`, `lib/logic/game_controller.dart`, `lib/logic/star_rating.dart`, `lib/logic/mechanic_tutorials.dart`, `lib/logic/ad_frequency.dart`, `lib/cloud/cloud_save_format.dart`)**: Pure Dart rules for puzzle generation/solving, route validation, Economy 2.0 payouts, star ratings, and cloud sync planning.
 5. **Repositories & Infrastructure Services (`lib/logic/game_state_storage.dart`, `lib/cloud/`, `lib/logic/ad_service.dart`, `lib/logic/billing_service.dart`, `lib/logic/connectivity_service.dart`, `lib/logic/achievement_sync.dart`, `lib/logic/attack_clock.dart`, `lib/logic/play_games.dart`, `lib/logic/update_service.dart`)**: Local storage, Play Games Saved Games, AdMob, Google Play Billing, connectivity probing, native elapsed clock, and Play In-App Updates.
@@ -33,7 +33,7 @@ flowchart TD
 
 - **Inward-only dependencies**: Views depend on ViewModels, `AppModel`, and UI helpers; ViewModels depend on `AppModel` and service interfaces; `AppModel` depends on domain models and storage/connectivity abstractions; pure domain models and `cloud_save_format.dart` have **zero** Flutter UI or platform dependencies.
 - **No upward dependencies**: `lib/logic/` never imports `lib/views/`, `lib/ui/`, or `AppModel` (e.g., `AchievementSync` depends on `AchievementSyncTarget`, not `AppModel`). `lib/cloud/` never imports `lib/logic/` or `lib/model/`.
-- **Automated enforcement**: `test/architecture_boundaries_test.dart` verifies import boundaries on every CI run.
+- **Automated enforcement**: `test/architecture/architecture_boundaries_test.dart` verifies import boundaries on every CI run.
 
 ```mermaid
 flowchart LR
@@ -96,13 +96,11 @@ All coin debits, ad rewards, and Google Play purchases use stable, idempotent le
 ```mermaid
 sequenceDiagram
     participant V as StoreView
-    participant VM as StoreViewModel
     participant BS as BillingService
     participant CS as CloudSyncService
     participant AM as AppModel
 
-    V->>VM: buyPack(product)
-    VM->>BS: buy(product)
+    V->>BS: buy(product)
     BS->>CS: readyForConsumable() -> prepareForPurchase()
     CS-->>BS: signedIn & synced
     BS->>BS: Google Play sheet + RSA verifyPlayPurchase()
@@ -137,28 +135,24 @@ flowchart TD
 
 ---
 
-## 7. View-to-ViewModel Interaction
+## 7. View Interaction
 
-Views forward user actions to feature ViewModels and render typed results without embedding economy formulas or SDK calls. High-frequency timers (e.g., Fortune Wheel cooldown, active boost countdowns) are isolated to leaf `StatefulWidget`s (`_WheelCard`, `_WheelSpinButton`, `_ActiveBoostTicker`).
+Views forward user intentions to `AppModel`, a ViewModel or an infrastructure service and render the typed result, without embedding economy formulas. Rewarded videos follow one shape everywhere: the view asks `AdService` to show a video with a reward callback, the callback applies one ledger-ID transaction through `AppModel` and persists it, and the view reports the outcome. High-frequency timers (Fortune Wheel cooldown, active boost countdowns, the star bar) live in leaf widgets so a tick never rebuilds a screen.
 
 ```mermaid
 sequenceDiagram
-    participant V as StoreView / ProgressionView / FortuneView
-    participant VM as Feature ViewModel
+    participant V as View
     participant AM as AppModel
     participant AD as AdService
 
-    V->>VM: User intent (e.g. buyTheme / watchCoinVideo / spinRewarded)
-    alt Coin Purchase
-        VM->>AM: Check balance & execute domain mutation
-        AM-->>VM: bool success
-        VM-->>V: Typed Result (Success / InsufficientCoins / Failed)
-    else Rewarded Video
-        VM->>AD: prepare() / watchVideo(rewardCallback)
+    alt Coin purchase
+        V->>AM: buy (balance check, ledger debit, flush)
+        AM-->>V: success or failure
+    else Rewarded video
+        V->>AD: prepare() / watchVideo(rewardCallback)
         AD->>AM: rewardCallback(receipt) -> flush()
-        AM-->>AD: bool persisted
-        AD-->>VM: bool granted && persisted
-        VM-->>V: Typed Result -> Snackbar / Dialog
+        AM-->>AD: persisted
+        AD-->>V: shown and granted
     end
 ```
 
@@ -177,8 +171,8 @@ sequenceDiagram
 
 ## 9. Practical Rules for Future Development
 
-1. **Never put business rules, shortfall math, or SDK orchestration in `lib/views/`**. Add methods to the appropriate `lib/viewmodels/*_viewmodel.dart` and keep ViewModels `BuildContext`-free.
-2. **Never add Flutter UI or `AppModel` imports to `lib/model/` (except `app_model.dart`/`app_themes.dart`), `lib/cloud/`, or `lib/logic/`**. Run `flutter test test/architecture_boundaries_test.dart` to verify.
+1. **Never put business rules or economy math in `lib/views/`**. Put them in `AppModel` or the pure domain, and keep any ViewModel `BuildContext`-free.
+2. **Never add Flutter UI or `AppModel` imports to `lib/model/` (except `app_model.dart`/`app_themes.dart`), `lib/cloud/`, or `lib/logic/`**. Run `flutter test test/architecture` to verify.
 3. **Preserve `AppModel` as the single source of truth** for balances, inventory, cosmetics, and entitlements. Never copy mutable balances into ViewModels.
 4. **Keep async transactions atomic**: any new `AppModel` reward or purchase persisted via `flush()` must guard against `storageError` and roll back in-memory mutations if `flush()` fails.
 5. **Scope timers and `context.select` to leaf widgets** so countdowns and pointer updates never rebuild entire screens.

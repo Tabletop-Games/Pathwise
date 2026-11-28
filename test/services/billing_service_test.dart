@@ -46,26 +46,28 @@ void main() {
     expect(calls, ['verify', 'persist', 'finalize']);
   });
 
-  test('the product catalogue has five ascending coin packs and three upgrades', () {
-    final packs = [
-      for (final entry in storeProducts.entries)
-        if (entry.value.coins > 0) entry,
-    ];
-    expect(packs, hasLength(5));
-    expect(
-      [for (final pack in packs) pack.value.coins],
-      orderedEquals([500, 1250, 3000, 7500, 18000]),
-    );
-    expect({for (final id in storeProducts.keys) id}, hasLength(8));
-    for (final pack in packs) {
-      expect(consumable(pack.key), isTrue, reason: pack.key);
-    }
-    for (final id in [themePassProduct, removeAdsProduct, premiumProduct]) {
-      expect(storeProducts.containsKey(id), isTrue, reason: id);
-      expect(consumable(id), isFalse, reason: id);
-    }
-    expect(consumable('pathwise_unknown'), isFalse);
-  });
+  test(
+    'the product catalogue has five ascending coin packs and three upgrades',
+    () {
+      final packs = [
+        for (final entry in storeProducts.entries)
+          if (entry.value.coins > 0) entry,
+      ];
+      expect(packs, hasLength(5));
+      expect([
+        for (final pack in packs) pack.value.coins,
+      ], orderedEquals([500, 1250, 3000, 7500, 18000]));
+      expect({for (final id in storeProducts.keys) id}, hasLength(8));
+      for (final pack in packs) {
+        expect(consumable(pack.key), isTrue, reason: pack.key);
+      }
+      for (final id in [themePassProduct, removeAdsProduct, premiumProduct]) {
+        expect(storeProducts.containsKey(id), isTrue, reason: id);
+        expect(consumable(id), isFalse, reason: id);
+      }
+      expect(consumable('pathwise_unknown'), isFalse);
+    },
+  );
 
   test('without build configuration billing is off and does nothing', () async {
     final service = BillingService(persist: (_) async => true);

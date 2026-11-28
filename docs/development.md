@@ -54,24 +54,26 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze --no-pub
 flutter test --no-pub
 dart run tool/economy_simulation.dart
+dart run tool/validate_catalogue.dart
 ```
 
 CI (`.github/workflows/verify.yml`) runs these plus the credential-pattern scan, the Android debug build, the minified release APK and AAB, bundle validation and the R8 checks described in [release.md](release.md). Analyzer infos fail the build. The enforced lints are `prefer_relative_imports` and `directives_ordering`.
 
 ## Tests
 
-| Area | Files |
-| --- | --- |
-| Domain: puzzles, solver, generator, stars, tip tracking, economy, progression | `puzzle_test`, `puzzle_generation_test`, `star_rating_test`, `tip_tracker_test`, `economy_test`, and similar pure tests |
-| Model and persistence | `app_model_test`, `game_state_storage_test`, `transaction_and_lifecycle_test` |
-| Cloud | `cloud_save_format_test`, `cloud_sync_service_test`, `cloud_guard_test` |
-| Services | ads, billing, connectivity, sound, haptics, notifications, achievements |
-| ViewModels | `mvvm_viewmodels_test` |
-| Widgets and flows | `widget_test`, store, Journey, tutorials, crates, fortune, settings |
-| Architecture | `architecture_boundaries_test` |
-| Visual and assets | `ui_captures_test`, `asset_validation_test` |
+Tests live under `test/`, one folder per responsibility, and import the library as `package:pathwise/...`. Shared fixtures (`MemoryStorage`, the 3×3 certified board, `MemoryKeyValueStore`) are in `test/support/fixtures.dart`.
 
-Use named, seeded fixtures, fake clocks and fake services. Do not make real network calls, show real ads or make real purchases in tests. Test observable behaviour and domain invariants, not private implementation. Delete a test when its feature is removed.
+| Folder | What it covers |
+| --- | --- |
+| `domain/` | Pure rules: puzzles, solver, generator, game controller, move rejection, tutorials, star thresholds, tip tracking, economy, Fortune Wheel odds, streaks |
+| `model/` | `AppModel` behaviour and persistence: save round trips, rewards and purchases, hints and boosts, Journey and mystery rewards, stars, statistics, Time Attack, transactions and rollback, developer tools, theme contrast |
+| `cloud/` | Cloud envelope, sync planning, the sync service and provider selection |
+| `services/` | Ads and frequency, billing, connectivity, notifications, audio and haptics, sharing, native achievements |
+| `viewmodels/` | The four ViewModels |
+| `widgets/` | Screens and flows, board rendering and rejection, Store, Journey, navigation, tutorials, settings, plus `ui_captures_test.dart` |
+| `architecture/` | Import boundaries, Android identity and launch resources, asset validation |
+
+Use named, seeded fixtures, fake clocks and fake services. Do not make real network calls, show real ads or make real purchases in tests. Test observable behaviour and domain invariants, not private implementation, and derive expected prices and thresholds from the code under test (`economy`, `StarThresholds`) instead of copying numbers. Delete a test when its feature is removed. `flutter test --coverage` writes `coverage/lcov.info`.
 
 ## Tools
 

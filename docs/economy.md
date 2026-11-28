@@ -86,7 +86,6 @@ Six equal wedges. The weighted prize is chosen locally with secure randomness, t
 | --- | --- |
 | Banner | Standard puzzle only, adaptive, hidden for Remove Ads and Premium |
 | Interstitial | After 5 completed exits from a campaign or Daily puzzle, at least 3 minutes apart and 1 minute after a rewarded ad, never during play |
-| Automatic coin-video offer | After 5 newly cleared levels and 15 minutes, never during play, suppressed when ads are unavailable or removed |
 | Rewarded | Hint, coins, boost, crate, wheel, completion multiplier, mystery reward |
 
 Optional rewarded videos remain available to ad-free players.

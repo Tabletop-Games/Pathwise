@@ -32,6 +32,13 @@ Future<void> _open(WidgetTester tester, AppModel model) async {
   await tester.pumpAndSettle();
 }
 
+String? _status(WidgetTester tester) {
+  final finder = find.byType(SelectableText);
+  return finder.evaluate().isEmpty
+      ? null
+      : tester.widget<SelectableText>(finder).data;
+}
+
 Future<void> _tap(WidgetTester tester, String label) async {
   final finder = find.text(label);
   await tester.ensureVisible(finder);
@@ -84,18 +91,21 @@ void main() {
       model.dispose();
     });
 
-    test('granting progression maxes research and fills boosts and freezes', () {
-      final model = _model(debugTools: true);
-      model.grantDebugProgression();
-      for (final item in Research.values) {
-        expect(model.progression.rank(item), item.limit);
-      }
-      for (final boost in Boost.values) {
-        expect(model.progression.inventory[boost.name], 1);
-      }
-      expect(model.streak.freezes, economy.maxFreezes);
-      model.dispose();
-    });
+    test(
+      'granting progression maxes research and fills boosts and freezes',
+      () {
+        final model = _model(debugTools: true);
+        model.grantDebugProgression();
+        for (final item in Research.values) {
+          expect(model.progression.rank(item), item.limit);
+        }
+        for (final boost in Boost.values) {
+          expect(model.progression.inventory[boost.name], 1);
+        }
+        expect(model.streak.freezes, economy.maxFreezes);
+        model.dispose();
+      },
+    );
   });
 
   testWidgets('DeveloperView hides all tools when developerMode is false', (
@@ -117,14 +127,14 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Coins'), '777');
     await _tap(tester, 'Set coins');
     expect(model.coinBalance, 777);
-    expect(find.text('Coins set to 777.'), findsOneWidget);
+    expect(_status(tester), 'Coins set to 777.');
     await tester.enterText(find.widgetWithText(TextField, 'Hints'), '9');
     await _tap(tester, 'Set hints');
     expect(model.hintsRemaining, 9);
     await tester.enterText(find.widgetWithText(TextField, 'Coins'), 'many');
     await _tap(tester, 'Set coins');
     expect(model.coinBalance, 777);
-    expect(find.text('Enter a valid coin amount (>= 0).'), findsOneWidget);
+    expect(_status(tester), 'Enter a valid coin amount (>= 0).');
     await tester.pumpWidget(const SizedBox.shrink());
     model.dispose();
   });
