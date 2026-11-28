@@ -699,11 +699,10 @@ class AppModel extends ChangeNotifier
       !_disposed &&
       !storageError &&
       _rewardDayAvailable &&
-      (item == Boost.doubleTen &&
-              boostAdsToday(item) < economy.doubleBoostAdsPerDay ||
-          item == Boost.tripleFifteen &&
+      (item == Boost.doubleTen ||
+          (item == Boost.tripleFifteen &&
               adsToday >= economy.coinAdMilestone &&
-              boostAdsToday(item) == 0);
+              boostAdsToday(item) == 0));
 
   Future<bool> grantBoostAd(Boost item, String event) async {
     if (!onlineReady) return false;
@@ -918,11 +917,7 @@ class AppModel extends ChangeNotifier
   int _hintPurchaseSerial = 0;
   int get hintAdsToday =>
       _hintAdDays.values.where((day) => day == dayKey(_today())).length;
-  bool get canEarnHintAd =>
-      !_disposed &&
-      !storageError &&
-      _rewardDayAvailable &&
-      hintAdsToday < economy.hintAdsPerDay;
+  bool get canEarnHintAd => !_disposed && !storageError && _rewardDayAvailable;
 
   Future<bool> buyHint() async {
     if (_disposed || storageError) return false;
@@ -1691,11 +1686,7 @@ class AppModel extends ChangeNotifier
   int get fortuneVideosRemaining {
     final now = _bootTime();
     if (_disposed || storageError || now == null) return 0;
-    return max(
-      0,
-      economy.wheelAdsPerDay -
-          _wheelVideos.where((stamp) => _activeWheelVideo(stamp, now)).length,
-    );
+    return 99;
   }
 
   Future<FortunePrize?> spinRewardedFortune(
