@@ -1,4 +1,5 @@
-import '../logic/puzzle_generator.dart';
+import '../logic/engine/schedule.dart';
+import '../logic/engine/spec.dart';
 
 enum PlayMode { levels, daily, attack }
 
@@ -34,18 +35,15 @@ final class PuzzleId {
           : 'Daily · $checkpoint/$dailyCheckpointCount',
   };
 
-  int get size => switch (mode) {
-    PlayMode.levels =>
-      level <= 30
-          ? 4
-          : level <= 100
-          ? 5
-          : level <= 300
-          ? 6
-          : 7,
-    PlayMode.daily => checkpoint == null ? 6 : 3 + checkpoint!,
-    PlayMode.attack => (4 + attackIndex ~/ 3).clamp(4, 7),
+  /// The generation spec: board size, difficulty band, structure and
+  /// mechanics. It depends only on the identity, never on the player.
+  PuzzleSpec get spec => switch (mode) {
+    PlayMode.levels => campaignSpec(level),
+    PlayMode.daily => dailySpec(value as String, checkpoint),
+    PlayMode.attack => attackSpec(value as String, attackIndex),
   };
+
+  int get size => spec.size;
 
   int get attackIndex => int.parse((value as String).split('/').last);
   String? get layoutLabel => mode != PlayMode.attack || attackIndex < 3
@@ -57,37 +55,6 @@ final class PuzzleId {
         };
 
   int get level => value as int;
-
-  ({int size, int seed, int clues}) get generation {
-    if (mode == PlayMode.attack) {
-      final baseline = [0, 0, 0, 0, 8, 10, 14, 16][size];
-      final variation = switch (layoutLabel) {
-        'Guided checkpoints' => 2,
-        'Sparse checkpoints' => -2,
-        _ => 0,
-      };
-      return (
-        size: size,
-        seed: puzzleSeed('pathwise-attack/$key'),
-        clues: baseline + variation,
-      );
-    }
-    if (mode == PlayMode.levels) {
-      final baseline = [0, 0, 0, 0, 8, 11, 15, 18][size];
-      final reduction = (level ~/ 200).clamp(0, 4);
-      return (
-        size: size,
-        seed: puzzleSeed('pathwise-catalogue-v3/$key'),
-        clues: baseline - reduction,
-      );
-    }
-    const targets = [0, 0, 0, 0, 7, 10, 14, 18];
-    return (
-      size: size,
-      seed: puzzleSeed('pathwise-v1/$key'),
-      clues: targets[size],
-    );
-  }
 }
 
 typedef RunResult = ({int milliseconds, int hints, bool unassisted});

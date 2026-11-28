@@ -1,7 +1,4 @@
-import '../model/game_state.dart';
 import 'puzzle.dart';
-import 'puzzle_generator.dart';
-import 'puzzle_solver.dart';
 
 /// Baseline Beginner (1.0×) solve-time thresholds in milliseconds.
 const int baselineThreeStarMs = 10000;
@@ -36,19 +33,19 @@ final class StarThresholds {
   }
 }
 
-/// Computes a bounded `[1.0, 4.0]` difficulty multiplier from deterministic
-/// puzzle characteristics without scaling indefinitely by level number.
+/// The solve time, in milliseconds, that maps to the baseline thresholds.
+const int _baselineExpectedMs = 16000;
+
+/// A bounded `[1.0, 4.0]` multiplier from the board's expected solve time.
+///
+/// The expected time is a model estimate built from the deductions and the
+/// decisions on the board (see `expectedSolveMs`), so it grows with how much
+/// reasoning the board needs rather than with the level number. Boards built
+/// by hand, which have no profile, use a size-only estimate.
 double difficultyMultiplierForBoard(VerifiedPuzzle board) {
-  final p = board.puzzle;
-  final score = difficultyScore(board);
-  final sizeOffset = switch (p.size) {
-    <= 4 => 0.0,
-    5 => 0.25,
-    6 => 0.60,
-    _ => 1.00,
-  };
-  final raw = 1.0 + sizeOffset + (score / 48.0);
-  return ((raw * 4).round() / 4.0).clamp(1.0, 4.0);
+  final expected =
+      board.profile?.expectedSolveMs ?? 3000 + board.puzzle.area * 1000;
+  return (((expected / _baselineExpectedMs) * 4).round() / 4.0).clamp(1.0, 4.0);
 }
 
 StarThresholds starThresholdsForBoard(VerifiedPuzzle board) {
@@ -59,20 +56,4 @@ StarThresholds starThresholdsForBoard(VerifiedPuzzle board) {
     oneStarMs: (baselineOneStarMs * mult).round(),
     multiplier: mult,
   );
-}
-
-final _levelThresholdCache = <int, StarThresholds>{};
-
-/// Deterministic, bounded-cache lookup for campaign level thresholds when the
-/// board is not already loaded in memory (e.g., Journey display).
-StarThresholds starThresholdsForLevel(int level) {
-  final cached = _levelThresholdCache[level];
-  if (cached != null) return cached;
-  final board = generatePuzzle(PuzzleId.level(level).generation, level: level);
-  final thresholds = starThresholdsForBoard(board);
-  if (_levelThresholdCache.length >= 256) {
-    _levelThresholdCache.remove(_levelThresholdCache.keys.first);
-  }
-  _levelThresholdCache[level] = thresholds;
-  return thresholds;
 }

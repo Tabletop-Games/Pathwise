@@ -1,3 +1,5 @@
+import 'puzzle_profile.dart';
+
 /// The first rule that prevents an attempted extension.
 enum MoveRejection {
   finished,
@@ -12,6 +14,19 @@ enum MoveRejection {
 }
 
 /// Cells are indexed in row-major order. Checkpoint numbers are one-based.
+///
+/// This class is the single source of movement rules. The gesture controller,
+/// the exact solver, the deduction engine and the generator all evaluate
+/// moves through [rejectionFor] and [forcedNext], so they cannot disagree.
+///
+/// Mechanics:
+/// - A wall blocks the edge between two adjacent cells.
+/// - An ice tile is passed straight through: the route must leave in the
+///   direction it entered.
+/// - The gate cell may only be entered after the key cell has been visited.
+/// - A portal pair joins two cells. Entering either portal cell emerges from
+///   the other, so the pair is always traversed as one step in either
+///   direction.
 final class Puzzle {
   Puzzle(
     this.size,
@@ -35,27 +50,29 @@ final class Puzzle {
     for (final (index, cell) in this.checkpoints.indexed) {
       numbers[cell] = index + 1;
     }
+    for (final (a, b) in this.walls) {
+      _blocked.add(a * 64 + b);
+      _blocked.add(b * 64 + a);
+    }
   }
 
-  final (int, int)? gate, portal;
+  /// `(key, gate)`: the gate cell opens once the key cell has been visited.
+  final (int, int)? gate;
+
+  /// Two cells joined by a portal.
+  final (int, int)? portal;
   final Set<(int, int)> walls;
   final Set<int> iceTiles;
-
-  int? forcedNext(int? previous, int cell) {
-    if (portal?.$1 == cell) return portal!.$2;
-    if (!iceTiles.contains(cell) || previous == null) return null;
-    final nextX = 2 * (cell % size) - previous % size;
-    final nextY = 2 * (cell ~/ size) - previous ~/ size;
-    if (nextX < 0 || nextX >= size || nextY < 0 || nextY >= size) return -1;
-    return nextY * size + nextX;
-  }
-
   final int size;
   final List<int> checkpoints;
+  final Set<int> _blocked = {};
+
   int get area => size * size;
   int get start => checkpoints.first;
   int get finish => checkpoints.last;
   late final List<int> numbers = List.filled(area, 0);
+
+  /// Orthogonal neighbours in the grid, ignoring walls and portals.
   late final List<List<int>> neighbors = List.generate(area, (cell) {
     final row = cell ~/ size;
     final column = cell % size;
@@ -67,13 +84,44 @@ final class Puzzle {
     ];
   });
 
-  Iterable<int> movesFrom(int cell) sync* {
-    yield* neighbors[cell];
-    if (portal?.$1 == cell && !neighbors[cell].contains(portal!.$2))
-      yield portal!.$2;
-    if (portal?.$2 == cell && !neighbors[cell].contains(portal!.$1))
-      yield portal!.$1;
+  /// Cells a route may step to from each cell, ignoring walls: the grid
+  /// neighbours plus the portal partner.
+  late final List<List<int>> _moves = List.generate(area, (cell) {
+    final partner = portalPartner(cell);
+    return [
+      ...neighbors[cell],
+      if (partner != null && !neighbors[cell].contains(partner)) partner,
+    ];
+  });
+
+  /// True when a wall lies between [a] and [b], in either order.
+  bool isWalled(int a, int b) => _blocked.contains(a * 64 + b);
+
+  /// The other end of the portal when [cell] is a portal cell.
+  int? portalPartner(int cell) {
+    final pair = portal;
+    if (pair == null) return null;
+    if (cell == pair.$1) return pair.$2;
+    if (cell == pair.$2) return pair.$1;
+    return null;
   }
+
+  /// The next cell the route is forced to take after arriving at [cell] from
+  /// [previous], `-1` when that cell lies outside the grid, or null when the
+  /// route is free to choose.
+  int? forcedNext(int? previous, int cell) {
+    final partner = portalPartner(cell);
+    if (partner != null) return previous == partner ? null : partner;
+    if (!iceTiles.contains(cell) || previous == null) return null;
+    final nextX = 2 * (cell % size) - previous % size;
+    final nextY = 2 * (cell ~/ size) - previous ~/ size;
+    if (nextX < 0 || nextX >= size || nextY < 0 || nextY >= size) return -1;
+    return nextY * size + nextX;
+  }
+
+  /// Cells reachable in one step when walls are applied, ignoring every other
+  /// rule.
+  Iterable<int> movesFrom(int cell) => _moves[cell];
 
   bool canExtend(
     int cell,
@@ -106,16 +154,19 @@ final class Puzzle {
     bool Function(int)? hasVisited,
   }) {
     if (cell == finish) return MoveRejection.finished;
-    if (!movesFrom(cell).contains(next)) return MoveRejection.adjacency;
-    if (walls.contains((cell, next)) || walls.contains((next, cell))) {
-      return MoveRejection.wall;
+    if (next < 0 || next >= area || !_moves[cell].contains(next)) {
+      return MoveRejection.adjacency;
     }
+    if (isWalled(cell, next)) return MoveRejection.wall;
     if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) {
       return MoveRejection.gate;
     }
-    if (portal?.$2 == next && portal!.$1 != cell) return MoveRejection.portal;
     final forced = forcedNext(previous, cell);
-    if (forced != null && forced != next) return MoveRejection.ice;
+    if (forced != null && forced != next) {
+      return portalPartner(cell) != null
+          ? MoveRejection.portal
+          : MoveRejection.ice;
+    }
     final number = numbers[next];
     if (number != 0 && number != checkpoint) return MoveRejection.checkpoint;
     if (allowEarlyFinish && next == finish) return null;
@@ -125,10 +176,14 @@ final class Puzzle {
   }
 }
 
+/// A board whose solution has been certified, with its generation profile.
+///
+/// Hand-built boards (tutorials, fixtures) have no [profile].
 final class VerifiedPuzzle {
-  VerifiedPuzzle(this.puzzle, Iterable<int> solution)
+  VerifiedPuzzle(this.puzzle, Iterable<int> solution, {this.profile})
     : solution = List.unmodifiable(solution);
 
   final Puzzle puzzle;
   final List<int> solution;
+  final PuzzleProfile? profile;
 }

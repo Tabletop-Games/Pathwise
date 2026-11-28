@@ -1,0 +1,41 @@
+name: Puzzle lab (temporary)
+on:
+  push:
+    branches: [feature/puzzle-engine-2]
+permissions:
+  contents: read
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/flutter
+            ~/.pub-cache
+          key: flutter-${{ runner.os }}-3.50.1-${{ hashFiles('pubspec.lock') }}
+      - name: Install Flutter
+        run: |
+          if [ ! -x "$RUNNER_TEMP/flutter/bin/flutter" ]; then
+            git clone --depth 1 --branch 3.50.1 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          fi
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - run: flutter pub get --enforce-lockfile
+      - name: Format diff
+        run: |
+          dart format lib tool test > /dev/null
+          echo "=====FORMAT-PATCH-BEGIN====="
+          git diff --no-color || true
+          echo "=====FORMAT-PATCH-END====="
+          git checkout -- .
+      - name: Analyze engine
+        continue-on-error: true
+        run: dart analyze lib/logic tool/puzzle_lab.dart
+      - name: Lab
+        continue-on-error: true
+        run: |
+          echo "=====LAB-BEGIN====="
+          dart run tool/puzzle_lab.dart campaign 1 12 1 2>&1
+          echo "=====LAB-END====="
