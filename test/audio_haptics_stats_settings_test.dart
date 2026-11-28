@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -65,14 +64,6 @@ final class _FakeHapticBackend implements HapticBackend {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  group('Tips & Arrow removal', () {
-    test('Arrow cosmetic and asset are completely removed', () {
-      expect(PathTip.values.length, 19);
-      expect(PathTip.fromId('arrow'), isNull);
-      expect(File('assets/art/tips/arrow.webp').existsSync(), isFalse);
-    });
-  });
 
   group('Audio & Haptics services', () {
     test(

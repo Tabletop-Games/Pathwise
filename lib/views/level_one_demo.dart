@@ -155,7 +155,6 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                           MechanicTutorial.ice => 'Ice',
                           MechanicTutorial.gate => 'Keys and gates',
                           MechanicTutorial.portal => 'Portals',
-                          MechanicTutorial.arrow => 'Arrows',
                         }),
                         trailing: const Icon(Icons.replay),
                         onTap: () => Navigator.of(context).push<void>(

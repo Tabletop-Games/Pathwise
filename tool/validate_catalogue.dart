@@ -38,7 +38,6 @@ String signature(Puzzle p) {
         ice,
         if (p.gate case (final a, final b)) [map(a), map(b)] else null,
         if (p.portal case (final a, final b)) [map(a), map(b)] else null,
-        if (p.arrow case (final a, final b)) [map(a), map(b)] else null,
       ]),
     );
   }

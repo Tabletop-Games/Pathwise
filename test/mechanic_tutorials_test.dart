@@ -12,13 +12,11 @@ void main() {
       iceTiles: [1],
       gate: (2, 3),
       portal: (4, 5),
-      arrow: (6, 7),
     );
     expect(mechanicsOnBoard(puzzle), MechanicTutorial.values);
     expect(unseenMechanics(puzzle, {'ice', 'gate'}), [
       MechanicTutorial.walls,
       MechanicTutorial.portal,
-      MechanicTutorial.arrow,
     ]);
   });
 

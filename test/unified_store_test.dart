@@ -31,7 +31,7 @@ void main() {
     expect(PathTip.fromId('arrow'), isNull);
   });
 
-  test('old saves and invalid identifiers default safely to classic', () {
+  test('invalid saved identifiers default safely to classic', () {
     final model = AppModel(
       storage: MemoryStorage(),
       snapshot: {
@@ -78,42 +78,6 @@ void main() {
       expect(restored.equippedTip, PathTip.crystal);
       model.dispose();
       restored.dispose();
-    },
-  );
-
-  test(
-    'coin offers require both five new levels and fifteen minutes',
-    () async {
-      var now = 899999;
-      final store = MemoryStorage();
-      Map<String, dynamic> snapshot(int solved, {bool adFree = false}) => {
-        'coinOffer': {'levels': 2, 'boot': 1, 'milliseconds': 0},
-        'results': {
-          for (var i = 1; i <= solved; i++)
-            'levels/$i': {'milliseconds': 1000, 'hints': 0},
-        },
-        'removeAds': adFree,
-      };
-      final model = AppModel(
-        storage: store,
-        snapshot: snapshot(7),
-        bootTime: () => (boot: 1, milliseconds: now),
-      );
-      expect(model.canOfferCoinVideo, isFalse);
-      now = 900000;
-      expect(model.canOfferCoinVideo, isTrue);
-      expect(await model.recordCoinOffer(), isTrue);
-      expect(model.canOfferCoinVideo, isFalse);
-      final saved = await store.load();
-      expect((saved['coinOffer'] as Map)['levels'], 7);
-      final adFree = AppModel(
-        storage: store,
-        snapshot: snapshot(7, adFree: true),
-        bootTime: () => (boot: 1, milliseconds: now),
-      );
-      expect(adFree.canOfferCoinVideo, isFalse);
-      model.dispose();
-      adFree.dispose();
     },
   );
 

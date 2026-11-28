@@ -54,26 +54,24 @@ void expectSolution(VerifiedPuzzle board) {
 }
 
 void main() {
-  test(
-    'new timed rounds vary checkpoint layouts while legacy seeds stay stable',
-    () {
-      const guided = PuzzleId.attack('v2-test/3');
-      const sparse = PuzzleId.attack('v2-test/4');
-      const standard = PuzzleId.attack('v2-test/5');
-      const legacy = PuzzleId.attack('test/3');
-      expect(guided.generation.clues, greaterThan(standard.generation.clues));
-      expect(sparse.generation.clues, lessThan(standard.generation.clues));
-      expect(
-        legacy.generation.seed,
-        puzzleSeed('pathwise-attack-v1/attack/test/3'),
-      );
-      for (final id in [guided, sparse, standard]) {
-        final board = generatePuzzle(id.generation);
-        expectSolution(board);
-        expect(solve(board.puzzle).unique, isTrue);
-      }
-    },
-  );
+  test('timed rounds vary checkpoint layouts after the first three solves', () {
+    const guided = PuzzleId.attack('run/3');
+    const sparse = PuzzleId.attack('run/4');
+    const standard = PuzzleId.attack('run/5');
+    const opening = PuzzleId.attack('run/2');
+    expect(opening.layoutLabel, isNull);
+    expect(guided.layoutLabel, 'Guided checkpoints');
+    expect(sparse.layoutLabel, 'Sparse checkpoints');
+    expect(standard.layoutLabel, 'Standard checkpoints');
+    expect(guided.generation.clues, greaterThan(standard.generation.clues));
+    expect(sparse.generation.clues, lessThan(standard.generation.clues));
+    expect(guided.generation.seed, puzzleSeed('pathwise-attack/attack/run/3'));
+    for (final id in [guided, sparse, standard]) {
+      final board = generatePuzzle(id.generation);
+      expectSolution(board);
+      expect(solve(board.puzzle).unique, isTrue);
+    }
+  });
 
   test('DFS agrees with independent enumeration for all 3×3 boards with three or four checkpoints', () {
     final cells = List.generate(9, (index) => index);
@@ -121,14 +119,14 @@ void main() {
     expect(() => Puzzle(4, [1]), throwsArgumentError);
   });
 
-  test('all campaign boards are original, distinct and uniquely solved', () {
+  test('the opening campaign boards are distinct and uniquely solved', () {
     final signatures = <String>{};
-    for (var level = 1; level <= legacyLevelCount; level++) {
+    for (var level = 1; level <= 40; level++) {
       final id = PuzzleId.level(level);
-      final board = generatePuzzle(id.generation);
+      final board = generatePuzzle(id.generation, level: level);
       expectSolution(board);
       expect(
-        signatures.add('${id.size}:${board.puzzle.checkpoints.join(',')}'),
+        signatures.add('${id.size}:${board.solution.join(',')}'),
         true,
       );
       expect(board.puzzle.checkpoints.length, lessThan(board.puzzle.area));

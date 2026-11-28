@@ -74,25 +74,34 @@ void main() {
       });
     });
 
-    test('version 1 migrates to Classic after validating its checksum', () {
-      final old = save();
-      final bytes = utf8.encode(
-        jsonEncode({
-          'format': cloudSaveFormat,
-          'version': 1,
-          'revision': 2,
-          'savedAt': 100,
-          'economy': economyDigest(old),
-          'payloadDigest': digestOf(old),
-          'payload': old,
-        }),
+    test('only the current format and version are readable', () {
+      List<int> envelope(Object version, {String format = cloudSaveFormat}) {
+        final payload = save();
+        return utf8.encode(
+          jsonEncode({
+            'format': format,
+            'version': version,
+            'revision': 2,
+            'savedAt': 100,
+            'economy': economyDigest(payload),
+            'payloadDigest': digestOf(payload),
+            'payload': payload,
+          }),
+        );
+      }
+
+      expect(CloudEnvelope.decode(envelope(cloudSaveVersion)).revision, 2);
+      for (final version in [0, 1, cloudSaveVersion - 1, cloudSaveVersion + 1]) {
+        expect(
+          () => CloudEnvelope.decode(envelope(version)),
+          throwsA(isA<CorruptSave>()),
+          reason: 'version $version',
+        );
+      }
+      expect(
+        () => CloudEnvelope.decode(envelope(cloudSaveVersion, format: 'other')),
+        throwsA(isA<CorruptSave>()),
       );
-      final migrated = CloudEnvelope.decode(bytes);
-      expect(migrated.payload['ownedTips'], ['classic']);
-      expect(migrated.payload['equippedTip'], 'classic');
-      expect(migrated.payload['ledger'], old['ledger']);
-      expect(migrated.economy, economyDigest(old));
-      expect(CloudEnvelope.decode(migrated.encode()).payload, migrated.payload);
     });
 
     test('cosmetic ownership belongs to the economy conflict unit', () {

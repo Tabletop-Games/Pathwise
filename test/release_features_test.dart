@@ -96,14 +96,13 @@ void main() {
     restored.dispose();
   });
 
-  test('v1 migration preserves unlocked legacy gaps, attempts, times, and equipped theme', () async {
+  test('a saved game restores results, the unfinished route, preferences and play time', () async {
     final store = MemoryStorage();
     final model = create(store, {
       'results': {
         'levels/36': {'milliseconds': 60000, 'hints': 1},
         'daily/2026-11-20': {'milliseconds': 50000, 'hints': 0},
         'daily/2026-11-21': {'milliseconds': 49000, 'hints': 0},
-        'endless/1': {'milliseconds': 12000, 'hints': 0},
       },
       'preferences': {'theme': 'terracotta', 'haptics': false},
       'attempts': {
@@ -123,9 +122,8 @@ void main() {
     expect(model.theme, PathwiseTheme.terracotta);
     expect(model.ownedThemes, 4);
     expect(model.result(const PuzzleId.level(36))!.milliseconds, 60000);
-    expect(model.longestStreak, 2);
-    expect(model.solved, 4);
-    expect(model.playTime.inMilliseconds, 171000);
+    expect(model.solved, 3);
+    expect(model.playTime.inMilliseconds, 159000);
     await model.open(const PuzzleId.level(14));
     expect(model.path, [0, 1, 2]);
     model.close();
@@ -145,6 +143,8 @@ void main() {
     () async {
       final store = MemoryStorage();
       final model = create(store);
+      final price = economy.themePrice(PathwiseTheme.forestMint);
+      final balance = economy.starterCoins + 220 - price;
       expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
       expect(
         await model.applyVerifiedPurchase('grant-a', coins: 220, themes: false),
@@ -154,16 +154,16 @@ void main() {
         await model.applyVerifiedPurchase('grant-a', coins: 220, themes: false),
         isTrue,
       );
-      expect(model.coinsEarned, 270);
+      expect(model.coinsEarned, economy.starterCoins + 220);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
       expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
-      expect(model.coinBalance, 90);
-      expect(model.coinsSpent, 180);
+      expect(model.coinBalance, balance);
+      expect(model.coinsSpent, price);
       await model.flush();
       final restored = create(store, await store.load());
       expect(restored.ownsTheme(PathwiseTheme.forestMint), isTrue);
       expect(restored.theme, PathwiseTheme.forestMint);
-      expect(restored.coinBalance, 90);
+      expect(restored.coinBalance, balance);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-a',
@@ -172,7 +172,7 @@ void main() {
         ),
         isTrue,
       );
-      expect(restored.coinBalance, 90);
+      expect(restored.coinBalance, balance);
       expect(
         await restored.applyVerifiedPurchase(
           'grant-pass',

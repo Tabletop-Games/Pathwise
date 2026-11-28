@@ -115,17 +115,6 @@ void main() {
     },
   );
 
-  test('combine keeps the higher schemaVersion', () {
-    final merged = combine(
-      {'schemaVersion': 16, 'ledger': []},
-      {
-        'schemaVersion': 12,
-        'attempts': {'a': 1},
-      },
-    );
-    expect(merged['schemaVersion'], 16);
-  });
-
   test(
     'ConnectivityService retry queues follow-up check if already checking',
     () async {
@@ -195,7 +184,7 @@ void main() {
     await connectivity.check();
     await tester.pump();
     await tester.pump();
-    expect(find.byType(ConnectionPane), findsNothing);
+    expect(find.byType(ConnectionPane), findsOneWidget);
 
     connectivity.dispose();
     model.dispose();

@@ -142,10 +142,7 @@ class BillingService extends ChangeNotifier {
         return;
       }
       final response = await store.queryProductDetails(
-        storeProducts.entries
-            .where((e) => !e.value.legacy)
-            .map((e) => e.key)
-            .toSet(),
+        storeProducts.keys.toSet(),
       );
       if (_disposed) return;
       products

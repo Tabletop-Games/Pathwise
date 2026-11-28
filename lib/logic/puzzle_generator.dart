@@ -33,7 +33,6 @@ int puzzleSeed(String id) {
 VerifiedPuzzle generatePuzzle(
   ({int size, int seed, int clues}) request, {
   int level = 0,
-  bool legacy = false,
 }) {
   VerifiedPuzzle? best;
   var distance = 1 << 30;
@@ -46,10 +45,9 @@ VerifiedPuzzle generatePuzzle(
     final board = _tryGenerate(
       (size: request.size, seed: seed, clues: request.clues),
       level,
-      legacy,
     );
     if (board == null) continue;
-    if (level == 0 || legacy) return board;
+    if (level == 0) return board;
     final candidateDistance =
         (difficultyScore(board) - target).abs() -
         8 * mechanicInfluence(board.puzzle);
@@ -66,7 +64,6 @@ VerifiedPuzzle generatePuzzle(
 VerifiedPuzzle? _tryGenerate(
   ({int size, int seed, int clues}) request,
   int level,
-  bool legacy,
 ) {
   final (:size, :seed, :clues) = request;
   final random = _SeededRandom(seed);
@@ -147,38 +144,29 @@ VerifiedPuzzle? _tryGenerate(
   ];
   final walls = <(int, int)>{};
   if (wallEnabled) {
-    if (legacy) {
-      walls.add(wallOptions[random.nextInt(wallOptions.length)]);
-    } else {
-      final allowed = wallOptions.toSet();
-      final runs = <List<(int, int)>>[];
-      for (final (a, b) in wallOptions) {
-        final stride = b - a == 1 ? size : 1;
-        final run = [(a, b)];
-        for (var step = 1; step <= 2; step++) {
-          final next = (a + stride * step, b + stride * step);
-          if ((stride == 1 && a ~/ size != next.$1 ~/ size) ||
-              !allowed.contains(next))
-            break;
-          run.add(next);
-        }
-        if (run.length >= 2) runs.add(run);
+    final allowed = wallOptions.toSet();
+    final runs = <List<(int, int)>>[];
+    for (final (a, b) in wallOptions) {
+      final stride = b - a == 1 ? size : 1;
+      final run = [(a, b)];
+      for (var step = 1; step <= 2; step++) {
+        final next = (a + stride * step, b + stride * step);
+        if ((stride == 1 && a ~/ size != next.$1 ~/ size) ||
+            !allowed.contains(next))
+          break;
+        run.add(next);
       }
-      if (runs.isEmpty) return null;
-      walls.addAll(runs[random.nextInt(runs.length)]);
+      if (run.length >= 2) runs.add(run);
     }
+    if (runs.isEmpty) return null;
+    walls.addAll(runs[random.nextInt(runs.length)]);
   }
-  final arrow = legacy && iceEnabled ? (route[1], route[2]) : null;
   final gate = gateEnabled
       ? (
           route[2],
-          legacy
-              ? route[area - 3]
-              : route.reversed
-                    .skip(2)
-                    .firstWhere(
-                      (cell) => cell != portal?.$1 && cell != portal?.$2,
-                    ),
+          route.reversed
+              .skip(2)
+              .firstWhere((cell) => cell != portal?.$1 && cell != portal?.$2),
         )
       : null;
   final ice = <int>{};
@@ -192,25 +180,20 @@ VerifiedPuzzle? _tryGenerate(
         if (neighbors[route[i - 1]].contains(route[i]) &&
             neighbors[route[i]].contains(route[i + 1]) &&
             route[i] - route[i - 1] == route[i + 1] - route[i] &&
-            (legacy ? route[i] != portal?.$2 : !reserved.contains(route[i])))
+            !reserved.contains(route[i]))
           route[i],
     ];
-    if (straight.isEmpty) return null;
-    if (legacy) {
-      ice.add(straight[random.nextInt(straight.length)]);
+    if (straight.length < 2) return null;
+    final pairs = [
+      for (var i = 0; i < straight.length - 1; i++)
+        if (route.indexOf(straight[i + 1]) == route.indexOf(straight[i]) + 1)
+          [straight[i], straight[i + 1]],
+    ];
+    if (pairs.isNotEmpty) {
+      ice.addAll(pairs[random.nextInt(pairs.length)]);
     } else {
-      if (straight.length < 2) return null;
-      final pairs = [
-        for (var i = 0; i < straight.length - 1; i++)
-          if (route.indexOf(straight[i + 1]) == route.indexOf(straight[i]) + 1)
-            [straight[i], straight[i + 1]],
-      ];
-      if (pairs.isNotEmpty) {
-        ice.addAll(pairs[random.nextInt(pairs.length)]);
-      } else {
-        random.shuffle(straight);
-        ice.addAll(straight.take(2));
-      }
+      random.shuffle(straight);
+      ice.addAll(straight.take(2));
     }
   }
   reserved.addAll(ice);
@@ -218,15 +201,12 @@ VerifiedPuzzle? _tryGenerate(
     size,
     checkpoints,
     walls: walls,
-    arrow: arrow,
     gate: gate,
     portal: portal,
     iceTiles: ice,
   );
 
-  var certified = build(
-    legacy ? route : route.where((cell) => !reserved.contains(cell)),
-  );
+  var certified = build(route.where((cell) => !reserved.contains(cell)));
   var proof = solve(certified);
   if (!proof.unique) return null;
   final removable = route.sublist(1, area - 1);

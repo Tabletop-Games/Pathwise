@@ -20,17 +20,6 @@ class FixedRoll implements Random {
   double nextDouble() => roll / 100;
 }
 
-FortuneStatus status(
-  Map<String, int> counts, {
-  int spins = 4,
-  int version = 2,
-}) => FortuneStatus.fromJson({
-  'version': version,
-  'now': 1000000000,
-  'stamps': List.filled(spins, 1000000000),
-  'counts': counts,
-});
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final catalog = FortuneCatalog(
@@ -138,9 +127,9 @@ void main() {
     app.dispose();
   });
 
-  test('earned video spins persist, reject duplicate receipts and expire on uptime', () async {
+  test('video spins pay once per receipt, are not capped, and survive a restart', () async {
     final storage = MemoryStorage();
-    var clock = (boot: 1, milliseconds: 500);
+    final clock = (boot: 1, milliseconds: 500);
     AppModel launch(Map<String, dynamic> snapshot) =>
         AppModel(storage: storage, snapshot: snapshot, bootTime: () => clock);
     var app = launch({});
@@ -150,12 +139,11 @@ void main() {
     ]);
     expect(prizes.nonNulls.single.coins, 8);
     await app.settleFortune(prizes.nonNulls.single);
-    for (var spin = 2; spin <= 6; spin++) {
+    for (var spin = 2; spin <= 9; spin++) {
       expect(await app.spinRewardedFortune(catalog, 'video-$spin'), isNotNull);
       await app.settleFortune(app.pendingFortune!);
     }
-    expect(app.fortuneVideosRemaining, 0);
-    expect(await app.spinRewardedFortune(catalog, 'extra'), isNull);
+    expect(app.fortuneVideoAvailable, isTrue);
     expect(await app.spinFreeFortune(catalog), isNotNull);
     await app.settleFortune(app.pendingFortune!);
     final balance = app.coinBalance;
@@ -163,56 +151,8 @@ void main() {
 
     app = launch(await storage.load());
     expect(app.coinBalance, balance);
-    expect(app.fortuneVideosRemaining, 0);
-    clock = (boot: 1, milliseconds: 500 + fortuneWindowMs);
-    expect(app.fortuneVideosRemaining, 6);
     expect(await app.spinRewardedFortune(catalog, 'first'), isNull);
     expect(await app.spinRewardedFortune(catalog, 'new'), isNotNull);
-    app.dispose();
-  });
-
-  test('verified cumulative rewards account once across concurrent delivery and restart', () async {
-    final storage = MemoryStorage();
-    var app = AppModel(storage: storage, snapshot: {});
-    expect(await app.spinFreeFortune(catalog), isNull);
-    expect(
-      await app.applyVerifiedFortune(
-        catalog,
-        status({'sprout': 1}, version: 1),
-      ),
-      false,
-    );
-    final verified = status({'sprout': 3, 'boost': 1});
-    final applied = await Future.wait([
-      app.applyVerifiedFortune(catalog, verified),
-      app.applyVerifiedFortune(catalog, verified),
-    ]);
-    expect(applied.where((value) => value), hasLength(1));
-    expect(verified.remaining(0), 0);
-    expect(verified.remaining(fortuneWindowMs - 1), 0);
-    expect(verified.remaining(fortuneWindowMs), 4);
-    expect(app.coinBalance, 109);
-    expect(app.progression.inventory, isEmpty);
-    expect(app.hintsRemaining, 3);
-    app.dispose();
-    app = AppModel(storage: storage, snapshot: await storage.load());
-    expect(await app.applyVerifiedFortune(catalog, verified), false);
-    expect(
-      await app.applyVerifiedFortune(
-        catalog,
-        status({'sprout': 2, 'boost': 1}),
-      ),
-      false,
-    );
-    expect(
-      await app.applyVerifiedFortune(
-        catalog,
-        status({'sprout': 3, 'boost': 1, 'cache': 1}),
-      ),
-      true,
-    );
-    expect(app.coinBalance, 129);
-    expect(app.progression.inventory, isEmpty);
     app.dispose();
   });
 

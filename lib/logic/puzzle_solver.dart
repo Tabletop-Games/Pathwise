@@ -147,7 +147,6 @@ int difficultyScore(VerifiedPuzzle board) {
     p.iceTiles.isNotEmpty,
     p.gate != null,
     p.portal != null,
-    p.arrow != null,
   ].where((v) => v).length;
   return decisions * 3 + choices * 2 + turns ~/ 3 + effort + kinds * kinds;
 }
@@ -168,7 +167,6 @@ int mechanicInfluence(Puzzle p) {
     iceTiles: ice ? const [] : p.iceTiles,
     gate: gate ? null : p.gate,
     portal: portal ? null : p.portal,
-    arrow: p.arrow,
   );
   var count = 0;
   for (final candidate in [

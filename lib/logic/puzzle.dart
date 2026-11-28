@@ -3,7 +3,6 @@ enum MoveRejection {
   finished,
   adjacency,
   wall,
-  arrow,
   gate,
   portal,
   ice,
@@ -19,7 +18,6 @@ final class Puzzle {
     Iterable<int> checkpoints, {
     (int, int)? wall,
     Iterable<(int, int)> walls = const [],
-    this.arrow,
     this.gate,
     this.portal,
     int? ice,
@@ -39,7 +37,7 @@ final class Puzzle {
     }
   }
 
-  final (int, int)? arrow, gate, portal;
+  final (int, int)? gate, portal;
   final Set<(int, int)> walls;
   final Set<int> iceTiles;
 
@@ -112,7 +110,6 @@ final class Puzzle {
     if (walls.contains((cell, next)) || walls.contains((next, cell))) {
       return MoveRejection.wall;
     }
-    if (arrow?.$1 == cell && arrow!.$2 != next) return MoveRejection.arrow;
     if (gate?.$2 == next && hasVisited?.call(gate!.$1) != true) {
       return MoveRejection.gate;
     }

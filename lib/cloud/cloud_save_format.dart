@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 
 /// Versioned envelope stored in a Play Games Saved Game. The payload is the
 /// same snapshot map the app keeps on the device, so both copies share one
-/// schema and one migration path.
+/// schema. Any other format or version is rejected as damaged.
 const cloudSaveFormat = 'pathwise-cloud';
 const cloudSaveVersion = 5;
 
@@ -45,7 +45,6 @@ const progressKeys = <String>{
   'preferences',
   'economyActivity',
   'lastAutomaticAd',
-  'coinOffer',
   'billingProfile',
   'progressionBoot',
   'attack',
@@ -82,14 +81,6 @@ String economyDigest(Map<String, dynamic> payload) {
   final economy = <String, dynamic>{};
   for (final entry in payload.entries) {
     if (progressKeys.contains(entry.key)) continue;
-    // A migrated v1 save and a v2 save with only the default cosmetic have
-    // the same economy; this avoids a false conflict during migration.
-    if (entry.key == 'ownedTips' &&
-        entry.value is List &&
-        (entry.value as List).length == 1 &&
-        (entry.value as List).single == 'classic')
-      continue;
-    if (entry.key == 'equippedTip' && entry.value == 'classic') continue;
     if (entry.key == 'progression' && entry.value is Map) {
       final progression = Map<String, dynamic>.from(entry.value as Map);
       progression.removeWhere(
@@ -174,11 +165,7 @@ final class CloudEnvelope {
     }
     if (decoded is! Map ||
         decoded['format'] != cloudSaveFormat ||
-        (decoded['version'] != 1 &&
-            decoded['version'] != 2 &&
-            decoded['version'] != 3 &&
-            decoded['version'] != 4 &&
-            decoded['version'] != cloudSaveVersion)) {
+        decoded['version'] != cloudSaveVersion) {
       throw const CorruptSave('unknown format or version');
     }
     final revision = decoded['revision'];
@@ -198,13 +185,6 @@ final class CloudEnvelope {
     if (digestOf(typed) != digest) throw const CorruptSave('digest mismatch');
     if (economyDigest(typed) != economy) {
       throw const CorruptSave('economy digest mismatch');
-    }
-    // v1 had no tip fields. Validate its original checksums before adding the
-    // backwards-compatible defaults; the next upload writes a v2 envelope.
-    if (decoded['version'] == 1) {
-      typed.putIfAbsent('ownedTips', () => ['classic']);
-      typed.putIfAbsent('equippedTip', () => 'classic');
-      return CloudEnvelope.wrap(typed, revision: revision, savedAt: savedAt);
     }
     return CloudEnvelope(
       revision: revision,
@@ -262,18 +242,6 @@ Map<String, dynamic> combine(
 ) {
   final result = Map<String, dynamic>.from(economyFrom);
   for (final key in progressKeys) {
-    if (key == 'schemaVersion') {
-      final econVer = economyFrom['schemaVersion'];
-      final progVer = progressFrom['schemaVersion'];
-      if (econVer is int && progVer is int) {
-        result['schemaVersion'] = econVer >= progVer ? econVer : progVer;
-      } else if (econVer != null) {
-        result['schemaVersion'] = econVer;
-      } else if (progVer != null) {
-        result['schemaVersion'] = progVer;
-      }
-      continue;
-    }
     if (progressFrom.containsKey(key)) result[key] = progressFrom[key];
   }
   return result;

@@ -22,18 +22,6 @@ void main() {
       },
     );
 
-    test('iOS gets the unsupported provider and no sign-in', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      final provider = cloudProviderFor(MemoryKeyValueStore());
-      expect(provider, isA<UnsupportedCloudSaves>());
-      expect(provider.supported, isFalse);
-      expect(await provider.signIn(), isNull);
-      expect(
-        provider.fetch('pathwise-progress-v1'),
-        throwsA(isA<CloudUnavailable>()),
-      );
-    });
-
     test('the Play Games provider is inert until it is configured', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final provider = PlayGamesCloudSaves();

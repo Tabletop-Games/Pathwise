@@ -73,11 +73,10 @@ const journeyPropPaths = <String>[
 String tipAssetPath(PathTip tip) => 'assets/art/tips/${tip.name}.webp';
 
 String boostAssetPath(Boost boost) => switch (boost) {
-  Boost.doubleTen || Boost.doubleFifteen => 'assets/art/ui/boost_2x_fast.webp',
-  Boost.doubleThirty || Boost.doubleSixty => 'assets/art/ui/boost_2x_long.webp',
+  Boost.doubleTen => 'assets/art/ui/boost_2x_fast.webp',
+  Boost.doubleSixty => 'assets/art/ui/boost_2x_long.webp',
   Boost.tripleFifteen => 'assets/art/ui/boost_3x.webp',
   Boost.quadrupleTen => 'assets/art/ui/boost_4x.webp',
-  Boost.crateFrequency => 'assets/art/resources/crate.webp',
 };
 
 /// Normalized visible vertical bounds `(top, bottom)` inside each 192x192 tip

@@ -51,7 +51,6 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
     MechanicTutorial.ice => complete || (path.contains(1) && path.contains(2)),
     MechanicTutorial.portal =>
       complete || (path.contains(1) && path.contains(8)),
-    MechanicTutorial.arrow => complete || path.contains(3),
   };
 
   @override
@@ -66,7 +65,6 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
       MechanicTutorial.ice => Puzzle(3, [0, 8], iceTiles: [1]),
       MechanicTutorial.gate => Puzzle(3, [0, 8], gate: (3, 1)),
       MechanicTutorial.portal => Puzzle(3, [0, 2], portal: (1, 8)),
-      MechanicTutorial.arrow => Puzzle(3, [0, 8], arrow: (0, 3)),
     };
     game = GameController(VerifiedPuzzle(puzzle, const []));
     rejected = false;
@@ -102,7 +100,6 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
     final expected = switch (widget.mechanic) {
       MechanicTutorial.walls => MoveRejection.wall,
       MechanicTutorial.gate => MoveRejection.gate,
-      MechanicTutorial.arrow => MoveRejection.arrow,
       _ => null,
     };
     if (expected != null && issue?.reason == expected && !rejected) {
@@ -171,15 +168,6 @@ class _MechanicTutorialViewState extends State<MechanicTutorialView>
         mechanicDemonstrated
             ? 'Great! Portals warp your path across the board. Now complete the puzzle.'
             : 'Enter the portal to the right.',
-      ),
-      MechanicTutorial.arrow => (
-        'Arrows',
-        'Leave the arrow tile in the direction it points.',
-        mechanicDemonstrated
-            ? 'Great! Arrows guide your path forward. Now complete the puzzle.'
-            : rejected
-            ? 'Follow the arrow down.'
-            : 'Try to move right, against the arrow.',
       ),
     };
     return Scaffold(

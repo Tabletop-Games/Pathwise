@@ -307,7 +307,7 @@ class SimPlayer {
     activeMinutes += profile.minutes;
     final online = !profile.offline;
     final videos = online ? profile.videos : 0;
-    final wheelVideos = (videos ~/ 2).clamp(0, economy.wheelAdsPerDay);
+    final wheelVideos = (videos ~/ 2).clamp(0, _wheelVideosPerDay);
     final coinVideos = (videos - wheelVideos).clamp(
       0,
       economy.rewardedAdsPerDay,
@@ -661,7 +661,7 @@ void writeBoostProfitabilityCsv(StringBuffer csv) {
   final maxRes = Progression({
     'ranks': {for (final r in Research.values) r.name: r.limit},
   });
-  for (final b in Boost.values.where((b) => b.availableToBuy)) {
+  for (final b in Boost.values) {
     final maxMin = b.minutes * (100 + maxRes.durationBonus) / 100.0;
     final minPrice = maxRes.discount(b.price);
     final extraPerClear =
@@ -725,7 +725,7 @@ void writeRatesCsv(StringBuffer csv) {
   csv.writeln(
     'chapter,treasure_hints,$chapterRewardHints,Per 25 campaign levels',
   );
-  for (final b in Boost.values.where((b) => b.availableToBuy)) {
+  for (final b in Boost.values) {
     csv.writeln(
       'boost,${b.name},${b.price},${b.title} (${b.multiplier}x ${b.minutes}m)',
     );
@@ -737,6 +737,10 @@ void writeRatesCsv(StringBuffer csv) {
     csv.writeln('theme,${th.name},${economy.themePrice(th)},Theme');
   }
 }
+
+/// Simulation assumption: wheel video spins have no product cap, so the model
+/// assumes a dedicated player watches at most this many a day.
+const _wheelVideosPerDay = 6;
 
 void main() {
   final reportDir = Directory('build/economy_reports');

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'economy.dart';
 import 'progression.dart';
 import 'user_preferences.dart';
@@ -22,6 +24,11 @@ int multiplierAt(double position) {
 }
 
 int chapterFor(int level) => (level - 1) ~/ chapterSize;
+
+/// The highest level whose scroll offset stays exact in a double, given the
+/// fixed extent of one Journey slot.
+int maxJourneyLevelForExtent(double extent, {int slotsPerChapter = 27}) =>
+    (1 << 49) ~/ math.max(1.0, extent) ~/ slotsPerChapter * chapterSize;
 
 const _landscapes = [
   'First Light',

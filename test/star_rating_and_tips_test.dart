@@ -152,25 +152,6 @@ void main() {
         restored.dispose();
       },
     );
-
-    test(
-      'historical migration derives stars lazily without retroactive coins',
-      () async {
-        final model = _model(MemoryStorage(), {
-          'results': {
-            'levels/1': {'milliseconds': 8000, 'hints': 0},
-            'levels/2': {'milliseconds': 90000, 'hints': 1},
-            'levels/3': {'milliseconds': 0, 'hints': 0},
-          },
-        });
-        final coinsBefore = model.coinBalance;
-        expect(model.starsFor(const PuzzleId.level(1)), 3);
-        expect(model.starsFor(const PuzzleId.level(2)), 0);
-        expect(model.starsFor(const PuzzleId.level(3)), 0);
-        expect(model.coinBalance, coinsBefore);
-        model.dispose();
-      },
-    );
   });
 
   group('Cosmetic tip artwork & rendering specs', () {

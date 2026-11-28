@@ -35,9 +35,7 @@ void main() {
       expect(ice.rejectionFor(1, 4, 2, 2, previous: 0), MoveRejection.ice);
       final portal = Puzzle(3, [0, 8], portal: (3, 1));
       expect(portal.rejectionFor(0, 1, 1, 2), MoveRejection.portal);
-      final arrow = Puzzle(3, [0, 8], arrow: (0, 3));
-      expect(arrow.rejectionFor(0, 1, 1, 2), MoveRejection.arrow);
-      expect(arrow.rejectionFor(0, 5, 1, 2), MoveRejection.adjacency);
+      expect(portal.rejectionFor(0, 5, 1, 2), MoveRejection.adjacency);
 
       final blockedIce = Puzzle(3, [0, 8], iceTiles: [1], walls: [(1, 2)]);
       final game = GameController(

@@ -67,14 +67,16 @@ void main() {
     });
   }
 
-  test('legacy clears stay prospective, mystery reward is deterministic and idempotent', () async {
+  test('journey scroll extents keep every reachable level exact', () {
+    final max = maxJourneyLevelForExtent(132.0);
+    expect(max, greaterThan(1000000));
+    expect(max % chapterSize, 0);
+    expect(maxJourneyLevelForExtent(264.0), lessThan(max));
+  });
+
+  test('a mystery reward is deterministic and claims once', () async {
     final storage = MemoryStorage();
-    final model = journeyModel(storage, {
-      'results': {
-        'levels/30': {'milliseconds': 1000, 'hints': 0},
-      },
-      'themePass': true,
-    });
+    final model = journeyModel(storage, {'themePass': true});
     expect(model.discoveryPercent, 0);
     final cycle1Item = model.upcomingDiscoveryItem;
     for (var level = 1; level <= 10; level++) {

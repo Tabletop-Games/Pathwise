@@ -212,13 +212,12 @@ void main() {
     expect(caps.eligible(const Duration(seconds: 295)), isTrue);
   });
   test(
-    'v2 retains verified ownership, balance and previous hint use',
+    'a saved game keeps verified ownership, balance and the equipped theme',
     () async {
       final store = MemoryStorage();
       final v2 = app(
         store,
         data: {
-          'schemaVersion': 2,
           'themePass': true,
           'ownedThemes': ['warmWalnut'],
           'preferences': {'theme': 'warmWalnut'},
@@ -257,7 +256,6 @@ void main() {
       final model = AppModel(
         storage: MemoryStorage(),
         snapshot: {
-          'schemaVersion': 3,
           'lastAutomaticAd': {'boot': 4, 'milliseconds': 2000000},
         },
         bootTime: () => (boot: 5, milliseconds: clock),

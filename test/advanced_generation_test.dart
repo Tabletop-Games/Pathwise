@@ -24,7 +24,6 @@ void main() {
 
   test('advanced rules reject blocked or unqualified moves', () {
     expect(Puzzle(3, [0, 8], wall: (0, 1)).canExtend(0, 1, 1, 2), isFalse);
-    expect(Puzzle(3, [0, 8], arrow: (1, 2)).canExtend(1, 4, 2, 2), isFalse);
     final gated = Puzzle(3, [0, 8], gate: (2, 4));
     expect(gated.canExtend(1, 4, 2, 2), isFalse);
     expect(
@@ -73,7 +72,6 @@ void main() {
         ), level: level);
         final puzzle = board.puzzle;
         expect(mechanicsOnBoard(puzzle).toSet(), examples[level]);
-        expect(puzzle.arrow, isNull);
         if (puzzle.walls.isNotEmpty)
           expect(puzzle.walls.length, greaterThanOrEqualTo(2));
         if (puzzle.iceTiles.isNotEmpty)

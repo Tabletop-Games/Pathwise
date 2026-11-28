@@ -452,30 +452,26 @@ void main() {
       },
     );
 
-    test('v15 migration discards obsolete pending discoveries and preserves progress', () async {
-      final storage = _MemoryStorage();
-      final model = AppModel(
-        storage: storage,
+    test('a saved journey restores its progress and replaces an invalid upcoming reward', () {
+      AppModel launch(String upcoming) => AppModel(
+        storage: _MemoryStorage(),
         snapshot: {
-          'schemaVersion': 15,
           'hintBalance': 7,
-          'journey': {
-            'clears': 14,
-            'upcoming': 'tip/cat',
-            'pending': {'1': 'tip/crystal'},
-          },
+          'journey': {'clears': 14, 'upcoming': upcoming},
         },
         connectivity: ConnectivityService(probe: () async => true),
         today: () => DateTime(2026, 11, 25),
         bootTime: () => (boot: 1, milliseconds: 1000),
       );
-      expect(model.hintsRemaining, 7);
-      expect(model.discoveryPercent, 40);
-      expect(model.upcomingDiscoveryItem, 'tip/cat');
-      await model.flush();
-      final saved = await storage.load();
-      expect((saved['journey'] as Map).containsKey('pending'), isFalse);
-      model.dispose();
+      final valid = launch('tip/cat');
+      expect(valid.hintsRemaining, 7);
+      expect(valid.discoveryPercent, 40);
+      expect(valid.upcomingDiscoveryItem, 'tip/cat');
+      valid.dispose();
+      final invalid = launch('tip/not-a-tip');
+      expect(invalid.upcomingDiscoveryItem, isNot('tip/not-a-tip'));
+      expect(invalid.upcomingDiscoveryItem, matches(RegExp(r'^[a-z]+/')));
+      invalid.dispose();
     });
 
     test('Developer tools stay disabled by default and ignore mutations', () {

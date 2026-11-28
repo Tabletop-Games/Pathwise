@@ -76,7 +76,7 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 
 void main() {
   testWidgets(
-    'shop filters boosts and displays the discounted price at large text',
+    'shop shows discounted prices and durations at large text',
     (tester) async {
       final connectivity = ConnectivityService(probe: () async => false);
       final model = AppModel(
@@ -126,14 +126,6 @@ void main() {
         _shop(Boost.quadrupleTen).hitTestable(),
         140,
       );
-      for (final boost in [
-        Boost.doubleFifteen,
-        Boost.doubleThirty,
-        Boost.crateFrequency,
-      ]) {
-        expect(_shop(boost), findsNothing);
-        expect(_inventory(boost), findsNothing);
-      }
       await tester.pumpWidget(const SizedBox.shrink());
       await model.flush();
       model.dispose();
@@ -155,11 +147,7 @@ void main() {
           'archivedCoins': 70,
           'progressionBoot': 1,
           'progression': {
-            'inventory': {
-              'doubleTen': 1,
-              'crateFrequency': 1,
-              'doubleFifteen': 1,
-            },
+            'inventory': {'doubleTen': 1},
           },
         },
       );
@@ -192,30 +180,10 @@ void main() {
         tester.widget<ActionPill>(_action(quickCharge, 'Activate')).onTap,
         isNull,
       );
-      expect(
-        tester
-            .widget<ActionPill>(
-              _action(_inventory(Boost.doubleFifteen), 'Activate'),
-            )
-            .onTap,
-        isNull,
-      );
-
-      final radar = _inventory(Boost.crateFrequency);
-      expect(
-        find.descendant(
-          of: radar,
-          matching: find.text('2× crate drop rate · 15m'),
-        ),
-        findsOneWidget,
-      );
-      await _tapVisible(tester, _action(radar, 'Activate'));
       await tester.scrollUntilVisible(
         find.text('Active boosts').hitTestable(),
         -150,
       );
-      expect(find.text('15 min left'), findsOneWidget);
-      expect(radar, findsNothing);
       clock += const Duration(minutes: 1, seconds: 1).inMilliseconds;
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('3m 59s left'), findsOneWidget);
@@ -250,41 +218,36 @@ void main() {
         tester.widget<ActionPill>(_action(power, 'Video locked')).onTap,
         isNull,
       );
-      final limit = economy.doubleBoostAdsPerDay;
-      Finder watch(int available) =>
-          _action(quick, 'Watch · $available/$limit');
+      Finder watch(Finder row) => _action(row, 'Watch');
 
-      await _tapVisible(tester, watch(limit));
+      await _tapVisible(tester, watch(quick));
       expect(find.text('Video unavailable'), findsOneWidget);
       expect(ads.requests, 1);
       expect(ads.presentations, 0);
       expect(_inventory(Boost.doubleTen), findsNothing);
 
       ads.available = true;
-      await _tapVisible(tester, watch(limit));
+      await _tapVisible(tester, watch(quick));
       expect(ads.presentations, 1);
       expect(_inventory(Boost.doubleTen), findsNothing);
 
       ads.earnsReward = true;
-      for (var available = limit; available > 0; available--) {
-        await _tapVisible(tester, watch(available));
+      for (var video = 0; video < 4; video++) {
+        await _tapVisible(tester, watch(quick));
       }
-      expect(
-        tester.widget<ActionPill>(_action(quick, 'Daily limit')).onTap,
-        isNull,
-      );
       expect(
         find.descendant(
           of: _inventory(Boost.doubleTen),
-          matching: find.text('$limit owned'),
+          matching: find.text('4 owned'),
         ),
         findsOneWidget,
+        reason: 'Quick Charge videos are not capped',
       );
       for (var i = 0; i < economy.coinAdMilestone; i++) {
         await model.grantAdBonus('coin-video-$i');
       }
       await tester.pumpAndSettle();
-      await _tapVisible(tester, _action(power, 'Watch · 1/1'));
+      await _tapVisible(tester, watch(power));
       expect(
         tester.widget<ActionPill>(_action(power, 'Daily limit')).onTap,
         isNull,
