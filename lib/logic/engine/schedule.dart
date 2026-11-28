@@ -25,7 +25,7 @@ const _wallArchetypes = [
 /// Where a level sits in the long difficulty curve, from 0 to about 0.9. It
 /// rises quickly at first, then levels off so late levels stay playable.
 double baseDifficulty(int level) =>
-    math.min(0.9, 1 - math.exp(-(level - 1) / 170));
+    math.min(0.9, 1 - math.exp(-(level - 1) / 320));
 
 /// Offsets inside each block of ten levels. Difficulty comes in waves: a
 /// breather every few levels and a hard one at the end of the block.
@@ -42,12 +42,12 @@ DifficultyBand _bandFor(double target) {
 
 int _sizeFor(DifficultyBand band, int level, PuzzleRandom rng) {
   final options = switch (band) {
-    DifficultyBand.beginner => [4, 4, 4, 5],
-    DifficultyBand.easy => [4, 4, 5, 5],
-    DifficultyBand.intermediate => [4, 5, 5, 6],
-    DifficultyBand.advanced => [5, 5, 6, 6, 7],
-    DifficultyBand.expert => [5, 6, 6, 7, 7],
-    DifficultyBand.master => [6, 6, 7, 7],
+    DifficultyBand.beginner => [4, 4, 5],
+    DifficultyBand.easy => [4, 5, 5],
+    DifficultyBand.intermediate => [5, 5, 6],
+    DifficultyBand.advanced => [5, 6, 6, 7],
+    DifficultyBand.expert => [6, 6, 7, 7],
+    DifficultyBand.master => [7],
   };
   final cap = level <= 12
       ? 4

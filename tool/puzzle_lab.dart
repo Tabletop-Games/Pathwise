@@ -79,6 +79,7 @@ void run(
 }) {
   final byBand = <String, List<double>>{};
   final fallbackBy = <String, List<int>>{};
+  final frontier = <String, List<double>>{};
   final summary = <String, List<int>>{};
   final reasons = <String, int>{};
   var fallbacks = 0;
@@ -97,6 +98,9 @@ void run(
     watch.stop();
     total++;
     times.add(watch.elapsedMilliseconds);
+    frontier
+        .putIfAbsent('${spec.size}/${spec.archetype.name}', () => [])
+        .addAll(stats.frontier);
     for (final entry in stats.rejections.entries) {
       reasons.update(
         entry.key,
@@ -169,6 +173,16 @@ void run(
   }
   times.sort();
   stdout.writeln('=====SUMMARY=====');
+  final keys = frontier.keys.toList()..sort();
+  for (final key in keys) {
+    final v = frontier[key]!..sort();
+    if (v.isEmpty) continue;
+    stdout.writeln(
+      'frontier $key n=${v.length} p10=${v[v.length ~/ 10].toStringAsFixed(0)} '
+      'med=${v[v.length ~/ 2].toStringAsFixed(0)} '
+      'p90=${v[v.length * 9 ~/ 10].toStringAsFixed(0)} max=${v.last.toStringAsFixed(0)}',
+    );
+  }
   for (final entry in byBand.entries) {
     final values = entry.value..sort();
     final fb = fallbackBy[entry.key]!;

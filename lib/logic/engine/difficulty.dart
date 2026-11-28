@@ -8,40 +8,49 @@ import 'deduction.dart';
 /// Difficulty is estimated from how a player has to reason, not from how big
 /// the board is or how many mechanics it shows.
 ///
-/// The logic score weighs the deductions needed to solve the board by logic
-/// alone: basic propagation is cheap, each lookahead costs far more, and a
-/// two-level lookahead more again. Depth is the longest chain of deductions
-/// that each needed the one before it.
-double logicScore(DeductionResult result) {
-  var score = 0.0;
-  for (final entry in result.techniques.entries) {
-    final weight = switch (entry.key) {
-      'portal_link' => 0.0,
-      'forced_degree' || 'saturated_cell' => 0.1,
-      'ice_straight' => 0.3,
-      'no_loop' || 'order_merge' => 0.8,
-      'probe_dead_end' || 'probe_order' || 'probe_isolation' => 6.0,
-      _ => 18.0,
-    };
-    score += weight * entry.value;
-  }
-  return score + result.depth * 1.0;
-}
-
-/// Maps the logic score to 0–100 with diminishing returns.
+/// Three parts add up, each with its own ceiling so that none can hide a
+/// weakness in another:
+/// - propagation (at most 40): the cheap, local deductions, weighted by how
+///   much bookkeeping they need and by the depth of the longest chain of
+///   dependent deductions. A board solved by propagation alone stays below
+///   the middle of the scale however large it is.
+/// - lookahead (at most 30): each time the player has to assume a move and
+///   follow it until something breaks.
+/// - deep reasoning (at most 30): counting arguments and assumptions inside
+///   assumptions.
 double logicDifficulty(DeductionResult result) {
-  final score = logicScore(result);
-  return 100 * score / (score + 60);
+  var local = 0.0;
+  var lookahead = 0;
+  var deep = 0;
+  for (final entry in result.techniques.entries) {
+    final tier = techniqueTiers[entry.key] ?? 3;
+    if (tier == 2) {
+      lookahead += entry.value;
+    } else if (tier >= 3) {
+      deep += entry.value;
+    } else {
+      local += entry.value * switch (entry.key) {
+        'portal_link' => 0.0,
+        'forced_degree' || 'saturated_cell' => 0.1,
+        'ice_straight' => 0.3,
+        _ => 0.8,
+      };
+    }
+  }
+  local += result.depth * 0.4;
+  return 40 * local / (local + 25) +
+      30 * (1 - math.exp(-lookahead / 4)) +
+      30 * (1 - math.exp(-deep / 2));
 }
 
 /// Inclusive lower and exclusive upper difficulty bounds for a band.
 (double, double) bandRange(DifficultyBand band) => switch (band) {
-  DifficultyBand.beginner => (0, 18),
-  DifficultyBand.easy => (18, 32),
-  DifficultyBand.intermediate => (32, 48),
-  DifficultyBand.advanced => (48, 62),
-  DifficultyBand.expert => (62, 76),
-  DifficultyBand.master => (76, 101),
+  DifficultyBand.beginner => (0, 15),
+  DifficultyBand.easy => (15, 28),
+  DifficultyBand.intermediate => (28, 42),
+  DifficultyBand.advanced => (42, 56),
+  DifficultyBand.expert => (56, 70),
+  DifficultyBand.master => (70, 101),
 };
 
 DifficultyBand bandFor(double difficulty) {
@@ -178,7 +187,7 @@ double walkBonus(WalkAnalysis walk) {
   final deception = math.min(walk.trapDepth, 8) * 1.1;
   final traps = math.min(walk.trapCount, 14) * 0.35;
   final freedom = (1 - walk.forcedMoveRatio) * 6;
-  return math.min(12, deception + traps + freedom);
+  return math.min(8, deception * 0.7 + traps * 0.7 + freedom * 0.7);
 }
 
 /// A model of how long a competent player takes. It is an estimate built from

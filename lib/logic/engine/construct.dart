@@ -20,6 +20,9 @@ final class GenerationStats {
   int fallback = 0;
   final Map<String, int> rejections = {};
 
+  /// The difficulty of every candidate at the logic frontier, accepted or not.
+  final List<double> frontier = [];
+
   void reject(String reason) =>
       rejections.update(reason, (n) => n + 1, ifAbsent: () => 1);
 }
@@ -611,6 +614,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     stats.reject('lost_logic');
     return null;
   }
+  stats.frontier.add(logicDifficulty(full));
   if (logicDifficulty(full) < low - 6) {
     stats.reject('band_low');
     return null;
