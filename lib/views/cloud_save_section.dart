@@ -288,7 +288,6 @@ class _ConflictDialog extends StatelessWidget {
   final CloudSyncService cloud;
 
   Widget _summary(BuildContext context, String title, SaveSummary summary) {
-    final p = context.palette;
     return GameCard(
       padding: const EdgeInsets.all(12),
       child: Column(

@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pathwise/cloud/cloud_save_provider.dart';
 import 'package:pathwise/cloud/cloud_sync_service.dart';
-import 'package:pathwise/cloud/key_value_store.dart';
 import 'package:pathwise/logic/ad_service.dart';
 import 'package:pathwise/logic/billing_service.dart';
 import 'package:pathwise/logic/connectivity_service.dart';

@@ -1,11 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pathwise/cloud/cloud_save_provider.dart';
-import 'package:pathwise/cloud/key_value_store.dart';
 import 'package:pathwise/main.dart' show cloudProviderFor;
-import 'package:pathwise/model/app_model.dart';
-import 'package:pathwise/model/economy.dart';
-import 'package:pathwise/model/product_catalog.dart';
 
 import '../support/fixtures.dart';
 

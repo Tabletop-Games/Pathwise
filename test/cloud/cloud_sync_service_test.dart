@@ -1,16 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:pathwise/cloud/cloud_save_format.dart';
 import 'package:pathwise/cloud/cloud_save_provider.dart';
 import 'package:pathwise/cloud/cloud_sync_service.dart';
-import 'package:pathwise/cloud/key_value_store.dart';
-import 'package:pathwise/logic/connectivity_service.dart';
 import 'package:pathwise/logic/game_state_storage.dart';
 import 'package:pathwise/model/app_model.dart';
-import 'package:pathwise/model/economy.dart';
-import 'package:pathwise/model/progression.dart';
-import 'package:pathwise/views/connection_view.dart';
-import 'package:provider/provider.dart';
 
 import '../support/fixtures.dart';
 
