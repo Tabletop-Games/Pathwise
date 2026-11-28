@@ -45,6 +45,7 @@ class StoreView extends StatefulWidget {
 }
 
 class _StoreViewState extends State<StoreView> {
+  static int _lastCategory = 0;
   late int _category;
   bool _busy = false;
   bool _watching = false;
@@ -63,8 +64,9 @@ class _StoreViewState extends State<StoreView> {
       StoreSection.coinPacks ||
       StoreSection.earnCoins => 2,
       StoreSection.upgrades || StoreSection.premium => 3,
-      null => 0,
+      null => _lastCategory,
     };
+    _lastCategory = _category;
   }
 
   @override
@@ -76,6 +78,7 @@ class _StoreViewState extends State<StoreView> {
   }
 
   void _selectCategory(int value) {
+    _lastCategory = value;
     if (value == _category) {
       final controller = _tabScrolls[value];
       if (!controller.hasClients || controller.offset <= 0) return;
