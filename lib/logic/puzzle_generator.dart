@@ -20,6 +20,14 @@ export 'puzzle_random.dart' show puzzleSeed;
 /// level.
 VerifiedPuzzle generatePuzzle(PuzzleSpec spec, {GenerationStats? stats}) {
   final tally = stats ?? GenerationStats();
+  try {
+    return _generate(spec, tally);
+  } finally {
+    tally.phase('done');
+  }
+}
+
+VerifiedPuzzle _generate(PuzzleSpec spec, GenerationStats tally) {
   final budget = switch (spec.kind) {
     GenerationKind.attack => 14,
     _ => 36,

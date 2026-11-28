@@ -92,6 +92,7 @@ void run(
   final reasons = <String, int>{};
   var fallbacks = 0;
   var total = 0;
+  final phaseTotals = <String, int>{};
   final times = <int>[];
   for (final spec in specs) {
     final stats = GenerationStats();
@@ -106,6 +107,9 @@ void run(
     watch.stop();
     total++;
     times.add(watch.elapsedMilliseconds);
+    for (final entry in stats.phases.entries) {
+      phaseTotals.update(entry.key, (v) => v + entry.value, ifAbsent: () => entry.value);
+    }
     frontier
         .putIfAbsent('${spec.size}/${spec.archetype.name}', () => [])
         .addAll(stats.frontier);
@@ -208,6 +212,7 @@ void run(
     'max=${times.last}ms',
   );
   stdout.writeln('rejections=$reasons');
+  stdout.writeln('phase ms=$phaseTotals');
   for (final entry in summary.entries) {
     final v = entry.value;
     stdout.writeln(

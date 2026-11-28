@@ -30,14 +30,14 @@ double baseDifficulty(int level) =>
 
 /// Offsets inside each block of ten levels. Difficulty comes in waves: a
 /// breather every few levels and a hard one at the end of the block.
-const _wave = [0.0, 0.05, 0.1, -0.04, 0.12, 0.17, 0.06, 0.2, -0.12, 0.26];
+const _wave = [0.0, 0.05, 0.1, -0.04, 0.12, 0.17, 0.06, 0.2, -0.5, 0.26];
 
 DifficultyBand _bandFor(double target) {
   if (target < 0.1) return DifficultyBand.beginner;
   if (target < 0.24) return DifficultyBand.easy;
   if (target < 0.42) return DifficultyBand.intermediate;
   if (target < 0.6) return DifficultyBand.advanced;
-  if (target < 0.78) return DifficultyBand.expert;
+  if (target < 0.82) return DifficultyBand.expert;
   return DifficultyBand.master;
 }
 
@@ -64,7 +64,7 @@ int _sizeFor(DifficultyBand band, int level, PuzzleRandom rng) {
 PuzzleSpec campaignSpec(int level) {
   final rng = PuzzleRandom(puzzleSeed('pathwise-schedule/campaign/$level'));
   final block = (level - 1) % 10;
-  final target = (baseDifficulty(level) + _wave[block] * 0.8).clamp(0.0, 0.95);
+  final target = (baseDifficulty(level) + _wave[block] * 0.6).clamp(0.0, 0.95);
   var band = _bandFor(target);
   final id = 'campaign/$level';
 

@@ -23,6 +23,27 @@ final class GenerationStats {
   /// The difficulty of every candidate at the logic frontier, accepted or not.
   final List<double> frontier = [];
 
+  /// Milliseconds spent per phase. Reported by tools only: no decision
+  /// depends on it.
+  final Map<String, int> phases = {};
+  final Stopwatch _watch = Stopwatch();
+  String? _phase;
+
+  void phase(String name) {
+    final current = _phase;
+    if (current != null) {
+      phases.update(
+        current,
+        (ms) => ms + _watch.elapsedMilliseconds,
+        ifAbsent: () => _watch.elapsedMilliseconds,
+      );
+    }
+    _phase = name;
+    _watch
+      ..reset()
+      ..start();
+  }
+
   void reject(String reason) =>
       rejections.update(reason, (n) => n + 1, ifAbsent: () => 1);
 }
@@ -467,6 +488,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   final n = spec.size;
   final cap = tierCap(spec.band);
   final b = _Board(n);
+  stats.phase('skeleton');
   if (spec.walls) {
     b.formations.addAll(buildSkeleton(spec.archetype, n, rng, spec.band));
   }
@@ -478,6 +500,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     }
   }
 
+  stats.phase('route');
   List<int>? route;
   final probe = Puzzle(n, [0, n * n - 1], walls: b.walls, portal: b.portal);
   for (var tries = 0; tries < 5 && route == null; tries++) {
@@ -505,6 +528,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
   }
   b.setRoute(route);
 
+  stats.phase('unique');
   var unique = false;
   for (var round = 0; round < 70 && !unique; round++) {
     final puzzle = b.puzzle();
@@ -541,6 +565,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     return null;
   }
 
+  stats.phase('growth');
   final floor = _clueFloor(spec);
   while (b.clues.length < floor && _clueSpread(b, rng)) {}
 
@@ -564,6 +589,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     return null;
   }
 
+  stats.phase('frontier');
   // Strip checkpoints down to the logic frontier: the fewest clues from which
   // logic alone still solves the board. Parts that matter are judged there.
   final removable = [
@@ -594,6 +620,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
     }
   }
 
+  stats.phase('relevance');
   // Drop mechanic parts that do not change how the board is solved.
   stats.deduceCalls++;
   var full = deduce(b.puzzle(), maxTier: cap, trace: false, deepBudget: _trialBudget);
@@ -683,6 +710,7 @@ Accepted? attempt(PuzzleSpec spec, PuzzleRandom rng, GenerationStats stats) {
       ),
     );
   }
+  stats.phase('finish');
   return _finish(spec, b, stats, reports);
 }
 
