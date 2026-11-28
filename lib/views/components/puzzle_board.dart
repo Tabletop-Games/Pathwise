@@ -1504,7 +1504,11 @@ class _TipPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // The rejection layer draws the tip only while an active rejection animates.
-    if (rejection.isAnimating && !reduced && rejectedMove() != null) return;
+    if (rejection.isAnimating &&
+        !reduced &&
+        rejectedMove() != null &&
+        rejectedMove()!.reason != MoveRejection.wall)
+      return;
     final v =
         visual.value ??
         TipTracker.rest(puzzle, route, checkpointLead: tipLead(tipStyle));
