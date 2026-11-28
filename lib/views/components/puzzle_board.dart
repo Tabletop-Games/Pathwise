@@ -124,7 +124,6 @@ class _PuzzleBoardState extends State<PuzzleBoard>
     final issue = rejectionControls.rejectionFor(cell);
     if (issue == null ||
         issue.reason == MoveRejection.adjacency ||
-        issue.reason == MoveRejection.wall ||
         cell == _rejectedCell)
       return;
     _rejectedCell = cell;
@@ -1212,8 +1211,17 @@ class _BoardPainter extends CustomPainter {
           midpoint - ends,
           midpoint + ends,
           Paint()
+            ..color = palette.rejection.withValues(alpha: pulse * .45)
+            ..strokeWidth = .22
+            ..strokeCap = StrokeCap.round
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .08),
+        );
+        canvas.drawLine(
+          midpoint - ends,
+          midpoint + ends,
+          Paint()
             ..color = palette.rejection.withValues(alpha: pulse)
-            ..strokeWidth = .095
+            ..strokeWidth = .105
             ..strokeCap = StrokeCap.round,
         );
       }
