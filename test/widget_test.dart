@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../lib/logic/attack_clock.dart';
 import '../lib/main.dart';
 import '../lib/model/app_model.dart';
+import '../lib/model/economy.dart';
 import '../lib/model/journey.dart';
 import '../lib/model/user_preferences.dart';
 import '../lib/ui/game_ui.dart';
@@ -782,7 +783,9 @@ void main() {
       find.descendant(of: card, matching: find.byType(PricePill)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('130 short'), findsOneWidget);
+    final shortfall =
+        economy.themePrice(PathwiseTheme.forestMint) - model.coinBalance;
+    expect(find.text('$shortfall short'), findsOneWidget);
     await tester.tap(find.text('Get coins'));
     await tester.pumpAndSettle();
     expect(find.byKey(const PageStorageKey('store-coins')), findsOneWidget);

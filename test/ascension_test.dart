@@ -13,39 +13,36 @@ AppModel model(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test(
-    'global hints support unlimited ownership and one rewarded receipt per video',
-    () async {
-      final storage = MemoryStorage();
-      final app = model(storage);
-      expect(app.hintsRemaining, 3);
-      expect(await app.buyHint(), false);
-      await app.applyVerifiedPurchase('funds', coins: 900, themes: false);
+  test('global hints support unlimited ownership and one rewarded receipt per video', () async {
+    final storage = MemoryStorage();
+    final app = model(storage);
+    expect(app.hintsRemaining, 3);
+    expect(await app.buyHint(), false);
+    await app.applyVerifiedPurchase('funds', coins: 900, themes: false);
+    expect(await app.buyHint(), true);
+    for (var index = 0; index < 10; index++) {
       expect(await app.buyHint(), true);
-      for (var index = 0; index < 10; index++) {
-        expect(await app.buyHint(), true);
-      }
-      for (var index = 0; index < 5; index++) {
-        expect(await app.grantHintAd('hint-$index'), true);
-        expect(await app.grantHintAd('hint-$index'), false);
-      }
-      expect(await app.grantHintAd('sixth'), true);
-      expect(await app.grantHintAd('sixth'), false);
-      expect(app.hintsRemaining, 20);
-      await app.open(const PuzzleId.level(1));
-      for (var index = 0; index < 8; index++) {
-        app.hint();
-        app.clear();
-      }
-      expect(app.hintsRemaining, 12);
-      await app.open(const PuzzleId.level(1), replay: true);
-      await app.flush();
-      final restored = model(storage, await storage.load());
-      expect(restored.hintsRemaining, 12);
-      app.dispose();
-      restored.dispose();
-    },
-  );
+    }
+    for (var index = 0; index < 5; index++) {
+      expect(await app.grantHintAd('hint-$index'), true);
+      expect(await app.grantHintAd('hint-$index'), false);
+    }
+    expect(await app.grantHintAd('sixth'), true);
+    expect(await app.grantHintAd('sixth'), false);
+    expect(app.hintsRemaining, 20);
+    await app.open(const PuzzleId.level(1));
+    for (var index = 0; index < 8; index++) {
+      app.hint();
+      app.clear();
+    }
+    expect(app.hintsRemaining, 12);
+    await app.open(const PuzzleId.level(1), replay: true);
+    await app.flush();
+    final restored = model(storage, await storage.load());
+    expect(restored.hintsRemaining, 12);
+    app.dispose();
+    restored.dispose();
+  });
 
   test('boost videos, the fourth-ad gate and inventory persist', () async {
     final storage = MemoryStorage();

@@ -924,8 +924,7 @@ class _ProgressionViewState extends State<ProgressionView> {
   Widget _boostVideoAction(AppModel model, Boost boost) {
     // Quick Charge videos are unlimited. Power Surge needs the day's coin
     // videos first and then allows one video a day.
-    final used =
-        boost == Boost.tripleFifteen && model.boostAdsToday(boost) > 0;
+    final used = boost == Boost.tripleFifteen && model.boostAdsToday(boost) > 0;
     final milestoneLocked =
         boost == Boost.tripleFifteen &&
         model.adsToday < economy.coinAdMilestone;

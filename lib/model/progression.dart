@@ -161,8 +161,7 @@ final class Progression {
     });
     if (crateDrops.length >= economy.cratesPerWindow) return null;
     final crate = (id: 'crate/${serial++}', coins: crateCoins(roll()));
-    crateWait =
-        (150 - effect(Research.hunter) - effect(Research.scout)) * 1000;
+    crateWait = (150 - effect(Research.hunter) - effect(Research.scout)) * 1000;
     crateDrops.add(now);
     return crate;
   }

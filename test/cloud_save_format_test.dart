@@ -91,7 +91,12 @@ void main() {
       }
 
       expect(CloudEnvelope.decode(envelope(cloudSaveVersion)).revision, 2);
-      for (final version in [0, 1, cloudSaveVersion - 1, cloudSaveVersion + 1]) {
+      for (final version in [
+        0,
+        1,
+        cloudSaveVersion - 1,
+        cloudSaveVersion + 1,
+      ]) {
         expect(
           () => CloudEnvelope.decode(envelope(version)),
           throwsA(isA<CorruptSave>()),

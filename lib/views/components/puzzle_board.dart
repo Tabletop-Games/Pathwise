@@ -667,14 +667,7 @@ class _PuzzleBoardState extends State<PuzzleBoard>
   }
 }
 
-enum _TileMark {
-  key,
-  lockedGate,
-  openGate,
-  portalEntry,
-  portalExit,
-  ice,
-}
+enum _TileMark { key, lockedGate, openGate, portalEntry, portalExit, ice }
 
 typedef _Mark = ({_TileMark kind});
 _Mark _mark(_TileMark kind) => (kind: kind);

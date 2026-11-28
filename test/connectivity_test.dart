@@ -219,7 +219,10 @@ void main() {
       expect(model.coinBalance, 200 - research - economy.hintPrice);
       // What is left does not cover the theme, so the local purchase is refused
       // for lack of coins, not because the device is offline.
-      expect(economy.themePrice(PathwiseTheme.forestMint), greaterThan(model.coinBalance));
+      expect(
+        economy.themePrice(PathwiseTheme.forestMint),
+        greaterThan(model.coinBalance),
+      );
       expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
       expect(await model.grantAdBonus('ad-1'), isFalse);
       expect(await model.grantHintAd('hint-ad-1'), isFalse);

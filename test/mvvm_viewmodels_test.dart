@@ -24,22 +24,25 @@ class _MemStorage extends GameStateStorage {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('StreakViewModel reports the freeze price and refuses without coins', () async {
-    final model = AppModel(storage: _MemStorage(), snapshot: {});
-    final vm = StreakViewModel(model);
+  test(
+    'StreakViewModel reports the freeze price and refuses without coins',
+    () async {
+      final model = AppModel(storage: _MemStorage(), snapshot: {});
+      final vm = StreakViewModel(model);
 
-    expect(vm.count, 0);
-    expect(vm.freezePrice, economy.freezePrice);
-    expect(vm.freezeFull, isFalse);
-    final result = await vm.buyFreeze();
-    expect(result, isA<FreezeInsufficientCoins>());
-    expect(
-      (result as FreezeInsufficientCoins).shortfall,
-      economy.freezePrice - model.coinBalance,
-    );
+      expect(vm.count, 0);
+      expect(vm.freezePrice, economy.freezePrice);
+      expect(vm.freezeFull, isFalse);
+      final result = await vm.buyFreeze();
+      expect(result, isA<FreezeInsufficientCoins>());
+      expect(
+        (result as FreezeInsufficientCoins).shortfall,
+        economy.freezePrice - model.coinBalance,
+      );
 
-    model.dispose();
-  });
+      model.dispose();
+    },
+  );
 
   test('HomeViewModel only opens an unlocked puzzle while none is active', () {
     final model = AppModel(storage: _MemStorage(), snapshot: {});

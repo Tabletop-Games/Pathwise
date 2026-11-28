@@ -127,34 +127,40 @@ void main() {
     app.dispose();
   });
 
-  test('video spins pay once per receipt, are not capped, and survive a restart', () async {
-    final storage = MemoryStorage();
-    final clock = (boot: 1, milliseconds: 500);
-    AppModel launch(Map<String, dynamic> snapshot) =>
-        AppModel(storage: storage, snapshot: snapshot, bootTime: () => clock);
-    var app = launch({});
-    final prizes = await Future.wait([
-      app.spinRewardedFortune(catalog, 'first', random: FixedRoll(0)),
-      app.spinRewardedFortune(catalog, 'first', random: FixedRoll(99)),
-    ]);
-    expect(prizes.nonNulls.single.coins, 8);
-    await app.settleFortune(prizes.nonNulls.single);
-    for (var spin = 2; spin <= 9; spin++) {
-      expect(await app.spinRewardedFortune(catalog, 'video-$spin'), isNotNull);
+  test(
+    'video spins pay once per receipt, are not capped, and survive a restart',
+    () async {
+      final storage = MemoryStorage();
+      final clock = (boot: 1, milliseconds: 500);
+      AppModel launch(Map<String, dynamic> snapshot) =>
+          AppModel(storage: storage, snapshot: snapshot, bootTime: () => clock);
+      var app = launch({});
+      final prizes = await Future.wait([
+        app.spinRewardedFortune(catalog, 'first', random: FixedRoll(0)),
+        app.spinRewardedFortune(catalog, 'first', random: FixedRoll(99)),
+      ]);
+      expect(prizes.nonNulls.single.coins, 8);
+      await app.settleFortune(prizes.nonNulls.single);
+      for (var spin = 2; spin <= 9; spin++) {
+        expect(
+          await app.spinRewardedFortune(catalog, 'video-$spin'),
+          isNotNull,
+        );
+        await app.settleFortune(app.pendingFortune!);
+      }
+      expect(app.fortuneVideoAvailable, isTrue);
+      expect(await app.spinFreeFortune(catalog), isNotNull);
       await app.settleFortune(app.pendingFortune!);
-    }
-    expect(app.fortuneVideoAvailable, isTrue);
-    expect(await app.spinFreeFortune(catalog), isNotNull);
-    await app.settleFortune(app.pendingFortune!);
-    final balance = app.coinBalance;
-    app.dispose();
+      final balance = app.coinBalance;
+      app.dispose();
 
-    app = launch(await storage.load());
-    expect(app.coinBalance, balance);
-    expect(await app.spinRewardedFortune(catalog, 'first'), isNull);
-    expect(await app.spinRewardedFortune(catalog, 'new'), isNotNull);
-    app.dispose();
-  });
+      app = launch(await storage.load());
+      expect(app.coinBalance, balance);
+      expect(await app.spinRewardedFortune(catalog, 'first'), isNull);
+      expect(await app.spinRewardedFortune(catalog, 'new'), isNotNull);
+      app.dispose();
+    },
+  );
 
   test('advanced cost and benefit bounds and single-slot boost caps hold', () {
     final progress = Progression({

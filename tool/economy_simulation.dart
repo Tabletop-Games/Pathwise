@@ -838,6 +838,7 @@ void main() {
       .writeAsStringSync(boostCsv.toString());
   File('build/economy_reports/research_payback.csv')
       .writeAsStringSync(researchCsv.toString());
-  File('build/economy_reports/economy_rates.csv').writeAsStringSync(ratesCsv.toString());
+  File('build/economy_reports/economy_rates.csv')
+      .writeAsStringSync(ratesCsv.toString());
   print('\nWrote CSV reports to build/economy_reports/*.csv');
 }

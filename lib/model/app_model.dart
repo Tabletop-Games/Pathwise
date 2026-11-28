@@ -259,10 +259,10 @@ class AppModel extends ChangeNotifier
   static Future<VerifiedPuzzle> _generate(
     ({int size, int seed, int clues}) request,
     int level,
-  ) => compute(
-    (request) => generatePuzzle(request.$1, level: request.$2),
-    (request, level),
-  );
+  ) => compute((request) => generatePuzzle(request.$1, level: request.$2), (
+    request,
+    level,
+  ));
 
   final BootTime? Function() _bootTime;
 
@@ -1307,7 +1307,8 @@ class AppModel extends ChangeNotifier
       ? starThresholdsForBoard(_game!.board)
       : null;
   int get solved => _results.length;
-  int get unassisted => _results.values.where((value) => value.unassisted).length;
+  int get unassisted =>
+      _results.values.where((value) => value.unassisted).length;
   int get levelsSolved => _levelsSolved;
   int get highestUnlocked => _highestUnlocked;
   int get ownedTipsCount => _ownedTips.length;

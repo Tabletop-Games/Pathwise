@@ -75,64 +75,63 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
-  testWidgets(
-    'shop shows discounted prices and durations at large text',
-    (tester) async {
-      final connectivity = ConnectivityService(probe: () async => false);
-      final model = AppModel(
-        storage: MemoryStorage(),
-        connectivity: connectivity,
-        snapshot: {
-          'archivedCoins': 28,
-          'preferences': {'theme': 'amoledCarbon'},
-          'ownedThemes': ['amoledCarbon'],
-          'progression': {
-            'ranks': {'savings': 6, 'efficiency': 5, 'tuning': 2},
-          },
+  testWidgets('shop shows discounted prices and durations at large text', (
+    tester,
+  ) async {
+    final connectivity = ConnectivityService(probe: () async => false);
+    final model = AppModel(
+      storage: MemoryStorage(),
+      connectivity: connectivity,
+      snapshot: {
+        'archivedCoins': 28,
+        'preferences': {'theme': 'amoledCarbon'},
+        'ownedThemes': ['amoledCarbon'],
+        'progression': {
+          'ranks': {'savings': 6, 'efficiency': 5, 'tuning': 2},
         },
-      );
-      final ads = AdService();
-      await connectivity.retry();
-      expect(model.onlineReady, isFalse);
-      await _openBoosts(tester, model, ads);
-      expect(find.text('No boosts in your inventory'), findsOneWidget);
-      expect(find.text('Boost Shop'), findsOneWidget);
-      expect(find.text('Active boosts'), findsNothing);
+      },
+    );
+    final ads = AdService();
+    await connectivity.retry();
+    expect(model.onlineReady, isFalse);
+    await _openBoosts(tester, model, ads);
+    expect(find.text('No boosts in your inventory'), findsOneWidget);
+    expect(find.text('Boost Shop'), findsOneWidget);
+    expect(find.text('Active boosts'), findsNothing);
 
-      final quickCharge = _shop(Boost.doubleTen);
-      expect(
-        find.descendant(of: quickCharge, matching: find.text('2× · 5m 36s')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: quickCharge, matching: find.byType(ActionPill)),
-        findsNothing,
-      );
-      final price = find.descendant(
-        of: quickCharge,
-        matching: find.byType(PricePill),
-      );
-      expect(
-        tester.widget<PricePill>(price).semanticLabel,
-        'Buy Quick Charge for 57 coins',
-      );
-      await _tapVisible(tester, price);
-      expect(find.text('29 short'), findsOneWidget);
-      await tester.tap(find.text('Not now'));
-      await tester.pumpAndSettle();
-      expect(model.coinBalance, 28);
-      expect(_inventory(Boost.doubleTen), findsNothing);
-      await tester.scrollUntilVisible(
-        _shop(Boost.quadrupleTen).hitTestable(),
-        140,
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
-      await model.flush();
-      model.dispose();
-      ads.dispose();
-      connectivity.dispose();
-    },
-  );
+    final quickCharge = _shop(Boost.doubleTen);
+    expect(
+      find.descendant(of: quickCharge, matching: find.text('2× · 5m 36s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: quickCharge, matching: find.byType(ActionPill)),
+      findsNothing,
+    );
+    final price = find.descendant(
+      of: quickCharge,
+      matching: find.byType(PricePill),
+    );
+    expect(
+      tester.widget<PricePill>(price).semanticLabel,
+      'Buy Quick Charge for 57 coins',
+    );
+    await _tapVisible(tester, price);
+    expect(find.text('29 short'), findsOneWidget);
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+    expect(model.coinBalance, 28);
+    expect(_inventory(Boost.doubleTen), findsNothing);
+    await tester.scrollUntilVisible(
+      _shop(Boost.quadrupleTen).hitTestable(),
+      140,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await model.flush();
+    model.dispose();
+    ads.dispose();
+    connectivity.dispose();
+  });
 
   testWidgets(
     'offline buying and activating update inventory, restrictions and timer',

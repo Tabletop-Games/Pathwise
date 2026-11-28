@@ -42,10 +42,11 @@ VerifiedPuzzle generatePuzzle(
     final seed = attempt == 0
         ? request.seed
         : puzzleSeed('${request.seed}/$attempt');
-    final board = _tryGenerate(
-      (size: request.size, seed: seed, clues: request.clues),
-      level,
-    );
+    final board = _tryGenerate((
+      size: request.size,
+      seed: seed,
+      clues: request.clues,
+    ), level);
     if (board == null) continue;
     if (level == 0) return board;
     final candidateDistance =
