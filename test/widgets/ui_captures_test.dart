@@ -743,7 +743,7 @@ void main() {
     ]);
     await sheet('resources', [
       for (final kind in ArtKind.values)
-        (kind.name, GameArt(kind, palette: field, size: 54)),
+        (kind.name, GameArt(kind, size: 54)),
     ], columns: 5);
     await sheet('boost-art', [
       for (final boost in Boost.values)
@@ -792,7 +792,7 @@ void main() {
           ArtKind.crate,
           ArtKind.crown,
         ])
-          (kind.name, GameArt(kind, palette: field, size: 96)),
+          (kind.name, GameArt(kind, size: 96)),
       ],
       columns: 4,
       height: 106,

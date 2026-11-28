@@ -438,7 +438,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           children: [
             Row(
               children: [
-                GameArt(ArtKind.bolt, palette: palette, size: 16),
+                GameArt(ArtKind.bolt, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -544,7 +544,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) =>
-                      GameArt(ArtKind.research, palette: palette, size: 42),
+                      GameArt(ArtKind.research, size: 42),
                 ),
               ),
             ),
@@ -567,7 +567,7 @@ class _ProgressionViewState extends State<ProgressionView> {
                       ),
                     ),
                     InfoChip(
-                      icon: GameArt(ArtKind.trophy, palette: palette, size: 14),
+                      icon: GameArt(ArtKind.trophy, size: 14),
                       label: '$earnedRanks of $totalRanks',
                     ),
                   ],
@@ -612,7 +612,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               fit: BoxFit.contain,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) =>
-                  GameArt(ArtKind.research, palette: palette, size: 38),
+                  GameArt(ArtKind.research, size: 38),
             ),
           ),
         ),
@@ -643,7 +643,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           fit: BoxFit.contain,
           gaplessPlayback: true,
           errorBuilder: (_, _, _) =>
-              GameArt(ArtKind.bolt, palette: palette, size: size - 12),
+              GameArt(ArtKind.bolt, size: size - 12),
         ),
       ),
     ),
@@ -675,7 +675,7 @@ class _ProgressionViewState extends State<ProgressionView> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GameArt(ArtKind.lock, palette: palette, size: 15),
+              GameArt(ArtKind.lock, size: 15),
               const SizedBox(width: 5),
               Text(
                 'Locked',
@@ -767,7 +767,7 @@ class _ProgressionViewState extends State<ProgressionView> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  GameArt(ArtKind.lock, palette: palette, size: 13),
+                  GameArt(ArtKind.lock, size: 13),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(

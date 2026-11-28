@@ -301,19 +301,19 @@ class _ConflictDialog extends StatelessWidget {
             runSpacing: 6,
             children: [
               InfoChip(
-                icon: GameArt(ArtKind.coin, palette: p, size: 16),
+                icon: GameArt(ArtKind.coin, size: 16),
                 label: '${summary.coins}',
               ),
               InfoChip(
-                icon: GameArt(ArtKind.hint, palette: p, size: 16),
+                icon: GameArt(ArtKind.hint, size: 16),
                 label: '${summary.hints}',
               ),
               InfoChip(
-                icon: GameArt(ArtKind.levels, palette: p, size: 16),
+                icon: GameArt(ArtKind.levels, size: 16),
                 label: '${summary.levelsSolved} solved',
               ),
               InfoChip(
-                icon: GameArt(ArtKind.trophy, palette: p, size: 16),
+                icon: GameArt(ArtKind.trophy, size: 16),
                 label: 'Level ${summary.highestLevel}',
               ),
             ],

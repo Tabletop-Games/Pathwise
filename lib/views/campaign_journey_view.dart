@@ -204,7 +204,6 @@ class _CampaignJourneyViewState extends State<CampaignJourneyView> {
                     minTileHeight: 56,
                     leading: GameArt(
                       ArtKind.treasure,
-                      palette: palette,
                       size: 34,
                     ),
                     title: Text('Treasures · $treasureCount'),
@@ -800,7 +799,6 @@ class _ChestStop extends StatelessWidget {
             title: '${chapterName(chapter)} chest',
             art: GameArt(
               claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-              palette: palette,
               size: 56,
             ),
             body: claimed
@@ -870,7 +868,6 @@ class _ChestStop extends StatelessWidget {
                             top: 0,
                             child: GameArt(
                               claimed ? ArtKind.treasureOpen : ArtKind.treasure,
-                              palette: palette,
                               size: 30,
                             ),
                           ),
@@ -962,7 +959,7 @@ Future<void> showChapterTreasures(BuildContext context) =>
                       ),
                       child: Row(
                         children: [
-                          GameArt(ArtKind.treasure, palette: palette, size: 38),
+                          GameArt(ArtKind.treasure, size: 38),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -1056,7 +1053,6 @@ class _ChapterRewardDialogState extends State<_ChapterRewardDialog> {
           child: GameArt(
             _opened ? ArtKind.treasureOpen : ArtKind.treasure,
             key: ValueKey(_opened),
-            palette: palette,
             size: 74,
           ),
         ),
@@ -1122,7 +1118,7 @@ class _RewardChip extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GameArt(art, palette: palette, size: 18),
+        GameArt(art, size: 18),
         const SizedBox(width: 6),
         Text(
           label,

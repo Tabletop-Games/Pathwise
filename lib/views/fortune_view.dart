@@ -197,7 +197,7 @@ class _FortuneViewState extends State<FortuneView> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        GameArt(ArtKind.wheel, palette: palette, size: 72),
+                        GameArt(ArtKind.wheel, size: 72),
                         const SizedBox(height: 12),
                         const Text('The wheel could not be loaded.'),
                       ],

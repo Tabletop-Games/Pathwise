@@ -378,7 +378,6 @@ class _MainMenuViewState extends State<MainMenuView>
                           assetPath: 'assets/art/ui/compass.webp',
                           fallback: GameArt(
                             ArtKind.levels,
-                            palette: palette,
                             size: 32,
                           ),
                           size: 32,
@@ -445,7 +444,6 @@ class _MainMenuViewState extends State<MainMenuView>
                             : 'Permanent upgrades',
                         icon: GameArt(
                           ArtKind.research,
-                          palette: palette,
                           size: 30,
                         ),
                         onTap: () => Navigator.of(context).push<void>(
@@ -463,7 +461,7 @@ class _MainMenuViewState extends State<MainMenuView>
                             : owned > 0
                             ? '$owned ready'
                             : '2×–4× multipliers',
-                        icon: GameArt(ArtKind.bolt, palette: palette, size: 30),
+                        icon: GameArt(ArtKind.bolt, size: 30),
                         onTap: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (_) => const ProgressionView(boosts: true),
@@ -714,7 +712,7 @@ class _PendingTreasureBanner extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     child: Row(
       children: [
-        GameArt(ArtKind.treasure, palette: palette, size: 32),
+        GameArt(ArtKind.treasure, size: 32),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -877,7 +875,7 @@ class _CounterChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GameArt(art, palette: palette, size: 20),
+                GameArt(art, size: 20),
                 const SizedBox(width: 6),
                 Text(
                   value,
@@ -977,7 +975,7 @@ class _DailyCard extends StatelessWidget {
         }
         return Row(
           children: [
-            GameArt(ArtKind.calendar, palette: palette, size: 36),
+            GameArt(ArtKind.calendar, size: 36),
             const SizedBox(width: 12),
             Expanded(child: info),
             const SizedBox(width: 8),
@@ -1044,7 +1042,7 @@ class _TimeAttackCard extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
     child: Row(
       children: [
-        GameArt(ArtKind.timer, palette: palette, size: 36),
+        GameArt(ArtKind.timer, size: 36),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1097,7 +1095,7 @@ class _StoreCard extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     child: Row(
       children: [
-        GameArt(ArtKind.store, palette: palette, size: 34),
+        GameArt(ArtKind.store, size: 34),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1194,7 +1192,7 @@ class _WheelCardState extends State<_WheelCard> {
         children: [
           _UiArtIcon(
             assetPath: 'assets/art/ui/wheel_ticket.webp',
-            fallback: GameArt(ArtKind.wheel, palette: widget.palette, size: 34),
+            fallback: GameArt(ArtKind.wheel, size: 34),
             size: 34,
           ),
           const SizedBox(width: 12),
@@ -1261,7 +1259,7 @@ class _AttackSetup extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        GameArt(ArtKind.timer, palette: palette, size: 48),
+                        GameArt(ArtKind.timer, size: 48),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
@@ -1306,7 +1304,7 @@ class _AttackSetup extends StatelessWidget {
                             '$minutes minutes. Best ${model.attackBestFor(minutes)} points',
                         child: Row(
                           children: [
-                            GameArt(ArtKind.timer, palette: palette, size: 34),
+                            GameArt(ArtKind.timer, size: 34),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Text(
@@ -1317,7 +1315,7 @@ class _AttackSetup extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            GameArt(ArtKind.trophy, palette: palette, size: 22),
+                            GameArt(ArtKind.trophy, size: 22),
                             const SizedBox(width: 6),
                             Text(
                               '${model.attackBestFor(minutes)} pts',

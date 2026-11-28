@@ -486,7 +486,6 @@ class _StoreViewState extends State<StoreView> {
               children: [
                 GameArt(
                   bonus ? ArtKind.coinStack3 : ArtKind.coinStack2,
-                  palette: palette,
                   size: 72,
                 ),
                 const SizedBox(width: 14),
@@ -513,7 +512,7 @@ class _StoreViewState extends State<StoreView> {
                           excludeSemantics: true,
                           child: Row(
                             children: [
-                              GameArt(ArtKind.gift, palette: palette, size: 18),
+                              GameArt(ArtKind.gift, size: 18),
                               const SizedBox(width: 6),
                               Text(
                                 '${economy.rewardedAdCoins} + ${economy.coinAdMilestoneBonus} bonus',
@@ -1108,7 +1107,7 @@ class _PackCard extends StatelessWidget {
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: GameArt(art, palette: p, size: artSize),
+                child: GameArt(art, size: artSize),
               ),
             ),
           ),
@@ -1205,7 +1204,7 @@ class _UpgradeCard extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: GameArt(art, palette: p, size: featured ? 56 : 48),
+                    child: GameArt(art, size: featured ? 56 : 48),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1256,7 +1255,7 @@ class _UpgradeCard extends StatelessWidget {
                 for (final (kind, label) in chips)
                   InfoChip(
                     icon: kind != null
-                        ? GameArt(kind, palette: p, size: 16)
+                        ? GameArt(kind, size: 16)
                         : Icon(
                             Icons.info_outline_rounded,
                             size: 15,

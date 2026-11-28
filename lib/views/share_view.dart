@@ -197,7 +197,6 @@ class AchievementCelebration extends StatelessWidget {
     return ListTile(
       leading: GameArt(
         ArtKind.trophy,
-        palette: BoardPalette.palettes[model.theme]!,
         size: 38,
       ),
       title: Text(item.name),

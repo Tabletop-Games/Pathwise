@@ -191,7 +191,7 @@ class CoinMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      GameArt(ArtKind.coin, palette: context.palette, size: size);
+      GameArt(ArtKind.coin, size: size);
 }
 
 /// Price shown as coin icon and number. The currency is never spelled out.
@@ -505,7 +505,7 @@ class ProgressPips extends StatelessWidget {
           for (var i = 0; i < total; i++) ...[
             if (i > 0) const SizedBox(width: 6),
             if (finalReward && i == total - 1)
-              GameArt(ArtKind.gift, palette: p, size: 26)
+              GameArt(ArtKind.gift, size: 26)
             else
               AnimatedContainer(
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -576,7 +576,7 @@ class RewardAmount extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GameArt(ArtKind.coin, palette: p, size: size),
+          GameArt(ArtKind.coin, size: size),
           const SizedBox(width: 8),
           Text(
             '${plus ? '+' : ''}$amount',

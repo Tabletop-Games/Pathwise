@@ -147,7 +147,6 @@ class _LevelOneDemoState extends State<_LevelOneDemo> implements BoardControls {
                       ListTile(
                         leading: GameArt(
                           ArtKind.research,
-                          palette: palette,
                           size: 28,
                         ),
                         title: Text(switch (mechanic) {

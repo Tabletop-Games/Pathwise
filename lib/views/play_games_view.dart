@@ -117,7 +117,6 @@ class _PlayGamesViewState extends State<PlayGamesView> {
                         item.earned(counters) || sync.confirmed(item);
                     final trophy = GameArt(
                       ArtKind.trophy,
-                      palette: palette,
                       size: 38,
                     );
                     return Padding(
