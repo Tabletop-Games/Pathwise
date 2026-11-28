@@ -24,7 +24,11 @@ void main(List<String> args) {
       run(specs, detail: detail);
     case 'grid':
       final seeds = int.parse(args[1]);
-      run(gridSpecs(seeds), detail: args.length > 2 && args[2] == 'detail');
+      run(
+        gridSpecs(seeds),
+        detail: args.length > 2 && args[2] == 'detail',
+        quiet: args.length > 2 && args[2] == 'quiet',
+      );
     default:
       stderr.writeln('unknown mode $mode');
       exitCode = 2;
@@ -68,7 +72,13 @@ List<PuzzleSpec> gridSpecs(int seeds) {
   return specs;
 }
 
-void run(List<PuzzleSpec> specs, {required bool detail}) {
+void run(
+  List<PuzzleSpec> specs, {
+  required bool detail,
+  bool quiet = false,
+}) {
+  final byBand = <String, List<double>>{};
+  final fallbackBy = <String, List<int>>{};
   final summary = <String, List<int>>{};
   final reasons = <String, int>{};
   var fallbacks = 0;
@@ -114,9 +124,26 @@ void run(List<PuzzleSpec> specs, {required bool detail}) {
         'accepted=${stats.accepted} fallback=${stats.fallback} '
         'solver=${stats.solverCalls}/${stats.solverNodes} '
         'deduce=${stats.deduceCalls}';
-    stdout.writeln(head);
+    if (!quiet) stdout.writeln(head);
     if (failure != null || board == null) {
       stdout.writeln('  FAILED: $failure');
+      continue;
+    }
+    if (profile != null) {
+      byBand.putIfAbsent(spec.band.name, () => []).add(profile.difficulty);
+      final fb = fallbackBy.putIfAbsent(spec.band.name, () => [0, 0]);
+      fb[0]++;
+      if (stats.fallback > 0) fb[1]++;
+    }
+    if (quiet) {
+      if (profile != null) {
+        stdout.writeln(
+          '${spec.id} want=${spec.band.name} got=${profile.band.name} '
+          'D=${profile.difficulty.toStringAsFixed(1)} t=${profile.hardestTier} '
+          'fb=${stats.fallback} ms=${watch.elapsedMilliseconds} '
+          'clues=${board.puzzle.checkpoints.length}',
+        );
+      }
       continue;
     }
     if (profile != null) {
@@ -142,6 +169,17 @@ void run(List<PuzzleSpec> specs, {required bool detail}) {
   }
   times.sort();
   stdout.writeln('=====SUMMARY=====');
+  for (final entry in byBand.entries) {
+    final values = entry.value..sort();
+    final fb = fallbackBy[entry.key]!;
+    stdout.writeln(
+      'band ${entry.key}: n=${values.length} D min=${values.first.toStringAsFixed(1)} '
+      'p25=${values[values.length ~/ 4].toStringAsFixed(1)} '
+      'med=${values[values.length ~/ 2].toStringAsFixed(1)} '
+      'p75=${values[values.length * 3 ~/ 4].toStringAsFixed(1)} '
+      'max=${values.last.toStringAsFixed(1)} fallback=${fb[1]}/${fb[0]}',
+    );
+  }
   stdout.writeln(
     'boards=$total fallbacks=$fallbacks median=${times[times.length ~/ 2]}ms '
     'p95=${times[(times.length * 0.95).floor().clamp(0, times.length - 1)]}ms '
