@@ -9,7 +9,7 @@ import '../../lib/model/app_themes.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/user_preferences.dart';
 import '../../lib/views/puzzle_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   const samples = {

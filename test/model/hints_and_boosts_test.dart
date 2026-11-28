@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../lib/model/app_model.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/progression.dart';
-import '../support/fixtures.dart' show MemoryStorage, fixture;
+import '../support/fixtures.dart';
 
 AppModel model(
   MemoryStorage storage, [

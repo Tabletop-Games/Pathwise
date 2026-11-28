@@ -7,7 +7,7 @@ import '../../lib/main.dart';
 import '../../lib/model/app_model.dart';
 import '../../lib/model/app_themes.dart';
 import '../../lib/model/user_preferences.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   testWidgets('saved palette colors startup until the home screen opens', (

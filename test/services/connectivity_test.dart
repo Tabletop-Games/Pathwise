@@ -6,15 +6,7 @@ import '../../lib/model/economy.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/progression.dart';
 import '../../lib/model/user_preferences.dart';
-import '../support/fixtures.dart' show MemoryStorage, fixture;
-import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
-import '../../lib/cloud/cloud_save_format.dart';
-import '../../lib/cloud/cloud_save_provider.dart';
-import '../../lib/cloud/cloud_sync_service.dart';
-import '../../lib/cloud/key_value_store.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/views/connection_view.dart';
+import '../support/fixtures.dart';
 
 void main() {
   group('ConnectivityService', () {

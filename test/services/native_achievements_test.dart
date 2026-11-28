@@ -12,7 +12,7 @@ import '../../lib/model/progression.dart';
 import '../../lib/model/time_attack.dart';
 import '../../lib/model/user_preferences.dart';
 import '../../lib/views/play_games_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 class GamesFake extends PlayAchievementGateway {
   String? player;

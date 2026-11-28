@@ -11,7 +11,7 @@ import '../../lib/model/game_state.dart';
 import '../../lib/views/mechanic_tutorial_view.dart';
 import '../../lib/views/puzzle_view.dart';
 import '../../lib/views/settings_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   testWidgets(

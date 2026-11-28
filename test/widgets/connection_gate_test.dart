@@ -1,15 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import '../../lib/cloud/cloud_save_format.dart';
-import '../../lib/cloud/cloud_save_provider.dart';
-import '../../lib/cloud/cloud_sync_service.dart';
-import '../../lib/cloud/key_value_store.dart';
+
 import '../../lib/logic/connectivity_service.dart';
 import '../../lib/logic/game_state_storage.dart';
 import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/progression.dart';
 import '../../lib/views/connection_view.dart';
 
 class _FailingStorage extends GameStateStorage {

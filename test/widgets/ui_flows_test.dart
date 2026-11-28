@@ -12,7 +12,7 @@ import '../../lib/model/user_preferences.dart';
 import '../../lib/ui/game_ui.dart';
 import '../../lib/views/components/tip_art.dart';
 import '../../lib/views/store_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   testWidgets('home has a full-width Store card and no bag or Themes tile', (

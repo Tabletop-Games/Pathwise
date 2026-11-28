@@ -6,7 +6,7 @@ import '../../lib/main.dart';
 import '../../lib/model/app_model.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/user_preferences.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   testWidgets('first launch offers the demo once and Settings replays it', (

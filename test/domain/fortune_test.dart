@@ -5,9 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../lib/model/app_model.dart';
 import '../../lib/model/fortune.dart';
-import '../../lib/model/progression.dart';
 import '../../lib/model/time_attack.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 class FixedRoll implements Random {
   FixedRoll(this.roll);

@@ -1,12 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/cloud/cloud_save_provider.dart';
-import '../../lib/cloud/key_value_store.dart';
-import '../../lib/main.dart' show cloudProviderFor;
+
 import '../../lib/model/app_model.dart';
 import '../../lib/model/economy.dart';
 import '../../lib/model/product_catalog.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   group('economy guards', () {

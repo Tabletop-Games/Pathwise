@@ -38,7 +38,7 @@ import '../../lib/views/puzzle_view.dart';
 import '../../lib/views/settings_view.dart';
 import '../../lib/views/store_view.dart';
 import '../../lib/views/streak_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 /// Renders every screen on the six reference themes and checks that nothing
 /// overflows or throws. When `PATHWISE_CAPTURE_DIR` is set it also writes a

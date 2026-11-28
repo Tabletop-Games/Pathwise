@@ -8,7 +8,7 @@ import '../../lib/model/app_model.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/progression.dart';
 import '../../lib/views/puzzle_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 class CrateAds extends AdService {
   int attempts = 0;

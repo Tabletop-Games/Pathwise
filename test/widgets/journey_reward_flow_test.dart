@@ -9,8 +9,7 @@ import '../../lib/model/app_model.dart';
 import '../../lib/views/connection_view.dart';
 import '../../lib/views/journey_rewards.dart';
 import '../../lib/views/puzzle_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, fixture;
-import '../support/fixtures.dart' show clear, journeyModel;
+import '../support/fixtures.dart';
 
 class _Ads extends AdService {
   bool available = true;

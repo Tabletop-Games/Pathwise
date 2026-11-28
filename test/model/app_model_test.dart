@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,10 +7,7 @@ import '../../lib/logic/puzzle.dart';
 import '../../lib/model/app_model.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/user_preferences.dart';
-import '../../lib/logic/ad_frequency.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/model/economy.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 AppModel app(
   MemoryStorage store, {

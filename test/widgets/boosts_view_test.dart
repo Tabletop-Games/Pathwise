@@ -9,7 +9,7 @@ import '../../lib/model/economy.dart';
 import '../../lib/model/progression.dart';
 import '../../lib/ui/game_ui.dart';
 import '../../lib/views/progression_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 class _BoostAds extends AdService {
   bool available = false;

@@ -6,7 +6,7 @@ import '../../lib/logic/social_sharing.dart';
 import '../../lib/model/app_model.dart';
 import '../../lib/model/native_achievements.dart';
 import '../../lib/views/share_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

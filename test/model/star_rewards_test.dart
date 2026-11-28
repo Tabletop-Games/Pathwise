@@ -1,18 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
+
 import '../../lib/cloud/cloud_save_format.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/logic/star_rating.dart';
 import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
 import '../../lib/model/game_state.dart';
-import '../../lib/ui/art/game_assets.dart';
-import '../../lib/views/components/tip_art.dart';
-import '../../lib/views/main_menu_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 AppModel _model(MemoryStorage storage, Map<String, dynamic> snapshot) =>
     AppModel(

@@ -14,7 +14,7 @@ import '../../lib/views/components/brand_mark.dart';
 import '../../lib/views/components/puzzle_board.dart';
 import '../../lib/views/fortune_view.dart';
 import '../../lib/views/store_view.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 Finder _journeyLevel(int level) =>
     find.byKey(ValueKey('journey-level-$level')).hitTestable();

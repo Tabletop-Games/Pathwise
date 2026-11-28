@@ -1,19 +1,10 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
+
 import '../../lib/logic/haptic_service.dart';
 import '../../lib/logic/sound_service.dart';
 import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/user_preferences.dart';
-import '../../lib/viewmodels/statistics_viewmodel.dart';
-import '../../lib/views/main_menu_view.dart';
-import '../../lib/views/settings_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
-import 'package:flutter/services.dart';
+import '../support/fixtures.dart';
 
 final class _FakeSoundBackend implements SoundBackend {
   final List<String> played = [];

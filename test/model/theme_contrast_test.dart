@@ -1,20 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pathwise/model/app_themes.dart';
-import 'package:pathwise/model/user_preferences.dart';
-import 'package:pathwise/ui/game_ui.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
-import '../../lib/logic/game_state_storage.dart';
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/logic/puzzle_solver.dart';
-import '../../lib/model/app_model.dart';
+
 import '../../lib/model/app_themes.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
 import '../../lib/model/user_preferences.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../../lib/ui/game_ui.dart';
 
 void main() {
   test('every catalogue palette provides readable card and action colours', () {

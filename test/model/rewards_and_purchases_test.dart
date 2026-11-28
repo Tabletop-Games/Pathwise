@@ -1,19 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:material_ui/material_ui.dart';
 
 import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/billing_service.dart';
 import '../../lib/logic/game_state_storage.dart';
-import '../../lib/logic/puzzle_generator.dart';
-import '../../lib/logic/puzzle_solver.dart';
 import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
 import '../../lib/model/economy.dart';
 import '../../lib/model/game_state.dart';
 import '../../lib/model/user_preferences.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
-import '../../lib/logic/ad_frequency.dart';
+import '../support/fixtures.dart';
 
 final day = DateTime(2026, 11, 22);
 

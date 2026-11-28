@@ -1,47 +1,46 @@
-import 'dart:ui' as ui;
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+
 import '../../lib/logic/ad_service.dart';
 import '../../lib/logic/billing_service.dart';
-import '../../lib/logic/notification_service.dart';
-import '../../lib/logic/puzzle.dart';
-import '../../lib/logic/star_rating.dart';
 import '../../lib/main.dart' show PathwiseScrollBehavior;
 import '../../lib/model/app_model.dart';
-import '../../lib/model/app_themes.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../../lib/model/notification_preferences.dart';
-import '../../lib/model/user_preferences.dart';
 import '../../lib/ui/game_ui.dart';
-import '../../lib/viewmodels/statistics_viewmodel.dart';
 import '../../lib/views/campaign_journey_view.dart';
-import '../../lib/views/components/puzzle_board.dart';
-import '../../lib/views/components/tip_art.dart';
-import '../../lib/views/developer_view.dart';
 import '../../lib/views/progression_view.dart';
-import '../../lib/views/puzzle_view.dart';
 import '../../lib/views/store_view.dart';
-import '../support/fixtures.dart' show MemoryStorage;
+import '../support/fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'PathwiseScrollBehavior uses ClampingScrollPhysics and removes indicator',
-    () {
-      const behavior = PathwiseScrollBehavior();
-      expect(
-        behavior.getScrollPhysics(
-          // ignore: invalid_use_of_protected_member
-          TestWidgetsFlutterBinding.instance.rootElement!,
+  testWidgets('PathwiseScrollBehavior clamps scrolling and draws no overscroll', (
+    tester,
+  ) async {
+    const behavior = PathwiseScrollBehavior();
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox();
+          },
         ),
-        isA<ClampingScrollPhysics>(),
-      );
-    },
-  );
+      ),
+    );
+    expect(behavior.getScrollPhysics(context), isA<ClampingScrollPhysics>());
+    const child = SizedBox();
+    expect(
+      behavior.buildOverscrollIndicator(
+        context,
+        child,
+        const ScrollableDetails(direction: AxisDirection.down),
+      ),
+      same(child),
+    );
+  });
 
   testWidgets(
     'Journey AppBar title is tappable and Upgrades has no nested tabs',

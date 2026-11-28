@@ -1,11 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/logic/ad_frequency.dart';
-import '../../lib/logic/ad_service.dart';
-import '../../lib/logic/game_state_storage.dart';
+
 import '../../lib/model/app_model.dart';
-import '../../lib/model/economy.dart';
-import '../../lib/model/game_state.dart';
-import '../support/fixtures.dart' show MemoryStorage, complete, fixture;
+import '../support/fixtures.dart';
 
 AppModel app(
   MemoryStorage store, {
