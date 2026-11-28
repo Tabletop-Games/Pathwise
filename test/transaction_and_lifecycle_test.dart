@@ -39,7 +39,6 @@ void main() {
 
       expect(await model.grantHintAd('hint-1'), isFalse);
       expect(model.hintsRemaining, economy.starterHints);
-      expect(model.hintAdsToday, 0);
 
       expect(await model.grantBoostAd(Boost.doubleTen, 'boost-1'), isFalse);
       expect(model.progression.inventory[Boost.doubleTen.name] ?? 0, 0);

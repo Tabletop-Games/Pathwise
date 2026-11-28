@@ -265,6 +265,10 @@ class AppModel extends ChangeNotifier
   );
 
   final BootTime? Function() _bootTime;
+
+  /// The Store category the player last used, so reopening the Store resumes
+  /// there. Session-only: it is never saved.
+  int lastStoreCategory = 0;
   BootTime? _lastAutomaticAd;
   Future<bool> reserveAutomaticAd() async {
     if (adFree || storageError || !_foreground) return false;

@@ -6,10 +6,7 @@ import '../lib/logic/ad_service.dart';
 import '../lib/logic/billing_service.dart';
 import '../lib/model/app_model.dart';
 import '../lib/model/game_state.dart';
-import '../lib/model/native_achievements.dart';
 import '../lib/model/progression.dart';
-import '../lib/model/time_attack.dart';
-import '../lib/model/user_preferences.dart';
 import '../lib/views/puzzle_view.dart';
 import 'app_model_test.dart' show MemoryStorage, complete, fixture;
 

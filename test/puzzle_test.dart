@@ -126,7 +126,10 @@ void main() {
       final board = generatePuzzle(id.generation, level: level);
       expectSolution(board);
       expect(
-        signatures.add('${id.size}:${board.solution.join(',')}'),
+        signatures.add(
+          '${id.size}:${board.solution.join(',')}:'
+          '${board.puzzle.checkpoints.join(',')}',
+        ),
         true,
       );
       expect(board.puzzle.checkpoints.length, lessThan(board.puzzle.area));

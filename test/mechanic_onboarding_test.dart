@@ -170,8 +170,7 @@ void main() {
             Offset((cell % 3 + .5) * side, (cell ~/ 3 + .5) * side);
         final drag = await tester.startGesture(at(0));
         if (mechanic == MechanicTutorial.walls ||
-            mechanic == MechanicTutorial.gate ||
-            mechanic == MechanicTutorial.arrow) {
+            mechanic == MechanicTutorial.gate) {
           await drag.moveTo(at(1));
           await tester.pump();
           await drag.moveTo(at(0));
@@ -181,7 +180,6 @@ void main() {
           MechanicTutorial.ice => [1],
           MechanicTutorial.gate => [3, 6, 7, 4, 1],
           MechanicTutorial.portal => [1],
-          MechanicTutorial.arrow => [3],
         };
         for (final cell in partialSteps) {
           await drag.moveTo(at(cell));
@@ -201,7 +199,6 @@ void main() {
           MechanicTutorial.ice => [2, 5, 4, 3, 6, 7, 8],
           MechanicTutorial.gate => [2, 5, 8],
           MechanicTutorial.portal => [8, 7, 6, 3, 4, 5, 2],
-          MechanicTutorial.arrow => [6, 7, 4, 1, 2, 5, 8],
         };
         for (final cell in remainingSteps) {
           await drag.moveTo(at(cell));

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/logic/connectivity_service.dart';
 import '../lib/model/app_model.dart';
+import '../lib/model/economy.dart';
 import '../lib/model/game_state.dart';
 import '../lib/model/progression.dart';
 import '../lib/model/user_preferences.dart';
@@ -208,12 +209,18 @@ void main() {
       expect(store.value, contains('"path":[0,1]'));
     });
 
-    test('an offline player can buy local items with coins but cannot claim ad bonuses', () async {
+    test('an offline player can spend coins locally but cannot claim ad rewards', () async {
       await goOffline();
       expect(model.coinBalance, 200);
-      expect(model.unlockTheme(PathwiseTheme.forestMint), isTrue);
-      expect(await model.buyHint(), isFalse);
-      expect(model.research(Research.magnet), isFalse);
+      final research = Research.magnet.price(0);
+      expect(model.research(Research.magnet), isTrue);
+      expect(model.coinBalance, 200 - research);
+      expect(await model.buyHint(), isTrue);
+      expect(model.coinBalance, 200 - research - economy.hintPrice);
+      // What is left does not cover the theme, so the local purchase is refused
+      // for lack of coins, not because the device is offline.
+      expect(economy.themePrice(PathwiseTheme.forestMint), greaterThan(model.coinBalance));
+      expect(model.unlockTheme(PathwiseTheme.forestMint), isFalse);
       expect(await model.grantAdBonus('ad-1'), isFalse);
       expect(await model.grantHintAd('hint-ad-1'), isFalse);
     });

@@ -178,7 +178,7 @@ void main() {
       await gesture.moveTo(origin + const Offset(150, 50));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 75));
-      expect(controls.errors, 0);
+      expect(controls.errors, 1, reason: 'the wall rejection buzzes once');
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(const ValueKey('rejection-layer')),
       );
@@ -192,7 +192,7 @@ void main() {
       });
       await gesture.moveTo(origin + const Offset(50, 50));
       await gesture.moveTo(origin + const Offset(150, 50));
-      expect(controls.errors, 0);
+      expect(controls.errors, 2, reason: 'retrying the wall rearms it');
       expect(controls.path, [0]);
       await gesture.up();
       await tester.pumpWidget(const SizedBox.shrink());

@@ -563,7 +563,7 @@ void main() {
         storage: MemoryStorage(),
         snapshot: {
           'results': {
-            'levels/36': {'milliseconds': 1000, 'hints': 0},
+            'levels/36': {'milliseconds': 1000, 'hints': 0, 'stars': 3},
           },
         },
         loader: (_) async => fixture(),
